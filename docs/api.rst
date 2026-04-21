@@ -51,6 +51,30 @@ Runs API
    :undoc-members:
    :show-inheritance:
 
+Composition API
+---------------
+
+.. automodule:: taskledger.api.composition
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Runtime Support API
+-------------------
+
+.. automodule:: taskledger.api.runtime_support
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Types API
+---------
+
+.. automodule:: taskledger.api.types
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Search API
 ----------
 
@@ -74,4 +98,3 @@ CLI module
    :members:
    :undoc-members:
    :show-inheritance:
-

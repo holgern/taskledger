@@ -1,9 +1,11 @@
-from taskledger.api.compose import *  # noqa: F401,F403
+from taskledger.api.composition import *  # noqa: F401,F403
 from taskledger.api.contexts import *  # noqa: F401,F403
 from taskledger.api.items import *  # noqa: F401,F403
 from taskledger.api.memories import *  # noqa: F401,F403
 from taskledger.api.project import *  # noqa: F401,F403
 from taskledger.api.repos import *  # noqa: F401,F403
 from taskledger.api.runs import *  # noqa: F401,F403
+from taskledger.api.runtime_support import *  # noqa: F401,F403
 from taskledger.api.search import *  # noqa: F401,F403
+from taskledger.api.types import *  # noqa: F401,F403
 from taskledger.api.validation import *  # noqa: F401,F403

@@ -3,16 +3,15 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
+from taskledger.api.types import WorkItem
 from taskledger.errors import LaunchError
-from taskledger.models import ProjectWorkItem, utc_now_iso
+from taskledger.models import utc_now_iso
 from taskledger.storage import (
     create_memory,
     create_work_item,
     load_project_state,
     load_work_items,
     resolve_work_item,
-    save_work_item,
-    save_work_items,
     update_work_item,
 )
 
@@ -26,7 +25,7 @@ def create_item(
     source_path: Path | None = None,
     title: str | None = None,
     target_repo_ref: str | None = None,
-) -> ProjectWorkItem:
+) -> WorkItem:
     paths = load_project_state(workspace_root).paths
     normalized_slug = slug.strip()
     if not normalized_slug:
@@ -63,41 +62,33 @@ def create_item(
     )
 
 
-def list_items(workspace_root: Path) -> list[ProjectWorkItem]:
+def list_items(workspace_root: Path) -> list[WorkItem]:
     return load_work_items(load_project_state(workspace_root).paths)
 
 
-def show_item(workspace_root: Path, ref: str) -> ProjectWorkItem:
+def show_item(workspace_root: Path, ref: str) -> WorkItem:
     return resolve_work_item(load_project_state(workspace_root).paths, ref)
 
 
-def approve_item(workspace_root: Path, ref: str) -> ProjectWorkItem:
+def approve_item(workspace_root: Path, ref: str) -> WorkItem:
     paths = load_project_state(workspace_root).paths
     item = resolve_work_item(paths, ref)
     return update_work_item(paths, ref, _approve_item(item))
 
 
-def reopen_item(workspace_root: Path, ref: str) -> ProjectWorkItem:
+def reopen_item(workspace_root: Path, ref: str) -> WorkItem:
     paths = load_project_state(workspace_root).paths
     item = resolve_work_item(paths, ref)
     return update_work_item(paths, ref, _reopen_item(item))
 
 
-def close_item(workspace_root: Path, ref: str) -> ProjectWorkItem:
+def close_item(workspace_root: Path, ref: str) -> WorkItem:
     paths = load_project_state(workspace_root).paths
     item = resolve_work_item(paths, ref)
     return update_work_item(paths, ref, _close_item(item))
 
 
-def save_item(paths, item: ProjectWorkItem) -> ProjectWorkItem:
-    return save_work_item(paths, item)
-
-
-def save_items(paths, items: list[ProjectWorkItem]) -> None:
-    save_work_items(paths, items)
-
-
-def next_action_payload(item: ProjectWorkItem) -> dict[str, object]:
+def next_action_payload(item: WorkItem) -> dict[str, object]:
     if item.status == "draft":
         action = "plan"
         actor = "runtime"
@@ -135,7 +126,7 @@ def next_action_payload(item: ProjectWorkItem) -> dict[str, object]:
     }
 
 
-def _approve_item(item: ProjectWorkItem) -> ProjectWorkItem:
+def _approve_item(item: WorkItem) -> WorkItem:
     if item.status == "closed":
         raise LaunchError(f"Project work item {item.id} is closed.")
     return replace(
@@ -146,7 +137,7 @@ def _approve_item(item: ProjectWorkItem) -> ProjectWorkItem:
     )
 
 
-def _reopen_item(item: ProjectWorkItem) -> ProjectWorkItem:
+def _reopen_item(item: WorkItem) -> WorkItem:
     if item.status != "closed":
         raise LaunchError(f"Project work item {item.id} is not closed.")
     if item.plan_memory_ref or item.acceptance_criteria or item.validation_checklist:
@@ -163,7 +154,7 @@ def _reopen_item(item: ProjectWorkItem) -> ProjectWorkItem:
     )
 
 
-def _close_item(item: ProjectWorkItem) -> ProjectWorkItem:
+def _close_item(item: WorkItem) -> WorkItem:
     if item.status == "closed":
         raise LaunchError(f"Project work item {item.id} is already closed.")
     return replace(

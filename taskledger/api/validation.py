@@ -2,63 +2,39 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from taskledger.storage import (
-    append_validation_record as _append_validation_record,
-)
-from taskledger.storage import (
-    load_project_state,
-)
-from taskledger.storage import (
-    load_validation_records as _load_validation_records,
-)
-from taskledger.storage import (
-    remove_validation_records as _remove_validation_records,
-)
-from taskledger.storage import (
-    save_validation_records as _save_validation_records,
-)
-from taskledger.storage import (
-    validation_records_dir as _validation_records_dir,
-)
-from taskledger.storage import (
-    validation_records_index_path as _validation_records_index_path,
-)
+from taskledger.api.types import ValidationRecord
+from taskledger.storage import append_validation_record as _append_validation_record
+from taskledger.storage import load_project_state
+from taskledger.storage import load_validation_records as _load_validation_records
+from taskledger.storage import remove_validation_records as _remove_validation_records
 
 
-def append_validation_record(paths, **kwargs):
-    return _append_validation_record(paths, **kwargs)
+def list_validation_records(workspace_root: Path) -> list[ValidationRecord]:
+    return _load_validation_records(load_project_state(workspace_root).paths)
 
 
-def load_validation_records(paths):
-    return _load_validation_records(paths)
+def append_validation_record(workspace_root: Path, **kwargs) -> ValidationRecord:
+    return _append_validation_record(load_project_state(workspace_root).paths, **kwargs)
 
 
-def remove_validation_records(paths, *, ids: set[str]):
-    return _remove_validation_records(paths, ids=ids)
+def remove_validation_records(
+    workspace_root: Path,
+    *,
+    ids: set[str],
+) -> list[ValidationRecord]:
+    return _remove_validation_records(load_project_state(workspace_root).paths, ids=ids)
 
 
-def save_validation_records(paths, records) -> None:
-    _save_validation_records(paths, records)
+def append_validation_entry(workspace_root: Path, **kwargs) -> ValidationRecord:
+    return append_validation_record(workspace_root, **kwargs)
 
 
-def validation_records_dir(paths):
-    return _validation_records_dir(paths)
-
-
-def validation_records_index_path(paths):
-    return _validation_records_index_path(paths)
-
-
-def list_validation_records(workspace_root: Path):
-    return load_validation_records(load_project_state(workspace_root).paths)
-
-
-def append_validation_entry(workspace_root: Path, **kwargs):
-    return append_validation_record(load_project_state(workspace_root).paths, **kwargs)
-
-
-def remove_validation_entries(workspace_root: Path, *, ids: set[str]):
-    return remove_validation_records(load_project_state(workspace_root).paths, ids=ids)
+def remove_validation_entries(
+    workspace_root: Path,
+    *,
+    ids: set[str],
+) -> list[ValidationRecord]:
+    return remove_validation_records(workspace_root, ids=ids)
 
 
 def summarize_validation_records(workspace_root: Path) -> dict[str, object]:
