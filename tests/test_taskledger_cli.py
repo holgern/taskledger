@@ -393,6 +393,45 @@ def test_taskledger_validation_commands_cover_add_list_remove_and_summary(
     assert "val-0001" in remove_result.stdout
 
 
+def test_taskledger_workflow_commands_cover_show_state_and_transitions(
+    tmp_path: Path,
+) -> None:
+    runner.invoke(app, ["--cwd", str(tmp_path), "init"])
+    runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "item",
+            "create",
+            "workflow-fix",
+            "--text",
+            "Add workflow support.",
+        ],
+    )
+    runner.invoke(app, ["--cwd", str(tmp_path), "item", "approve", "item-0001"])
+
+    show_result = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "workflow", "show", "default-item-v1"],
+    )
+    state_result = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "--json", "workflow", "state", "item-0001"],
+    )
+    transitions_result = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "workflow", "transitions", "item-0001"],
+    )
+
+    assert show_result.exit_code == 0
+    assert "WORKFLOW default-item-v1" in show_result.stdout
+    assert state_result.exit_code == 0
+    assert '"workflow_id": "default-item-v1"' in state_result.stdout
+    assert transitions_result.exit_code == 0
+    assert "plan" in transitions_result.stdout
+
+
 def _create_run(
     workspace_root: Path,
     *,

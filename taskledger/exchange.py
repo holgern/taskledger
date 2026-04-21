@@ -6,24 +6,30 @@ from pathlib import Path
 
 from taskledger.errors import LaunchError
 from taskledger.models import (
+    ItemStageRecord,
     ProjectContextEntry,
     ProjectMemory,
     ProjectRepo,
     ProjectRunRecord,
     ProjectWorkItem,
+    WorkflowDefinition,
     utc_now_iso,
 )
 from taskledger.storage import (
     ensure_project_exists,
     load_project_state,
     load_run_records,
+    load_stage_records,
     load_validation_records,
+    load_workflow_definitions,
     save_contexts,
     save_memories,
     save_repos,
     save_run_record,
+    save_stage_records,
     save_validation_records,
     save_work_items,
+    save_workflow_definitions,
 )
 
 
@@ -47,6 +53,10 @@ def export_project_payload(
         "memories": [item.to_dict() for item in state.memories],
         "contexts": [item.to_dict() for item in state.contexts],
         "work_items": [item.to_dict() for item in state.work_items],
+        "workflows": [
+            item.to_dict() for item in load_workflow_definitions(state.paths)
+        ],
+        "stage_records": [item.to_dict() for item in load_stage_records(state.paths)],
         "runs": [item.to_dict() for item in runs],
         "validation_records": load_validation_records(state.paths),
         "options": {
@@ -58,6 +68,8 @@ def export_project_payload(
             "memories": len(state.memories),
             "contexts": len(state.contexts),
             "work_items": len(state.work_items),
+            "workflows": len(load_workflow_definitions(state.paths)),
+            "stage_records": len(load_stage_records(state.paths)),
             "runs": len(runs),
             "validation_records": len(load_validation_records(state.paths)),
         },
@@ -115,6 +127,16 @@ def import_project_payload(
         "work_items",
         ProjectWorkItem.from_dict,
     )
+    imported_workflows = _objects_from_payload(
+        payload,
+        "workflows",
+        WorkflowDefinition.from_dict,
+    )
+    imported_stage_records = _objects_from_payload(
+        payload,
+        "stage_records",
+        ItemStageRecord.from_dict,
+    )
     imported_runs = _objects_from_payload(payload, "runs", ProjectRunRecord.from_dict)
     imported_validation_records = _dict_list(payload.get("validation_records"))
 
@@ -123,6 +145,8 @@ def import_project_payload(
         save_memories(paths, imported_memories)
         save_contexts(paths, imported_contexts)
         save_work_items(paths, imported_work_items)
+        save_workflow_definitions(paths, imported_workflows)
+        save_stage_records(paths, imported_stage_records)
         save_validation_records(paths, imported_validation_records)
     else:
         state = load_project_state(workspace_root, recent_runs_limit=None)
@@ -134,6 +158,22 @@ def import_project_payload(
         save_work_items(
             paths,
             _merge_named(state.work_items, imported_work_items, key="id"),
+        )
+        save_workflow_definitions(
+            paths,
+            _merge_named(
+                load_workflow_definitions(paths),
+                imported_workflows,
+                key="workflow_id",
+            ),
+        )
+        save_stage_records(
+            paths,
+            _merge_named(
+                load_stage_records(paths),
+                imported_stage_records,
+                key="record_id",
+            ),
         )
         current_records = load_validation_records(paths)
         merged_records = _merge_dict_items(
@@ -155,6 +195,8 @@ def import_project_payload(
             "memories": len(refreshed.memories),
             "contexts": len(refreshed.contexts),
             "work_items": len(refreshed.work_items),
+            "workflows": len(load_workflow_definitions(refreshed.paths)),
+            "stage_records": len(load_stage_records(refreshed.paths)),
             "runs": len(load_run_records(refreshed.paths, limit=None)),
             "validation_records": len(load_validation_records(refreshed.paths)),
         },

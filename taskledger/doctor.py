@@ -19,12 +19,16 @@ _EXPECTED_PATHS = (
     "config_path",
     "repos_dir",
     "repo_index_path",
+    "workflows_dir",
+    "workflow_index_path",
     "memories_dir",
     "memory_index_path",
     "contexts_dir",
     "context_index_path",
     "items_dir",
     "item_index_path",
+    "stages_dir",
+    "stage_index_path",
     "runs_dir",
 )
 
@@ -32,16 +36,10 @@ _EXPECTED_PATHS = (
 def inspect_project(workspace_root: Path) -> dict[str, object]:
     paths = resolve_project_paths(workspace_root)
     expected_paths = [
-        getattr(paths, name)
-        for name in _EXPECTED_PATHS
-        if hasattr(paths, name)
+        getattr(paths, name) for name in _EXPECTED_PATHS if hasattr(paths, name)
     ]
     expected_paths.append(validation_records_index_path(paths))
-    missing_paths = tuple(
-        str(path)
-        for path in expected_paths
-        if not path.exists()
-    )
+    missing_paths = tuple(str(path) for path in expected_paths if not path.exists())
     if missing_paths:
         return {
             "project_dir": str(paths.project_dir),

@@ -111,6 +111,7 @@ class ExecutionPreviewRecord:
         return json.dumps(self.to_dict(), indent=indent, sort_keys=sort_keys)
 
 
+
 @dataclass(slots=True, frozen=True)
 class ExecutionOutcomeRecord:
     harness: str | None
@@ -203,4 +204,3 @@ class ExecutionOutcomeRecord:
 
     def to_json(self, *, indent: int | None = None, sort_keys: bool = False) -> str:
         return json.dumps(self.to_dict(), indent=indent, sort_keys=sort_keys)
-

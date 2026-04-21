@@ -77,6 +77,37 @@ import pytest
                 "remove_validation_records",
             ),
         ),
+        (
+            "taskledger.api.workflows",
+            (
+                "list_workflows",
+                "resolve_workflow",
+                "save_workflow_definition",
+                "delete_workflow_definition",
+                "default_workflow_id",
+                "set_default_workflow",
+                "assign_item_workflow",
+                "item_workflow_state",
+                "item_stage_records",
+                "latest_stage_record",
+                "allowed_stage_transitions",
+                "can_enter_stage",
+                "enter_stage",
+                "mark_stage_running",
+                "mark_stage_succeeded",
+                "mark_stage_failed",
+                "mark_stage_needs_review",
+                "approve_stage",
+            ),
+        ),
+        (
+            "taskledger.api.execution_requests",
+            (
+                "build_execution_request",
+                "expand_execution_request",
+                "record_execution_outcome",
+            ),
+        ),
     ],
 )
 def test_workspace_root_first_argument(

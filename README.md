@@ -90,7 +90,7 @@ Top-level commands:
 - `init`, `status`, `board`, `next`, `doctor`, `report`
 - `export`, `import`, `snapshot`
 - `search`, `grep`, `symbols`, `deps`
-- `item`, `memory`, `context`, `repo`, `runs`, `validation`
+- `item`, `memory`, `context`, `repo`, `runs`, `validation`, `workflow`
 
 Notable lifecycle commands:
 
@@ -99,6 +99,7 @@ Notable lifecycle commands:
 - `taskledger repo remove|set-role|set-default|clear-default`
 - `taskledger runs delete|cleanup|promote-output|promote-report|summary`
 - `taskledger validation list|add|remove|summary`
+- `taskledger workflow list|show|assign|state|stages|transitions`
 
 ## Python API
 
@@ -125,6 +126,10 @@ See `docs/api.rst` and `API.md` for the supported boundary.
 `taskledger` can store additive workflow metadata in `.taskledger/project.toml`
 to make `taskledger next`, `taskledger report`, and `taskledger doctor`
 dependency-aware without introducing a runtime workflow engine.
+
+`taskledger` also exposes first-class workflow definitions, item workflow state,
+stage history, and execution-request helpers through
+`taskledger.api.workflows` and `taskledger.api.execution_requests`.
 
 Example:
 

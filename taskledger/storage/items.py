@@ -10,6 +10,8 @@ from taskledger.ids import slugify_project_ref as _slugify
 from taskledger.models import (
     ProjectPaths,
     ProjectWorkItem,
+    WorkflowStageStatus,
+    WorkflowStatus,
     WorkItemStage,
     WorkItemStatus,
     utc_now_iso,
@@ -83,6 +85,10 @@ def create_work_item(
     linked_runs: tuple[str, ...] = (),
     linked_loop_tasks: tuple[str, ...] = (),
     save_target_ref: str | None = None,
+    workflow_id: str | None = None,
+    current_stage_id: str | None = None,
+    workflow_status: str = "draft",
+    stage_status: str | None = "not_started",
 ) -> ProjectWorkItem:
     if status not in _WORK_ITEM_STATUSES:
         raise LaunchError(f"Unsupported work item status: {status}")
@@ -121,6 +127,10 @@ def create_work_item(
         linked_runs=linked_runs,
         linked_loop_tasks=linked_loop_tasks,
         save_target_ref=save_target_ref,
+        workflow_id=workflow_id,
+        current_stage_id=current_stage_id,
+        workflow_status=cast(WorkflowStatus, workflow_status),
+        stage_status=cast(WorkflowStageStatus | None, stage_status),
     )
     items.append(item)
     save_work_items(paths, items)

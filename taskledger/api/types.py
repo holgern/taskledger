@@ -4,7 +4,17 @@ from dataclasses import dataclass
 from typing import TypeAlias, cast
 
 from taskledger.models import ContextSource as _ModelContextSource
-from taskledger.models import ContextSourceKind, ProjectSourceBudget
+from taskledger.models import (
+    ContextSourceKind,
+    ExecutionRequest,
+    ExpandedExecutionRequest,
+    ItemStageRecord,
+    ItemWorkflowState,
+    ProjectSourceBudget,
+    WorkflowDefinition,
+    WorkflowStageDefinition,
+    WorkflowTransition,
+)
 from taskledger.models import ProjectConfig as _ProjectConfig
 from taskledger.models import ProjectContextEntry as _ProjectContextEntry
 from taskledger.models import ProjectMemory as _ProjectMemory
@@ -165,14 +175,21 @@ __all__ = [
     "ContextSource",
     "ExecutionOptions",
     "ExecutionOutcomeRecord",
+    "ExecutionRequest",
     "ExecutionPreviewRecord",
     "ExecutionStatus",
+    "ExpandedExecutionRequest",
     "ExpandedSelection",
+    "ItemStageRecord",
+    "ItemWorkflowState",
     "Memory",
     "ProjectConfig",
     "Repo",
     "RunRecord",
     "SourceBudget",
     "ValidationRecord",
+    "WorkflowDefinition",
+    "WorkflowStageDefinition",
+    "WorkflowTransition",
     "WorkItem",
 ]

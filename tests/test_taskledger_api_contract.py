@@ -25,8 +25,10 @@ ALLOWED_MODULES = (
     "taskledger.api.runs",
     "taskledger.api.validation",
     "taskledger.api.composition",
+    "taskledger.api.execution_requests",
     "taskledger.api.runtime_support",
     "taskledger.api.types",
+    "taskledger.api.workflows",
 )
 
 
@@ -97,6 +99,13 @@ DTO_NAMES = (
     "ExecutionPreviewRecord",
     "ExecutionOutcomeRecord",
     "ExecutionStatus",
+    "WorkflowDefinition",
+    "WorkflowStageDefinition",
+    "WorkflowTransition",
+    "ItemWorkflowState",
+    "ItemStageRecord",
+    "ExecutionRequest",
+    "ExpandedExecutionRequest",
 )
 
 
@@ -163,6 +172,31 @@ ENTITY_CONTRACT: dict[str, tuple[str, ...]] = {
         "append_validation_record",
         "remove_validation_records",
     ),
+    "taskledger.api.workflows": (
+        "list_workflows",
+        "resolve_workflow",
+        "save_workflow_definition",
+        "delete_workflow_definition",
+        "default_workflow_id",
+        "set_default_workflow",
+        "assign_item_workflow",
+        "item_workflow_state",
+        "item_stage_records",
+        "latest_stage_record",
+        "allowed_stage_transitions",
+        "can_enter_stage",
+        "enter_stage",
+        "mark_stage_running",
+        "mark_stage_succeeded",
+        "mark_stage_failed",
+        "mark_stage_needs_review",
+        "approve_stage",
+    ),
+    "taskledger.api.execution_requests": (
+        "build_execution_request",
+        "expand_execution_request",
+        "record_execution_outcome",
+    ),
 }
 
 
@@ -198,9 +232,7 @@ COMPOSITION_NAMES = (
 def test_composition_import(name: str) -> None:
     from taskledger.api import composition
 
-    assert hasattr(composition, name), (
-        f"taskledger.api.composition is missing {name}"
-    )
+    assert hasattr(composition, name), f"taskledger.api.composition is missing {name}"
 
 
 def test_old_compose_module_removed() -> None:

@@ -31,6 +31,8 @@ def init_project(workspace_root: Path) -> dict[str, object]:
         "created": created,
         "canonical_root": str(resolve_taskledger_root(workspace_root)),
     }
+
+
 def project_status(workspace_root: Path) -> dict[str, object]:
     state = load_project_state(workspace_root, recent_runs_limit=None)
     doctor = inspect_project(workspace_root)
@@ -79,7 +81,8 @@ def project_next(workspace_root: Path) -> dict[str, object] | None:
         )
         if selected is not None:
             workflow_schema = _workflow_schema(state)
-            if workflow_item.get("workflow_status") == "blocked":
+            workflow_status = workflow_item.get("workflow_status")
+            if workflow_status in {"blocked", "waiting_validation"}:
                 blocked_by = workflow_item.get("blocked_by")
                 blockers = ", ".join(blocked_by) if isinstance(blocked_by, list) else ""
                 payload = {
@@ -97,10 +100,27 @@ def project_next(workspace_root: Path) -> dict[str, object] | None:
                 if workflow_schema is not None:
                     payload["workflow_schema"] = workflow_schema
                 return payload
+            if workflow_status == "waiting_approval":
+                payload = {
+                    "kind": "project_item_next",
+                    "item_ref": selected.id,
+                    "action": "approve",
+                    "actor": "human",
+                    "reason": (
+                        "Workflow approval is required before the next stage can start."
+                    ),
+                    "workflow_artifact": workflow_item.get("next_artifact"),
+                    "blocked_by": workflow_item.get("blocked_by"),
+                }
+                if workflow_schema is not None:
+                    payload["workflow_schema"] = workflow_schema
+                return payload
             next_step = next_action_payload(selected)
             workflow_artifact = workflow_item.get("next_artifact")
             if isinstance(workflow_artifact, str):
                 next_step["workflow_artifact"] = workflow_artifact
+                next_step["action"] = workflow_artifact
+                next_step["actor"] = "runtime"
                 next_step["workflow_status"] = workflow_item.get("next_artifact_status")
                 next_step["reason"] = (
                     f"Workflow artifact {workflow_artifact} is ready. "

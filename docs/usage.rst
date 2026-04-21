@@ -207,6 +207,15 @@ Workflow metadata
 ``taskledger`` can use additive workflow metadata in ``.taskledger/project.toml``
 to make ``taskledger next`` and ``taskledger report`` dependency-aware.
 
+It also exposes first-class workflow inspection and transition commands:
+
+.. code-block:: bash
+
+   taskledger workflow list
+   taskledger workflow show default-item-v1
+   taskledger workflow state item-0001
+   taskledger workflow transitions item-0001
+
 .. code-block:: toml
 
    workflow_schema = "opsx-lite"

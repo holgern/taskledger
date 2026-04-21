@@ -98,6 +98,24 @@ from taskledger.storage.runs import (
 from taskledger.storage.runs import (
     save_run_record as save_run_record,
 )
+from taskledger.storage.stages import (
+    append_stage_record as append_stage_record,
+)
+from taskledger.storage.stages import (
+    item_stage_records as item_stage_records,
+)
+from taskledger.storage.stages import (
+    latest_stage_record as latest_stage_record,
+)
+from taskledger.storage.stages import (
+    load_stage_records as load_stage_records,
+)
+from taskledger.storage.stages import (
+    replace_stage_record as replace_stage_record,
+)
+from taskledger.storage.stages import (
+    save_stage_records as save_stage_records,
+)
 from taskledger.storage.validation import (
     append_validation_record as append_validation_record,
 )
@@ -115,6 +133,18 @@ from taskledger.storage.validation import (
 )
 from taskledger.storage.validation import (
     validation_records_index_path as validation_records_index_path,
+)
+from taskledger.storage.workflows import (
+    delete_workflow_definition as delete_workflow_definition,
+)
+from taskledger.storage.workflows import (
+    load_workflow_definitions as load_workflow_definitions,
+)
+from taskledger.storage.workflows import (
+    resolve_workflow_definition as resolve_workflow_definition,
+)
+from taskledger.storage.workflows import (
+    save_workflow_definitions as save_workflow_definitions,
 )
 
 try:
@@ -160,21 +190,27 @@ def resolve_project_paths(workspace_root: Path) -> ProjectPaths:
 
 def _project_paths_for_root(workspace_root: Path, project_dir: Path) -> ProjectPaths:
     repos_dir = project_dir / "repos"
+    workflows_dir = project_dir / "workflows"
     memories_dir = project_dir / "memories"
     contexts_dir = project_dir / "contexts"
     items_dir = project_dir / "items"
+    stages_dir = project_dir / "stages"
     return ProjectPaths(
         workspace_root=workspace_root,
         project_dir=project_dir,
         config_path=project_dir / "project.toml",
         repos_dir=repos_dir,
         repo_index_path=repos_dir / "index.json",
+        workflows_dir=workflows_dir,
+        workflow_index_path=workflows_dir / "index.json",
         memories_dir=memories_dir,
         memory_index_path=memories_dir / "index.json",
         contexts_dir=contexts_dir,
         context_index_path=contexts_dir / "index.json",
         items_dir=items_dir,
         item_index_path=items_dir / "index.json",
+        stages_dir=stages_dir,
+        stage_index_path=stages_dir / "index.json",
         runs_dir=project_dir / "runs",
     )
 
@@ -188,9 +224,11 @@ def init_project_state(workspace_root: Path) -> tuple[ProjectPaths, list[str]]:
     for directory in (
         paths.project_dir,
         paths.repos_dir,
+        paths.workflows_dir,
         paths.memories_dir,
         paths.contexts_dir,
         paths.items_dir,
+        paths.stages_dir,
         paths.runs_dir,
         validation_records_dir(paths),
     ):
@@ -201,9 +239,11 @@ def init_project_state(workspace_root: Path) -> tuple[ProjectPaths, list[str]]:
     for path, contents in (
         (paths.config_path, DEFAULT_PROJECT_TOML),
         (paths.repo_index_path, "[]\n"),
+        (paths.workflow_index_path, "[]\n"),
         (paths.memory_index_path, "[]\n"),
         (paths.context_index_path, "[]\n"),
         (paths.item_index_path, "[]\n"),
+        (paths.stage_index_path, "[]\n"),
         (validation_records_index_path(paths), "[]\n"),
     ):
         if path.exists():
@@ -220,9 +260,11 @@ def ensure_project_exists(workspace_root: Path) -> ProjectPaths:
         for path in (
             paths.config_path,
             paths.repo_index_path,
+            paths.workflow_index_path,
             paths.memory_index_path,
             paths.context_index_path,
             paths.item_index_path,
+            paths.stage_index_path,
         )
         if not path.exists()
     ]

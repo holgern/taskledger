@@ -14,6 +14,7 @@ from taskledger.storage import (
     resolve_work_item,
     update_work_item,
 )
+from taskledger.workflow import default_workflow_id_for_paths
 
 
 def create_item(
@@ -27,6 +28,7 @@ def create_item(
     target_repo_ref: str | None = None,
 ) -> WorkItem:
     paths = load_project_state(workspace_root).paths
+    workflow_id = default_workflow_id_for_paths(paths)
     normalized_slug = slug.strip()
     if not normalized_slug:
         raise LaunchError("Project work item slug must not be empty.")
@@ -59,6 +61,9 @@ def create_item(
             validation_memory.id,
         ),
         save_target_ref=implementation_memory.id,
+        workflow_id=workflow_id,
+        workflow_status="draft",
+        stage_status="not_started",
     )
 
 
@@ -132,8 +137,11 @@ def _approve_item(item: WorkItem) -> WorkItem:
     return replace(
         item,
         status="approved",
-        stage="execution",
+        stage="approval",
         approved_at=utc_now_iso(),
+        workflow_id=item.workflow_id,
+        workflow_status="ready",
+        stage_status="ready",
     )
 
 
@@ -151,6 +159,8 @@ def _reopen_item(item: WorkItem) -> WorkItem:
         status=status,
         stage=stage,
         closed_at=None,
+        workflow_status="draft" if status == "draft" else "waiting_approval",
+        stage_status="not_started",
     )
 
 
@@ -162,6 +172,8 @@ def _close_item(item: WorkItem) -> WorkItem:
         status="closed",
         stage="closure",
         closed_at=utc_now_iso(),
+        workflow_status="closed",
+        stage_status="succeeded",
     )
 
 
