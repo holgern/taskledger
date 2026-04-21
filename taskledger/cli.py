@@ -33,6 +33,7 @@ from taskledger.cli_item import register_item_commands
 from taskledger.cli_memory import register_memory_commands
 from taskledger.cli_repo import register_repo_commands
 from taskledger.cli_runs import register_runs_commands
+from taskledger.cli_validation import register_validation_commands
 from taskledger.errors import LaunchError
 
 app = typer.Typer(add_completion=False, help="Manage durable taskledger project state.")
@@ -41,16 +42,19 @@ memory_app = typer.Typer(add_completion=False, help="Manage memories.")
 context_app = typer.Typer(add_completion=False, help="Manage contexts.")
 repo_app = typer.Typer(add_completion=False, help="Manage repos.")
 runs_app = typer.Typer(add_completion=False, help="Inspect saved runs.")
+validation_app = typer.Typer(add_completion=False, help="Manage validation records.")
 app.add_typer(item_app, name="item")
 app.add_typer(memory_app, name="memory")
 app.add_typer(context_app, name="context")
 app.add_typer(repo_app, name="repo")
 app.add_typer(runs_app, name="runs")
+app.add_typer(validation_app, name="validation")
 register_item_commands(item_app)
 register_memory_commands(memory_app)
 register_context_commands(context_app)
 register_repo_commands(repo_app)
 register_runs_commands(runs_app)
+register_validation_commands(validation_app)
 
 
 @app.callback()

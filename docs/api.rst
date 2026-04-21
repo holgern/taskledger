@@ -115,6 +115,22 @@ Validation (``taskledger.api.validation``):
 - ``list_validation_records``
 - ``append_validation_record``
 - ``remove_validation_records``
+- ``summarize_validation_records``
+
+Project config
+^^^^^^^^^^^^^^
+
+``taskledger.api.types.ProjectConfig`` carries the durable composition defaults
+and additive workflow metadata used by ``taskledger next`` and
+``taskledger report``:
+
+- ``workflow_schema``
+- ``project_context``
+- ``artifact_rules``
+- ``default_artifact_order``
+
+Runs also expose ``summarize_run_inventory`` through ``taskledger.api.runs`` for
+machine-readable inventory summaries.
 
 Composition API
 ^^^^^^^^^^^^^^^
@@ -243,6 +259,14 @@ Runs API
 --------
 
 .. automodule:: taskledger.api.runs
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Validation API
+--------------
+
+.. automodule:: taskledger.api.validation
    :members:
    :undoc-members:
    :show-inheritance:

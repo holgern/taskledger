@@ -16,12 +16,12 @@ python_files = "test_*.py"
 
 [project]
 name = "taskledger"
-description = "Library for running one command in a coding agent"
+description = "Durable project-state storage and CLI for coding workflows"
 authors = [{name = "The taskledger Authors"}]
 requires-python = ">=3.10"
 readme = "README.md"
 license = "Apache-2.0"
-keywords = ["cli", "agents"]
+keywords = ["cli", "durable-state", "project-state", "developer-tools", "workflows"]
 dependencies = [
     "typer",
     "tiktoken",

@@ -34,6 +34,14 @@ DEFAULT_PROJECT_SOURCE_MAX_CHARS = 12000
 DEFAULT_PROJECT_TOTAL_SOURCE_MAX_CHARS = 48000
 DEFAULT_PROJECT_SOURCE_HEAD_LINES = 200
 DEFAULT_PROJECT_SOURCE_TAIL_LINES = 50
+ARTIFACT_MEMORY_REF_FIELDS = (
+    "analysis_memory_ref",
+    "state_memory_ref",
+    "plan_memory_ref",
+    "implementation_memory_ref",
+    "validation_memory_ref",
+    "save_target_ref",
+)
 
 
 def utc_now_iso() -> str:
@@ -55,6 +63,28 @@ class ProjectConfig:
         "inline",
         "loop_artifact",
     )
+    workflow_schema: str | None = None
+    project_context: str | None = None
+    artifact_rules: tuple[ProjectArtifactRule, ...] = ()
+    default_artifact_order: tuple[str, ...] = ()
+
+
+@dataclass(slots=True, frozen=True)
+class ProjectArtifactRule:
+    name: str
+    depends_on: tuple[str, ...] = ()
+    memory_ref_field: str | None = None
+    label: str | None = None
+    description: str | None = None
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "depends_on": list(self.depends_on),
+            "memory_ref_field": self.memory_ref_field,
+            "label": self.label,
+            "description": self.description,
+        }
 
 
 @dataclass(slots=True, frozen=True)

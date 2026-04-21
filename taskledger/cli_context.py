@@ -6,7 +6,9 @@ import typer
 
 from taskledger.api.contexts import (
     create_context_entry,
+    delete_context_entry,
     list_context_entries,
+    rename_context_entry,
     show_context_entry,
 )
 from taskledger.cli_common import (
@@ -104,4 +106,42 @@ def register_context_commands(app: typer.Typer) -> None:
                     ("summary", entry.summary),
                 ],
             ),
+        )
+
+    @app.command("rename")
+    def context_rename_command(
+        ctx: typer.Context,
+        ref: Annotated[str, typer.Argument(..., help="Context ref.")],
+        new_name: Annotated[
+            str,
+            typer.Option("--new-name", help="New context name."),
+        ],
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            entry = rename_context_entry(state.cwd, ref, new_name=new_name)
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=1) from exc
+        emit_payload(
+            ctx,
+            entry.to_dict(),
+            human=f"renamed context {entry.slug}",
+        )
+
+    @app.command("delete")
+    def context_delete_command(
+        ctx: typer.Context,
+        ref: Annotated[str, typer.Argument(..., help="Context ref.")],
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            entry = delete_context_entry(state.cwd, ref)
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=1) from exc
+        emit_payload(
+            ctx,
+            entry.to_dict(),
+            human=f"deleted context {entry.slug}",
         )

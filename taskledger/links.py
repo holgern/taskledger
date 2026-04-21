@@ -51,6 +51,7 @@ def broken_item_links(
     loop_ids: set[str],
 ) -> list[str]:
     broken: list[str] = []
+    item_ids = {item.id for item in state.work_items}
     for item in state.work_items:
         missing_item_memories = [
             ref
@@ -70,6 +71,7 @@ def broken_item_links(
         missing_linked_loops = [
             ref for ref in item.linked_loop_tasks if ref not in loop_ids
         ]
+        missing_dependencies = [ref for ref in item.depends_on if ref not in item_ids]
         details: list[str] = []
         if missing_item_memories:
             details.append("memories=" + ",".join(missing_item_memories))
@@ -79,6 +81,8 @@ def broken_item_links(
             details.append("linked_runs=" + ",".join(missing_linked_runs))
         if missing_linked_loops:
             details.append("linked_loops=" + ",".join(missing_linked_loops))
+        if missing_dependencies:
+            details.append("depends_on=" + ",".join(missing_dependencies))
         if item.save_target_ref is not None and item.save_target_ref not in memory_ids:
             details.append("save_target=" + item.save_target_ref)
         if details:

@@ -8,8 +8,12 @@ import typer
 from taskledger.api.memories import (
     append_memory_body,
     create_memory_entry,
+    delete_memory_entry,
     list_memories,
+    prepend_memory_body,
+    rename_memory_entry,
     replace_memory_body,
+    retag_memory,
     show_memory_with_body,
 )
 from taskledger.cli_common import (
@@ -136,6 +140,96 @@ def register_memory_commands(app: typer.Typer) -> None:
             from_file=from_file,
             update_func=append_memory_body,
             verb="appended to",
+        )
+
+    @app.command("prepend")
+    def memory_prepend_command(
+        ctx: typer.Context,
+        ref: Annotated[str, typer.Argument(..., help="Memory ref.")],
+        text: Annotated[
+            str | None,
+            typer.Option("--text", help="Text to prepend."),
+        ] = None,
+        from_file: Annotated[
+            Path | None,
+            typer.Option("--from-file", help="Read prepended text from a file."),
+        ] = None,
+    ) -> None:
+        _emit_memory_update(
+            ctx,
+            ref,
+            text=text,
+            from_file=from_file,
+            update_func=prepend_memory_body,
+            verb="prepended to",
+        )
+
+    @app.command("rename")
+    def memory_rename_command(
+        ctx: typer.Context,
+        ref: Annotated[str, typer.Argument(..., help="Memory ref.")],
+        new_name: Annotated[
+            str,
+            typer.Option("--new-name", help="New memory name."),
+        ],
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            memory, body = rename_memory_entry(state.cwd, ref, new_name=new_name)
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=1) from exc
+        emit_payload(
+            ctx,
+            {**memory.to_dict(), "body": body},
+            human=f"renamed memory {memory.id}",
+        )
+
+    @app.command("retag")
+    def memory_retag_command(
+        ctx: typer.Context,
+        ref: Annotated[str, typer.Argument(..., help="Memory ref.")],
+        add_tags: Annotated[
+            list[str] | None,
+            typer.Option("--add-tag", help="Tag to add. Repeatable."),
+        ] = None,
+        remove_tags: Annotated[
+            list[str] | None,
+            typer.Option("--remove-tag", help="Tag to remove. Repeatable."),
+        ] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            memory, body = retag_memory(
+                state.cwd,
+                ref,
+                add_tags=tuple(add_tags or ()),
+                remove_tags=tuple(remove_tags or ()),
+            )
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=1) from exc
+        emit_payload(
+            ctx,
+            {**memory.to_dict(), "body": body},
+            human=f"retagged memory {memory.id}",
+        )
+
+    @app.command("delete")
+    def memory_delete_command(
+        ctx: typer.Context,
+        ref: Annotated[str, typer.Argument(..., help="Memory ref.")],
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            memory = delete_memory_entry(state.cwd, ref)
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=1) from exc
+        emit_payload(
+            ctx,
+            memory.to_dict(),
+            human=f"deleted memory {memory.id}",
         )
 
 

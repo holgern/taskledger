@@ -20,6 +20,7 @@ from taskledger.storage import (
     load_validation_records,
     resolve_taskledger_root,
 )
+from taskledger.workflow import build_workflow_summary, choose_next_workflow_item
 
 
 def init_project(workspace_root: Path) -> dict[str, object]:
@@ -35,6 +36,7 @@ def project_status(workspace_root: Path) -> dict[str, object]:
     doctor = inspect_project(workspace_root)
     next_step = project_next(workspace_root)
     validation_records = load_validation_records(state.paths)
+    workflow = build_workflow_summary(state)
     return {
         "kind": "taskledger_status",
         "project_dir": str(state.paths.project_dir),
@@ -42,6 +44,7 @@ def project_status(workspace_root: Path) -> dict[str, object]:
         "counts": _project_counts(state, validation_records=validation_records),
         "run_inventory": summarize_run_inventory(workspace_root),
         "validation_summary": summarize_validation_records(workspace_root),
+        "workflow": workflow,
         "healthy": bool(doctor["healthy"]),
         "warnings": list(doctor["warnings"]),
         "errors": list(doctor["errors"]),
@@ -67,6 +70,45 @@ def project_board(workspace_root: Path) -> dict[str, object]:
 
 def project_next(workspace_root: Path) -> dict[str, object] | None:
     state = load_project_state(workspace_root, recent_runs_limit=None)
+    workflow_item = choose_next_workflow_item(state)
+    if workflow_item is not None:
+        item_ref = workflow_item.get("item_ref")
+        selected = next(
+            (item for item in state.work_items if item.id == item_ref),
+            None,
+        )
+        if selected is not None:
+            workflow_schema = _workflow_schema(state)
+            if workflow_item.get("workflow_status") == "blocked":
+                blocked_by = workflow_item.get("blocked_by")
+                blockers = ", ".join(blocked_by) if isinstance(blocked_by, list) else ""
+                payload = {
+                    "kind": "project_item_next",
+                    "item_ref": selected.id,
+                    "action": "unblock",
+                    "actor": "human_or_runtime",
+                    "reason": (
+                        "Workflow dependencies are blocking progress."
+                        + (f" Blocked by: {blockers}." if blockers else "")
+                    ),
+                    "workflow_artifact": workflow_item.get("next_artifact"),
+                    "blocked_by": blocked_by,
+                }
+                if workflow_schema is not None:
+                    payload["workflow_schema"] = workflow_schema
+                return payload
+            next_step = next_action_payload(selected)
+            workflow_artifact = workflow_item.get("next_artifact")
+            if isinstance(workflow_artifact, str):
+                next_step["workflow_artifact"] = workflow_artifact
+                next_step["workflow_status"] = workflow_item.get("next_artifact_status")
+                next_step["reason"] = (
+                    f"Workflow artifact {workflow_artifact} is ready. "
+                    f"{next_step['reason']}"
+                )
+            if workflow_schema is not None:
+                next_step["workflow_schema"] = workflow_schema
+            return next_step
     for status in (
         "draft",
         "planned",
@@ -154,6 +196,8 @@ def _group_work_items_by_status(state: ProjectState) -> dict[str, int]:
     for item in state.work_items:
         grouped[item.status] = grouped.get(item.status, 0) + 1
     return grouped
+
+
 def _work_item_summary(item) -> dict[str, object]:
     return {
         "id": item.id,
@@ -162,3 +206,11 @@ def _work_item_summary(item) -> dict[str, object]:
         "status": item.status,
         "stage": item.stage,
     }
+
+
+def _workflow_schema(state: ProjectState) -> str | None:
+    workflow = build_workflow_summary(state)
+    if workflow is None:
+        return None
+    schema = workflow.get("schema")
+    return schema if isinstance(schema, str) else None

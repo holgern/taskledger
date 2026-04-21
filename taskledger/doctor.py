@@ -12,6 +12,7 @@ from taskledger.storage import (
     resolve_project_paths,
     validation_records_index_path,
 )
+from taskledger.workflow import build_workflow_summary
 
 _EXPECTED_PATHS = (
     "project_dir",
@@ -62,6 +63,7 @@ def inspect_project(workspace_root: Path) -> dict[str, object]:
             "broken_context_refs": [],
             "broken_item_links": [],
             "orphan_run_dirs": [],
+            "workflow": None,
         }
     try:
         ensure_project_exists(workspace_root)
@@ -87,6 +89,7 @@ def inspect_project(workspace_root: Path) -> dict[str, object]:
             "broken_context_refs": [],
             "broken_item_links": [],
             "orphan_run_dirs": [],
+            "workflow": None,
         }
     return _report_for_state(state)
 
@@ -116,6 +119,7 @@ def _report_for_state(state: ProjectState) -> dict[str, object]:
         for entry in state.paths.runs_dir.iterdir()
         if entry.is_dir() and not (entry / "record.json").exists()
     )
+    workflow = build_workflow_summary(state)
     errors = []
     warnings = []
     if missing_repo_roots:
@@ -130,6 +134,10 @@ def _report_for_state(state: ProjectState) -> dict[str, object]:
         warnings.append("Run directories exist without record.json files.")
     if empty_memories:
         warnings.append("Some memories are empty.")
+    if workflow is not None:
+        counts = workflow.get("counts", {})
+        if isinstance(counts, dict) and counts.get("blocked"):
+            warnings.append("Workflow dependencies block some items.")
     return {
         "project_dir": str(state.paths.project_dir),
         "initialized": True,
@@ -150,6 +158,7 @@ def _report_for_state(state: ProjectState) -> dict[str, object]:
         "broken_context_refs": broken_context_refs,
         "broken_item_links": broken_item_links,
         "orphan_run_dirs": orphan_run_dirs,
+        "workflow": workflow,
     }
 
 

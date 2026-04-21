@@ -1,5 +1,6 @@
 import os
 import sys
+from importlib import metadata
 
 sys.path.insert(0, os.path.abspath(".."))
 
@@ -8,13 +9,14 @@ copyright = "2026, The taskledger Authors"
 author = "The taskledger Authors"
 
 try:
-    from runtildone.versioning import get_version
+    release = metadata.version("taskledger")
+except metadata.PackageNotFoundError:
+    try:
+        from taskledger._version import __version__ as release
+    except ImportError:
+        release = "0.1.0"
 
-    release = get_version()
-    version = ".".join(release.split(".")[:2])
-except ImportError:
-    release = "0.1.0"
-    version = "0.1"
+version = ".".join(release.split(".")[:2])
 
 extensions = [
     "sphinx.ext.autodoc",
