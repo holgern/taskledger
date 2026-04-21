@@ -611,6 +611,8 @@ class ProjectRunRecord:
         stage = _optional_string_value(data, "stage")
         if stage == "implement":
             stage = "implementation"
+        if stage == "validate":
+            stage = "validation"
         if stage is not None and stage not in {
             "analysis",
             "state",

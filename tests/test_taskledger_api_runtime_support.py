@@ -83,6 +83,23 @@ def test_show_run_accepts_legacy_implement_stage(tmp_path: Path) -> None:
     assert loaded.stage == "implementation"
 
 
+def test_show_run_accepts_legacy_validate_stage(tmp_path: Path) -> None:
+    init_project(tmp_path)
+
+    layout = create_run_artifact_layout(tmp_path, origin="runtime")
+    run_dir = Path(layout.run_dir)
+    run_id = run_dir.name
+    payload = _run_record(run_id).to_dict()
+    payload["stage"] = "validate"
+    (run_dir / "record.json").write_text(
+        json.dumps(payload, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    loaded = show_run(tmp_path, run_id)
+    assert loaded.stage == "validation"
+
+
 def _run_record(run_id: str) -> RunRecord:
     base = f".taskledger/runs/{run_id}"
     return RunRecord(
