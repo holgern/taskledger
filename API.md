@@ -91,7 +91,7 @@ from taskledger.api.types import (
 )
 ```
 
-## 5. Option B split contract (CLI + Python vs Python-only)
+## 5. Option B split contract
 
 This repository intentionally uses **Option B — split contract**.
 
@@ -105,7 +105,7 @@ This repository intentionally uses **Option B — split contract**.
 - `taskledger.api.validation`
 - `taskledger.api.workflows`
 
-### Python only
+### Extended CLI + Python
 
 - `taskledger.api.execution_requests`
 - `taskledger.api.composition`
@@ -113,8 +113,8 @@ This repository intentionally uses **Option B — split contract**.
 
 Notes:
 
-- Python-only modules are part of the stable public API.
-- Lack of dedicated CLI groups for Python-only modules is intentional.
+- These modules are stable public APIs.
+- They also have dedicated CLI groups: `exec-request`, `compose`, and `runtime-support`.
 
 ## 6. Entity APIs
 
@@ -135,9 +135,17 @@ Canonical functions:
 - `create_item`
 - `list_items`
 - `show_item`
+- `update_item`
 - `approve_item`
 - `reopen_item`
 - `close_item`
+- `item_memory_refs`
+- `resolve_item_memory`
+- `read_item_memory_body`
+- `write_item_memory_body`
+- `rename_item_memory`
+- `retag_item_memory`
+- `delete_item_memory`
 - `next_action_payload`
 
 ### Memories (`taskledger.api.memories`)
@@ -218,7 +226,7 @@ Notes:
   compatibility path for `taskledger next` / `report` / `doctor`, but new
   workflow ownership lives in workflow APIs and stage records.
 
-### Execution requests (`taskledger.api.execution_requests`) [Python only]
+### Execution requests (`taskledger.api.execution_requests`)
 
 Canonical functions:
 
@@ -233,7 +241,7 @@ Notes:
 - `record_execution_outcome(...)` updates durable workflow state after a runner
   finishes.
 
-## 7. Composition API (`taskledger.api.composition`) [Python only]
+## 7. Composition API (`taskledger.api.composition`)
 
 ```python
 from taskledger.api.composition import (
@@ -282,7 +290,7 @@ payload = build_compose_payload(
 )
 ```
 
-## 8. Execution-request flow (`taskledger.api.execution_requests`) [Python only]
+## 8. Execution-request flow (`taskledger.api.execution_requests`)
 
 ```python
 from taskledger.api.execution_requests import (
@@ -307,7 +315,7 @@ expanded = expand_execution_request(workspace_root, request=request)
 # record_execution_outcome(workspace_root, request=request, outcome=outcome)
 ```
 
-## 9. Runtime support API (`taskledger.api.runtime_support`) [Python only]
+## 9. Runtime support API (`taskledger.api.runtime_support`)
 
 ```python
 from taskledger.api.runtime_support import (

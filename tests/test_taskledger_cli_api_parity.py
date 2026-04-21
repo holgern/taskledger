@@ -43,12 +43,11 @@ def test_cli_command_tree_matches_option_b_split_contract(tmp_path: Path) -> Non
         "runs",
         "validation",
         "workflow",
+        "exec-request",
+        "compose",
+        "runtime-support",
     ):
         assert name in result.stdout
-
-    for python_only in ("exec-request", "compose", "runtime"):
-        assert python_only not in result.stdout
-
 
 def test_workflow_group_includes_parity_commands(tmp_path: Path) -> None:
     runner.invoke(app, ["--cwd", str(tmp_path), "init"])
@@ -79,9 +78,9 @@ def test_workflow_group_includes_parity_commands(tmp_path: Path) -> None:
         assert command in result.stdout
 
 
-def test_python_only_groups_are_not_registered(tmp_path: Path) -> None:
+def test_extended_cli_groups_are_registered(tmp_path: Path) -> None:
     runner.invoke(app, ["--cwd", str(tmp_path), "init"])
 
-    for command in ("exec-request", "compose", "runtime"):
+    for command in ("exec-request", "compose", "runtime-support"):
         result = runner.invoke(app, ["--cwd", str(tmp_path), command, "--help"])
-        assert result.exit_code != 0
+        assert result.exit_code == 0

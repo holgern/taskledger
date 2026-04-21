@@ -10,7 +10,7 @@ from taskledger.api.execution_requests import (
     expand_execution_request,
     record_execution_outcome,
 )
-from taskledger.api.items import approve_item, create_item
+from taskledger.api.items import approve_item, create_item, update_item
 from taskledger.api.project import init_project, project_export, project_import
 from taskledger.api.types import ExecutionOutcomeRecord, ExecutionStatus
 from taskledger.api.workflows import (
@@ -28,6 +28,7 @@ from taskledger.api.workflows import (
 def test_default_workflow_requires_approval_then_unblocks_plan(tmp_path: Path) -> None:
     init_project(tmp_path)
     item = create_item(tmp_path, slug="workflow-item", description="Workflow item")
+    update_item(tmp_path, item.id, add_acceptance=("Acceptance exists",))
 
     initial = item_workflow_state(tmp_path, item.id)
     approved = approve_item(tmp_path, item.id)
@@ -44,6 +45,7 @@ def test_default_workflow_requires_approval_then_unblocks_plan(tmp_path: Path) -
 def test_execution_request_outcome_advances_to_next_stage(tmp_path: Path) -> None:
     init_project(tmp_path)
     item = create_item(tmp_path, slug="plan-stage", description="Plan the item")
+    update_item(tmp_path, item.id, add_acceptance=("Acceptance exists",))
     approve_item(tmp_path, item.id)
 
     request = build_execution_request(
@@ -85,6 +87,7 @@ def test_export_import_round_trip_preserves_custom_workflow_and_stage_records(
 ) -> None:
     init_project(tmp_path)
     item = create_item(tmp_path, slug="custom-wf", description="Uses a custom workflow")
+    update_item(tmp_path, item.id, add_acceptance=("Acceptance exists",))
     approve_item(tmp_path, item.id)
 
     base_workflow = resolve_workflow(tmp_path, "default-item-v1")

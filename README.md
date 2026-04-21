@@ -39,6 +39,9 @@ Create a work item, inspect it, and create supporting memories:
 taskledger item create parser-fix --text "Repair parser handling."
 taskledger item list
 taskledger item show item-0001
+taskledger item memories item-0001
+taskledger item memory write item-0001 --role plan --text "1. Update parser tests"
+taskledger item approve item-0001
 
 taskledger memory create "Parser analysis" --text "Current parser behavior."
 taskledger memory prepend parser-analysis --text "Priority: high"
@@ -91,11 +94,7 @@ Top-level commands:
 - `export`, `import`, `snapshot`
 - `search`, `grep`, `symbols`, `deps`
 - `item`, `memory`, `context`, `repo`, `runs`, `validation`, `workflow`
-
-Split contract (Option B):
-
-- `execution_requests`, `composition`, and `runtime_support` are public Python APIs.
-- They are intentionally Python-only (no dedicated CLI command groups).
+- `exec-request`, `compose`, `runtime-support`
 
 Notable lifecycle commands:
 
@@ -105,6 +104,9 @@ Notable lifecycle commands:
 - `taskledger runs delete|cleanup|promote-output|promote-report|summary`
 - `taskledger validation list|add|remove|summary`
 - `taskledger workflow list|save|delete|default|set-default|show|assign|state|stages|records|latest|transitions|can-enter|enter|mark-running|mark-succeeded|mark-failed|mark-needs-review|approve-stage`
+- `taskledger exec-request build|expand|record-outcome`
+- `taskledger compose expand|bundle`
+- `taskledger runtime-support config|run-layout|resolve-repo`
 
 ## Python API
 

@@ -28,11 +28,14 @@ from taskledger.cli_common import (
     emit_payload,
     resolve_workspace_root,
 )
+from taskledger.cli_compose import register_compose_commands
 from taskledger.cli_context import register_context_commands
+from taskledger.cli_execution_requests import register_execution_request_commands
 from taskledger.cli_item import register_item_commands
 from taskledger.cli_memory import register_memory_commands
 from taskledger.cli_repo import register_repo_commands
 from taskledger.cli_runs import register_runs_commands
+from taskledger.cli_runtime_support import register_runtime_support_commands
 from taskledger.cli_validation import register_validation_commands
 from taskledger.cli_workflow import register_workflow_commands
 from taskledger.errors import LaunchError
@@ -48,6 +51,18 @@ workflow_app = typer.Typer(
     add_completion=False,
     help="Manage workflow definitions and stage state.",
 )
+execution_request_app = typer.Typer(
+    add_completion=False,
+    help="Build and inspect execution requests.",
+)
+compose_app = typer.Typer(
+    add_completion=False,
+    help="Inspect compose selection and bundle payloads.",
+)
+runtime_support_app = typer.Typer(
+    add_completion=False,
+    help="Inspect runtime support configuration and helpers.",
+)
 app.add_typer(item_app, name="item")
 app.add_typer(memory_app, name="memory")
 app.add_typer(context_app, name="context")
@@ -55,6 +70,9 @@ app.add_typer(repo_app, name="repo")
 app.add_typer(runs_app, name="runs")
 app.add_typer(validation_app, name="validation")
 app.add_typer(workflow_app, name="workflow")
+app.add_typer(execution_request_app, name="exec-request")
+app.add_typer(compose_app, name="compose")
+app.add_typer(runtime_support_app, name="runtime-support")
 register_item_commands(item_app)
 register_memory_commands(memory_app)
 register_context_commands(context_app)
@@ -62,6 +80,9 @@ register_repo_commands(repo_app)
 register_runs_commands(runs_app)
 register_validation_commands(validation_app)
 register_workflow_commands(workflow_app)
+register_execution_request_commands(execution_request_app)
+register_compose_commands(compose_app)
+register_runtime_support_commands(runtime_support_app)
 
 
 @app.callback()

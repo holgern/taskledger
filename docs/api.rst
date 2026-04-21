@@ -45,14 +45,14 @@ CLI + Python:
 - ``validation``
 - ``workflows``
 
-Python only:
+Extended CLI + Python:
 
 - ``execution_requests``
 - ``composition``
 - ``runtime_support``
 
-Python-only modules are stable public APIs; they are intentionally not exposed
-as dedicated CLI command groups.
+These modules are stable public APIs and are also exposed via dedicated CLI
+groups: ``exec-request``, ``compose``, and ``runtime-support``.
 
 Global rules
 ^^^^^^^^^^^^^
@@ -122,9 +122,17 @@ Items (``taskledger.api.items``):
 - ``create_item``
 - ``list_items``
 - ``show_item``
+- ``update_item``
 - ``approve_item``
 - ``reopen_item``
 - ``close_item``
+- ``item_memory_refs``
+- ``resolve_item_memory``
+- ``read_item_memory_body``
+- ``write_item_memory_body``
+- ``rename_item_memory``
+- ``retag_item_memory``
+- ``delete_item_memory``
 - ``next_action_payload``
 
 Memories (``taskledger.api.memories``):
@@ -188,7 +196,7 @@ Workflows (``taskledger.api.workflows``):
 - ``mark_stage_needs_review``
 - ``approve_stage``
 
-Execution requests (``taskledger.api.execution_requests``; Python only):
+Execution requests (``taskledger.api.execution_requests``):
 
 - ``build_execution_request``
 - ``expand_execution_request``
@@ -209,7 +217,7 @@ and additive workflow metadata used by ``taskledger next`` and
 Runs also expose ``summarize_run_inventory`` through ``taskledger.api.runs`` for
 machine-readable inventory summaries.
 
-Composition API (Python only)
+Composition API
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ``taskledger.api.composition`` provides source expansion and bundle building:
