@@ -940,6 +940,111 @@ def test_taskledger_compose_and_runtime_support_commands(tmp_path: Path) -> None
     assert '"repo_ref": "runtime-repo"' in runtime_resolve.stdout
 
 
+def test_taskledger_file_reference_mode_and_directory_flags(tmp_path: Path) -> None:
+    runner.invoke(app, ["--cwd", str(tmp_path), "init"])
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    ref_file = tests_dir / "test_ref.py"
+    ref_file.write_text("SHOULD_NOT_INLINE\n", encoding="utf-8")
+
+    runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "item",
+            "create",
+            "reference-mode",
+            "--text",
+            "Exercise reference mode.",
+        ],
+    )
+    runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "item",
+            "memory",
+            "write",
+            "item-0001",
+            "--role",
+            "plan",
+            "--text",
+            "Ready for implementation",
+        ],
+    )
+    runner.invoke(app, ["--cwd", str(tmp_path), "item", "approve", "item-0001"])
+
+    context_save = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "context",
+            "save",
+            "Ref Context",
+            "--dir",
+            "tests",
+            "--file",
+            "tests/test_ref.py",
+        ],
+    )
+    compose_bundle = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "compose",
+            "bundle",
+            "--prompt",
+            "Fix tests",
+            "--file-mode",
+            "reference",
+            "--dir",
+            "tests",
+            "--file",
+            "tests/test_ref.py",
+        ],
+    )
+    exec_request = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "exec-request",
+            "build",
+            "item-0001",
+            "implement",
+            "--file-mode",
+            "reference",
+            "--dir",
+            "tests",
+            "--file",
+            "tests/test_ref.py",
+        ],
+    )
+
+    assert context_save.exit_code == 0
+    context_payload = json.loads(context_save.stdout)
+    assert context_payload["directory_refs"] == ["tests"]
+
+    assert compose_bundle.exit_code == 0
+    compose_payload = json.loads(compose_bundle.stdout)
+    assert compose_payload["project"]["file_render_mode"] == "reference"
+    assert "@tests/" in compose_payload["project"]["composed_prompt"]
+    assert "@tests/test_ref.py" in compose_payload["project"]["composed_prompt"]
+    assert "SHOULD_NOT_INLINE" not in compose_payload["project"]["composed_prompt"]
+
+    assert exec_request.exit_code == 0
+    request_payload = json.loads(exec_request.stdout)
+    assert request_payload["file_render_mode"] == "reference"
+    assert request_payload["directory_inputs"] == ["tests"]
+
+
 def test_taskledger_workflow_commands_cover_show_state_and_transitions(
     tmp_path: Path,
 ) -> None:

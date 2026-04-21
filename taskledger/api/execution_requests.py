@@ -16,6 +16,7 @@ from taskledger.api.types import (
     ExecutionOutcomeRecord,
     ExecutionRequest,
     ExpandedExecutionRequest,
+    FileRenderMode,
     SourceBudget,
 )
 from taskledger.api.workflows import (
@@ -39,23 +40,31 @@ def build_execution_request(
     repo_refs: tuple[str, ...] = (),
     memory_refs: tuple[str, ...] = (),
     file_refs: tuple[str, ...] = (),
+    directory_refs: tuple[str, ...] = (),
     item_refs: tuple[str, ...] = (),
     inline_texts: tuple[str, ...] = (),
     loop_latest_refs: tuple[str, ...] = (),
     run_in_repo: str | None = None,
     save_target: str | None = None,
     save_mode: str | None = None,
+    file_render_mode: FileRenderMode | None = None,
 ) -> ExecutionRequest:
     state = load_project_state(workspace_root, recent_runs_limit=0)
     item = resolve_work_item(state.paths, item_ref)
+    config = get_effective_project_config(workspace_root)
+    effective_file_render_mode = (
+        file_render_mode or config.default_file_render_mode or "content"
+    )
     selection = expand_selection(
         workspace_root,
         SelectionRequest(
             memory_refs=memory_refs,
             file_refs=file_refs,
+            directory_refs=directory_refs,
             item_refs=item_refs,
             inline_texts=inline_texts,
             loop_latest_refs=loop_latest_refs,
+            file_render_mode=effective_file_render_mode,
         ),
     )
     request = build_execution_request_for_item(
@@ -65,6 +74,7 @@ def build_execution_request(
         context_inputs=(),
         memory_inputs=selection.memory_inputs,
         file_inputs=selection.file_inputs,
+        directory_inputs=selection.directory_inputs,
         item_inputs=selection.item_inputs,
         inline_inputs=selection.inline_inputs,
         loop_artifact_inputs=selection.loop_artifact_inputs,
@@ -73,6 +83,7 @@ def build_execution_request(
         or item.target_repo_ref
         or (repo_refs[0] if repo_refs else None),
         save_mode=save_mode,
+        file_render_mode=effective_file_render_mode,
     )
     if save_target is not None:
         request = ExecutionRequest(
@@ -83,6 +94,7 @@ def build_execution_request(
             context_inputs=request.context_inputs,
             memory_inputs=request.memory_inputs,
             file_inputs=request.file_inputs,
+            directory_inputs=request.directory_inputs,
             item_inputs=request.item_inputs,
             inline_inputs=request.inline_inputs,
             loop_artifact_inputs=request.loop_artifact_inputs,
@@ -91,6 +103,7 @@ def build_execution_request(
             run_in_repo=request.run_in_repo,
             save_target=save_target,
             save_mode=request.save_mode,
+            file_render_mode=request.file_render_mode,
             metadata=request.metadata,
         )
     return request
@@ -113,6 +126,7 @@ def expand_execution_request(
         workspace_root,
         selection=_selection_from_request(request),
         default_context_order=config.default_context_order,
+        file_render_mode=request.file_render_mode,
         source_budget=source_budget,
     )
     prompt = request.prompt_seed or ""
@@ -124,10 +138,12 @@ def expand_execution_request(
             "context_inputs": request.context_inputs,
             "memory_inputs": request.memory_inputs,
             "file_inputs": request.file_inputs,
+            "directory_inputs": request.directory_inputs,
             "item_inputs": request.item_inputs,
             "inline_inputs": request.inline_inputs,
             "loop_artifact_inputs": request.loop_artifact_inputs,
         },
+        file_render_mode=request.file_render_mode,
         selected_repo_refs=repo_refs_for_sources(sources),
         run_in_repo=request.run_in_repo,
         source_budget=source_budget,
@@ -181,7 +197,9 @@ def _selection_from_request(request: ExecutionRequest):
         context_inputs=request.context_inputs,
         memory_inputs=request.memory_inputs,
         file_inputs=request.file_inputs,
+        directory_inputs=request.directory_inputs,
         item_inputs=request.item_inputs,
         inline_inputs=request.inline_inputs,
         loop_artifact_inputs=request.loop_artifact_inputs,
+        file_render_mode=request.file_render_mode,
     )

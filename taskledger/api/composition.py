@@ -8,6 +8,7 @@ from taskledger.api.types import (
     ComposedBundle,
     ContextSource,
     ExpandedSelection,
+    FileRenderMode,
     SourceBudget,
 )
 from taskledger.context import build_context_sources as _build_context_sources
@@ -19,6 +20,7 @@ _INPUT_KEYS = (
     "context_inputs",
     "memory_inputs",
     "file_inputs",
+    "directory_inputs",
     "item_inputs",
     "inline_inputs",
     "loop_artifact_inputs",
@@ -30,20 +32,24 @@ class SelectionRequest:
     context_names: tuple[str, ...] = ()
     memory_refs: tuple[str, ...] = ()
     file_refs: tuple[str, ...] = ()
+    directory_refs: tuple[str, ...] = ()
     item_refs: tuple[str, ...] = ()
     inline_texts: tuple[str, ...] = ()
     loop_latest_refs: tuple[str, ...] = ()
     include_item_memories: bool = True
+    file_render_mode: FileRenderMode = "content"
 
     def to_dict(self) -> dict[str, object]:
         return {
             "context_names": list(self.context_names),
             "memory_refs": list(self.memory_refs),
             "file_refs": list(self.file_refs),
+            "directory_refs": list(self.directory_refs),
             "item_refs": list(self.item_refs),
             "inline_texts": list(self.inline_texts),
             "loop_latest_refs": list(self.loop_latest_refs),
             "include_item_memories": self.include_item_memories,
+            "file_render_mode": self.file_render_mode,
         }
 
 
@@ -56,17 +62,21 @@ def expand_selection(
         context_names=request.context_names,
         memory_refs=request.memory_refs,
         file_refs=request.file_refs,
+        directory_refs=request.directory_refs,
         item_refs=request.item_refs,
         inline_texts=request.inline_texts,
         loop_latest_refs=request.loop_latest_refs,
+        file_render_mode=request.file_render_mode,
     )
     return ExpandedSelection(
         context_inputs=expanded["context_inputs"],
         memory_inputs=expanded["memory_inputs"],
         file_inputs=expanded["file_inputs"],
+        directory_inputs=expanded["directory_inputs"],
         item_inputs=expanded["item_inputs"],
         inline_inputs=expanded["inline_inputs"],
         loop_artifact_inputs=expanded["loop_artifact_inputs"],
+        file_render_mode=request.file_render_mode,
     )
 
 
@@ -76,6 +86,7 @@ def build_sources(
     *,
     default_context_order: tuple[str, ...] = (),
     include_item_memories: bool = True,
+    file_render_mode: FileRenderMode | None = None,
     source_budget: SourceBudget | None = None,
 ) -> tuple[ContextSource, ...]:
     state = load_project_state(workspace_root, recent_runs_limit=0)
@@ -83,11 +94,13 @@ def build_sources(
         state,
         memory_refs=selection.memory_inputs,
         file_refs=selection.file_inputs,
+        directory_refs=selection.directory_inputs,
         item_refs=selection.item_inputs,
         inline_texts=selection.inline_inputs,
         loop_latest_refs=selection.loop_artifact_inputs,
         context_order=default_context_order,
         include_item_memories=include_item_memories,
+        file_render_mode=file_render_mode or selection.file_render_mode,
         source_budget=(source_budget or SourceBudget()).to_project_source_budget(),
     )
     return tuple(ContextSource.from_model(source) for source in bounded_sources)
@@ -129,6 +142,7 @@ def build_compose_payload(
     context_name: str | None,
     prompt: str | None,
     explicit_inputs: Mapping[str, tuple[str, ...]],
+    file_render_mode: FileRenderMode = "content",
     selected_repo_refs: tuple[str, ...],
     run_in_repo: str | None,
     source_budget: SourceBudget,
@@ -143,10 +157,12 @@ def build_compose_payload(
             "prompt": prompt,
             "repo_refs": list(selected_repo_refs),
             "run_in_repo": run_in_repo,
+            "file_render_mode": file_render_mode,
             "source_budget": source_budget.to_dict(),
             "context_inputs": list(normalized_inputs["context_inputs"]),
             "memory_inputs": list(normalized_inputs["memory_inputs"]),
             "file_inputs": list(normalized_inputs["file_inputs"]),
+            "directory_inputs": list(normalized_inputs["directory_inputs"]),
             "item_inputs": list(normalized_inputs["item_inputs"]),
             "inline_inputs": list(normalized_inputs["inline_inputs"]),
             "loop_artifact_inputs": list(normalized_inputs["loop_artifact_inputs"]),

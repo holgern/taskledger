@@ -11,6 +11,7 @@ from taskledger.models import (
     DEFAULT_PROJECT_SOURCE_MAX_CHARS,
     DEFAULT_PROJECT_SOURCE_TAIL_LINES,
     DEFAULT_PROJECT_TOTAL_SOURCE_MAX_CHARS,
+    FileRenderMode,
     MemoryUpdateMode,
     ProjectArtifactRule,
     ProjectConfig,
@@ -158,6 +159,7 @@ DEFAULT_PROJECT_TOML = f"""# Project-local taskledger overrides.
 # Use your runtime preview command to inspect prompt size first.
 # Supported keys:
 # default_memory_update_mode = "replace"
+# default_file_render_mode = "content"
 # default_save_run_reports = true
 # default_source_max_chars = {DEFAULT_PROJECT_SOURCE_MAX_CHARS}
 # default_total_source_max_chars = {DEFAULT_PROJECT_TOTAL_SOURCE_MAX_CHARS}
@@ -313,6 +315,10 @@ def merge_project_config(
     default_memory_update_mode = overrides.get(
         "default_memory_update_mode", base.default_memory_update_mode
     )
+    default_file_render_mode = overrides.get(
+        "default_file_render_mode",
+        base.default_file_render_mode,
+    )
     default_save_run_reports = overrides.get(
         "default_save_run_reports", base.default_save_run_reports
     )
@@ -347,6 +353,12 @@ def merge_project_config(
         raise LaunchError(
             "Project config default_memory_update_mode must be "
             "replace, append, or prepend."
+        )
+    if not isinstance(default_file_render_mode, str):
+        raise LaunchError("Project config default_file_render_mode must be a string.")
+    if default_file_render_mode not in {"content", "reference"}:
+        raise LaunchError(
+            "Project config default_file_render_mode must be content or reference."
         )
     if not isinstance(default_save_run_reports, bool):
         raise LaunchError("Project config default_save_run_reports must be a boolean.")
@@ -383,6 +395,7 @@ def merge_project_config(
             MemoryUpdateMode,
             default_memory_update_mode,
         ),
+        default_file_render_mode=cast(FileRenderMode, default_file_render_mode),
         default_save_run_reports=default_save_run_reports,
         default_source_max_chars=cast(int | None, default_source_max_chars),
         default_total_source_max_chars=cast(int | None, default_total_source_max_chars),
@@ -431,6 +444,7 @@ def _validate_project_config_overrides(data: dict[str, object], path: Path) -> N
     for key in data:
         if key not in {
             "default_memory_update_mode",
+            "default_file_render_mode",
             "default_save_run_reports",
             "default_source_max_chars",
             "default_total_source_max_chars",
@@ -450,6 +464,15 @@ def _validate_project_config_overrides(data: dict[str, object], path: Path) -> N
         raise LaunchError(
             "Project config key 'default_memory_update_mode' must be "
             f"replace, append, or prepend in {path}"
+        )
+    file_render_mode = data.get("default_file_render_mode")
+    if file_render_mode is not None and (
+        not isinstance(file_render_mode, str)
+        or file_render_mode not in {"content", "reference"}
+    ):
+        raise LaunchError(
+            "Project config key 'default_file_render_mode' must be "
+            f"content or reference in {path}"
         )
     save_reports = data.get("default_save_run_reports")
     if save_reports is not None and not isinstance(save_reports, bool):

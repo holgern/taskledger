@@ -247,6 +247,8 @@ Minimal flow:
    request = SelectionRequest(
        context_names=("my-context",),
        memory_refs=("mem-0001",),
+       directory_refs=("tests/",),
+       file_render_mode="reference",
        include_item_memories=False,
    )
    expanded = expand_selection(workspace_root, request)
@@ -265,10 +267,12 @@ Minimal flow:
            "context_inputs": request.context_names,
            "memory_inputs": request.memory_refs,
            "file_inputs": request.file_refs,
+           "directory_inputs": request.directory_refs,
            "item_inputs": request.item_refs,
            "inline_inputs": request.inline_texts,
            "loop_artifact_inputs": request.loop_latest_refs,
        },
+       file_render_mode=request.file_render_mode,
        selected_repo_refs=repo_refs_for_sources(sources),
        run_in_repo=None,
        source_budget=SourceBudget(max_source_chars=12000, max_total_chars=48000),

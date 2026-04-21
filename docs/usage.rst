@@ -62,7 +62,7 @@ loop-artifact refs.
 
 .. code-block:: bash
 
-   taskledger context save parser-context --memory mem-0001 --item item-0001
+   taskledger context save parser-context --memory mem-0001 --item item-0001 --dir tests/
    taskledger context list
    taskledger context show parser-context
    taskledger context rename parser-context --new-name release-parser-context
@@ -246,10 +246,12 @@ Execution-request and composition CLI examples:
 .. code-block:: bash
 
    taskledger --json exec-request build item-0001 plan --inline "Context"
+   taskledger --json exec-request build item-0001 plan --file-mode reference --dir tests/ --file tests/test_file.py
    taskledger --json exec-request expand --request-file ./request.json
    taskledger --json exec-request record-outcome --request-file ./request.json --ok --text "Plan complete"
    taskledger --json compose expand --item item-0001 --inline "extra context"
    taskledger --json compose bundle --prompt "Plan this work" --item item-0001
+   taskledger --json compose bundle --prompt "Plan this work" --file-mode reference --dir tests/ --file tests/test_file.py
    taskledger --json compose bundle --prompt "Plan this work" --item item-0001 --no-item-memories
    taskledger --json runtime-support config
    taskledger --json runtime-support run-layout --origin debug

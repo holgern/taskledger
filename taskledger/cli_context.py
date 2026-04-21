@@ -34,6 +34,10 @@ def register_context_commands(app: typer.Typer) -> None:
             list[str] | None,
             typer.Option("--file", help="File ref to include. Repeatable."),
         ] = None,
+        directory_refs: Annotated[
+            list[str] | None,
+            typer.Option("--dir", help="Directory ref to include. Repeatable."),
+        ] = None,
         item_refs: Annotated[
             list[str] | None,
             typer.Option("--item", help="Work item ref to include. Repeatable."),
@@ -56,6 +60,7 @@ def register_context_commands(app: typer.Typer) -> None:
             name=name,
             memory_refs=tuple(memory_refs or ()),
             file_refs=tuple(file_refs or ()),
+            directory_refs=tuple(directory_refs or ()),
             item_refs=tuple(item_refs or ()),
             inline_texts=tuple(inline_texts or ()),
             loop_latest_refs=tuple(loop_latest_refs or ()),
@@ -77,7 +82,9 @@ def register_context_commands(app: typer.Typer) -> None:
                 "CONTEXTS",
                 [
                     f"{entry.slug}  memories={len(entry.memory_refs)}  "
-                    f"files={len(entry.file_refs)}  items={len(entry.item_refs)}"
+                    f"files={len(entry.file_refs)}  "
+                    f"dirs={len(entry.directory_refs)}  "
+                    f"items={len(entry.item_refs)}"
                     for entry in entries
                 ],
             ),
@@ -102,6 +109,7 @@ def register_context_commands(app: typer.Typer) -> None:
                 [
                     ("memories", ", ".join(entry.memory_refs) or "-"),
                     ("files", ", ".join(entry.file_refs) or "-"),
+                    ("dirs", ", ".join(entry.directory_refs) or "-"),
                     ("items", ", ".join(entry.item_refs) or "-"),
                     ("summary", entry.summary),
                 ],

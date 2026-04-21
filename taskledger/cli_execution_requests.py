@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, cast
 
 import typer
 
@@ -12,6 +12,7 @@ from taskledger.api.execution_requests import (
     expand_execution_request,
     record_execution_outcome,
 )
+from taskledger.api.types import FileRenderMode
 from taskledger.cli_common import cli_state_from_context, emit_error, emit_payload
 from taskledger.errors import LaunchError
 from taskledger.models import ExecutionRequest
@@ -24,6 +25,12 @@ class _OutcomeSummary:
 
 
 def register_execution_request_commands(app: typer.Typer) -> None:
+    def _normalize_file_mode(raw: str) -> FileRenderMode:
+        value = raw.strip().lower()
+        if value not in {"content", "reference"}:
+            raise LaunchError("File mode must be one of: content, reference.")
+        return cast(FileRenderMode, value)
+
     @app.command("build")
     def execution_request_build_command(
         ctx: typer.Context,
@@ -44,6 +51,10 @@ def register_execution_request_commands(app: typer.Typer) -> None:
         file_refs: Annotated[
             list[str] | None,
             typer.Option("--file", help="File refs to include. Repeatable."),
+        ] = None,
+        directory_refs: Annotated[
+            list[str] | None,
+            typer.Option("--dir", help="Directory refs to include. Repeatable."),
         ] = None,
         item_refs: Annotated[
             list[str] | None,
@@ -69,9 +80,14 @@ def register_execution_request_commands(app: typer.Typer) -> None:
             str | None,
             typer.Option("--save-mode", help="Save mode override."),
         ] = None,
+        file_mode: Annotated[
+            str,
+            typer.Option("--file-mode", help="File render mode: content or reference."),
+        ] = "content",
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
+            normalized_file_mode = _normalize_file_mode(file_mode)
             request = build_execution_request(
                 state.cwd,
                 item_ref=item_ref,
@@ -80,12 +96,14 @@ def register_execution_request_commands(app: typer.Typer) -> None:
                 repo_refs=tuple(repo_refs or ()),
                 memory_refs=tuple(memory_refs or ()),
                 file_refs=tuple(file_refs or ()),
+                directory_refs=tuple(directory_refs or ()),
                 item_refs=tuple(item_refs or ()),
                 inline_texts=tuple(inline_texts or ()),
                 loop_latest_refs=tuple(loop_latest_refs or ()),
                 run_in_repo=run_in_repo,
                 save_target=save_target,
                 save_mode=save_mode,
+                file_render_mode=normalized_file_mode,
             )
         except LaunchError as exc:
             emit_error(ctx, str(exc))

@@ -51,7 +51,7 @@ taskledger memory retag parser-analysis --add-tag analysis --add-tag parser
 Manage saved contexts, repos, runs, and validation records:
 
 ```bash
-taskledger context save parser-context --memory mem-0001 --item item-0001
+taskledger context save parser-context --memory mem-0001 --item item-0001 --dir tests/
 taskledger context rename parser-context --new-name release-parser-context
 
 taskledger repo add core --path /path/to/repo --role both
@@ -113,6 +113,7 @@ Item dossier and composition examples:
 - `taskledger item view item-0001 --role plan --role implementation`
 - `taskledger item dossier item-0001 --output ./item-0001.md`
 - `taskledger --json compose bundle --prompt "Plan this work" --item item-0001 --no-item-memories`
+- `taskledger --json compose bundle --prompt "Fix failing tests" --file-mode reference --dir tests/ --file tests/test_file.py`
 
 ## Python API
 

@@ -9,6 +9,7 @@ from typing import Literal, cast
 from taskledger.models.execution import ExecutionOutcomeRecord, ExecutionPreviewRecord
 
 MemoryUpdateMode = Literal["replace", "append", "prepend"]
+FileRenderMode = Literal["content", "reference"]
 ContextSourceKind = Literal["memory", "file", "item", "inline", "loop_artifact"]
 ProjectRepoKind = Literal["odoo", "enterprise", "custom", "shared", "generic"]
 ProjectStage = Literal["analysis", "state", "plan", "implementation", "validation"]
@@ -79,6 +80,7 @@ def utc_now_iso() -> str:
 @dataclass(slots=True, frozen=True)
 class ProjectConfig:
     default_memory_update_mode: MemoryUpdateMode = "replace"
+    default_file_render_mode: FileRenderMode = "content"
     default_save_run_reports: bool = True
     default_source_max_chars: int | None = DEFAULT_PROJECT_SOURCE_MAX_CHARS
     default_total_source_max_chars: int | None = DEFAULT_PROJECT_TOTAL_SOURCE_MAX_CHARS
@@ -234,6 +236,7 @@ class ProjectContextEntry:
     path: str
     memory_refs: tuple[str, ...]
     file_refs: tuple[str, ...]
+    directory_refs: tuple[str, ...]
     item_refs: tuple[str, ...]
     inline_texts: tuple[str, ...]
     loop_latest_refs: tuple[str, ...]
@@ -248,6 +251,7 @@ class ProjectContextEntry:
             "path": self.path,
             "memory_refs": list(self.memory_refs),
             "file_refs": list(self.file_refs),
+            "directory_refs": list(self.directory_refs),
             "item_refs": list(self.item_refs),
             "inline_texts": list(self.inline_texts),
             "loop_latest_refs": list(self.loop_latest_refs),
@@ -264,6 +268,7 @@ class ProjectContextEntry:
             path=_string_value(data, "path"),
             memory_refs=_string_tuple(data.get("memory_refs")),
             file_refs=_string_tuple(data.get("file_refs")),
+            directory_refs=_string_tuple(data.get("directory_refs")),
             item_refs=_string_tuple(data.get("item_refs")),
             inline_texts=_string_tuple(data.get("inline_texts")),
             loop_latest_refs=_string_tuple(data.get("loop_latest_refs")),
@@ -879,6 +884,7 @@ class ExecutionRequest:
     context_inputs: tuple[str, ...] = ()
     memory_inputs: tuple[str, ...] = ()
     file_inputs: tuple[str, ...] = ()
+    directory_inputs: tuple[str, ...] = ()
     item_inputs: tuple[str, ...] = ()
     inline_inputs: tuple[str, ...] = ()
     loop_artifact_inputs: tuple[str, ...] = ()
@@ -887,6 +893,7 @@ class ExecutionRequest:
     run_in_repo: str | None = None
     save_target: str | None = None
     save_mode: MemoryUpdateMode | None = None
+    file_render_mode: FileRenderMode = "content"
     metadata: dict[str, object] | None = None
 
     def to_dict(self) -> dict[str, object]:
@@ -898,6 +905,7 @@ class ExecutionRequest:
             "context_inputs": list(self.context_inputs),
             "memory_inputs": list(self.memory_inputs),
             "file_inputs": list(self.file_inputs),
+            "directory_inputs": list(self.directory_inputs),
             "item_inputs": list(self.item_inputs),
             "inline_inputs": list(self.inline_inputs),
             "loop_artifact_inputs": list(self.loop_artifact_inputs),
@@ -906,6 +914,7 @@ class ExecutionRequest:
             "run_in_repo": self.run_in_repo,
             "save_target": self.save_target,
             "save_mode": self.save_mode,
+            "file_render_mode": self.file_render_mode,
             "metadata": self.metadata,
         }
 
@@ -914,6 +923,9 @@ class ExecutionRequest:
         save_mode = _optional_string_value(data, "save_mode")
         if save_mode is not None and save_mode not in {"replace", "append", "prepend"}:
             raise ValueError(f"Unsupported save mode: {save_mode}")
+        file_render_mode = _optional_string_value(data, "file_render_mode") or "content"
+        if file_render_mode not in {"content", "reference"}:
+            raise ValueError(f"Unsupported file render mode: {file_render_mode}")
         return cls(
             request_id=_string_value(data, "request_id"),
             item_ref=_string_value(data, "item_ref"),
@@ -922,6 +934,7 @@ class ExecutionRequest:
             context_inputs=_string_tuple(data.get("context_inputs")),
             memory_inputs=_string_tuple(data.get("memory_inputs")),
             file_inputs=_string_tuple(data.get("file_inputs")),
+            directory_inputs=_string_tuple(data.get("directory_inputs")),
             item_inputs=_string_tuple(data.get("item_inputs")),
             inline_inputs=_string_tuple(data.get("inline_inputs")),
             loop_artifact_inputs=_string_tuple(data.get("loop_artifact_inputs")),
@@ -933,6 +946,7 @@ class ExecutionRequest:
             run_in_repo=_optional_string_value(data, "run_in_repo"),
             save_target=_optional_string_value(data, "save_target"),
             save_mode=cast(MemoryUpdateMode | None, save_mode),
+            file_render_mode=cast(FileRenderMode, file_render_mode),
             metadata=_optional_dict_value(data, "metadata"),
         )
 

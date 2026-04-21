@@ -8,6 +8,7 @@ from taskledger.models import (
     ContextSourceKind,
     ExecutionRequest,
     ExpandedExecutionRequest,
+    FileRenderMode,
     ItemStageRecord,
     ItemWorkflowState,
     ProjectSourceBudget,
@@ -84,18 +85,22 @@ class ExpandedSelection:
     context_inputs: tuple[str, ...] = ()
     memory_inputs: tuple[str, ...] = ()
     file_inputs: tuple[str, ...] = ()
+    directory_inputs: tuple[str, ...] = ()
     item_inputs: tuple[str, ...] = ()
     inline_inputs: tuple[str, ...] = ()
     loop_artifact_inputs: tuple[str, ...] = ()
+    file_render_mode: FileRenderMode = "content"
 
     def to_dict(self) -> dict[str, object]:
         return {
             "context_inputs": list(self.context_inputs),
             "memory_inputs": list(self.memory_inputs),
             "file_inputs": list(self.file_inputs),
+            "directory_inputs": list(self.directory_inputs),
             "item_inputs": list(self.item_inputs),
             "inline_inputs": list(self.inline_inputs),
             "loop_artifact_inputs": list(self.loop_artifact_inputs),
+            "file_render_mode": self.file_render_mode,
         }
 
 
@@ -214,6 +219,7 @@ __all__ = [
     "ExecutionStatus",
     "ExpandedExecutionRequest",
     "ExpandedSelection",
+    "FileRenderMode",
     "ItemDossier",
     "ItemDossierSection",
     "ItemStageRecord",

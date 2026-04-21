@@ -8,6 +8,7 @@ from taskledger.ids import next_project_id as _next_id
 from taskledger.models import (
     ExecutionRequest,
     ExpandedExecutionRequest,
+    FileRenderMode,
     ItemStageRecord,
     ItemWorkflowState,
     MemoryUpdateMode,
@@ -563,12 +564,14 @@ def build_execution_request_for_item(
     context_inputs: tuple[str, ...] = (),
     memory_inputs: tuple[str, ...] = (),
     file_inputs: tuple[str, ...] = (),
+    directory_inputs: tuple[str, ...] = (),
     item_inputs: tuple[str, ...] = (),
     inline_inputs: tuple[str, ...] = (),
     loop_artifact_inputs: tuple[str, ...] = (),
     prompt_seed: str | None = None,
     run_in_repo: str | None = None,
     save_mode: MemoryUpdateMode | None = None,
+    file_render_mode: FileRenderMode = "content",
 ) -> ExecutionRequest:
     workflow = resolve_available_workflow(
         state.paths,
@@ -589,6 +592,7 @@ def build_execution_request_for_item(
         context_inputs=context_inputs,
         memory_inputs=memory_inputs,
         file_inputs=file_inputs,
+        directory_inputs=directory_inputs,
         item_inputs=item_inputs,
         inline_inputs=inline_inputs,
         loop_artifact_inputs=loop_artifact_inputs,
@@ -597,6 +601,7 @@ def build_execution_request_for_item(
         run_in_repo=run_in_repo or item.target_repo_ref,
         save_target=_resolve_save_target(item, stage),
         save_mode=save_mode,
+        file_render_mode=file_render_mode,
         metadata={"stage_label": stage.label, "workflow_name": workflow.name},
     )
 

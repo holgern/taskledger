@@ -19,12 +19,14 @@ def test_get_effective_project_config_applies_overrides(tmp_path: Path) -> None:
     init_project(tmp_path)
     config_path = tmp_path / ".taskledger" / "project.toml"
     config_path.write_text(
-        'default_memory_update_mode = "append"\n',
+        'default_memory_update_mode = "append"\n'
+        'default_file_render_mode = "reference"\n',
         encoding="utf-8",
     )
 
     merged = get_effective_project_config(tmp_path)
     assert merged.default_memory_update_mode == "append"
+    assert merged.default_file_render_mode == "reference"
 
     base = ProjectConfig(default_save_run_reports=False)
     merged_from_base = get_effective_project_config(tmp_path, base_config=base)

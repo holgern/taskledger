@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from taskledger.api import types as api_types
 from taskledger.models import ContextSource as ModelContextSource
-from taskledger.models import ProjectSourceBudget
+from taskledger.models import ExecutionRequest, ProjectContextEntry, ProjectSourceBudget
 
 
 def test_types_module_exposes_short_canonical_names() -> None:
@@ -76,3 +76,58 @@ def test_item_dossier_types_serialize_to_dict() -> None:
     payload = dossier.to_dict()
     assert payload["item_ref"] == "item-0001"
     assert payload["sections"][0]["ref"] == "mem-0001"
+
+
+def test_execution_request_round_trip_for_file_render_mode_and_directories() -> None:
+    request = ExecutionRequest(
+        request_id="req-0001",
+        item_ref="item-0001",
+        workflow_id="wf-1",
+        stage_id="implement",
+        file_inputs=("tests/test_a.py",),
+        directory_inputs=("tests",),
+        file_render_mode="reference",
+    )
+
+    payload = request.to_dict()
+    reloaded = ExecutionRequest.from_dict(payload)
+
+    assert payload["directory_inputs"] == ["tests"]
+    assert payload["file_render_mode"] == "reference"
+    assert reloaded.directory_inputs == ("tests",)
+    assert reloaded.file_render_mode == "reference"
+
+
+def test_execution_request_from_dict_defaults_new_fields() -> None:
+    payload = {
+        "request_id": "req-0001",
+        "item_ref": "item-0001",
+        "workflow_id": "wf-1",
+        "stage_id": "implement",
+    }
+
+    reloaded = ExecutionRequest.from_dict(payload)
+
+    assert reloaded.directory_inputs == ()
+    assert reloaded.file_render_mode == "content"
+
+
+def test_project_context_entry_from_dict_defaults_directory_refs() -> None:
+    payload = {
+        "name": "My Context",
+        "slug": "my-context",
+        "path": "contexts/my-context.json",
+        "memory_refs": ["mem-0001"],
+        "file_refs": ["tests/test_a.py"],
+        "item_refs": ["item-0001"],
+        "inline_texts": [],
+        "loop_latest_refs": [],
+        "summary": None,
+        "created_at": "2026-01-01T00:00:00Z",
+        "updated_at": "2026-01-01T00:00:01Z",
+    }
+
+    entry = ProjectContextEntry.from_dict(payload)
+
+    assert entry.directory_refs == ()
+    assert entry.to_dict()["directory_refs"] == []

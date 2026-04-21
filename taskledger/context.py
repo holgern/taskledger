@@ -8,6 +8,7 @@ from taskledger.errors import LaunchError
 from taskledger.models import (
     ContextBundle,
     ContextSource,
+    FileRenderMode,
     ProjectSourceBudget,
     ProjectState,
     ProjectWorkItem,
@@ -30,12 +31,15 @@ def expand_selection(
     context_names: tuple[str, ...] = (),
     memory_refs: tuple[str, ...] = (),
     file_refs: tuple[str, ...] = (),
+    directory_refs: tuple[str, ...] = (),
     item_refs: tuple[str, ...] = (),
     inline_texts: tuple[str, ...] = (),
     loop_latest_refs: tuple[str, ...] = (),
+    file_render_mode: FileRenderMode = "content",
 ) -> dict[str, tuple[str, ...]]:
     expanded_memory_refs = list(memory_refs)
     expanded_file_refs = list(file_refs)
+    expanded_directory_refs = list(directory_refs)
     expanded_item_refs = list(item_refs)
     expanded_inline_texts = list(inline_texts)
     expanded_loop_latest_refs = list(loop_latest_refs)
@@ -44,6 +48,7 @@ def expand_selection(
         entry = resolve_context(state.paths, context_name)
         expanded_memory_refs.extend(entry.memory_refs)
         expanded_file_refs.extend(entry.file_refs)
+        expanded_directory_refs.extend(entry.directory_refs)
         expanded_item_refs.extend(entry.item_refs)
         expanded_inline_texts.extend(entry.inline_texts)
         expanded_loop_latest_refs.extend(entry.loop_latest_refs)
@@ -51,6 +56,7 @@ def expand_selection(
         "context_inputs": tuple(expanded_context_names),
         "memory_inputs": tuple(expanded_memory_refs),
         "file_inputs": tuple(expanded_file_refs),
+        "directory_inputs": tuple(expanded_directory_refs),
         "item_inputs": tuple(expanded_item_refs),
         "inline_inputs": tuple(expanded_inline_texts),
         "loop_artifact_inputs": tuple(expanded_loop_latest_refs),
@@ -62,22 +68,26 @@ def build_context_sources(
     *,
     memory_refs: tuple[str, ...] = (),
     file_refs: tuple[str, ...] = (),
+    directory_refs: tuple[str, ...] = (),
     item_refs: tuple[str, ...] = (),
     inline_texts: tuple[str, ...] = (),
     loop_latest_refs: tuple[str, ...] = (),
     context_order: tuple[str, ...] = (),
     include_item_memories: bool = True,
+    file_render_mode: FileRenderMode = "content",
     source_budget: ProjectSourceBudget | None = None,
 ) -> tuple[ContextSource, ...]:
     ordered_sources = _collect_context_sources(
         state,
         memory_refs=memory_refs,
         file_refs=file_refs,
+        directory_refs=directory_refs,
         item_refs=item_refs,
         inline_texts=inline_texts,
         loop_latest_refs=loop_latest_refs,
         context_order=context_order,
         include_item_memories=include_item_memories,
+        file_render_mode=file_render_mode,
     )
     deduped_sources, _ = _dedupe_sources(ordered_sources)
     return _apply_source_budget(
@@ -90,22 +100,26 @@ def describe_context_sources(
     *,
     memory_refs: tuple[str, ...] = (),
     file_refs: tuple[str, ...] = (),
+    directory_refs: tuple[str, ...] = (),
     item_refs: tuple[str, ...] = (),
     inline_texts: tuple[str, ...] = (),
     loop_latest_refs: tuple[str, ...] = (),
     context_order: tuple[str, ...] = (),
     include_item_memories: bool = True,
+    file_render_mode: FileRenderMode = "content",
     source_budget: ProjectSourceBudget | None = None,
 ) -> dict[str, object]:
     ordered_sources = _collect_context_sources(
         state,
         memory_refs=memory_refs,
         file_refs=file_refs,
+        directory_refs=directory_refs,
         item_refs=item_refs,
         inline_texts=inline_texts,
         loop_latest_refs=loop_latest_refs,
         context_order=context_order,
         include_item_memories=include_item_memories,
+        file_render_mode=file_render_mode,
     )
     deduped_sources, duplicates_removed = _dedupe_sources(ordered_sources)
     bounded_sources = _apply_source_budget(
@@ -121,7 +135,7 @@ def describe_context_sources(
 def resolve_project_file_ref(
     state: ProjectState, ref: str
 ) -> tuple[Path, str, dict[str, object]]:
-    return _resolve_file_source(state, ref)
+    return _resolve_path_source(state, ref, require_kind="file")
 
 
 def _collect_context_sources(
@@ -129,11 +143,13 @@ def _collect_context_sources(
     *,
     memory_refs: tuple[str, ...] = (),
     file_refs: tuple[str, ...] = (),
+    directory_refs: tuple[str, ...] = (),
     item_refs: tuple[str, ...] = (),
     inline_texts: tuple[str, ...] = (),
     loop_latest_refs: tuple[str, ...] = (),
     context_order: tuple[str, ...] = (),
     include_item_memories: bool = True,
+    file_render_mode: FileRenderMode = "content",
 ) -> tuple[ContextSource, ...]:
     ordered_kinds = _ordered_context_kinds(context_order)
     sources_by_kind: dict[str, list[ContextSource]] = {
@@ -164,14 +180,47 @@ def _collect_context_sources(
         )
 
     for ref in file_refs:
-        file_path, title, metadata = _resolve_file_source(state, ref)
+        file_path, title, metadata = _resolve_path_source(
+            state,
+            ref,
+            require_kind="file",
+        )
+        if file_render_mode == "reference":
+            sources_by_kind["file"].append(
+                _make_reference_source(
+                    ref=ref,
+                    title=title,
+                    metadata=metadata,
+                    is_dir=False,
+                )
+            )
+            continue
         sources_by_kind["file"].append(
             ContextSource(
                 kind="file",
                 ref=ref,
                 title=title,
-                body=_read_text(file_path),
+                body=_read_source_text(file_path),
+                metadata={**metadata, "render_mode": "content"},
+            )
+        )
+
+    for ref in directory_refs:
+        _, title, metadata = _resolve_path_source(
+            state,
+            ref,
+            require_kind="dir",
+        )
+        if file_render_mode != "reference":
+            raise LaunchError(
+                f"Directory refs require file_render_mode='reference': {ref}"
+            )
+        sources_by_kind["file"].append(
+            _make_reference_source(
+                ref=ref,
+                title=title,
                 metadata=metadata,
+                is_dir=True,
             )
         )
 
@@ -206,15 +255,29 @@ def _collect_context_sources(
                     )
                 )
         for file_ref in item.discovered_file_refs:
-            file_path, title, metadata = _resolve_file_source(state, file_ref)
+            file_path, title, metadata = _resolve_path_source(
+                state,
+                file_ref,
+                require_kind="file",
+            )
             metadata = {**metadata, "from_item": item.id}
+            if file_render_mode == "reference":
+                sources_by_kind["file"].append(
+                    _make_reference_source(
+                        ref=file_ref,
+                        title=title,
+                        metadata=metadata,
+                        is_dir=False,
+                    )
+                )
+                continue
             sources_by_kind["file"].append(
                 ContextSource(
                     kind="file",
                     ref=file_ref,
                     title=title,
-                    body=_read_text(file_path),
-                    metadata=metadata,
+                    body=_read_source_text(file_path),
+                    metadata={**metadata, "render_mode": "content"},
                 )
             )
 
@@ -235,7 +298,7 @@ def _collect_context_sources(
                 kind="loop_artifact",
                 ref=ref,
                 title=str(artifact_path.relative_to(state.paths.workspace_root)),
-                body=_read_text(artifact_path),
+                body=_read_source_text(artifact_path),
                 metadata={"path": str(artifact_path)},
             )
         )
@@ -317,6 +380,9 @@ def _source_heading(source: ContextSource) -> str:
     if source.kind == "memory":
         return f"## Memory: {title}"
     if source.kind == "file":
+        metadata = source.metadata or {}
+        if metadata.get("is_dir") is True:
+            return f"## Directory Ref: {title}"
         return f"## File: {title}"
     if source.kind == "item":
         return f"## Item: {title}"
@@ -380,9 +446,13 @@ def _item_source(item: ProjectWorkItem) -> ContextSource:
     )
 
 
-def _resolve_file_source(
-    state: ProjectState, ref: str
+def _resolve_path_source(
+    state: ProjectState,
+    ref: str,
+    *,
+    require_kind: str,
 ) -> tuple[Path, str, dict[str, object]]:
+    workspace_root = state.paths.workspace_root.resolve()
     repo_prefix, repo_relative_path = _split_repo_file_ref(state, ref)
     if repo_prefix is not None and repo_relative_path is not None:
         repo = resolve_repo(state.paths, repo_prefix)
@@ -392,30 +462,53 @@ def _resolve_file_source(
             relative_to_repo = candidate.relative_to(repo_root)
         except ValueError as exc:
             raise LaunchError(f"Invalid project repo file ref: {ref}") from exc
-        if not candidate.exists() or not candidate.is_file():
-            raise LaunchError(f"Project file source does not exist: {ref}")
-        return (
-            candidate,
-            f"{repo.slug}:{relative_to_repo}",
-            {
-                "path": str(candidate),
-                "repo": repo.name,
-                "repo_kind": repo.kind,
-                "repo_path": repo.path,
-                "repo_relative_path": str(relative_to_repo),
-            },
+        _validate_source_path(candidate, ref, require_kind=require_kind)
+        metadata = {
+            "path": str(candidate),
+            "repo": repo.name,
+            "repo_slug": repo.slug,
+            "repo_kind": repo.kind,
+            "repo_path": repo.path,
+            "repo_relative_path": str(relative_to_repo),
+            "repo_ref_explicit": True,
+        }
+        if candidate.is_relative_to(workspace_root):
+            metadata["workspace_relative_path"] = str(
+                candidate.relative_to(workspace_root)
+            )
+        title = _display_title_for_source(
+            workspace_root=workspace_root,
+            candidate=candidate,
+            metadata=metadata,
+            is_dir=require_kind == "dir",
+            prefer_repo_qualified=True,
         )
+        return candidate, title, metadata
+
     candidate = Path(ref).expanduser()
     if not candidate.is_absolute():
-        candidate = state.paths.workspace_root / candidate
+        candidate = workspace_root / candidate
     candidate = candidate.resolve()
-    if not candidate.exists() or not candidate.is_file():
-        raise LaunchError(f"Project file source does not exist: {ref}")
-    return (
-        candidate,
-        str(candidate.relative_to(state.paths.workspace_root)),
-        {"path": str(candidate)},
+    metadata: dict[str, object] = {"path": str(candidate)}
+    if candidate.is_relative_to(workspace_root):
+        metadata["workspace_relative_path"] = str(candidate.relative_to(workspace_root))
+    repo_metadata = _repo_metadata_for_path(state, candidate)
+    if repo_metadata is not None:
+        metadata.update(repo_metadata)
+    metadata.setdefault("repo_ref_explicit", False)
+    if not _is_allowed_source_path(state, candidate):
+        raise LaunchError(
+            f"Project source path is outside workspace and registered repos: {ref}"
+        )
+    _validate_source_path(candidate, ref, require_kind=require_kind)
+    title = _display_title_for_source(
+        workspace_root=workspace_root,
+        candidate=candidate,
+        metadata=metadata,
+        is_dir=require_kind == "dir",
+        prefer_repo_qualified=False,
     )
+    return candidate, title, metadata
 
 
 def _resolve_external_artifact_file(state: ProjectState, ref: str) -> Path:
@@ -442,9 +535,13 @@ def _resolve_external_artifact_file(state: ProjectState, ref: str) -> Path:
     raise LaunchError(f"Artifact does not exist: {ref}")
 
 
-def _read_text(path: Path) -> str:
+def _read_source_text(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise LaunchError(
+            f"Failed to decode {path} as UTF-8. Use reference mode for binary files."
+        ) from exc
     except OSError as exc:
         raise LaunchError(f"Failed to read {path}: {exc}") from exc
 
@@ -472,6 +569,127 @@ def _split_repo_file_ref(
         if normalized_prefix in {repo.name, repo.slug}:
             return repo.name, relative_ref.lstrip("/")
     return None, None
+
+
+def _validate_source_path(candidate: Path, ref: str, *, require_kind: str) -> None:
+    if not candidate.exists():
+        raise LaunchError(f"Project source does not exist: {ref}")
+    if require_kind == "file":
+        if not candidate.is_file():
+            raise LaunchError(f"Project file source is not a file: {ref}")
+        return
+    if require_kind == "dir":
+        if not candidate.is_dir():
+            raise LaunchError(f"Project directory source is not a directory: {ref}")
+        return
+    raise LaunchError(f"Unsupported source kind: {require_kind}")
+
+
+def _is_allowed_source_path(state: ProjectState, candidate: Path) -> bool:
+    workspace_root = state.paths.workspace_root.resolve()
+    if candidate.is_relative_to(workspace_root):
+        return True
+    for repo in state.repos:
+        repo_root = Path(repo.path)
+        if not repo_root.is_absolute():
+            repo_root = workspace_root / repo_root
+        if candidate.is_relative_to(repo_root.resolve()):
+            return True
+    return False
+
+
+def _repo_metadata_for_path(
+    state: ProjectState, candidate: Path
+) -> dict[str, object] | None:
+    workspace_root = state.paths.workspace_root.resolve()
+    for repo in state.repos:
+        repo_root = Path(repo.path)
+        if not repo_root.is_absolute():
+            repo_root = workspace_root / repo_root
+        repo_root = repo_root.resolve()
+        if not candidate.is_relative_to(repo_root):
+            continue
+        relative_to_repo = candidate.relative_to(repo_root)
+        return {
+            "repo": repo.name,
+            "repo_slug": repo.slug,
+            "repo_kind": repo.kind,
+            "repo_path": repo.path,
+            "repo_relative_path": str(relative_to_repo),
+        }
+    return None
+
+
+def _display_title_for_source(
+    *,
+    workspace_root: Path,
+    candidate: Path,
+    metadata: dict[str, object],
+    is_dir: bool,
+    prefer_repo_qualified: bool,
+) -> str:
+    display: str
+    repo = metadata.get("repo_slug")
+    repo_rel = metadata.get("repo_relative_path")
+    if prefer_repo_qualified and isinstance(repo, str) and isinstance(repo_rel, str):
+        display = f"{repo}:{repo_rel}"
+    elif candidate.is_relative_to(workspace_root):
+        display = str(candidate.relative_to(workspace_root))
+    elif isinstance(repo, str) and isinstance(repo_rel, str):
+        display = f"{repo}:{repo_rel}"
+    else:
+        display = str(candidate)
+    if is_dir and not display.endswith("/"):
+        return f"{display}/"
+    return display
+
+
+def _make_reference_source(
+    *,
+    ref: str,
+    title: str,
+    metadata: dict[str, object],
+    is_dir: bool,
+) -> ContextSource:
+    source_metadata = {
+        **metadata,
+        "render_mode": "reference",
+        "body_omitted": True,
+        "is_dir": is_dir,
+    }
+    return ContextSource(
+        kind="file",
+        ref=ref,
+        title=title,
+        body=_render_agent_path_ref(source_metadata),
+        metadata=source_metadata,
+    )
+
+
+def _render_agent_path_ref(metadata: dict[str, object]) -> str:
+    workspace_relative = metadata.get("workspace_relative_path")
+    repo_slug = metadata.get("repo_slug")
+    repo_relative = metadata.get("repo_relative_path")
+    path_value = metadata.get("path")
+    repo_ref_explicit = bool(metadata.get("repo_ref_explicit"))
+    is_dir = bool(metadata.get("is_dir"))
+    if (
+        repo_ref_explicit
+        and isinstance(repo_slug, str)
+        and isinstance(repo_relative, str)
+    ):
+        token_path = f"{repo_slug}/{repo_relative.lstrip('/')}"
+    elif isinstance(workspace_relative, str):
+        token_path = workspace_relative
+    elif isinstance(repo_slug, str) and isinstance(repo_relative, str):
+        token_path = f"{repo_slug}/{repo_relative.lstrip('/')}"
+    elif isinstance(path_value, str):
+        token_path = path_value
+    else:
+        token_path = "unknown-path"
+    if is_dir and not token_path.endswith("/"):
+        token_path = f"{token_path}/"
+    return f"@{token_path}"
 
 
 def _apply_source_budget(

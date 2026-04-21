@@ -58,6 +58,7 @@ def build_project_compose_payload(
             "context_inputs": list(expanded_inputs["context_inputs"]),
             "memory_inputs": list(expanded_inputs["memory_inputs"]),
             "file_inputs": list(expanded_inputs["file_inputs"]),
+            "directory_inputs": list(expanded_inputs.get("directory_inputs", ())),
             "item_inputs": list(expanded_inputs["item_inputs"]),
             "inline_inputs": list(expanded_inputs["inline_inputs"]),
             "loop_artifact_inputs": list(expanded_inputs["loop_artifact_inputs"]),
@@ -119,6 +120,7 @@ def _compose_input_counts(selection: Mapping[str, tuple[str, ...]]) -> dict[str,
         "contexts": len(selection["context_inputs"]),
         "memories": len(selection["memory_inputs"]),
         "files": len(selection["file_inputs"]),
+        "dirs": len(selection.get("directory_inputs", ())),
         "items": len(selection["item_inputs"]),
         "inline": len(selection["inline_inputs"]),
         "loop_artifacts": len(selection["loop_artifact_inputs"]),
@@ -138,6 +140,7 @@ def _compose_explanations(
             "saved contexts expanded into "
             f"{len(expanded_inputs['memory_inputs'])} memory refs, "
             f"{len(expanded_inputs['file_inputs'])} file refs, and "
+            f"{len(expanded_inputs.get('directory_inputs', ()))} directory refs, and "
             f"{len(expanded_inputs['item_inputs'])} item refs"
         )
     if expanded_inputs["file_inputs"] != explicit_inputs["file_inputs"]:
@@ -150,6 +153,7 @@ def _compose_explanations(
         for values in (
             explicit_inputs["memory_inputs"],
             explicit_inputs["file_inputs"],
+            explicit_inputs.get("directory_inputs", ()),
             explicit_inputs["item_inputs"],
             explicit_inputs["inline_inputs"],
             explicit_inputs["loop_artifact_inputs"],
