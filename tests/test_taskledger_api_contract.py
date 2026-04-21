@@ -38,6 +38,47 @@ def test_allowed_module_is_importable(module_name: str) -> None:
     assert mod is not None
 
 
+CLI_AND_PYTHON_MODULES = (
+    "taskledger.api.contexts",
+    "taskledger.api.items",
+    "taskledger.api.memories",
+    "taskledger.api.repos",
+    "taskledger.api.runs",
+    "taskledger.api.validation",
+    "taskledger.api.workflows",
+)
+
+PYTHON_ONLY_MODULES = (
+    "taskledger.api.composition",
+    "taskledger.api.execution_requests",
+    "taskledger.api.runtime_support",
+)
+
+TASKLEDGER_LOCAL_API_MODULES = (
+    "taskledger.api.project",
+    "taskledger.api.search",
+)
+
+
+@pytest.mark.parametrize("module_name", CLI_AND_PYTHON_MODULES)
+def test_cli_and_python_modules_are_in_allowed_boundary(module_name: str) -> None:
+    assert module_name in ALLOWED_MODULES
+
+
+@pytest.mark.parametrize("module_name", PYTHON_ONLY_MODULES)
+def test_python_only_modules_are_in_allowed_boundary(module_name: str) -> None:
+    assert module_name in ALLOWED_MODULES
+
+
+@pytest.mark.parametrize("module_name", TASKLEDGER_LOCAL_API_MODULES)
+def test_taskledger_local_modules_are_importable_but_not_runtildone_boundary(
+    module_name: str,
+) -> None:
+    mod = importlib.import_module(module_name)
+    assert mod is not None
+    assert module_name not in ALLOWED_MODULES
+
+
 # ---------------------------------------------------------------------------
 # Section 1 – Import boundary (forbidden modules)
 # ---------------------------------------------------------------------------

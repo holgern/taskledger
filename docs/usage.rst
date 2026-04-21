@@ -212,9 +212,27 @@ It also exposes first-class workflow inspection and transition commands:
 .. code-block:: bash
 
    taskledger workflow list
+   taskledger workflow save --from-file ./workflow.json
+   taskledger workflow default
+   taskledger workflow set-default custom-item-v1
+   taskledger workflow delete custom-item-v1
    taskledger workflow show default-item-v1
+   taskledger workflow records item-0001
+   taskledger workflow latest item-0001 plan
    taskledger workflow state item-0001
+   taskledger workflow can-enter item-0001 plan
    taskledger workflow transitions item-0001
+   taskledger workflow enter item-0001 plan
+   taskledger workflow mark-running item-0001 plan --request-id req-001
+   taskledger workflow mark-succeeded item-0001 plan --run-id run-001 --summary "Plan complete"
+   taskledger workflow mark-needs-review item-0001 implement --reason "Manual review required"
+   taskledger workflow mark-failed item-0001 implement --summary "Needs follow-up"
+   taskledger workflow approve-stage item-0001 implement
+
+Option B split contract:
+
+- ``execution_requests``, ``composition``, and ``runtime_support`` are stable Python APIs.
+- They are intentionally Python-only and do not have dedicated CLI command groups.
 
 .. code-block:: toml
 

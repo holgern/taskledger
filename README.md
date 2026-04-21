@@ -92,6 +92,11 @@ Top-level commands:
 - `search`, `grep`, `symbols`, `deps`
 - `item`, `memory`, `context`, `repo`, `runs`, `validation`, `workflow`
 
+Split contract (Option B):
+
+- `execution_requests`, `composition`, and `runtime_support` are public Python APIs.
+- They are intentionally Python-only (no dedicated CLI command groups).
+
 Notable lifecycle commands:
 
 - `taskledger context rename|delete`
@@ -99,7 +104,7 @@ Notable lifecycle commands:
 - `taskledger repo remove|set-role|set-default|clear-default`
 - `taskledger runs delete|cleanup|promote-output|promote-report|summary`
 - `taskledger validation list|add|remove|summary`
-- `taskledger workflow list|show|assign|state|stages|transitions`
+- `taskledger workflow list|save|delete|default|set-default|show|assign|state|stages|records|latest|transitions|can-enter|enter|mark-running|mark-succeeded|mark-failed|mark-needs-review|approve-stage`
 
 ## Python API
 
@@ -120,6 +125,10 @@ print(status["counts"])
 ```
 
 See `docs/api.rst` and `API.md` for the supported boundary.
+
+`taskledger.api.project` and `taskledger.api.search` are stable for taskledger
+internals and local integrations, but are outside the runtildone import
+boundary documented in `API.md`.
 
 ## Workflow metadata
 

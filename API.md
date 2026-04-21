@@ -32,6 +32,14 @@ This file defines the official boundary that `runtildone` should use.
 
 If a needed capability is missing, add it under `taskledger.api.*` instead of importing internals.
 
+### Taskledger-local APIs (not in runtildone boundary)
+
+These APIs are stable for the `taskledger` package and CLI internals, but are not part
+of the runtildone import boundary above:
+
+- `taskledger.api.project`
+- `taskledger.api.search`
+
 ## 2. Global API rule
 
 All public CRUD/runtime-composition functions use:
@@ -83,7 +91,32 @@ from taskledger.api.types import (
 )
 ```
 
-## 5. Entity APIs
+## 5. Option B split contract (CLI + Python vs Python-only)
+
+This repository intentionally uses **Option B — split contract**.
+
+### CLI + Python
+
+- `taskledger.api.contexts`
+- `taskledger.api.items`
+- `taskledger.api.memories`
+- `taskledger.api.repos`
+- `taskledger.api.runs`
+- `taskledger.api.validation`
+- `taskledger.api.workflows`
+
+### Python only
+
+- `taskledger.api.execution_requests`
+- `taskledger.api.composition`
+- `taskledger.api.runtime_support`
+
+Notes:
+
+- Python-only modules are part of the stable public API.
+- Lack of dedicated CLI groups for Python-only modules is intentional.
+
+## 6. Entity APIs
 
 ### Contexts (`taskledger.api.contexts`)
 
@@ -183,9 +216,9 @@ Notes:
 - Stage history is durable and separate from generic run records.
 - Existing `.taskledger/project.toml` artifact rules remain readable as a
   compatibility path for `taskledger next` / `report` / `doctor`, but new
-  workflow ownership lives in the workflow APIs and stage records.
+  workflow ownership lives in workflow APIs and stage records.
 
-### Execution requests (`taskledger.api.execution_requests`)
+### Execution requests (`taskledger.api.execution_requests`) [Python only]
 
 Canonical functions:
 
@@ -200,7 +233,7 @@ Notes:
 - `record_execution_outcome(...)` updates durable workflow state after a runner
   finishes.
 
-## 6. Composition API (`taskledger.api.composition`)
+## 7. Composition API (`taskledger.api.composition`) [Python only]
 
 ```python
 from taskledger.api.composition import (
@@ -249,7 +282,7 @@ payload = build_compose_payload(
 )
 ```
 
-## 7. Execution-request flow
+## 8. Execution-request flow (`taskledger.api.execution_requests`) [Python only]
 
 ```python
 from taskledger.api.execution_requests import (
@@ -274,7 +307,7 @@ expanded = expand_execution_request(workspace_root, request=request)
 # record_execution_outcome(workspace_root, request=request, outcome=outcome)
 ```
 
-## 8. Runtime support API (`taskledger.api.runtime_support`)
+## 9. Runtime support API (`taskledger.api.runtime_support`) [Python only]
 
 ```python
 from taskledger.api.runtime_support import (
@@ -296,7 +329,7 @@ save_run_record(workspace_root, run_record)
 repo_root = resolve_repo_root(workspace_root, "main-repo")
 ```
 
-## 9. Migration notes for runtildone
+## 10. Migration notes for runtildone
 
 - Replace all `taskledger.context` and `taskledger.compose` usage with `taskledger.api.composition`.
 - Replace hardcoded stage semantics with `taskledger.api.workflows` and `taskledger.api.execution_requests`.

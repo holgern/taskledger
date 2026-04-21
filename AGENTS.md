@@ -66,6 +66,10 @@ Preserve behavior and meanings for:
 - `taskledger.api.runs.*`
 - `taskledger.api.search.*`
 - `taskledger.api.validation.*`
+- `taskledger.api.workflows.*`
+- `taskledger.api.execution_requests.*`
+- `taskledger.api.composition.*`
+- `taskledger.api.runtime_support.*`
 - dataclass `to_dict()` / `from_dict()` contracts in `taskledger.models`
 
 ### 3.3 CLI surface
@@ -73,8 +77,13 @@ Preserve behavior and meanings for:
 Treat the current command tree as stable:
 
 - top-level: `init`, `status`, `board`, `next`, `doctor`, `report`, `export`, `import`, `snapshot`, `search`, `grep`, `symbols`, `deps`
-- subcommands: `item`, `memory`, `context`, `repo`, `runs`
+- subcommands: `item`, `memory`, `context`, `repo`, `runs`, `validation`, `workflow`
 - global options: `--cwd`, `--json`
+
+Option B split contract is intentional:
+
+- `execution_requests`, `composition`, and `runtime_support` are Python-only APIs.
+- Missing CLI groups for those modules are expected unless explicitly requested.
 
 When changing CLI behavior:
 

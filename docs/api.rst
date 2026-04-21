@@ -6,12 +6,12 @@ The public API is centered around the ``taskledger.api`` modules and the CLI.
 Official API contract
 ---------------------
 
-Only the modules listed below are considered public. Consumers must not import
-from ``taskledger.storage``, ``taskledger.context``, ``taskledger.compose``,
-``taskledger.models``, ``taskledger.links``, or ``taskledger.search`` directly.
-If a needed capability is missing, add it under ``taskledger.api.*``.
+Only the modules listed below are in the runtildone import boundary. Consumers
+must not import from ``taskledger.storage``, ``taskledger.context``,
+``taskledger.compose``, ``taskledger.models``, ``taskledger.links``, or
+``taskledger.search`` directly.
 
-Public modules:
+Runtildone boundary modules:
 
 - ``taskledger.api.contexts``
 - ``taskledger.api.items``
@@ -24,6 +24,35 @@ Public modules:
 - ``taskledger.api.runtime_support``
 - ``taskledger.api.types``
 - ``taskledger.api.workflows``
+
+Taskledger-local stable APIs (not in runtildone boundary):
+
+- ``taskledger.api.project``
+- ``taskledger.api.search``
+
+Split contract (Option B)
+-------------------------
+
+``taskledger`` intentionally uses a split contract for CLI exposure.
+
+CLI + Python:
+
+- ``contexts``
+- ``items``
+- ``memories``
+- ``repos``
+- ``runs``
+- ``validation``
+- ``workflows``
+
+Python only:
+
+- ``execution_requests``
+- ``composition``
+- ``runtime_support``
+
+Python-only modules are stable public APIs; they are intentionally not exposed
+as dedicated CLI command groups.
 
 Global rules
 ^^^^^^^^^^^^^
@@ -159,7 +188,7 @@ Workflows (``taskledger.api.workflows``):
 - ``mark_stage_needs_review``
 - ``approve_stage``
 
-Execution requests (``taskledger.api.execution_requests``):
+Execution requests (``taskledger.api.execution_requests``; Python only):
 
 - ``build_execution_request``
 - ``expand_execution_request``
@@ -180,8 +209,8 @@ and additive workflow metadata used by ``taskledger next`` and
 Runs also expose ``summarize_run_inventory`` through ``taskledger.api.runs`` for
 machine-readable inventory summaries.
 
-Composition API
-^^^^^^^^^^^^^^^
+Composition API (Python only)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ``taskledger.api.composition`` provides source expansion and bundle building:
 
@@ -232,8 +261,8 @@ Minimal flow:
        bundle=bundle,
    )
 
-Runtime support API
-^^^^^^^^^^^^^^^^^^^
+Runtime support API (Python only)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ``taskledger.api.runtime_support`` provides helpers for run artifact layout
 and project configuration resolution:

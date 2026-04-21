@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 from typer.testing import CliRunner
 
 from taskledger.api.runtime_support import save_run_record
 from taskledger.api.types import RunRecord
+from taskledger.api.workflows import resolve_workflow
 from taskledger.cli import app
 
 
@@ -430,6 +432,209 @@ def test_taskledger_workflow_commands_cover_show_state_and_transitions(
     assert '"workflow_id": "default-item-v1"' in state_result.stdout
     assert transitions_result.exit_code == 0
     assert "plan" in transitions_result.stdout
+
+
+def test_taskledger_workflow_commands_cover_parity_contract(tmp_path: Path) -> None:
+    runner.invoke(app, ["--cwd", str(tmp_path), "init"])
+    runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "item",
+            "create",
+            "workflow-contract",
+            "--text",
+            "Exercise workflow parity commands.",
+        ],
+    )
+    runner.invoke(app, ["--cwd", str(tmp_path), "item", "approve", "item-0001"])
+
+    base_workflow = resolve_workflow(tmp_path, "default-item-v1")
+    custom_workflow = replace(
+        base_workflow,
+        workflow_id="custom-item-v2",
+        name="Custom item workflow v2",
+        default_for_items=False,
+    )
+    workflow_path = tmp_path / "workflow.json"
+    workflow_path.write_text(
+        json.dumps(custom_workflow.to_dict()) + "\n",
+        encoding="utf-8",
+    )
+
+    save_result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "workflow",
+            "save",
+            "--from-file",
+            str(workflow_path),
+        ],
+    )
+    default_before = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "--json", "workflow", "default"],
+    )
+    set_default = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "--json", "workflow", "set-default", "custom-item-v2"],
+    )
+    assign_result = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "workflow", "assign", "item-0001", "custom-item-v2"],
+    )
+    can_enter = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "workflow",
+            "can-enter",
+            "item-0001",
+            "plan",
+        ],
+    )
+    enter_result = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "workflow", "enter", "item-0001", "plan"],
+    )
+    mark_running = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "workflow",
+            "mark-running",
+            "item-0001",
+            "plan",
+            "--request-id",
+            "req-001",
+        ],
+    )
+    mark_succeeded = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "workflow",
+            "mark-succeeded",
+            "item-0001",
+            "plan",
+            "--run-id",
+            "run-001",
+            "--summary",
+            "Completed planning",
+            "--save-target",
+            "mem-0001",
+            "--validation-record",
+            "val-0001",
+        ],
+    )
+    latest_result = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "--json", "workflow", "latest", "item-0001", "plan"],
+    )
+    records_result = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "--json", "workflow", "records", "item-0001"],
+    )
+    mark_needs_review = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "workflow",
+            "mark-needs-review",
+            "item-0001",
+            "implement",
+            "--reason",
+            "Manual check requested",
+        ],
+    )
+    mark_failed = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "workflow",
+            "mark-failed",
+            "item-0001",
+            "implement",
+            "--summary",
+            "Validation failed",
+        ],
+    )
+    delete_result = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "--json", "workflow", "delete", "custom-item-v2"],
+    )
+    default_after = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "--json", "workflow", "default"],
+    )
+
+    assert save_result.exit_code == 0
+    assert '"workflow_id": "custom-item-v2"' in save_result.stdout
+    assert default_before.exit_code == 0
+    assert '"workflow_id": "default-item-v1"' in default_before.stdout
+    assert set_default.exit_code == 0
+    assert '"default_for_items": true' in set_default.stdout
+    assert assign_result.exit_code == 0
+    assert "assigned workflow custom-item-v2 to item-0001" in assign_result.stdout
+    assert can_enter.exit_code == 0
+    assert '"allowed": true' in can_enter.stdout
+    assert enter_result.exit_code == 0
+    assert "entered workflow stage plan for item-0001" in enter_result.stdout
+    assert mark_running.exit_code == 0
+    assert '"status": "running"' in mark_running.stdout
+    assert '"request_id": "req-001"' in mark_running.stdout
+    assert mark_succeeded.exit_code == 0
+    assert '"status": "succeeded"' in mark_succeeded.stdout
+    assert '"run_id": "run-001"' in mark_succeeded.stdout
+    assert latest_result.exit_code == 0
+    assert '"stage_id": "plan"' in latest_result.stdout
+    assert '"status": "succeeded"' in latest_result.stdout
+    assert records_result.exit_code == 0
+    assert '"record_id":' in records_result.stdout
+    assert mark_needs_review.exit_code == 0
+    assert '"status": "needs_review"' in mark_needs_review.stdout
+    assert mark_failed.exit_code == 0
+    assert '"status": "failed"' in mark_failed.stdout
+    assert delete_result.exit_code == 0
+    assert '"deleted": true' in delete_result.stdout
+    assert default_after.exit_code == 0
+    assert '"workflow_id": "default-item-v1"' in default_after.stdout
+
+
+def test_taskledger_workflow_save_rejects_invalid_json(tmp_path: Path) -> None:
+    runner.invoke(app, ["--cwd", str(tmp_path), "init"])
+    invalid_payload = tmp_path / "invalid-workflow.json"
+    invalid_payload.write_text("{", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "workflow",
+            "save",
+            "--from-file",
+            str(invalid_payload),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert '"error": "Workflow file must be valid JSON:' in result.stdout
 
 
 def _create_run(

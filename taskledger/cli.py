@@ -46,7 +46,7 @@ runs_app = typer.Typer(add_completion=False, help="Inspect saved runs.")
 validation_app = typer.Typer(add_completion=False, help="Manage validation records.")
 workflow_app = typer.Typer(
     add_completion=False,
-    help="Inspect workflow definitions and state.",
+    help="Manage workflow definitions and stage state.",
 )
 app.add_typer(item_app, name="item")
 app.add_typer(memory_app, name="memory")
