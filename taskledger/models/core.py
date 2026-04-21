@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -608,11 +609,7 @@ class ProjectRunRecord:
         save_mode = _optional_string_value(data, "save_mode")
         if save_mode is not None and save_mode not in {"replace", "append", "prepend"}:
             raise ValueError(f"Unsupported save mode: {save_mode}")
-        stage = _optional_string_value(data, "stage")
-        if stage == "implement":
-            stage = "implementation"
-        if stage == "validate":
-            stage = "validation"
+        stage = _normalize_project_stage_value(_optional_string_value(data, "stage"))
         if stage is not None and stage not in {
             "analysis",
             "state",
@@ -1056,6 +1053,22 @@ def _optional_string_value(data: dict[str, object], key: str) -> str | None:
     if not isinstance(value, str):
         raise ValueError(f"Expected string for {key}")
     return value
+
+
+_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+_CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def _normalize_project_stage_value(value: str | None) -> str | None:
+    if value is None:
+        return None
+    sanitized = _ANSI_ESCAPE_RE.sub("", value)
+    sanitized = _CONTROL_CHAR_RE.sub("", sanitized).strip()
+    if sanitized == "implement":
+        return "implementation"
+    if sanitized in {"validate", "validate_summary"}:
+        return "validation"
+    return sanitized
 
 
 def _string_tuple(value: object) -> tuple[str, ...]:

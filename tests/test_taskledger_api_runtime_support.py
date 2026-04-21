@@ -100,6 +100,40 @@ def test_show_run_accepts_legacy_validate_stage(tmp_path: Path) -> None:
     assert loaded.stage == "validation"
 
 
+def test_show_run_accepts_validate_summary_stage(tmp_path: Path) -> None:
+    init_project(tmp_path)
+
+    layout = create_run_artifact_layout(tmp_path, origin="runtime")
+    run_dir = Path(layout.run_dir)
+    run_id = run_dir.name
+    payload = _run_record(run_id).to_dict()
+    payload["stage"] = "validate_summary"
+    (run_dir / "record.json").write_text(
+        json.dumps(payload, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    loaded = show_run(tmp_path, run_id)
+    assert loaded.stage == "validation"
+
+
+def test_show_run_strips_terminal_escape_noise_from_stage(tmp_path: Path) -> None:
+    init_project(tmp_path)
+
+    layout = create_run_artifact_layout(tmp_path, origin="runtime")
+    run_dir = Path(layout.run_dir)
+    run_id = run_dir.name
+    payload = _run_record(run_id).to_dict()
+    payload["stage"] = "impl\x1b[Iement"
+    (run_dir / "record.json").write_text(
+        json.dumps(payload, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    loaded = show_run(tmp_path, run_id)
+    assert loaded.stage == "implementation"
+
+
 def _run_record(run_id: str) -> RunRecord:
     base = f".taskledger/runs/{run_id}"
     return RunRecord(
