@@ -1,7 +1,203 @@
 API reference
 =============
 
-The public API is centered around the `taskledger.api` modules and the CLI.
+The public API is centered around the ``taskledger.api`` modules and the CLI.
+
+Official API contract
+---------------------
+
+Only the modules listed below are considered public. Consumers must not import
+from ``taskledger.storage``, ``taskledger.context``, ``taskledger.compose``,
+``taskledger.models``, ``taskledger.links``, or ``taskledger.search`` directly.
+If a needed capability is missing, add it under ``taskledger.api.*``.
+
+Global rules
+^^^^^^^^^^^^^
+
+All public CRUD and composition functions accept ``workspace_root: Path`` as
+their first argument. Internal ``ProjectPaths`` objects must not cross the
+boundary.
+
+Errors
+^^^^^^
+
+.. code-block:: python
+
+   from taskledger.errors import (
+       TaskledgerError,
+       LaunchError,
+       InvalidPromptError,
+       UnsupportedAgentError,
+       AgentNotInstalledError,
+   )
+
+DTOs
+^^^^
+
+Use only ``taskledger.api.types`` for data-transfer objects:
+
+.. code-block:: python
+
+   from taskledger.api.types import (
+       ContextEntry,
+       WorkItem,
+       Memory,
+       Repo,
+       RunRecord,
+       ValidationRecord,
+       ProjectConfig,
+       SourceBudget,
+       ExpandedSelection,
+       ContextSource,
+       ComposedBundle,
+       ExecutionOptions,
+       ExecutionPreviewRecord,
+       ExecutionOutcomeRecord,
+       ExecutionStatus,
+   )
+
+Entity modules
+^^^^^^^^^^^^^^
+
+Contexts (``taskledger.api.contexts``):
+
+- ``save_context``
+- ``list_contexts``
+- ``resolve_context``
+- ``rename_context``
+- ``delete_context``
+
+Items (``taskledger.api.items``):
+
+- ``create_item``
+- ``list_items``
+- ``show_item``
+- ``approve_item``
+- ``reopen_item``
+- ``close_item``
+- ``next_action_payload``
+
+Memories (``taskledger.api.memories``):
+
+- ``create_memory``
+- ``list_memories``
+- ``resolve_memory``
+- ``read_memory_body``
+- ``refresh_memory``
+- ``rename_memory``
+- ``write_memory_body``
+- ``update_memory_body``
+- ``update_memory_tags``
+- ``delete_memory``
+
+Repos (``taskledger.api.repos``):
+
+- ``add_repo``
+- ``list_repos``
+- ``resolve_repo``
+- ``resolve_repo_root``
+- ``set_repo_role``
+- ``set_default_execution_repo``
+- ``clear_default_execution_repo``
+- ``remove_repo``
+
+Runs (``taskledger.api.runs``):
+
+- ``list_runs``
+- ``show_run``
+- ``delete_run``
+- ``cleanup_runs``
+- ``promote_run_output``
+- ``promote_run_report``
+
+Validation (``taskledger.api.validation``):
+
+- ``list_validation_records``
+- ``append_validation_record``
+- ``remove_validation_records``
+
+Composition API
+^^^^^^^^^^^^^^^
+
+``taskledger.api.composition`` provides source expansion and bundle building:
+
+.. code-block:: python
+
+   from taskledger.api.composition import (
+       SelectionRequest,
+       expand_selection,
+       build_sources,
+       compose_bundle,
+       describe_sources,
+       repo_refs_for_sources,
+       build_compose_payload,
+   )
+
+Minimal flow:
+
+.. code-block:: python
+
+   from taskledger.api.types import SourceBudget
+
+   request = SelectionRequest(
+       context_names=("my-context",),
+       memory_refs=("mem-0001",),
+   )
+   expanded = expand_selection(workspace_root, request)
+   sources = build_sources(
+       workspace_root,
+       expanded,
+       default_context_order=("memory", "file", "item", "inline", "loop_artifact"),
+       source_budget=SourceBudget(max_source_chars=12000, max_total_chars=48000),
+   )
+   bundle = compose_bundle(prompt=user_prompt, sources=sources)
+   payload = build_compose_payload(
+       context_name="my-context",
+       prompt=user_prompt,
+       explicit_inputs={
+           "context_inputs": request.context_names,
+           "memory_inputs": request.memory_refs,
+           "file_inputs": request.file_refs,
+           "item_inputs": request.item_refs,
+           "inline_inputs": request.inline_texts,
+           "loop_artifact_inputs": request.loop_latest_refs,
+       },
+       selected_repo_refs=repo_refs_for_sources(sources),
+       run_in_repo=None,
+       source_budget=SourceBudget(max_source_chars=12000, max_total_chars=48000),
+       bundle=bundle,
+   )
+
+Runtime support API
+^^^^^^^^^^^^^^^^^^^
+
+``taskledger.api.runtime_support`` provides helpers for run artifact layout
+and project configuration resolution:
+
+.. code-block:: python
+
+   from taskledger.api.runtime_support import (
+       RunArtifactPaths,
+       get_effective_project_config,
+       create_run_artifact_layout,
+       save_run_record,
+       resolve_repo_root,
+   )
+
+Typical flow:
+
+.. code-block:: python
+
+   config = get_effective_project_config(workspace_root)
+   layout = create_run_artifact_layout(workspace_root, origin="runtime")
+   # runtime writes outputs into layout.run_dir
+   save_run_record(workspace_root, run_record)
+   repo_root = resolve_repo_root(workspace_root, "main-repo")
+
+Autogenerated reference
+-----------------------
+
+The sections below are generated from module docstrings.
 
 Project API
 -----------

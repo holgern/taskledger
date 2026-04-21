@@ -214,3 +214,4 @@ context_taskledger.md
 context_taskledger.index.json
 *.unpack.py
 workspace/
+.taskledger/
