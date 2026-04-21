@@ -609,6 +609,8 @@ class ProjectRunRecord:
         if save_mode is not None and save_mode not in {"replace", "append", "prepend"}:
             raise ValueError(f"Unsupported save mode: {save_mode}")
         stage = _optional_string_value(data, "stage")
+        if stage == "implement":
+            stage = "implementation"
         if stage is not None and stage not in {
             "analysis",
             "state",

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from taskledger.api.project import init_project
@@ -63,6 +64,23 @@ def test_resolve_repo_root_via_runtime_support(tmp_path: Path) -> None:
 
     resolved = resolve_repo_root(tmp_path, "main-repo")
     assert resolved == repo_dir.resolve()
+
+
+def test_show_run_accepts_legacy_implement_stage(tmp_path: Path) -> None:
+    init_project(tmp_path)
+
+    layout = create_run_artifact_layout(tmp_path, origin="runtime")
+    run_dir = Path(layout.run_dir)
+    run_id = run_dir.name
+    payload = _run_record(run_id).to_dict()
+    payload["stage"] = "implement"
+    (run_dir / "record.json").write_text(
+        json.dumps(payload, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    loaded = show_run(tmp_path, run_id)
+    assert loaded.stage == "implementation"
 
 
 def _run_record(run_id: str) -> RunRecord:
