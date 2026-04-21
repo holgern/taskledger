@@ -69,6 +69,17 @@ def read_text_input(*, text: str | None, from_file: Path | None) -> str:
     return text
 
 
+def write_text_output(path: Path, text: str) -> Path:
+    target = path.expanduser()
+    parent = target.parent
+    try:
+        parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text, encoding="utf-8")
+    except OSError as exc:
+        raise LaunchError(f"Failed to write {target}: {exc}") from exc
+    return target
+
+
 def human_kv(title: str, rows: list[tuple[str, object]]) -> str:
     lines = [title]
     for key, value in rows:

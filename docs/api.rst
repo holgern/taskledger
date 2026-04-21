@@ -93,6 +93,8 @@ Use only ``taskledger.api.types`` for data-transfer objects:
        ExpandedSelection,
        ContextSource,
        ComposedBundle,
+       ItemDossier,
+       ItemDossierSection,
        ExecutionOptions,
        ExecutionPreviewRecord,
        ExecutionOutcomeRecord,
@@ -133,6 +135,8 @@ Items (``taskledger.api.items``):
 - ``rename_item_memory``
 - ``retag_item_memory``
 - ``delete_item_memory``
+- ``item_dossier``
+- ``render_item_dossier_markdown``
 - ``next_action_payload``
 
 Memories (``taskledger.api.memories``):
@@ -243,12 +247,14 @@ Minimal flow:
    request = SelectionRequest(
        context_names=("my-context",),
        memory_refs=("mem-0001",),
+       include_item_memories=False,
    )
    expanded = expand_selection(workspace_root, request)
    sources = build_sources(
        workspace_root,
        expanded,
        default_context_order=("memory", "file", "item", "inline", "loop_artifact"),
+       include_item_memories=request.include_item_memories,
        source_budget=SourceBudget(max_source_chars=12000, max_total_chars=48000),
    )
    bundle = compose_bundle(prompt=user_prompt, sources=sources)

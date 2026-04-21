@@ -136,6 +136,8 @@ DTO_NAMES = (
     "ExpandedSelection",
     "ContextSource",
     "ComposedBundle",
+    "ItemDossier",
+    "ItemDossierSection",
     "ExecutionOptions",
     "ExecutionPreviewRecord",
     "ExecutionOutcomeRecord",
@@ -176,6 +178,8 @@ ENTITY_CONTRACT: dict[str, tuple[str, ...]] = {
         "approve_item",
         "reopen_item",
         "close_item",
+        "item_dossier",
+        "render_item_dossier_markdown",
         "next_action_payload",
     ),
     "taskledger.api.memories": (

@@ -3,14 +3,17 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
-from taskledger.api.types import Memory, WorkItem
+from taskledger.api.types import ItemDossier, ItemDossierSection, Memory, WorkItem
 from taskledger.errors import LaunchError
 from taskledger.models import utc_now_iso
 from taskledger.storage import (
     create_memory,
     create_work_item,
     delete_memory,
+    load_contexts,
     load_project_state,
+    load_run_records,
+    load_validation_records,
     load_work_items,
     read_memory_body,
     rename_memory,
@@ -21,7 +24,11 @@ from taskledger.storage import (
     update_work_item,
     write_memory_body,
 )
-from taskledger.workflow import default_workflow_id_for_paths
+from taskledger.workflow import (
+    default_workflow_id_for_paths,
+    item_stage_records_for_paths,
+    item_workflow_state_payload,
+)
 
 _ITEM_MEMORY_ROLE_FIELDS = {
     "analysis": "analysis_memory_ref",
@@ -30,6 +37,23 @@ _ITEM_MEMORY_ROLE_FIELDS = {
     "implementation": "implementation_memory_ref",
     "validation": "validation_memory_ref",
     "save_target": "save_target_ref",
+}
+
+_DEFAULT_DOSSIER_ROLES = (
+    "analysis",
+    "state",
+    "plan",
+    "implementation",
+    "validation",
+)
+
+_ITEM_MEMORY_ROLE_TITLES = {
+    "analysis": "Analysis",
+    "state": "Current State",
+    "plan": "Plan",
+    "implementation": "Implementation",
+    "validation": "Validation",
+    "save_target": "Save Target",
 }
 
 
@@ -302,6 +326,118 @@ def update_item(
     return update_work_item(paths, ref, updated)
 
 
+def item_dossier(
+    workspace_root: Path,
+    item_ref: str,
+    *,
+    roles: tuple[str, ...] | None = None,
+    include_empty: bool = False,
+    include_runs: bool = True,
+    include_validation: bool = True,
+    include_workflow: bool = True,
+    include_contexts: bool = True,
+) -> ItemDossier:
+    state = load_project_state(workspace_root, recent_runs_limit=0)
+    item = resolve_work_item(state.paths, item_ref)
+    selected_roles = _normalize_dossier_roles(roles)
+    memory_refs = _memory_refs_for_item(item)
+    stage_records = item_stage_records_for_paths(
+        state.paths,
+        item.id,
+        workflow_id=item.workflow_id or default_workflow_id_for_paths(state.paths),
+    )
+
+    sections: list[ItemDossierSection] = []
+    sections.append(_item_header_section(item))
+    sections.append(
+        ItemDossierSection(
+            kind="description",
+            title="Description",
+            ref=item.id,
+            body=item.description.strip(),
+        )
+    )
+    sections.append(
+        _list_section(
+            kind="acceptance_criteria",
+            title="Acceptance Criteria",
+            values=item.acceptance_criteria,
+        )
+    )
+    sections.append(
+        _list_section(
+            kind="validation_checklist",
+            title="Validation Checklist",
+            values=item.validation_checklist,
+        )
+    )
+    sections.append(_item_details_section(item))
+    sections.append(_memory_overview_section(item, memory_refs))
+    for role in selected_roles:
+        memory_section = _memory_body_section(
+            state.paths,
+            item,
+            role=role,
+            memory_ref=memory_refs.get(role),
+            include_empty=include_empty,
+        )
+        if memory_section is not None:
+            sections.append(memory_section)
+
+    if include_workflow:
+        workflow_payload = item_workflow_state_payload(state, item)
+        sections.extend(
+            _workflow_sections(
+                workflow_payload=workflow_payload,
+                stage_records=stage_records,
+            )
+        )
+    if include_runs:
+        sections.append(_runs_section(state.paths, item, stage_records=stage_records))
+    if include_validation:
+        sections.append(
+            _validation_section(
+                state.paths,
+                item,
+                stage_records=stage_records,
+            )
+        )
+    if include_contexts:
+        sections.append(_referencing_contexts_section(state.paths, item))
+
+    dossier_sections = tuple(
+        section
+        for section in sections
+        if section.body.strip() or section.kind in {"header", "memory_overview"}
+    )
+    metadata = {
+        "item": item.to_dict(),
+        "memory_refs": memory_refs,
+        "selected_roles": list(selected_roles),
+        "include_empty": include_empty,
+        "include_runs": include_runs,
+        "include_validation": include_validation,
+        "include_workflow": include_workflow,
+        "include_contexts": include_contexts,
+        "stage_record_count": len(stage_records),
+    }
+    return ItemDossier(
+        item_ref=item.id,
+        title=item.title,
+        sections=dossier_sections,
+        metadata=metadata,
+    )
+
+
+def render_item_dossier_markdown(dossier: ItemDossier) -> str:
+    lines: list[str] = []
+    for section in dossier.sections:
+        lines.append(section.title)
+        lines.append(section.body.rstrip() if section.body.strip() else "(empty)")
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def next_action_payload(item: WorkItem) -> dict[str, object]:
     if item.status == "draft":
         action = "plan"
@@ -338,6 +474,353 @@ def next_action_payload(item: WorkItem) -> dict[str, object]:
         "actor": actor,
         "reason": reason,
     }
+
+
+def _normalize_dossier_roles(roles: tuple[str, ...] | None) -> tuple[str, ...]:
+    if roles is None:
+        return _DEFAULT_DOSSIER_ROLES
+    normalized: list[str] = []
+    for role in roles:
+        candidate = role.strip().lower()
+        _memory_field_for_role(candidate)
+        if candidate in normalized:
+            continue
+        normalized.append(candidate)
+    return tuple(normalized)
+
+
+def _item_header_section(item: WorkItem) -> ItemDossierSection:
+    body = _kv_block(
+        [
+            ("item_id", item.id),
+            ("slug", item.slug),
+            ("title", item.title),
+            ("status", item.status),
+            ("stage", item.stage),
+            ("workflow_id", item.workflow_id),
+            ("workflow_status", item.workflow_status),
+            ("current_stage", item.current_stage_id),
+            ("target_repo", item.target_repo_ref),
+            ("save_target_ref", item.save_target_ref),
+        ]
+    )
+    return ItemDossierSection(
+        kind="header",
+        title=f"ITEM DOSSIER {item.id}",
+        ref=item.id,
+        body=body,
+    )
+
+
+def _item_details_section(item: WorkItem) -> ItemDossierSection:
+    body = _kv_block(
+        [
+            ("labels", ", ".join(item.labels) or "(none)"),
+            ("dependencies", ", ".join(item.depends_on) or "(none)"),
+            ("notes", item.notes or "(none)"),
+            ("owner", item.owner or "(none)"),
+            ("estimate", item.estimate or "(none)"),
+            ("linked_memories", ", ".join(item.linked_memories) or "(none)"),
+            ("linked_runs", ", ".join(item.linked_runs) or "(none)"),
+            ("linked_loop_tasks", ", ".join(item.linked_loop_tasks) or "(none)"),
+        ]
+    )
+    return ItemDossierSection(
+        kind="details",
+        title="Item Details",
+        ref=item.id,
+        body=body,
+    )
+
+
+def _memory_overview_section(
+    item: WorkItem,
+    memory_refs: dict[str, str | None],
+) -> ItemDossierSection:
+    body = _kv_block(
+        [
+            (
+                role,
+                memory_refs.get(role) or "(none)",
+            )
+            for role in _ITEM_MEMORY_ROLE_FIELDS
+        ]
+    )
+    return ItemDossierSection(
+        kind="memory_overview",
+        title="Memory Overview",
+        ref=item.id,
+        body=body,
+    )
+
+
+def _memory_body_section(
+    paths,
+    item: WorkItem,
+    *,
+    role: str,
+    memory_ref: str | None,
+    include_empty: bool,
+) -> ItemDossierSection | None:
+    if memory_ref is None:
+        if not include_empty:
+            return None
+        return ItemDossierSection(
+            kind="memory_body",
+            title=_ITEM_MEMORY_ROLE_TITLES[role],
+            ref=None,
+            body="(empty)",
+            metadata={"role": role, "memory_ref": None},
+        )
+    try:
+        memory = resolve_memory(paths, memory_ref)
+        body = read_memory_body(paths, memory).rstrip()
+    except LaunchError as exc:
+        body = f"(missing memory: {memory_ref}; {exc})"
+        return ItemDossierSection(
+            kind="memory_body",
+            title=_ITEM_MEMORY_ROLE_TITLES[role],
+            ref=memory_ref,
+            body=body,
+            metadata={"role": role, "memory_ref": memory_ref, "missing": True},
+        )
+    if not body:
+        if not include_empty:
+            return None
+        body = "(empty)"
+    return ItemDossierSection(
+        kind="memory_body",
+        title=_ITEM_MEMORY_ROLE_TITLES[role],
+        ref=memory.id,
+        body=body,
+        metadata={
+            "role": role,
+            "memory_ref": memory.id,
+            "memory_name": memory.name,
+            "memory_slug": memory.slug,
+        },
+    )
+
+
+def _workflow_sections(
+    *,
+    workflow_payload: dict[str, object],
+    stage_records: list,
+) -> tuple[ItemDossierSection, ItemDossierSection]:
+    workflow = workflow_payload.get("workflow")
+    state = workflow_payload.get("state")
+    stages = workflow_payload.get("stages")
+    assert isinstance(workflow, dict)
+    assert isinstance(state, dict)
+    assert isinstance(stages, list)
+    next_stage = next(
+        (
+            stage
+            for stage in stages
+            if isinstance(stage, dict) and stage.get("complete") is False
+        ),
+        None,
+    )
+    blocked_by: list[str] = []
+    if next_stage is not None and isinstance(next_stage.get("blocked_by"), list):
+        blocked_by = [str(item) for item in next_stage.get("blocked_by", ())]
+    elif isinstance(state.get("blocking_reasons"), list):
+        blocked_by = [str(item) for item in state.get("blocking_reasons", ())]
+    workflow_body = _kv_block(
+        [
+            (
+                "workflow_id",
+                str(state.get("workflow_id") or workflow.get("workflow_id")),
+            ),
+            ("workflow_status", str(state.get("workflow_status") or "-")),
+            ("current_stage", str(state.get("current_stage_id") or "-")),
+            ("stage_status", str(state.get("stage_status") or "-")),
+            (
+                "allowed_next_stages",
+                ", ".join(str(item) for item in state.get("allowed_next_stages", ()))
+                or "(none)",
+            ),
+            (
+                "pending_approvals",
+                ", ".join(str(item) for item in state.get("pending_approvals", ()))
+                or "(none)",
+            ),
+            ("blocked_by", ", ".join(blocked_by) or "(none)"),
+            (
+                "next_artifact",
+                str(next_stage.get("stage_id"))
+                if isinstance(next_stage, dict)
+                else "(none)",
+            ),
+            (
+                "next_artifact_status",
+                str(next_stage.get("summary_status"))
+                if isinstance(next_stage, dict)
+                else "(none)",
+            ),
+        ]
+    )
+    stage_lines = [
+        (
+            f"- {record.record_id}  stage={record.stage_id}  status={record.status}"
+            + (
+                f"  run={record.run_id}"
+                if record.run_id is not None
+                else ""
+            )
+        ).strip()
+        for record in sorted(
+            stage_records,
+            key=lambda record: (
+                record.updated_at or "",
+                record.created_at or "",
+                record.record_id,
+            ),
+        )[-5:]
+    ]
+    stage_body = "\n".join(stage_lines) if stage_lines else "(none)"
+    return (
+        ItemDossierSection(
+            kind="workflow",
+            title="Related Workflow Status",
+            ref=str(state.get("item_ref") or ""),
+            body=workflow_body,
+            metadata={"state": state, "workflow": workflow},
+        ),
+        ItemDossierSection(
+            kind="stage_records",
+            title="Latest Stage Records",
+            ref=str(state.get("item_ref") or ""),
+            body=stage_body,
+            metadata={"count": len(stage_records)},
+        ),
+    )
+
+
+def _runs_section(paths, item: WorkItem, *, stage_records: list) -> ItemDossierSection:
+    run_records = load_run_records(paths, limit=None)
+    run_by_id = {record.run_id: record for record in run_records}
+    ordered_run_ids: list[str] = []
+    for run_id in item.linked_runs:
+        if run_id not in ordered_run_ids:
+            ordered_run_ids.append(run_id)
+    for record in stage_records:
+        if record.run_id and record.run_id not in ordered_run_ids:
+            ordered_run_ids.append(record.run_id)
+    for record in run_records:
+        if record.project_item_ref == item.id and record.run_id not in ordered_run_ids:
+            ordered_run_ids.append(record.run_id)
+
+    lines: list[str] = []
+    serialized_runs: list[dict[str, object]] = []
+    for run_id in ordered_run_ids:
+        run = run_by_id.get(run_id)
+        if run is None:
+            lines.append(f"- {run_id}  (missing)")
+            serialized_runs.append({"run_id": run_id, "missing": True})
+            continue
+        lines.append(
+            f"- {run.run_id}  {run.status}  stage={run.stage or '-'}  "
+            f"started={run.started_at}"
+        )
+        serialized_runs.append(run.to_dict())
+    body = "\n".join(lines) if lines else "(none)"
+    return ItemDossierSection(
+        kind="runs",
+        title="Related Runs",
+        ref=item.id,
+        body=body,
+        metadata={"runs": serialized_runs},
+    )
+
+
+def _validation_section(
+    paths,
+    item: WorkItem,
+    *,
+    stage_records: list,
+) -> ItemDossierSection:
+    validation_records = load_validation_records(paths)
+    stage_validation_refs = {
+        ref
+        for record in stage_records
+        for ref in record.validation_record_refs
+    }
+    selected: list[dict[str, object]] = []
+    selected_ids: set[str] = set()
+    for record in validation_records:
+        record_id = str(record.get("id", ""))
+        project_item_ref = str(record.get("project_item_ref", ""))
+        if project_item_ref != item.id and record_id not in stage_validation_refs:
+            continue
+        if record_id in selected_ids:
+            continue
+        selected.append(record)
+        selected_ids.add(record_id)
+    for validation_id in sorted(stage_validation_refs):
+        if validation_id in selected_ids:
+            continue
+        selected.append({"id": validation_id, "missing": True})
+
+    lines = [
+        (
+            f"- {record.get('id')}  {record.get('kind', '-')}"
+            f"  {record.get('status', '-')}"
+            f"  memory={record.get('memory_ref', '-')}"
+        )
+        if not record.get("missing")
+        else f"- {record.get('id')}  (missing)"
+        for record in selected
+    ]
+    body = "\n".join(lines) if lines else "(none)"
+    return ItemDossierSection(
+        kind="validation",
+        title="Related Validation Records",
+        ref=item.id,
+        body=body,
+        metadata={"records": selected},
+    )
+
+
+def _referencing_contexts_section(paths, item: WorkItem) -> ItemDossierSection:
+    contexts = load_contexts(paths)
+    references = [
+        context
+        for context in contexts
+        if item.id in context.item_refs or item.slug in context.item_refs
+    ]
+    lines = [
+        (
+            f"- {context.slug} ({context.name})  "
+            f"memories={len(context.memory_refs)} files={len(context.file_refs)} "
+            f"items={len(context.item_refs)}"
+        )
+        for context in references
+    ]
+    body = "\n".join(lines) if lines else "(none)"
+    return ItemDossierSection(
+        kind="contexts",
+        title="Contexts Referencing This Item",
+        ref=item.id,
+        body=body,
+        metadata={"contexts": [context.to_dict() for context in references]},
+    )
+
+
+def _list_section(kind: str, title: str, values: tuple[str, ...]) -> ItemDossierSection:
+    cleaned = [value.strip() for value in values if value.strip()]
+    body = "\n".join(f"- {value}" for value in cleaned) if cleaned else "(none)"
+    return ItemDossierSection(
+        kind=kind,
+        title=title,
+        ref=None,
+        body=body,
+        metadata={"count": len(cleaned)},
+    )
+
+
+def _kv_block(rows: list[tuple[str, object]]) -> str:
+    return "\n".join(f"{key}: {value}" for key, value in rows if value is not None)
 
 
 def _approve_item(paths, item: WorkItem) -> WorkItem:

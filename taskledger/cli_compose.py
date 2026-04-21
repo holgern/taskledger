@@ -51,6 +51,13 @@ def register_compose_commands(app: typer.Typer) -> None:
             list[str] | None,
             typer.Option("--loop-latest", help="Loop latest refs. Repeatable."),
         ] = None,
+        item_memories: Annotated[
+            bool,
+            typer.Option(
+                "--item-memories/--no-item-memories",
+                help="Include item-linked memory bodies when expanding item refs.",
+            ),
+        ] = True,
     ) -> None:
         state = cli_state_from_context(ctx)
         request = SelectionRequest(
@@ -60,6 +67,7 @@ def register_compose_commands(app: typer.Typer) -> None:
             item_refs=tuple(item_refs or ()),
             inline_texts=tuple(inline_texts or ()),
             loop_latest_refs=tuple(loop_latest_refs or ()),
+            include_item_memories=item_memories,
         )
         try:
             selection = expand_selection(state.cwd, request)
@@ -122,6 +130,13 @@ def register_compose_commands(app: typer.Typer) -> None:
             str | None,
             typer.Option("--run-in-repo", help="Execution repo hint."),
         ] = None,
+        item_memories: Annotated[
+            bool,
+            typer.Option(
+                "--item-memories/--no-item-memories",
+                help="Include item-linked memory bodies when expanding item refs.",
+            ),
+        ] = True,
     ) -> None:
         state = cli_state_from_context(ctx)
         request = SelectionRequest(
@@ -131,6 +146,7 @@ def register_compose_commands(app: typer.Typer) -> None:
             item_refs=tuple(item_refs or ()),
             inline_texts=tuple(inline_texts or ()),
             loop_latest_refs=tuple(loop_latest_refs or ()),
+            include_item_memories=item_memories,
         )
         try:
             config = get_effective_project_config(state.cwd)
@@ -145,6 +161,7 @@ def register_compose_commands(app: typer.Typer) -> None:
                 state.cwd,
                 selection,
                 default_context_order=config.default_context_order,
+                include_item_memories=request.include_item_memories,
                 source_budget=source_budget,
             )
             bundle = compose_bundle(prompt=prompt, sources=sources)

@@ -39,7 +39,7 @@ Create a work item, inspect it, and create supporting memories:
 taskledger item create parser-fix --text "Repair parser handling."
 taskledger item list
 taskledger item show item-0001
-taskledger item memories item-0001
+taskledger item view item-0001
 taskledger item memory write item-0001 --role plan --text "1. Update parser tests"
 taskledger item approve item-0001
 
@@ -107,6 +107,12 @@ Notable lifecycle commands:
 - `taskledger exec-request build|expand|record-outcome`
 - `taskledger compose expand|bundle`
 - `taskledger runtime-support config|run-layout|resolve-repo`
+
+Item dossier and composition examples:
+
+- `taskledger item view item-0001 --role plan --role implementation`
+- `taskledger item dossier item-0001 --output ./item-0001.md`
+- `taskledger --json compose bundle --prompt "Plan this work" --item item-0001 --no-item-memories`
 
 ## Python API
 

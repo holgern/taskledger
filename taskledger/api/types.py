@@ -169,6 +169,40 @@ class ComposedBundle:
         }
 
 
+@dataclass(slots=True, frozen=True)
+class ItemDossierSection:
+    kind: str
+    title: str
+    ref: str | None
+    body: str
+    metadata: dict[str, object] | None = None
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "kind": self.kind,
+            "title": self.title,
+            "ref": self.ref,
+            "body": self.body,
+            "metadata": self.metadata,
+        }
+
+
+@dataclass(slots=True, frozen=True)
+class ItemDossier:
+    item_ref: str
+    title: str
+    sections: tuple[ItemDossierSection, ...]
+    metadata: dict[str, object]
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "item_ref": self.item_ref,
+            "title": self.title,
+            "sections": [section.to_dict() for section in self.sections],
+            "metadata": self.metadata,
+        }
+
+
 __all__ = [
     "ComposedBundle",
     "ContextEntry",
@@ -180,6 +214,8 @@ __all__ = [
     "ExecutionStatus",
     "ExpandedExecutionRequest",
     "ExpandedSelection",
+    "ItemDossier",
+    "ItemDossierSection",
     "ItemStageRecord",
     "ItemWorkflowState",
     "Memory",

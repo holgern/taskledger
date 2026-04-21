@@ -66,6 +66,7 @@ def build_context_sources(
     inline_texts: tuple[str, ...] = (),
     loop_latest_refs: tuple[str, ...] = (),
     context_order: tuple[str, ...] = (),
+    include_item_memories: bool = True,
     source_budget: ProjectSourceBudget | None = None,
 ) -> tuple[ContextSource, ...]:
     ordered_sources = _collect_context_sources(
@@ -76,6 +77,7 @@ def build_context_sources(
         inline_texts=inline_texts,
         loop_latest_refs=loop_latest_refs,
         context_order=context_order,
+        include_item_memories=include_item_memories,
     )
     deduped_sources, _ = _dedupe_sources(ordered_sources)
     return _apply_source_budget(
@@ -92,6 +94,7 @@ def describe_context_sources(
     inline_texts: tuple[str, ...] = (),
     loop_latest_refs: tuple[str, ...] = (),
     context_order: tuple[str, ...] = (),
+    include_item_memories: bool = True,
     source_budget: ProjectSourceBudget | None = None,
 ) -> dict[str, object]:
     ordered_sources = _collect_context_sources(
@@ -102,6 +105,7 @@ def describe_context_sources(
         inline_texts=inline_texts,
         loop_latest_refs=loop_latest_refs,
         context_order=context_order,
+        include_item_memories=include_item_memories,
     )
     deduped_sources, duplicates_removed = _dedupe_sources(ordered_sources)
     bounded_sources = _apply_source_budget(
@@ -129,6 +133,7 @@ def _collect_context_sources(
     inline_texts: tuple[str, ...] = (),
     loop_latest_refs: tuple[str, ...] = (),
     context_order: tuple[str, ...] = (),
+    include_item_memories: bool = True,
 ) -> tuple[ContextSource, ...]:
     ordered_kinds = _ordered_context_kinds(context_order)
     sources_by_kind: dict[str, list[ContextSource]] = {
@@ -173,32 +178,33 @@ def _collect_context_sources(
     for ref in item_refs:
         item = resolve_work_item(state.paths, ref)
         sources_by_kind["item"].append(_item_source(item))
-        for memory_ref in (
-            item.analysis_memory_ref,
-            item.state_memory_ref,
-            item.plan_memory_ref,
-            item.implementation_memory_ref,
-            item.validation_memory_ref,
-        ):
-            if memory_ref is None:
-                continue
-            memory = resolve_memory(state.paths, memory_ref)
-            sources_by_kind["memory"].append(
-                ContextSource(
-                    kind="memory",
-                    ref=memory.id,
-                    title=f"{memory.id} ({memory.slug})",
-                    body=read_memory_body(state.paths, memory),
-                    metadata={
-                        "name": memory.name,
-                        "slug": memory.slug,
-                        "tags": list(memory.tags),
-                        "summary": memory.summary,
-                        "path": memory.path,
-                        "from_item": item.id,
-                    },
+        if include_item_memories:
+            for memory_ref in (
+                item.analysis_memory_ref,
+                item.state_memory_ref,
+                item.plan_memory_ref,
+                item.implementation_memory_ref,
+                item.validation_memory_ref,
+            ):
+                if memory_ref is None:
+                    continue
+                memory = resolve_memory(state.paths, memory_ref)
+                sources_by_kind["memory"].append(
+                    ContextSource(
+                        kind="memory",
+                        ref=memory.id,
+                        title=f"{memory.id} ({memory.slug})",
+                        body=read_memory_body(state.paths, memory),
+                        metadata={
+                            "name": memory.name,
+                            "slug": memory.slug,
+                            "tags": list(memory.tags),
+                            "summary": memory.summary,
+                            "path": memory.path,
+                            "from_item": item.id,
+                        },
+                    )
                 )
-            )
         for file_ref in item.discovered_file_refs:
             file_path, title, metadata = _resolve_file_source(state, file_ref)
             metadata = {**metadata, "from_item": item.id}

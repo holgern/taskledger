@@ -84,3 +84,12 @@ def test_extended_cli_groups_are_registered(tmp_path: Path) -> None:
     for command in ("exec-request", "compose", "runtime-support"):
         result = runner.invoke(app, ["--cwd", str(tmp_path), command, "--help"])
         assert result.exit_code == 0
+
+
+def test_item_group_includes_view_and_dossier_commands(tmp_path: Path) -> None:
+    runner.invoke(app, ["--cwd", str(tmp_path), "init"])
+    result = runner.invoke(app, ["--cwd", str(tmp_path), "item", "--help"])
+
+    assert result.exit_code == 0
+    assert "view" in result.stdout
+    assert "dossier" in result.stdout

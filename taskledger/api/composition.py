@@ -33,6 +33,7 @@ class SelectionRequest:
     item_refs: tuple[str, ...] = ()
     inline_texts: tuple[str, ...] = ()
     loop_latest_refs: tuple[str, ...] = ()
+    include_item_memories: bool = True
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -42,6 +43,7 @@ class SelectionRequest:
             "item_refs": list(self.item_refs),
             "inline_texts": list(self.inline_texts),
             "loop_latest_refs": list(self.loop_latest_refs),
+            "include_item_memories": self.include_item_memories,
         }
 
 
@@ -73,6 +75,7 @@ def build_sources(
     selection: ExpandedSelection,
     *,
     default_context_order: tuple[str, ...] = (),
+    include_item_memories: bool = True,
     source_budget: SourceBudget | None = None,
 ) -> tuple[ContextSource, ...]:
     state = load_project_state(workspace_root, recent_runs_limit=0)
@@ -84,6 +87,7 @@ def build_sources(
         inline_texts=selection.inline_inputs,
         loop_latest_refs=selection.loop_artifact_inputs,
         context_order=default_context_order,
+        include_item_memories=include_item_memories,
         source_budget=(source_budget or SourceBudget()).to_project_source_budget(),
     )
     return tuple(ContextSource.from_model(source) for source in bounded_sources)

@@ -30,7 +30,7 @@ Create, inspect, and move work items through the built-in lifecycle:
    taskledger item create parser-fix --text "Repair parser handling."
    taskledger item list
    taskledger item show item-0001
-   taskledger item memories item-0001
+   taskledger item view item-0001
    taskledger item memory write item-0001 --role plan --text "1. Reproduce parser issue"
    taskledger item update item-0001 --add-label parser --add-acceptance "Parser tests pass"
    taskledger item approve item-0001
@@ -250,6 +250,7 @@ Execution-request and composition CLI examples:
    taskledger --json exec-request record-outcome --request-file ./request.json --ok --text "Plan complete"
    taskledger --json compose expand --item item-0001 --inline "extra context"
    taskledger --json compose bundle --prompt "Plan this work" --item item-0001
+   taskledger --json compose bundle --prompt "Plan this work" --item item-0001 --no-item-memories
    taskledger --json runtime-support config
    taskledger --json runtime-support run-layout --origin debug
    taskledger --json runtime-support resolve-repo core

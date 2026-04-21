@@ -10,11 +10,13 @@ from taskledger.api.items import (
     close_item,
     create_item,
     delete_item_memory,
+    item_dossier,
     item_memory_refs,
     list_items,
     next_action_payload,
     read_item_memory_body,
     rename_item_memory,
+    render_item_dossier_markdown,
     reopen_item,
     resolve_item_memory,
     retag_item_memory,
@@ -29,6 +31,7 @@ from taskledger.cli_common import (
     human_kv,
     human_list,
     read_text_input,
+    write_text_output,
 )
 from taskledger.errors import LaunchError
 
@@ -122,6 +125,9 @@ def register_item_commands(app: typer.Typer) -> None:  # noqa: C901
                     ("title", item.title),
                     ("status", item.status),
                     ("stage", item.stage),
+                    ("workflow_status", item.workflow_status),
+                    ("current_stage", item.current_stage_id),
+                    ("stage_status", item.stage_status),
                     ("target_repo", item.target_repo_ref),
                     ("analysis_memory_ref", item.analysis_memory_ref),
                     ("state_memory_ref", item.state_memory_ref),
@@ -129,9 +135,124 @@ def register_item_commands(app: typer.Typer) -> None:  # noqa: C901
                     ("implementation_memory_ref", item.implementation_memory_ref),
                     ("validation_memory_ref", item.validation_memory_ref),
                     ("save_target_ref", item.save_target_ref),
+                    ("acceptance_criteria_count", len(item.acceptance_criteria)),
+                    ("validation_checklist_count", len(item.validation_checklist)),
+                    ("dependency_count", len(item.depends_on)),
+                    ("linked_memory_count", len(item.linked_memories)),
+                    ("linked_run_count", len(item.linked_runs)),
+                    ("next_action", next_action_payload(item)["action"]),
+                    ("next_action_actor", next_action_payload(item)["actor"]),
                     ("description", item.description),
                 ],
             ),
+        )
+
+    @app.command("view")
+    def item_view_command(
+        ctx: typer.Context,
+        ref: Annotated[str, typer.Argument(..., help="Work item ref.")],
+        roles: Annotated[
+            list[str] | None,
+            typer.Option("--role", help="Memory role to include. Repeatable."),
+        ] = None,
+        include_empty: Annotated[
+            bool,
+            typer.Option(
+                "--include-empty/--skip-empty",
+                help="Render empty memory sections as (empty).",
+            ),
+        ] = False,
+        include_runs: Annotated[
+            bool,
+            typer.Option("--runs/--no-runs", help="Include related runs section."),
+        ] = True,
+        include_validation: Annotated[
+            bool,
+            typer.Option(
+                "--validation/--no-validation",
+                help="Include related validation section.",
+            ),
+        ] = True,
+        include_workflow: Annotated[
+            bool,
+            typer.Option("--workflow/--no-workflow", help="Include workflow sections."),
+        ] = True,
+        include_contexts: Annotated[
+            bool,
+            typer.Option("--contexts/--no-contexts", help="Include context links."),
+        ] = True,
+        output: Annotated[
+            Path | None,
+            typer.Option(
+                "--output",
+                help="Write the rendered dossier text to a markdown file.",
+            ),
+        ] = None,
+    ) -> None:
+        _emit_item_dossier(
+            ctx,
+            ref,
+            roles=tuple(roles or ()) or None,
+            include_empty=include_empty,
+            include_runs=include_runs,
+            include_validation=include_validation,
+            include_workflow=include_workflow,
+            include_contexts=include_contexts,
+            output=output,
+        )
+
+    @app.command("dossier")
+    def item_dossier_command(
+        ctx: typer.Context,
+        ref: Annotated[str, typer.Argument(..., help="Work item ref.")],
+        roles: Annotated[
+            list[str] | None,
+            typer.Option("--role", help="Memory role to include. Repeatable."),
+        ] = None,
+        include_empty: Annotated[
+            bool,
+            typer.Option(
+                "--include-empty/--skip-empty",
+                help="Render empty memory sections as (empty).",
+            ),
+        ] = False,
+        include_runs: Annotated[
+            bool,
+            typer.Option("--runs/--no-runs", help="Include related runs section."),
+        ] = True,
+        include_validation: Annotated[
+            bool,
+            typer.Option(
+                "--validation/--no-validation",
+                help="Include related validation section.",
+            ),
+        ] = True,
+        include_workflow: Annotated[
+            bool,
+            typer.Option("--workflow/--no-workflow", help="Include workflow sections."),
+        ] = True,
+        include_contexts: Annotated[
+            bool,
+            typer.Option("--contexts/--no-contexts", help="Include context links."),
+        ] = True,
+        output: Annotated[
+            Path | None,
+            typer.Option(
+                "--output",
+                help="Write the rendered dossier text to a markdown file.",
+            ),
+        ] = None,
+    ) -> None:
+        _emit_item_dossier(
+            ctx,
+            ref,
+            roles=tuple(roles or ()) or None,
+            include_empty=include_empty,
+            include_runs=include_runs,
+            include_validation=include_validation,
+            include_workflow=include_workflow,
+            include_contexts=include_contexts,
+            output=output,
         )
 
     @app.command("memories")
@@ -591,3 +712,41 @@ def _emit_item_memory_update(
         {"item_ref": item_ref, "role": role, **memory.to_dict(), "body": updated_body},
         human=f"{verb} {role} memory {memory.id} for {item_ref}",
     )
+
+
+def _emit_item_dossier(
+    ctx: typer.Context,
+    ref: str,
+    *,
+    roles: tuple[str, ...] | None,
+    include_empty: bool,
+    include_runs: bool,
+    include_validation: bool,
+    include_workflow: bool,
+    include_contexts: bool,
+    output: Path | None,
+) -> None:
+    state = cli_state_from_context(ctx)
+    try:
+        dossier = item_dossier(
+            state.cwd,
+            ref,
+            roles=roles,
+            include_empty=include_empty,
+            include_runs=include_runs,
+            include_validation=include_validation,
+            include_workflow=include_workflow,
+            include_contexts=include_contexts,
+        )
+        rendered = render_item_dossier_markdown(dossier)
+        output_path = None
+        if output is not None:
+            output_path = write_text_output(output, rendered)
+    except LaunchError as exc:
+        emit_error(ctx, str(exc))
+        raise typer.Exit(code=1) from exc
+    payload = dossier.to_dict()
+    human = rendered
+    if output_path is not None:
+        human = f"{rendered.rstrip()}\n\nwrote dossier: {output_path}\n"
+    emit_payload(ctx, payload, human=human)

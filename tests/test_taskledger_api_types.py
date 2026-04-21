@@ -55,3 +55,24 @@ def test_context_source_conversion_preserves_metadata() -> None:
     assert converted_back.metadata is not None
     assert converted_back.metadata["repo"] == "main"
     assert converted_back.metadata["truncated"] is True
+
+
+def test_item_dossier_types_serialize_to_dict() -> None:
+    section = api_types.ItemDossierSection(
+        kind="memory_body",
+        title="Plan",
+        ref="mem-0001",
+        body="Implement X",
+        metadata={"role": "plan"},
+    )
+    dossier = api_types.ItemDossier(
+        item_ref="item-0001",
+        title="Improve coverage",
+        sections=(section,),
+        metadata={"selected_roles": ["plan"]},
+    )
+
+    assert section.to_dict()["title"] == "Plan"
+    payload = dossier.to_dict()
+    assert payload["item_ref"] == "item-0001"
+    assert payload["sections"][0]["ref"] == "mem-0001"

@@ -308,6 +308,102 @@ def test_taskledger_item_memory_role_access(tmp_path: Path) -> None:
     assert '"body": "Step 0\\n\\nStep A\\n\\nStep B"' in prepend_result.stdout
 
 
+def test_taskledger_item_view_command_and_alias(tmp_path: Path) -> None:
+    runner.invoke(app, ["--cwd", str(tmp_path), "init"])
+    runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "item",
+            "create",
+            "view-item",
+            "--text",
+            "Inspect one command output.",
+        ],
+    )
+    runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "item",
+            "memory",
+            "write",
+            "item-0001",
+            "--role",
+            "plan",
+            "--text",
+            "Plan body text",
+        ],
+    )
+
+    view_result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "item",
+            "view",
+            "item-0001",
+            "--role",
+            "plan",
+        ],
+    )
+    alias_result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "item",
+            "dossier",
+            "item-0001",
+            "--role",
+            "plan",
+        ],
+    )
+    json_result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "item",
+            "view",
+            "item-0001",
+            "--role",
+            "plan",
+        ],
+    )
+    output_path = tmp_path / "item-0001.md"
+    output_result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "item",
+            "view",
+            "item-0001",
+            "--role",
+            "plan",
+            "--output",
+            str(output_path),
+        ],
+    )
+
+    assert view_result.exit_code == 0
+    assert "ITEM DOSSIER item-0001" in view_result.stdout
+    assert "Plan body text" in view_result.stdout
+    assert alias_result.exit_code == 0
+    assert "ITEM DOSSIER item-0001" in alias_result.stdout
+    assert json_result.exit_code == 0
+    assert '"item_ref": "item-0001"' in json_result.stdout
+    assert '"sections": [' in json_result.stdout
+    assert output_result.exit_code == 0
+    assert output_path.exists()
+    assert "Plan body text" in output_path.read_text(encoding="utf-8")
+
+
 def test_taskledger_item_update_and_invalid_removals(tmp_path: Path) -> None:
     runner.invoke(app, ["--cwd", str(tmp_path), "init"])
     runner.invoke(
@@ -777,6 +873,21 @@ def test_taskledger_compose_and_runtime_support_commands(tmp_path: Path) -> None
             "item-0001",
         ],
     )
+    compose_bundle_no_item_memories = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "compose",
+            "bundle",
+            "--prompt",
+            "Plan this work",
+            "--item",
+            "item-0001",
+            "--no-item-memories",
+        ],
+    )
     runtime_config = runner.invoke(
         app,
         ["--cwd", str(tmp_path), "--json", "runtime-support", "config"],
@@ -810,6 +921,17 @@ def test_taskledger_compose_and_runtime_support_commands(tmp_path: Path) -> None
     assert compose_bundle.exit_code == 0
     assert '"kind": "project_compose"' in compose_bundle.stdout
     assert '"composed_prompt":' in compose_bundle.stdout
+    compose_payload = json.loads(compose_bundle.stdout)
+    assert compose_payload["project"]["source_summary"]["by_kind"]["memory"] >= 1
+    assert compose_bundle_no_item_memories.exit_code == 0
+    compose_no_memories_payload = json.loads(compose_bundle_no_item_memories.stdout)
+    assert (
+        compose_no_memories_payload["project"]["source_summary"]["by_kind"].get(
+            "memory",
+            0,
+        )
+        == 0
+    )
     assert runtime_config.exit_code == 0
     assert '"default_source_max_chars"' in runtime_config.stdout
     assert runtime_layout.exit_code == 0
