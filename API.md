@@ -42,9 +42,14 @@ of the runtildone import boundary above:
 
 ## 2. Global API rule
 
-All public CRUD/runtime-composition functions use:
+All public workspace-bound CRUD/runtime-composition entrypoints use:
 
 - `workspace_root: Path` as the first argument
+
+Pure transformation helpers that operate on already-expanded inputs may omit
+`workspace_root` (for example `compose_bundle`, `describe_sources`,
+`repo_refs_for_sources`, and `build_compose_payload` in
+`taskledger.api.composition`).
 
 Do not pass internal `ProjectPaths` objects across the boundary.
 
@@ -190,6 +195,7 @@ Canonical functions:
 - `cleanup_runs`
 - `promote_run_output`
 - `promote_run_report`
+- `summarize_run_inventory`
 
 ### Validation (`taskledger.api.validation`)
 
@@ -198,6 +204,7 @@ Canonical functions:
 - `list_validation_records`
 - `append_validation_record`
 - `remove_validation_records`
+- `summarize_validation_records`
 
 ### Workflows (`taskledger.api.workflows`)
 

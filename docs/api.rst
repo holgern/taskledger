@@ -57,9 +57,13 @@ groups: ``exec-request``, ``compose``, and ``runtime-support``.
 Global rules
 ^^^^^^^^^^^^^
 
-All public CRUD and composition functions accept ``workspace_root: Path`` as
-their first argument. Internal ``ProjectPaths`` objects must not cross the
-boundary.
+All public workspace-bound CRUD/runtime-composition entrypoints accept
+``workspace_root: Path`` as their first argument.
+Pure transformation helpers that operate on already-expanded inputs may omit
+``workspace_root`` (for example ``compose_bundle``, ``describe_sources``,
+``repo_refs_for_sources``, and ``build_compose_payload`` in
+``taskledger.api.composition``).
+Internal ``ProjectPaths`` objects must not cross the boundary.
 
 Errors
 ^^^^^^
@@ -171,6 +175,7 @@ Runs (``taskledger.api.runs``):
 - ``cleanup_runs``
 - ``promote_run_output``
 - ``promote_run_report``
+- ``summarize_run_inventory``
 
 Validation (``taskledger.api.validation``):
 
