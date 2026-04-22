@@ -1,14 +1,14 @@
 from pathlib import Path
 
-from taskledger.models import ContextSource, ContextBundle, ProjectSourceBudget
 from taskledger.compose import (
-    build_project_compose_payload,
+    _compose_explanations,
+    _compose_input_counts,
     _compose_source_summary,
     _compose_warnings,
-    _compose_input_counts,
-    _compose_explanations,
     _relative_or_absolute,
+    build_project_compose_payload,
 )
+from taskledger.models import ContextBundle, ContextSource, ProjectSourceBudget
 
 
 def test_compose_source_summary_and_warnings():

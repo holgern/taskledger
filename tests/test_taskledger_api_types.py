@@ -61,12 +61,12 @@ def test_item_dossier_types_serialize_to_dict() -> None:
     section = api_types.ItemDossierSection(
         kind="memory_body",
         title="Plan",
-        ref="mem-0001",
+        ref="mem-1",
         body="Implement X",
         metadata={"role": "plan"},
     )
     dossier = api_types.ItemDossier(
-        item_ref="item-0001",
+        item_ref="it-1",
         title="Improve coverage",
         sections=(section,),
         metadata={"selected_roles": ["plan"]},
@@ -74,14 +74,14 @@ def test_item_dossier_types_serialize_to_dict() -> None:
 
     assert section.to_dict()["title"] == "Plan"
     payload = dossier.to_dict()
-    assert payload["item_ref"] == "item-0001"
-    assert payload["sections"][0]["ref"] == "mem-0001"
+    assert payload["item_ref"] == "it-1"
+    assert payload["sections"][0]["ref"] == "mem-1"
 
 
 def test_execution_request_round_trip_for_file_render_mode_and_directories() -> None:
     request = ExecutionRequest(
-        request_id="req-0001",
-        item_ref="item-0001",
+        request_id="req-1",
+        item_ref="it-1",
         workflow_id="wf-1",
         stage_id="implement",
         file_inputs=("tests/test_a.py",),
@@ -100,8 +100,8 @@ def test_execution_request_round_trip_for_file_render_mode_and_directories() -> 
 
 def test_execution_request_from_dict_defaults_new_fields() -> None:
     payload = {
-        "request_id": "req-0001",
-        "item_ref": "item-0001",
+        "request_id": "req-1",
+        "item_ref": "it-1",
         "workflow_id": "wf-1",
         "stage_id": "implement",
     }
@@ -114,12 +114,13 @@ def test_execution_request_from_dict_defaults_new_fields() -> None:
 
 def test_project_context_entry_from_dict_defaults_directory_refs() -> None:
     payload = {
+        "id": "ctx-1",
         "name": "My Context",
         "slug": "my-context",
         "path": "contexts/my-context.json",
-        "memory_refs": ["mem-0001"],
+        "memory_refs": ["mem-1"],
         "file_refs": ["tests/test_a.py"],
-        "item_refs": ["item-0001"],
+        "item_refs": ["it-1"],
         "inline_texts": [],
         "loop_latest_refs": [],
         "summary": None,

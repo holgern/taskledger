@@ -269,7 +269,7 @@ Minimal flow:
 ```python
 request = SelectionRequest(
     context_names=("my-context",),
-    memory_refs=("mem-0001",),
+    memory_refs=("mem-1",),
     directory_refs=("tests/",),
     file_render_mode="reference",
 )
@@ -317,7 +317,7 @@ Typical flow:
 ```python
 request = build_execution_request(
     workspace_root,
-    item_ref="item-0001",
+    item_ref="it-1",
     stage_id="plan",
     inline_texts=("Focus on repository-safe changes.",),
     file_render_mode="reference",

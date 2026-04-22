@@ -231,6 +231,7 @@ class ProjectMemory:
 
 @dataclass(slots=True, frozen=True)
 class ProjectContextEntry:
+    id: str
     name: str
     slug: str
     path: str
@@ -246,6 +247,7 @@ class ProjectContextEntry:
 
     def to_dict(self) -> dict[str, object]:
         return {
+            "id": self.id,
             "name": self.name,
             "slug": self.slug,
             "path": self.path,
@@ -263,6 +265,7 @@ class ProjectContextEntry:
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> ProjectContextEntry:
         return cls(
+            id=_string_value(data, "id"),
             name=_string_value(data, "name"),
             slug=_string_value(data, "slug"),
             path=_string_value(data, "path"),

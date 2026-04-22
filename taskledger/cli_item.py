@@ -85,7 +85,7 @@ def register_item_commands(app: typer.Typer) -> None:  # noqa: C901
         emit_payload(
             ctx,
             item.to_dict(),
-            human=f"created work item {item.id}: {item.slug}",
+            human=f"created work item {item.slug} ({item.id})",
         )
 
     @app.command("list")
@@ -98,7 +98,7 @@ def register_item_commands(app: typer.Typer) -> None:  # noqa: C901
             human=human_list(
                 "WORK ITEMS",
                 [
-                    f"{item.id}  {item.status:<11}  {item.slug}  {item.title}"
+                    f"{item.slug}  {item.id}  {item.status:<11}  {item.title}"
                     for item in items
                 ],
             ),
@@ -119,8 +119,9 @@ def register_item_commands(app: typer.Typer) -> None:  # noqa: C901
             ctx,
             item.to_dict(),
             human=human_kv(
-                f"ITEM {item.id}",
+                f"ITEM {item.slug}",
                 [
+                    ("id", item.id),
                     ("slug", item.slug),
                     ("title", item.title),
                     ("status", item.status),
@@ -272,7 +273,7 @@ def register_item_commands(app: typer.Typer) -> None:  # noqa: C901
             ctx,
             payload,
             human=human_kv(
-                f"ITEM MEMORIES {item.id}",
+                f"ITEM MEMORIES {item.slug}",
                 [(role, value or "-") for role, value in refs.items()],
             ),
         )
@@ -407,7 +408,7 @@ def register_item_commands(app: typer.Typer) -> None:  # noqa: C901
         emit_payload(
             ctx,
             item.to_dict(),
-            human=f"updated work item {item.id}",
+            human=f"updated work item {item.slug} ({item.id})",
         )
 
     @app.command("approve")
@@ -679,7 +680,7 @@ def _emit_lifecycle_result(
     emit_payload(
         ctx,
         item.to_dict(),
-        human=f"{verb} work item {item.id}",
+        human=f"{verb} work item {item.slug} ({item.id})",
     )
 
 

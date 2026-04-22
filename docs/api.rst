@@ -246,7 +246,7 @@ Minimal flow:
 
    request = SelectionRequest(
        context_names=("my-context",),
-       memory_refs=("mem-0001",),
+       memory_refs=("mem-1",),
        directory_refs=("tests/",),
        file_render_mode="reference",
        include_item_memories=False,

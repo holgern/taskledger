@@ -4,8 +4,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from taskledger.api.contexts import save_context
-from taskledger.api.items import create_item
-from taskledger.api.memories import write_memory_body
+from taskledger.api.items import create_item, write_item_memory_body
 from taskledger.api.project import (
     init_project,
     project_doctor,
@@ -47,7 +46,7 @@ def test_project_next_and_report_use_workflow_dependencies(tmp_path: Path) -> No
         blocked.id,
         replace(blocked_item, depends_on=(ready.id,)),
     )
-    write_memory_body(tmp_path, ready.analysis_memory_ref or "", "analysis complete")
+    write_item_memory_body(tmp_path, ready.id, "analysis", "analysis complete")
 
     next_step = project_next(tmp_path)
     report = project_report(tmp_path)
@@ -78,16 +77,16 @@ def test_project_doctor_reports_broken_loop_refs_and_missing_item_dependencies(
     update_work_item(
         state.paths,
         item.id,
-        replace(item, depends_on=("item-9999",)),
+        replace(item, depends_on=("it-9999",)),
     )
 
     payload = project_doctor(tmp_path)
 
     assert payload["healthy"] is False
     assert payload["broken_context_refs"] == [
-        "broken-loop: artifacts=missing/loop-output.txt"
+        "Broken Loop (ctx-1): artifacts=missing/loop-output.txt"
     ]
-    assert payload["broken_item_links"] == ["item-0001: depends_on=item-9999"]
+    assert payload["broken_item_links"] == ["it-1: depends_on=it-9999"]
 
 
 def _write_workflow_config(path: Path) -> None:

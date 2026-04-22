@@ -39,7 +39,7 @@ def broken_context_refs(
         if missing_loop_artifacts:
             details.append("artifacts=" + ",".join(missing_loop_artifacts))
         if details:
-            broken.append(f"{entry.slug}: {'; '.join(details)}")
+            broken.append(f"{entry.name} ({entry.id}): {'; '.join(details)}")
     return broken
 
 

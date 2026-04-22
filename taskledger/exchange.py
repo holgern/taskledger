@@ -81,7 +81,7 @@ def export_project_payload(
             if (state.paths.project_dir / item.path).exists()
         }
         payload["context_payloads"] = {
-            item.slug: json.loads(
+            item.id: json.loads(
                 (state.paths.project_dir / item.path).read_text(encoding="utf-8")
             )
             for item in state.contexts
@@ -153,7 +153,7 @@ def import_project_payload(
         save_repos(paths, _merge_named(state.repos, imported_repos, key="slug"))
         save_memories(paths, _merge_named(state.memories, imported_memories, key="id"))
         save_contexts(
-            paths, _merge_named(state.contexts, imported_contexts, key="slug")
+            paths, _merge_named(state.contexts, imported_contexts, key="id")
         )
         save_work_items(
             paths,
@@ -278,13 +278,13 @@ def _write_memory_bodies(paths, payload: dict[str, object], imported_memories):
     memory_bodies = body_map if isinstance(body_map, dict) else {}
     for memory in imported_memories:
         body_path = paths.project_dir / memory.path
-        body_path.parent.mkdir(parents=True, exist_ok=True)
         body = memory_bodies.get(memory.id)
-        if isinstance(body, str):
+        if isinstance(body, str) and body.strip():
+            body_path.parent.mkdir(parents=True, exist_ok=True)
             body_path.write_text(body, encoding="utf-8")
             continue
-        if not body_path.exists():
-            body_path.write_text("", encoding="utf-8")
+        if body_path.exists():
+            body_path.unlink()
 
 
 def _materialize_runs(

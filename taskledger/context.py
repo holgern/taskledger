@@ -411,6 +411,8 @@ def _source_display_ref(source: ContextSource) -> str:
 
 def _item_source(item: ProjectWorkItem) -> ContextSource:
     body_lines = [
+        f"Slug: {item.slug}",
+        f"ID: {item.id}",
         f"Title: {item.title}",
         f"Status: {item.status}",
         f"Stage: {item.stage}",
@@ -430,9 +432,10 @@ def _item_source(item: ProjectWorkItem) -> ContextSource:
     return ContextSource(
         kind="item",
         ref=item.id,
-        title=item.id,
+        title=f"{item.slug} ({item.id})",
         body="\n".join(body_lines).strip(),
         metadata={
+            "slug": item.slug,
             "title": item.title,
             "status": item.status,
             "stage": item.stage,

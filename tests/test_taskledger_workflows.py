@@ -111,7 +111,7 @@ def test_export_import_round_trip_preserves_custom_workflow_and_stage_records(
     project_import(imported_root, text=json.dumps(payload))
 
     imported_workflows = list_workflows(imported_root)
-    imported_records = item_stage_records(imported_root, "item-0001")
+    imported_records = item_stage_records(imported_root, "it-1")
 
     assert any(
         workflow.workflow_id == "custom-item-v1" for workflow in imported_workflows

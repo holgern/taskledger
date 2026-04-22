@@ -39,7 +39,7 @@ def test_taskledger_init_item_and_memory_workflow(tmp_path: Path) -> None:
     item_list = runner.invoke(app, ["--cwd", str(tmp_path), "item", "list"])
     item_show = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "item", "show", "item-0001"],
+        ["--cwd", str(tmp_path), "item", "show", "it-1"],
     )
     memory_create = runner.invoke(
         app,
@@ -63,10 +63,10 @@ def test_taskledger_init_item_and_memory_workflow(tmp_path: Path) -> None:
     assert (tmp_path / ".taskledger").exists()
     assert item_create.exit_code == 0
     assert item_list.exit_code == 0
-    assert "item-0001" in item_list.stdout
+    assert "it-1" in item_list.stdout
     assert item_show.exit_code == 0
     assert "parser-fix" in item_show.stdout
-    assert "plan_memory_ref" in item_show.stdout
+    assert "linked_memory_count: 0" in item_show.stdout
     assert memory_create.exit_code == 0
     assert memory_list.exit_code == 0
     assert "failing-tests" in memory_list.stdout
@@ -136,7 +136,7 @@ def test_taskledger_context_commands_cover_rename_and_delete(tmp_path: Path) -> 
     assert rename_result.exit_code == 0
     assert '"slug": "release-context"' in rename_result.stdout
     assert delete_result.exit_code == 0
-    assert "deleted context release-context" in delete_result.stdout
+    assert "deleted context Release Context (ctx-1)" in delete_result.stdout
     assert list_result.exit_code == 0
     assert "(empty)" in list_result.stdout
 
@@ -204,14 +204,14 @@ def test_taskledger_memory_commands_cover_rename_retag_prepend_and_delete(
     )
 
     assert rename_result.exit_code == 0
-    assert "renamed memory mem-0001" in rename_result.stdout
+    assert "renamed memory mem-1" in rename_result.stdout
     assert retag_result.exit_code == 0
     assert '"tags": [' in retag_result.stdout
     assert '"plan"' in retag_result.stdout
     assert prepend_result.exit_code == 0
     assert '"body": "hello\\n\\nworld"' in prepend_result.stdout
     assert delete_result.exit_code == 0
-    assert "deleted memory mem-0001" in delete_result.stdout
+    assert "deleted memory mem-1" in delete_result.stdout
 
 
 def test_taskledger_item_memory_role_access(tmp_path: Path) -> None:
@@ -231,7 +231,7 @@ def test_taskledger_item_memory_role_access(tmp_path: Path) -> None:
 
     memories_result = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "--json", "item", "memories", "item-0001"],
+        ["--cwd", str(tmp_path), "--json", "item", "memories", "it-1"],
     )
     show_result = runner.invoke(
         app,
@@ -242,7 +242,7 @@ def test_taskledger_item_memory_role_access(tmp_path: Path) -> None:
             "item",
             "memory",
             "show",
-            "item-0001",
+            "it-1",
             "--role",
             "plan",
         ],
@@ -256,7 +256,7 @@ def test_taskledger_item_memory_role_access(tmp_path: Path) -> None:
             "item",
             "memory",
             "write",
-            "item-0001",
+            "it-1",
             "--role",
             "plan",
             "--text",
@@ -272,7 +272,7 @@ def test_taskledger_item_memory_role_access(tmp_path: Path) -> None:
             "item",
             "memory",
             "append",
-            "item-0001",
+            "it-1",
             "--role",
             "plan",
             "--text",
@@ -288,7 +288,7 @@ def test_taskledger_item_memory_role_access(tmp_path: Path) -> None:
             "item",
             "memory",
             "prepend",
-            "item-0001",
+            "it-1",
             "--role",
             "plan",
             "--text",
@@ -296,11 +296,13 @@ def test_taskledger_item_memory_role_access(tmp_path: Path) -> None:
         ],
     )
 
+    show_output = show_result.stdout + getattr(show_result, "stderr", "")
     assert memories_result.exit_code == 0
-    assert '"plan": "mem-0003"' in memories_result.stdout
-    assert show_result.exit_code == 0
-    assert '"body": ""' in show_result.stdout
+    assert '"plan": null' in memories_result.stdout
+    assert show_result.exit_code != 0
+    assert "has no memory for role plan yet" in show_output
     assert write_result.exit_code == 0
+    assert '"id": "mem-1"' in write_result.stdout
     assert '"body": "Step A"' in write_result.stdout
     assert append_result.exit_code == 0
     assert '"body": "Step A\\n\\nStep B"' in append_result.stdout
@@ -330,7 +332,7 @@ def test_taskledger_item_view_command_and_alias(tmp_path: Path) -> None:
             "item",
             "memory",
             "write",
-            "item-0001",
+            "it-1",
             "--role",
             "plan",
             "--text",
@@ -345,7 +347,7 @@ def test_taskledger_item_view_command_and_alias(tmp_path: Path) -> None:
             str(tmp_path),
             "item",
             "view",
-            "item-0001",
+            "it-1",
             "--role",
             "plan",
         ],
@@ -357,7 +359,7 @@ def test_taskledger_item_view_command_and_alias(tmp_path: Path) -> None:
             str(tmp_path),
             "item",
             "dossier",
-            "item-0001",
+            "it-1",
             "--role",
             "plan",
         ],
@@ -370,12 +372,12 @@ def test_taskledger_item_view_command_and_alias(tmp_path: Path) -> None:
             "--json",
             "item",
             "view",
-            "item-0001",
+            "it-1",
             "--role",
             "plan",
         ],
     )
-    output_path = tmp_path / "item-0001.md"
+    output_path = tmp_path / "it-1.md"
     output_result = runner.invoke(
         app,
         [
@@ -383,7 +385,7 @@ def test_taskledger_item_view_command_and_alias(tmp_path: Path) -> None:
             str(tmp_path),
             "item",
             "view",
-            "item-0001",
+            "it-1",
             "--role",
             "plan",
             "--output",
@@ -392,12 +394,12 @@ def test_taskledger_item_view_command_and_alias(tmp_path: Path) -> None:
     )
 
     assert view_result.exit_code == 0
-    assert "ITEM DOSSIER item-0001" in view_result.stdout
+    assert "ITEM DOSSIER view-item (it-1)" in view_result.stdout
     assert "Plan body text" in view_result.stdout
     assert alias_result.exit_code == 0
-    assert "ITEM DOSSIER item-0001" in alias_result.stdout
+    assert "ITEM DOSSIER view-item (it-1)" in alias_result.stdout
     assert json_result.exit_code == 0
-    assert '"item_ref": "item-0001"' in json_result.stdout
+    assert '"item_ref": "it-1"' in json_result.stdout
     assert '"sections": [' in json_result.stdout
     assert output_result.exit_code == 0
     assert output_path.exists()
@@ -427,7 +429,7 @@ def test_taskledger_item_update_and_invalid_removals(tmp_path: Path) -> None:
             "--json",
             "item",
             "update",
-            "item-0001",
+            "it-1",
             "--title",
             "Updated title",
             "--text",
@@ -462,7 +464,7 @@ def test_taskledger_item_update_and_invalid_removals(tmp_path: Path) -> None:
             "--json",
             "item",
             "update",
-            "item-0001",
+            "it-1",
             "--remove-label",
             "missing",
         ],
@@ -498,15 +500,15 @@ def test_taskledger_item_lifecycle_requires_plan_content(tmp_path: Path) -> None
 
     approve_empty = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "--json", "item", "approve", "item-0001"],
+        ["--cwd", str(tmp_path), "--json", "item", "approve", "it-1"],
     )
     close_result = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "item", "close", "item-0001"],
+        ["--cwd", str(tmp_path), "item", "close", "it-1"],
     )
     reopen_draft = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "--json", "item", "reopen", "item-0001"],
+        ["--cwd", str(tmp_path), "--json", "item", "reopen", "it-1"],
     )
     runner.invoke(
         app,
@@ -516,7 +518,7 @@ def test_taskledger_item_lifecycle_requires_plan_content(tmp_path: Path) -> None
             "item",
             "memory",
             "write",
-            "item-0001",
+            "it-1",
             "--role",
             "plan",
             "--text",
@@ -525,11 +527,11 @@ def test_taskledger_item_lifecycle_requires_plan_content(tmp_path: Path) -> None
     )
     close_again = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "item", "close", "item-0001"],
+        ["--cwd", str(tmp_path), "item", "close", "it-1"],
     )
     reopen_planned = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "--json", "item", "reopen", "item-0001"],
+        ["--cwd", str(tmp_path), "--json", "item", "reopen", "it-1"],
     )
 
     assert approve_empty.exit_code == 1
@@ -602,13 +604,13 @@ def test_taskledger_runs_commands_cover_delete_cleanup_promote_and_summary(
     runner.invoke(app, ["--cwd", str(tmp_path), "init"])
     first_run = _create_run(
         tmp_path,
-        run_id="run-0001",
+        run_id="run-1",
         final_message="Saved output",
         report_text="Validation report",
     )
     second_run = _create_run(
         tmp_path,
-        run_id="run-0002",
+        run_id="run-2",
         final_message="Keep me",
     )
 
@@ -688,9 +690,9 @@ def test_taskledger_validation_commands_cover_add_list_remove_and_summary(
             "validation",
             "add",
             "--item",
-            "item-0001",
+            "it-1",
             "--memory",
-            "mem-0005",
+            "mem-5",
             "--kind",
             "smoke",
             "--status",
@@ -711,17 +713,17 @@ def test_taskledger_validation_commands_cover_add_list_remove_and_summary(
     )
     remove_result = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "validation", "remove", "--id", "val-0001"],
+        ["--cwd", str(tmp_path), "validation", "remove", "--id", "val-1"],
     )
 
     assert add_result.exit_code == 0
-    assert '"id": "val-0001"' in add_result.stdout
+    assert '"id": "val-1"' in add_result.stdout
     assert list_result.exit_code == 0
-    assert "val-0001  smoke  passed  item-0001->mem-0005" in list_result.stdout
+    assert "val-1  smoke  passed  it-1->mem-5" in list_result.stdout
     assert summary_result.exit_code == 0
     assert '"count": 1' in summary_result.stdout
     assert remove_result.exit_code == 0
-    assert "val-0001" in remove_result.stdout
+    assert "val-1" in remove_result.stdout
 
 
 def test_taskledger_exec_request_commands_cover_build_expand_and_outcome(
@@ -748,7 +750,7 @@ def test_taskledger_exec_request_commands_cover_build_expand_and_outcome(
             "item",
             "memory",
             "write",
-            "item-0001",
+            "it-1",
             "--role",
             "plan",
             "--text",
@@ -757,7 +759,7 @@ def test_taskledger_exec_request_commands_cover_build_expand_and_outcome(
     )
     runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "item", "approve", "item-0001"],
+        ["--cwd", str(tmp_path), "item", "approve", "it-1"],
     )
 
     build_result = runner.invoke(
@@ -768,7 +770,7 @@ def test_taskledger_exec_request_commands_cover_build_expand_and_outcome(
             "--json",
             "exec-request",
             "build",
-            "item-0001",
+            "it-1",
             "implement",
             "--inline",
             "Context line",
@@ -844,6 +846,21 @@ def test_taskledger_compose_and_runtime_support_commands(tmp_path: Path) -> None
             "both",
         ],
     )
+    runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "item",
+            "memory",
+            "write",
+            "it-1",
+            "--role",
+            "plan",
+            "--text",
+            "Plan context",
+        ],
+    )
 
     compose_expand = runner.invoke(
         app,
@@ -854,7 +871,7 @@ def test_taskledger_compose_and_runtime_support_commands(tmp_path: Path) -> None
             "compose",
             "expand",
             "--item",
-            "item-0001",
+            "it-1",
             "--inline",
             "extra context",
         ],
@@ -870,7 +887,7 @@ def test_taskledger_compose_and_runtime_support_commands(tmp_path: Path) -> None
             "--prompt",
             "Plan this work",
             "--item",
-            "item-0001",
+            "it-1",
         ],
     )
     compose_bundle_no_item_memories = runner.invoke(
@@ -884,7 +901,7 @@ def test_taskledger_compose_and_runtime_support_commands(tmp_path: Path) -> None
             "--prompt",
             "Plan this work",
             "--item",
-            "item-0001",
+            "it-1",
             "--no-item-memories",
         ],
     )
@@ -967,14 +984,14 @@ def test_taskledger_file_reference_mode_and_directory_flags(tmp_path: Path) -> N
             "item",
             "memory",
             "write",
-            "item-0001",
+            "it-1",
             "--role",
             "plan",
             "--text",
             "Ready for implementation",
         ],
     )
-    runner.invoke(app, ["--cwd", str(tmp_path), "item", "approve", "item-0001"])
+    runner.invoke(app, ["--cwd", str(tmp_path), "item", "approve", "it-1"])
 
     context_save = runner.invoke(
         app,
@@ -1017,7 +1034,7 @@ def test_taskledger_file_reference_mode_and_directory_flags(tmp_path: Path) -> N
             "--json",
             "exec-request",
             "build",
-            "item-0001",
+            "it-1",
             "implement",
             "--file-mode",
             "reference",
@@ -1069,7 +1086,7 @@ def test_taskledger_workflow_commands_cover_show_state_and_transitions(
             "item",
             "memory",
             "write",
-            "item-0001",
+            "it-1",
             "--role",
             "plan",
             "--text",
@@ -1078,7 +1095,7 @@ def test_taskledger_workflow_commands_cover_show_state_and_transitions(
     )
     approve_result = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "item", "approve", "item-0001"],
+        ["--cwd", str(tmp_path), "item", "approve", "it-1"],
     )
 
     show_result = runner.invoke(
@@ -1087,11 +1104,11 @@ def test_taskledger_workflow_commands_cover_show_state_and_transitions(
     )
     state_result = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "--json", "workflow", "state", "item-0001"],
+        ["--cwd", str(tmp_path), "--json", "workflow", "state", "it-1"],
     )
     transitions_result = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "workflow", "transitions", "item-0001"],
+        ["--cwd", str(tmp_path), "workflow", "transitions", "it-1"],
     )
 
     assert show_result.exit_code == 0
@@ -1126,7 +1143,7 @@ def test_taskledger_workflow_commands_cover_parity_contract(tmp_path: Path) -> N
             "item",
             "memory",
             "write",
-            "item-0001",
+            "it-1",
             "--role",
             "plan",
             "--text",
@@ -1135,7 +1152,7 @@ def test_taskledger_workflow_commands_cover_parity_contract(tmp_path: Path) -> N
     )
     approve_result = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "item", "approve", "item-0001"],
+        ["--cwd", str(tmp_path), "item", "approve", "it-1"],
     )
 
     base_workflow = resolve_workflow(tmp_path, "default-item-v1")
@@ -1173,7 +1190,7 @@ def test_taskledger_workflow_commands_cover_parity_contract(tmp_path: Path) -> N
     )
     assign_result = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "workflow", "assign", "item-0001", "custom-item-v2"],
+        ["--cwd", str(tmp_path), "workflow", "assign", "it-1", "custom-item-v2"],
     )
     can_enter = runner.invoke(
         app,
@@ -1183,13 +1200,13 @@ def test_taskledger_workflow_commands_cover_parity_contract(tmp_path: Path) -> N
             "--json",
             "workflow",
             "can-enter",
-            "item-0001",
+            "it-1",
             "implement",
         ],
     )
     enter_result = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "workflow", "enter", "item-0001", "implement"],
+        ["--cwd", str(tmp_path), "workflow", "enter", "it-1", "implement"],
     )
     mark_running = runner.invoke(
         app,
@@ -1199,10 +1216,10 @@ def test_taskledger_workflow_commands_cover_parity_contract(tmp_path: Path) -> N
             "--json",
             "workflow",
             "mark-running",
-            "item-0001",
+            "it-1",
             "implement",
             "--request-id",
-            "req-001",
+            "req-1",
         ],
     )
     mark_succeeded = runner.invoke(
@@ -1213,16 +1230,16 @@ def test_taskledger_workflow_commands_cover_parity_contract(tmp_path: Path) -> N
             "--json",
             "workflow",
             "mark-succeeded",
-            "item-0001",
+            "it-1",
             "implement",
             "--run-id",
-            "run-001",
+            "run-1",
             "--summary",
             "Completed planning",
             "--save-target",
-            "mem-0001",
+            "mem-1",
             "--validation-record",
-            "val-0001",
+            "val-1",
         ],
     )
     latest_result = runner.invoke(
@@ -1233,13 +1250,13 @@ def test_taskledger_workflow_commands_cover_parity_contract(tmp_path: Path) -> N
             "--json",
             "workflow",
             "latest",
-            "item-0001",
+            "it-1",
             "implement",
         ],
     )
     records_result = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "--json", "workflow", "records", "item-0001"],
+        ["--cwd", str(tmp_path), "--json", "workflow", "records", "it-1"],
     )
     mark_needs_review = runner.invoke(
         app,
@@ -1249,7 +1266,7 @@ def test_taskledger_workflow_commands_cover_parity_contract(tmp_path: Path) -> N
             "--json",
             "workflow",
             "mark-needs-review",
-            "item-0001",
+            "it-1",
             "implement",
             "--reason",
             "Manual check requested",
@@ -1263,7 +1280,7 @@ def test_taskledger_workflow_commands_cover_parity_contract(tmp_path: Path) -> N
             "--json",
             "workflow",
             "mark-failed",
-            "item-0001",
+            "it-1",
             "implement",
             "--summary",
             "Validation failed",
@@ -1287,17 +1304,17 @@ def test_taskledger_workflow_commands_cover_parity_contract(tmp_path: Path) -> N
     assert set_default.exit_code == 0
     assert '"default_for_items": true' in set_default.stdout
     assert assign_result.exit_code == 0
-    assert "assigned workflow custom-item-v2 to item-0001" in assign_result.stdout
+    assert "assigned workflow custom-item-v2 to it-1" in assign_result.stdout
     assert can_enter.exit_code == 0
     assert '"allowed": true' in can_enter.stdout
     assert enter_result.exit_code == 0
-    assert "entered workflow stage implement for item-0001" in enter_result.stdout
+    assert "entered workflow stage implement for it-1" in enter_result.stdout
     assert mark_running.exit_code == 0
     assert '"status": "running"' in mark_running.stdout
-    assert '"request_id": "req-001"' in mark_running.stdout
+    assert '"request_id": "req-1"' in mark_running.stdout
     assert mark_succeeded.exit_code == 0
     assert '"status": "succeeded"' in mark_succeeded.stdout
-    assert '"run_id": "run-001"' in mark_succeeded.stdout
+    assert '"run_id": "run-1"' in mark_succeeded.stdout
     assert latest_result.exit_code == 0
     assert '"stage_id": "implement"' in latest_result.stdout
     assert '"status": "succeeded"' in latest_result.stdout

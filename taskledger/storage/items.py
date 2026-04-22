@@ -99,7 +99,7 @@ def create_work_item(
     _ensure_unique_slug(items, normalized_slug)
     now = utc_now_iso()
     item = ProjectWorkItem(
-        id=_next_id("item", [entry.id for entry in items]),
+        id=_next_id("it", [entry.id for entry in items]),
         slug=normalized_slug,
         title=title,
         description=description,

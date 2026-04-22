@@ -29,12 +29,12 @@ Create, inspect, and move work items through the built-in lifecycle:
 
    taskledger item create parser-fix --text "Repair parser handling."
    taskledger item list
-   taskledger item show item-0001
-   taskledger item view item-0001
-   taskledger item memory write item-0001 --role plan --text "1. Reproduce parser issue"
-   taskledger item update item-0001 --add-label parser --add-acceptance "Parser tests pass"
-   taskledger item approve item-0001
-   taskledger item close item-0001
+   taskledger item show parser-fix
+   taskledger item view parser-fix
+   taskledger item memory write parser-fix --role plan --text "1. Reproduce parser issue"
+   taskledger item update parser-fix --add-label parser --add-acceptance "Parser tests pass"
+   taskledger item approve parser-fix
+   taskledger item close parser-fix
 
 ``taskledger item approve`` now requires planning evidence: non-empty plan memory
 content, acceptance criteria, or validation checklist entries.
@@ -62,9 +62,9 @@ loop-artifact refs.
 
 .. code-block:: bash
 
-   taskledger context save parser-context --memory mem-0001 --item item-0001 --dir tests/
+   taskledger context save parser-context --memory failing-tests --item parser-fix --dir tests/
    taskledger context list
-   taskledger context show parser-context
+   taskledger context show ctx-1
    taskledger context rename parser-context --new-name release-parser-context
    taskledger context delete release-parser-context
 
@@ -95,12 +95,12 @@ Saved run records can be inspected, promoted to memories, or cleaned up.
 .. code-block:: bash
 
    taskledger runs list
-   taskledger runs show 2026-04-21T09-00-00Z-abc123
-   taskledger runs promote-output 2026-04-21T09-00-00Z-abc123 --name "Implementation notes"
-   taskledger runs promote-report 2026-04-21T09-00-00Z-abc123 --name "Validation report"
+   taskledger runs show run-1
+   taskledger runs promote-output run-1 --name "Implementation notes"
+   taskledger runs promote-report run-1 --name "Validation report"
    taskledger runs summary
    taskledger runs cleanup --keep 20
-   taskledger runs delete 2026-04-21T09-00-00Z-abc123
+   taskledger runs delete run-1
 
 Validation records
 ------------------
@@ -109,10 +109,11 @@ Validation records track durable evidence for work-item verification.
 
 .. code-block:: bash
 
-   taskledger validation add --item item-0001 --memory mem-0005 --kind smoke --status passed --verdict ok
+   taskledger memory create "Validation notes" --text "Smoke checks passed"
+   taskledger validation add --item parser-fix --memory validation-notes --kind smoke --status passed --verdict ok
    taskledger validation list
    taskledger validation summary
-   taskledger validation remove --id val-0001
+   taskledger validation remove --id val-1
 
 Project-level commands
 ----------------------
@@ -223,17 +224,17 @@ It also exposes first-class workflow inspection and transition commands:
    taskledger workflow set-default custom-item-v1
    taskledger workflow delete custom-item-v1
    taskledger workflow show default-item-v1
-   taskledger workflow records item-0001
-   taskledger workflow latest item-0001 plan
-   taskledger workflow state item-0001
-   taskledger workflow can-enter item-0001 plan
-   taskledger workflow transitions item-0001
-   taskledger workflow enter item-0001 plan
-   taskledger workflow mark-running item-0001 plan --request-id req-001
-   taskledger workflow mark-succeeded item-0001 plan --run-id run-001 --summary "Plan complete"
-   taskledger workflow mark-needs-review item-0001 implement --reason "Manual review required"
-   taskledger workflow mark-failed item-0001 implement --summary "Needs follow-up"
-   taskledger workflow approve-stage item-0001 implement
+   taskledger workflow records parser-fix
+   taskledger workflow latest parser-fix plan
+   taskledger workflow state parser-fix
+   taskledger workflow can-enter parser-fix plan
+   taskledger workflow transitions parser-fix
+   taskledger workflow enter parser-fix plan
+   taskledger workflow mark-running parser-fix plan --request-id req-1
+   taskledger workflow mark-succeeded parser-fix plan --run-id run-1 --summary "Plan complete"
+   taskledger workflow mark-needs-review parser-fix implement --reason "Manual review required"
+   taskledger workflow mark-failed parser-fix implement --summary "Needs follow-up"
+   taskledger workflow approve-stage parser-fix implement
 
 Option B split contract:
 
@@ -245,14 +246,14 @@ Execution-request and composition CLI examples:
 
 .. code-block:: bash
 
-   taskledger --json exec-request build item-0001 plan --inline "Context"
-   taskledger --json exec-request build item-0001 plan --file-mode reference --dir tests/ --file tests/test_file.py
+   taskledger --json exec-request build parser-fix plan --inline "Context"
+   taskledger --json exec-request build parser-fix plan --file-mode reference --dir tests/ --file tests/test_file.py
    taskledger --json exec-request expand --request-file ./request.json
    taskledger --json exec-request record-outcome --request-file ./request.json --ok --text "Plan complete"
-   taskledger --json compose expand --item item-0001 --inline "extra context"
-   taskledger --json compose bundle --prompt "Plan this work" --item item-0001
+   taskledger --json compose expand --item parser-fix --inline "extra context"
+   taskledger --json compose bundle --prompt "Plan this work" --item parser-fix
    taskledger --json compose bundle --prompt "Plan this work" --file-mode reference --dir tests/ --file tests/test_file.py
-   taskledger --json compose bundle --prompt "Plan this work" --item item-0001 --no-item-memories
+   taskledger --json compose bundle --prompt "Plan this work" --item parser-fix --no-item-memories
    taskledger --json runtime-support config
    taskledger --json runtime-support run-layout --origin debug
    taskledger --json runtime-support resolve-repo core

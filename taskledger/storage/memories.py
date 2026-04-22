@@ -34,7 +34,7 @@ def create_memory(
     paths: ProjectPaths,
     *,
     name: str,
-    body: str = "",
+    body: str | None = None,
     tags: tuple[str, ...] = (),
     source_run_id: str | None = None,
 ) -> ProjectMemory:
@@ -43,7 +43,9 @@ def create_memory(
     _ensure_unique_memory_identity(memories, name=name, slug=slug)
     memory_id = _next_id("mem", [item.id for item in memories])
     memory_path = paths.memories_dir / f"{memory_id}.md"
-    _write_text(memory_path, body)
+    body_text = body or ""
+    if body_text.strip():
+        _write_text(memory_path, body_text)
     now = utc_now_iso()
     memory = ProjectMemory(
         id=memory_id,
@@ -51,11 +53,11 @@ def create_memory(
         slug=slug,
         path=_relative_to_project(paths, memory_path),
         tags=tuple(sorted(set(tags))),
-        summary=_summarize_text(body),
+        summary=_summarize_text(body_text),
         created_at=now,
         updated_at=now,
         source_run_id=source_run_id,
-        content_hash=_content_hash(body),
+        content_hash=_content_hash(body_text),
     )
     memories.append(memory)
     save_memories(paths, memories)
@@ -67,7 +69,10 @@ def resolve_memory(paths: ProjectPaths, ref: str) -> ProjectMemory:
 
 
 def read_memory_body(paths: ProjectPaths, memory: ProjectMemory) -> str:
-    return _read_text(memory_body_path(paths, memory))
+    body_path = memory_body_path(paths, memory)
+    if not body_path.exists():
+        return ""
+    return _read_text(body_path)
 
 
 def refresh_memory(paths: ProjectPaths, ref: str) -> ProjectMemory:
@@ -94,7 +99,16 @@ def write_memory_body(
 ) -> ProjectMemory:
     memories = load_memories(paths)
     memory = _resolve_memory_from_list(memories, ref)
-    _write_text(memory_body_path(paths, memory), body)
+    body_path = memory_body_path(paths, memory)
+    if body.strip():
+        _write_text(body_path, body)
+    elif body_path.exists():
+        try:
+            body_path.unlink()
+        except OSError as exc:
+            raise LaunchError(
+                f"Failed to delete memory file {body_path}: {exc}"
+            ) from exc
     updated = replace(
         memory,
         summary=_summarize_text(body),

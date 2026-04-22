@@ -5,7 +5,7 @@ from pathlib import Path
 
 from taskledger.api.types import ItemDossier, ItemDossierSection, Memory, WorkItem
 from taskledger.errors import LaunchError
-from taskledger.models import utc_now_iso
+from taskledger.models import ProjectPaths, utc_now_iso
 from taskledger.storage import (
     create_memory,
     create_work_item,
@@ -32,16 +32,17 @@ from taskledger.workflow import (
 
 _ITEM_MEMORY_ROLE_FIELDS = {
     "analysis": "analysis_memory_ref",
-    "state": "state_memory_ref",
+    "current": "state_memory_ref",
     "plan": "plan_memory_ref",
     "implementation": "implementation_memory_ref",
     "validation": "validation_memory_ref",
     "save_target": "save_target_ref",
 }
+_ITEM_MEMORY_ROLE_ALIASES = {"state": "current"}
 
 _DEFAULT_DOSSIER_ROLES = (
     "analysis",
-    "state",
+    "current",
     "plan",
     "implementation",
     "validation",
@@ -49,7 +50,7 @@ _DEFAULT_DOSSIER_ROLES = (
 
 _ITEM_MEMORY_ROLE_TITLES = {
     "analysis": "Analysis",
-    "state": "Current State",
+    "current": "Current State",
     "plan": "Plan",
     "implementation": "Implementation",
     "validation": "Validation",
@@ -72,14 +73,6 @@ def create_item(
     normalized_slug = slug.strip()
     if not normalized_slug:
         raise LaunchError("Project work item slug must not be empty.")
-    analysis_memory = create_memory(paths, name=f"{normalized_slug} analysis")
-    state_memory = create_memory(paths, name=f"{normalized_slug} current-state")
-    plan_memory = create_memory(paths, name=f"{normalized_slug} plan")
-    implementation_memory = create_memory(
-        paths,
-        name=f"{normalized_slug} implementation",
-    )
-    validation_memory = create_memory(paths, name=f"{normalized_slug} validation")
     return create_work_item(
         paths,
         slug=normalized_slug,
@@ -88,19 +81,6 @@ def create_item(
         source_path=source_path,
         repo_refs=repo_refs,
         target_repo_ref=target_repo_ref,
-        analysis_memory_ref=analysis_memory.id,
-        state_memory_ref=state_memory.id,
-        plan_memory_ref=plan_memory.id,
-        implementation_memory_ref=implementation_memory.id,
-        validation_memory_ref=validation_memory.id,
-        linked_memories=(
-            analysis_memory.id,
-            state_memory.id,
-            plan_memory.id,
-            implementation_memory.id,
-            validation_memory.id,
-        ),
-        save_target_ref=implementation_memory.id,
         workflow_id=workflow_id,
         workflow_status="draft",
         stage_status="not_started",
@@ -142,15 +122,19 @@ def item_memory_refs(workspace_root: Path, item_ref: str) -> dict[str, str | Non
 def resolve_item_memory(workspace_root: Path, item_ref: str, role: str) -> Memory:
     paths = load_project_state(workspace_root).paths
     item = resolve_work_item(paths, item_ref)
-    field_name = _memory_field_for_role(role)
+    normalized_role = _canonical_item_memory_role(role)
+    field_name = _memory_field_for_role(normalized_role)
     memory_ref = getattr(item, field_name)
     if not memory_ref:
-        raise LaunchError(f"Project work item {item.id} has no {role} memory.")
+        raise LaunchError(
+            f"Work item {item.slug} has no memory for role {normalized_role} yet."
+        )
     try:
         return resolve_memory(paths, memory_ref)
     except LaunchError as exc:
         raise LaunchError(
-            f"Project work item {item.id} has invalid {role} memory ref: {memory_ref}"
+            f"Work item {item.slug} has an invalid {normalized_role} memory ref: "
+            f"{memory_ref}"
         ) from exc
 
 
@@ -169,7 +153,28 @@ def write_item_memory_body(
     mode: str = "replace",
 ) -> Memory:
     paths = load_project_state(workspace_root).paths
-    memory = resolve_item_memory(workspace_root, item_ref, role)
+    item = resolve_work_item(paths, item_ref)
+    normalized_role = _canonical_item_memory_role(role)
+    field_name = _memory_field_for_role(normalized_role)
+    existing_ref = getattr(item, field_name)
+    if not text.strip():
+        if existing_ref is None:
+            raise LaunchError(
+                f"Work item {item.slug} has no memory for role {normalized_role} yet."
+            )
+        if mode in {"append", "prepend"}:
+            return resolve_item_memory(workspace_root, item_ref, normalized_role)
+    if existing_ref is None:
+        memory = _create_item_memory(
+            paths,
+            item,
+            role=normalized_role,
+            body=text,
+        )
+        if mode in {"replace", "append", "prepend"}:
+            return memory
+        raise LaunchError(f"Unsupported item memory write mode: {mode}")
+    memory = resolve_item_memory(workspace_root, item_ref, normalized_role)
     if mode == "replace":
         return write_memory_body(paths, memory.id, text)
     if mode in {"append", "prepend"}:
@@ -481,7 +486,7 @@ def _normalize_dossier_roles(roles: tuple[str, ...] | None) -> tuple[str, ...]:
         return _DEFAULT_DOSSIER_ROLES
     normalized: list[str] = []
     for role in roles:
-        candidate = role.strip().lower()
+        candidate = _canonical_item_memory_role(role)
         _memory_field_for_role(candidate)
         if candidate in normalized:
             continue
@@ -492,8 +497,8 @@ def _normalize_dossier_roles(roles: tuple[str, ...] | None) -> tuple[str, ...]:
 def _item_header_section(item: WorkItem) -> ItemDossierSection:
     body = _kv_block(
         [
-            ("item_id", item.id),
             ("slug", item.slug),
+            ("item_id", item.id),
             ("title", item.title),
             ("status", item.status),
             ("stage", item.stage),
@@ -506,7 +511,7 @@ def _item_header_section(item: WorkItem) -> ItemDossierSection:
     )
     return ItemDossierSection(
         kind="header",
-        title=f"ITEM DOSSIER {item.id}",
+        title=f"ITEM DOSSIER {item.slug} ({item.id})",
         ref=item.id,
         body=body,
     )
@@ -791,7 +796,7 @@ def _referencing_contexts_section(paths, item: WorkItem) -> ItemDossierSection:
     ]
     lines = [
         (
-            f"- {context.slug} ({context.name})  "
+            f"- {context.name} ({context.id})  "
             f"memories={len(context.memory_refs)} files={len(context.file_refs)} "
             f"items={len(context.item_refs)}"
         )
@@ -881,12 +886,17 @@ def _memory_refs_for_item(item: WorkItem) -> dict[str, str | None]:
     }
 
 
+def _canonical_item_memory_role(role: str) -> str:
+    normalized_role = role.strip().lower()
+    return _ITEM_MEMORY_ROLE_ALIASES.get(normalized_role, normalized_role)
+
+
 def _memory_field_for_role(role: str) -> str:
-    field_name = _ITEM_MEMORY_ROLE_FIELDS.get(role.strip().lower())
+    field_name = _ITEM_MEMORY_ROLE_FIELDS.get(_canonical_item_memory_role(role))
     if field_name is None:
         raise LaunchError(
             "Invalid item memory role. Use one of: "
-            + ", ".join(sorted(_ITEM_MEMORY_ROLE_FIELDS))
+            + ", ".join(sorted({*_ITEM_MEMORY_ROLE_FIELDS, *_ITEM_MEMORY_ROLE_ALIASES}))
         )
     return field_name
 
@@ -899,6 +909,39 @@ def _drop_memory_refs(item: WorkItem, memory_id: str) -> WorkItem:
     }
     linked_memories = tuple(ref for ref in item.linked_memories if ref != memory_id)
     return replace(item, linked_memories=linked_memories, **updates)
+
+
+def _create_item_memory(
+    paths: ProjectPaths, item: WorkItem, *, role: str, body: str
+) -> Memory:
+    memory = create_memory(paths, name=_item_memory_name(item, role), body=body)
+    linked_memories = item.linked_memories
+    if memory.id not in linked_memories:
+        linked_memories = linked_memories + (memory.id,)
+    field_name = _memory_field_for_role(role)
+    save_target_ref = item.save_target_ref
+    if role == "implementation" and save_target_ref is None:
+        save_target_ref = memory.id
+    updated_item = replace(
+        item,
+        linked_memories=linked_memories,
+        save_target_ref=save_target_ref,
+        **{field_name: memory.id},
+    )
+    update_work_item(paths, item.id, updated_item)
+    return memory
+
+
+def _item_memory_name(item: WorkItem, role: str) -> str:
+    role_label = {
+        "analysis": "analysis",
+        "current": "current-state",
+        "plan": "plan",
+        "implementation": "implementation",
+        "validation": "validation",
+        "save_target": "save-target",
+    }[role]
+    return f"{item.slug} {role_label}"
 
 
 def _memory_ref_has_content(paths, ref: str | None) -> bool:

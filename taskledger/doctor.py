@@ -166,7 +166,8 @@ def _memory_issues(state: ProjectState) -> tuple[list[str], list[str]]:
     for memory in state.memories:
         body_path = memory_body_path(state.paths, memory)
         if not body_path.exists():
-            missing_memory_files.append(memory.id)
+            if memory.summary is not None or memory.content_hash is not None:
+                missing_memory_files.append(memory.id)
             continue
         if not body_path.read_text(encoding="utf-8").strip():
             empty_memories.append(memory.id)

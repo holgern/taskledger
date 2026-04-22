@@ -33,15 +33,16 @@ Initialize project state in the current workspace:
 taskledger init
 ```
 
-Create a work item, inspect it, and create supporting memories:
+Create a work item, inspect it, and create supporting memories. Item role
+memories are created lazily on the first meaningful write:
 
 ```bash
 taskledger item create parser-fix --text "Repair parser handling."
 taskledger item list
-taskledger item show item-0001
-taskledger item view item-0001
-taskledger item memory write item-0001 --role plan --text "1. Update parser tests"
-taskledger item approve item-0001
+taskledger item show parser-fix
+taskledger item view parser-fix
+taskledger item memory write parser-fix --role plan --text "1. Update parser tests"
+taskledger item approve parser-fix
 
 taskledger memory create "Parser analysis" --text "Current parser behavior."
 taskledger memory prepend parser-analysis --text "Priority: high"
@@ -51,7 +52,8 @@ taskledger memory retag parser-analysis --add-tag analysis --add-tag parser
 Manage saved contexts, repos, runs, and validation records:
 
 ```bash
-taskledger context save parser-context --memory mem-0001 --item item-0001 --dir tests/
+taskledger context save parser-context --memory parser-analysis --item parser-fix --dir tests/
+taskledger context show ctx-1
 taskledger context rename parser-context --new-name release-parser-context
 
 taskledger repo add core --path /path/to/repo --role both
@@ -76,7 +78,7 @@ Example status payload:
   "kind": "taskledger_status",
   "counts": {
     "contexts": 1,
-    "memories": 6,
+    "memories": 2,
     "repos": 1,
     "runs": 2,
     "validation_records": 1,
@@ -110,9 +112,9 @@ Notable lifecycle commands:
 
 Item dossier and composition examples:
 
-- `taskledger item view item-0001 --role plan --role implementation`
-- `taskledger item dossier item-0001 --output ./item-0001.md`
-- `taskledger --json compose bundle --prompt "Plan this work" --item item-0001 --no-item-memories`
+- `taskledger item view parser-fix --role plan --role implementation`
+- `taskledger item dossier parser-fix --output ./parser-fix.md`
+- `taskledger --json compose bundle --prompt "Plan this work" --item parser-fix --no-item-memories`
 - `taskledger --json compose bundle --prompt "Fix failing tests" --file-mode reference --dir tests/ --file tests/test_file.py`
 
 ## Python API

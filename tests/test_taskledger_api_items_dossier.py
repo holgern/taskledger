@@ -43,7 +43,7 @@ def test_item_dossier_default_sections_include_memory_bodies(tmp_path: Path) -> 
     assert "Implementation text" in implementation.body
 
     rendered = render_item_dossier_markdown(dossier)
-    assert "ITEM DOSSIER item-0001" in rendered
+    assert "ITEM DOSSIER dossier-core (it-1)" in rendered
     assert "Plan section text" in rendered
 
 
@@ -96,10 +96,11 @@ def test_item_dossier_includes_validation_and_referencing_contexts(
 ) -> None:
     init_project(tmp_path)
     item = create_item(tmp_path, slug="dossier-links", description="Linked sections")
+    write_item_memory_body(tmp_path, item.id, "validation", "Validation summary")
     append_validation_record(
         tmp_path,
         project_item_ref=item.id,
-        memory_ref=item.validation_memory_ref or "mem-0005",
+        memory_ref=item.validation_memory_ref or "mem-2",
         kind="smoke",
         status="passed",
     )
@@ -118,5 +119,5 @@ def test_item_dossier_includes_validation_and_referencing_contexts(
     contexts = _section_by_title(dossier, "Contexts Referencing This Item")
     assert validation is not None
     assert contexts is not None
-    assert "val-0001" in validation.body
-    assert "review-context" in contexts.body
+    assert "val-1" in validation.body
+    assert "Review Context (ctx-1)" in contexts.body

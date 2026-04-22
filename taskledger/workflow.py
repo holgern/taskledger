@@ -14,6 +14,7 @@ from taskledger.models import (
     MemoryUpdateMode,
     ProjectArtifactRule,
     ProjectConfig,
+    ProjectPaths,
     ProjectState,
     ProjectWorkItem,
     WorkflowDefinition,
@@ -365,7 +366,7 @@ def append_item_stage_record(
     records = load_stage_records(paths)
     now = utc_now_iso()
     record = ItemStageRecord(
-        record_id=_next_id("stage", [entry.record_id for entry in records]),
+        record_id=_next_id("stg", [entry.record_id for entry in records]),
         item_ref=item.id,
         workflow_id=item.workflow_id or default_workflow_id_for_paths(paths),
         stage_id=stage_id,
@@ -583,7 +584,7 @@ def build_execution_request_for_item(
         raise LaunchError(
             f"Stage {stage_id} cannot be entered for {item.id}: {', '.join(reasons)}"
         )
-    request_ids = [record.record_id for record in load_stage_records(state.paths)]
+    request_ids = _request_ids_for_paths(state.paths)
     return ExecutionRequest(
         request_id=_next_id("req", request_ids),
         item_ref=item.id,
@@ -1150,6 +1151,16 @@ def _memory_ref_has_content(state: ProjectState, ref: str | None) -> bool:
     if not path.exists():
         return False
     return bool(path.read_text(encoding="utf-8").strip())
+
+
+def _request_ids_for_paths(paths: ProjectPaths) -> list[str]:
+    request_ids: list[str] = []
+    for record in load_stage_records(paths):
+        metadata = record.metadata or {}
+        request_id = metadata.get("request_id")
+        if isinstance(request_id, str):
+            request_ids.append(request_id)
+    return request_ids
 
 
 def _legacy_memory_completion_state(state: ProjectState) -> dict[str, bool]:

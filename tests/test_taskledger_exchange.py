@@ -26,6 +26,7 @@ def test_project_export_import_and_snapshot_round_trip(tmp_path: Path) -> None:
     init_project(source_root)
     init_project(destination_root)
     analysis = create_memory(source_root, name="Analysis", body="Current state")
+    validation = create_memory(source_root, name="Validation", body="Checks passed")
     item = create_item(source_root, slug="parser-fix", description="Repair parser")
     save_context(
         source_root,
@@ -36,7 +37,7 @@ def test_project_export_import_and_snapshot_round_trip(tmp_path: Path) -> None:
     append_validation_record(
         source_root,
         project_item_ref=item.id,
-        memory_ref=item.validation_memory_ref or "",
+        memory_ref=validation.id,
         kind="smoke",
         status="passed",
         verdict="ok",
@@ -54,8 +55,8 @@ def test_project_export_import_and_snapshot_round_trip(tmp_path: Path) -> None:
         include_bodies=True,
     )
 
-    assert exported["counts"]["memories"] == 6
-    assert imported_payload["counts"]["memories"] == 6
+    assert exported["counts"]["memories"] == 2
+    assert imported_payload["counts"]["memories"] == 2
     assert imported_payload["counts"]["contexts"] == 1
     assert imported_payload["counts"]["validation_records"] == 1
     assert read_memory_body(destination_root, analysis.id) == "Current state"

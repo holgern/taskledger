@@ -3,7 +3,6 @@ from pathlib import Path
 import pytest
 
 from taskledger.errors import LaunchError
-from taskledger.models import ProjectSourceBudget
 from taskledger.search import (
     _discovery_tokens,
     _read_text_file,

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from taskledger.errors import LaunchError
+from taskledger.ids import next_project_id as _next_id
 from taskledger.ids import slugify_project_ref as _slugify
 from taskledger.models import ProjectContextEntry, ProjectPaths, utc_now_iso
 from taskledger.storage.common import load_json_array as _load_json_array
@@ -40,8 +41,16 @@ def save_context(
     entries = load_contexts(paths)
     slug = _slugify(name)
     existing = next((item for item in entries if item.slug == slug), None)
+    if existing is None:
+        _ensure_unique_context_identity(entries, name=name, slug=slug)
     now = utc_now_iso()
+    context_id = (
+        existing.id
+        if existing is not None
+        else _next_id("ctx", [item.id for item in entries])
+    )
     entry = ProjectContextEntry(
+        id=context_id,
         name=name,
         slug=slug,
         path=_relative_to_project(paths, paths.contexts_dir / f"{slug}.json"),
@@ -83,7 +92,10 @@ def resolve_context(paths: ProjectPaths, ref: str) -> ProjectContextEntry:
     candidates = [
         item
         for item in entries
-        if item.slug == ref or item.name == ref or item.slug == _slugify(ref)
+        if item.id == ref
+        or item.slug == ref
+        or item.name == ref
+        or item.slug == _slugify(ref)
     ]
     if not candidates:
         raise LaunchError(f"Unknown project context: {ref}")
@@ -100,7 +112,7 @@ def rename_context(paths: ProjectPaths, ref: str, new_name: str) -> ProjectConte
         entries,
         name=new_name,
         slug=new_slug,
-        ignore_slug=entry.slug,
+        ignore_id=entry.id,
     )
     updated = replace(
         entry,
@@ -121,7 +133,7 @@ def rename_context(paths: ProjectPaths, ref: str, new_name: str) -> ProjectConte
 def delete_context(paths: ProjectPaths, ref: str) -> ProjectContextEntry:
     entries = load_contexts(paths)
     entry = resolve_context(paths, ref)
-    remaining = [item for item in entries if item.slug != entry.slug]
+    remaining = [item for item in entries if item.id != entry.id]
     save_contexts(paths, remaining)
     context_path = paths.project_dir / entry.path
     if context_path.exists():
@@ -135,9 +147,9 @@ def _replace_context(
     *,
     ref: str | None = None,
 ) -> None:
-    target = ref or updated.slug
+    target = ref or updated.id
     for index, item in enumerate(entries):
-        if item.slug == target:
+        if item.id == target or item.slug == target:
             entries[index] = updated
             return
     raise LaunchError(f"Unknown project context: {target}")
@@ -148,10 +160,10 @@ def _ensure_unique_context_identity(
     *,
     name: str,
     slug: str,
-    ignore_slug: str | None = None,
+    ignore_id: str | None = None,
 ) -> None:
     for item in entries:
-        if ignore_slug is not None and item.slug == ignore_slug:
+        if ignore_id is not None and item.id == ignore_id:
             continue
         if item.name == name:
             raise LaunchError(f"Project context already exists with name: {name}")

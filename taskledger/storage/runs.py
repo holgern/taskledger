@@ -1,17 +1,25 @@
 from __future__ import annotations
 
+import re
 import shutil
 from pathlib import Path
-from uuid import uuid4
 
 from taskledger.errors import LaunchError
-from taskledger.models import ProjectPaths, ProjectRunRecord, utc_now_iso
+from taskledger.ids import next_project_id as _next_id
+from taskledger.models import ProjectPaths, ProjectRunRecord
 from taskledger.storage.common import load_json_object as _load_json_object
 from taskledger.storage.common import write_json as _write_json
 
+_RUN_ID_PATTERN = re.compile(r"^run-(\d+)$")
+
 
 def create_run_dir(paths: ProjectPaths) -> tuple[str, Path]:
-    run_id = f"{_timestamp_slug()}-{uuid4().hex[:6]}"
+    existing_ids = [record.run_id for record in load_run_records(paths, limit=None)]
+    if paths.runs_dir.exists():
+        existing_ids.extend(
+            entry.name for entry in paths.runs_dir.iterdir() if entry.is_dir()
+        )
+    run_id = _next_id("run", existing_ids)
     run_dir = paths.runs_dir / run_id
     run_dir.mkdir(parents=True, exist_ok=False)
     return run_id, run_dir
@@ -29,7 +37,7 @@ def load_run_records(
     records: list[ProjectRunRecord] = []
     run_dirs = sorted(
         [entry for entry in paths.runs_dir.iterdir() if entry.is_dir()],
-        key=lambda entry: entry.name,
+        key=lambda entry: _run_sort_key(entry.name),
         reverse=True,
     )
     if limit is not None:
@@ -66,7 +74,8 @@ def cleanup_runs(paths: ProjectPaths, *, keep: int) -> list[ProjectRunRecord]:
     for record in load_run_records(paths, limit=None)[keep:]:
         deleted.append(delete_run(paths, record.run_id))
     return deleted
-
-
-def _timestamp_slug() -> str:
-    return utc_now_iso().replace(":", "-").replace("+00:00", "Z")
+def _run_sort_key(name: str) -> tuple[int, str]:
+    match = _RUN_ID_PATTERN.match(name)
+    if match is None:
+        return (-1, name)
+    return (int(match.group(1)), name)

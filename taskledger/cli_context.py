@@ -68,7 +68,7 @@ def register_context_commands(app: typer.Typer) -> None:
         emit_payload(
             ctx,
             entry.to_dict(),
-            human=f"saved context {entry.slug}",
+            human=f"saved context {entry.name} ({entry.id})",
         )
 
     @app.command("list")
@@ -81,7 +81,7 @@ def register_context_commands(app: typer.Typer) -> None:
             human=human_list(
                 "CONTEXTS",
                 [
-                    f"{entry.slug}  memories={len(entry.memory_refs)}  "
+                    f"{entry.name}  {entry.id}  memories={len(entry.memory_refs)}  "
                     f"files={len(entry.file_refs)}  "
                     f"dirs={len(entry.directory_refs)}  "
                     f"items={len(entry.item_refs)}"
@@ -105,8 +105,10 @@ def register_context_commands(app: typer.Typer) -> None:
             ctx,
             entry.to_dict(),
             human=human_kv(
-                f"CONTEXT {entry.slug}",
+                f"CONTEXT {entry.name}",
                 [
+                    ("id", entry.id),
+                    ("slug", entry.slug),
                     ("memories", ", ".join(entry.memory_refs) or "-"),
                     ("files", ", ".join(entry.file_refs) or "-"),
                     ("dirs", ", ".join(entry.directory_refs) or "-"),
@@ -134,7 +136,7 @@ def register_context_commands(app: typer.Typer) -> None:
         emit_payload(
             ctx,
             entry.to_dict(),
-            human=f"renamed context {entry.slug}",
+            human=f"renamed context {entry.name} ({entry.id})",
         )
 
     @app.command("delete")
@@ -151,5 +153,5 @@ def register_context_commands(app: typer.Typer) -> None:
         emit_payload(
             ctx,
             entry.to_dict(),
-            human=f"deleted context {entry.slug}",
+            human=f"deleted context {entry.name} ({entry.id})",
         )
