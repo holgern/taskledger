@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import replace
 from pathlib import Path
 from typing import cast
@@ -16,9 +17,17 @@ from taskledger.models import (
     WorkItemStatus,
     utc_now_iso,
 )
-from taskledger.storage.common import load_json_array as _load_json_array
-from taskledger.storage.common import write_json as _write_json
+from taskledger.storage.frontmatter import (
+    iter_markdown_files as _iter_markdown_files,
+)
+from taskledger.storage.frontmatter import (
+    read_markdown_front_matter as _read_markdown_front_matter,
+)
+from taskledger.storage.frontmatter import (
+    write_markdown_front_matter as _write_markdown_front_matter,
+)
 
+_NUMERIC_SUFFIX_PATTERN = re.compile(r".*-(\d+)$")
 _WORK_ITEM_STATUSES = {
     "draft",
     "planned",
@@ -37,24 +46,65 @@ _WORK_ITEM_STAGES = {
     "validation",
     "closure",
 }
+_REQUIRED_ITEM_KEYS = (
+    "id",
+    "slug",
+    "title",
+    "status",
+    "stage",
+    "created_at",
+    "updated_at",
+)
 
 
 def load_work_items(paths: ProjectPaths) -> list[ProjectWorkItem]:
-    return [
-        ProjectWorkItem.from_dict(item)
-        for item in _load_json_array(paths.item_index_path, "project work item index")
-    ]
+    items: list[ProjectWorkItem] = []
+    for item_file in _iter_markdown_files(paths.items_dir):
+        metadata, body = _read_markdown_front_matter(item_file)
+        _validate_required_keys(metadata, item_file)
+        item_id = _string_metadata_value(metadata, "id", path=item_file)
+        if item_file.stem != item_id:
+            raise LaunchError(
+                "Invalid work item document "
+                f"{item_file}: filename stem {item_file.stem!r} does not match "
+                f"front matter id {item_id!r}."
+            )
+        payload = dict(metadata)
+        payload["description"] = body
+        try:
+            items.append(ProjectWorkItem.from_dict(payload))
+        except (TypeError, ValueError) as exc:
+            raise LaunchError(
+                f"Invalid work item front matter {item_file}: {exc}"
+            ) from exc
+    items.sort(key=lambda item: _id_sort_key(item.id))
+    return items
 
 
 def save_work_items(paths: ProjectPaths, items: list[ProjectWorkItem]) -> None:
-    _write_json(paths.item_index_path, [item.to_dict() for item in items])
+    keep_ids: set[str] = set()
+    for item in sorted(items, key=lambda entry: _id_sort_key(entry.id)):
+        _write_work_item_document(paths, item)
+        keep_ids.add(item.id)
+    for stale_path in _iter_markdown_files(paths.items_dir):
+        if stale_path.stem in keep_ids:
+            continue
+        try:
+            stale_path.unlink()
+        except OSError as exc:
+            raise LaunchError(
+                f"Failed to delete work item file {stale_path}: {exc}"
+            ) from exc
 
 
 def save_work_item(paths: ProjectPaths, item: ProjectWorkItem) -> ProjectWorkItem:
     items = load_work_items(paths)
-    _replace_work_item(items, replace(item, updated_at=utc_now_iso()))
-    save_work_items(paths, items)
-    return items[_work_item_index(items, item.id)]
+    existing = _resolve_item_by_id(items, item.id)
+    if item.slug != existing.slug:
+        _ensure_unique_slug(items, item.slug, ignore_id=item.id)
+    updated = replace(item, updated_at=utc_now_iso())
+    _write_work_item_document(paths, updated)
+    return updated
 
 
 def create_work_item(
@@ -132,8 +182,7 @@ def create_work_item(
         workflow_status=cast(WorkflowStatus, workflow_status),
         stage_status=cast(WorkflowStageStatus | None, stage_status),
     )
-    items.append(item)
-    save_work_items(paths, items)
+    _write_work_item_document(paths, item)
     return item
 
 
@@ -168,20 +217,14 @@ def update_work_item(
     if item.slug != existing.slug:
         _ensure_unique_slug(items, item.slug, ignore_id=item.id)
     updated = replace(item, updated_at=utc_now_iso())
-    _replace_work_item(items, updated)
-    save_work_items(paths, items)
+    _write_work_item_document(paths, updated)
     return updated
 
 
-def _replace_work_item(items: list[ProjectWorkItem], updated: ProjectWorkItem) -> None:
-    index = _work_item_index(items, updated.id)
-    items[index] = updated
-
-
-def _work_item_index(items: list[ProjectWorkItem], item_id: str) -> int:
-    for index, item in enumerate(items):
+def _resolve_item_by_id(items: list[ProjectWorkItem], item_id: str) -> ProjectWorkItem:
+    for item in items:
         if item.id == item_id:
-            return index
+            return item
     raise LaunchError(f"Unknown project work item: {item_id}")
 
 
@@ -196,3 +239,39 @@ def _ensure_unique_slug(
             continue
         if item.slug == slug:
             raise LaunchError(f"Project work item already exists with slug: {slug}")
+
+
+def _id_sort_key(value: str) -> tuple[int, int, str]:
+    match = _NUMERIC_SUFFIX_PATTERN.match(value)
+    if match is None:
+        return (1, 0, value)
+    return (0, int(match.group(1)), value)
+
+
+def _write_work_item_document(paths: ProjectPaths, item: ProjectWorkItem) -> None:
+    metadata = item.to_dict()
+    metadata.pop("description", None)
+    _write_markdown_front_matter(
+        paths.items_dir / f"{item.id}.md",
+        metadata,
+        item.description,
+    )
+
+
+def _string_metadata_value(metadata: dict[str, object], key: str, *, path: Path) -> str:
+    value = metadata.get(key)
+    if isinstance(value, str):
+        return value
+    raise LaunchError(
+        f"Invalid work item front matter {path}: key {key!r} must be a string."
+    )
+
+
+def _validate_required_keys(metadata: dict[str, object], path: Path) -> None:
+    missing = [key for key in _REQUIRED_ITEM_KEYS if key not in metadata]
+    if not missing:
+        return
+    missing_text = ", ".join(missing)
+    raise LaunchError(
+        f"Invalid work item front matter {path}: missing required keys: {missing_text}."
+    )

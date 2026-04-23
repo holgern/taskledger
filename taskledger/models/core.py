@@ -127,11 +127,9 @@ class ProjectPaths:
     workflows_dir: Path
     workflow_index_path: Path
     memories_dir: Path
-    memory_index_path: Path
     contexts_dir: Path
     context_index_path: Path
     items_dir: Path
-    item_index_path: Path
     stages_dir: Path
     stage_index_path: Path
     runs_dir: Path

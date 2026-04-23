@@ -8,7 +8,8 @@ from taskledger.models import ProjectState
 from taskledger.storage import (
     ensure_project_exists,
     load_project_state,
-    memory_body_path,
+    memory_markdown_path,
+    read_memory_body,
     resolve_project_paths,
     validation_records_index_path,
 )
@@ -22,11 +23,9 @@ _EXPECTED_PATHS = (
     "workflows_dir",
     "workflow_index_path",
     "memories_dir",
-    "memory_index_path",
     "contexts_dir",
     "context_index_path",
     "items_dir",
-    "item_index_path",
     "stages_dir",
     "stage_index_path",
     "runs_dir",
@@ -123,7 +122,7 @@ def _report_for_state(state: ProjectState) -> dict[str, object]:
     if missing_repo_roots:
         errors.append("Tracked repos are missing on disk.")
     if missing_memory_files:
-        errors.append("Memory index entries point to missing body files.")
+        errors.append("Memory Markdown documents are missing on disk.")
     if broken_context_refs:
         errors.append("Saved contexts reference missing project artifacts.")
     if broken_item_links:
@@ -164,11 +163,10 @@ def _memory_issues(state: ProjectState) -> tuple[list[str], list[str]]:
     missing_memory_files: list[str] = []
     empty_memories: list[str] = []
     for memory in state.memories:
-        body_path = memory_body_path(state.paths, memory)
-        if not body_path.exists():
-            if memory.summary is not None or memory.content_hash is not None:
-                missing_memory_files.append(memory.id)
+        memory_path = memory_markdown_path(state.paths, memory)
+        if not memory_path.exists():
+            missing_memory_files.append(memory.id)
             continue
-        if not body_path.read_text(encoding="utf-8").strip():
+        if not read_memory_body(state.paths, memory).strip():
             empty_memories.append(memory.id)
     return missing_memory_files, empty_memories

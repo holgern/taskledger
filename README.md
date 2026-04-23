@@ -18,6 +18,16 @@ state without owning runtime orchestration.
 `taskledger` does **not** run agent loops, launch harnesses, or own live runtime
 execution control.
 
+## Storage layout
+
+`taskledger` stores durable state under `.taskledger/`.
+
+- memories are stored as one Markdown document per memory:
+  `.taskledger/memories/<id>.md`
+- work items are stored as one Markdown document per item:
+  `.taskledger/items/<id>.md`
+- repos, contexts, workflows, stages, and validation keep JSON index files
+
 ## Install
 
 ```bash

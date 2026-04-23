@@ -22,6 +22,7 @@ from taskledger.storage import (
     load_stage_records,
     load_validation_records,
     load_workflow_definitions,
+    read_memory_body,
     save_contexts,
     save_memories,
     save_repos,
@@ -30,6 +31,7 @@ from taskledger.storage import (
     save_validation_records,
     save_work_items,
     save_workflow_definitions,
+    write_memory_body,
 )
 
 
@@ -76,9 +78,8 @@ def export_project_payload(
     }
     if include_bodies:
         payload["memory_bodies"] = {
-            item.id: (state.paths.project_dir / item.path).read_text(encoding="utf-8")
+            item.id: read_memory_body(state.paths, item)
             for item in state.memories
-            if (state.paths.project_dir / item.path).exists()
         }
         payload["context_payloads"] = {
             item.id: json.loads(
@@ -183,7 +184,7 @@ def import_project_payload(
         )
         save_validation_records(paths, merged_records)
 
-    _write_memory_bodies(paths, payload, imported_memories)
+    _write_memory_bodies(paths, payload, imported_memories, replace=replace)
     _materialize_runs(paths, payload, imported_runs, replace=replace)
 
     refreshed = load_project_state(workspace_root, recent_runs_limit=None)
@@ -273,18 +274,32 @@ def _write_project_config(paths, payload: dict[str, object]) -> None:
         paths.config_path.write_text(config_text, encoding="utf-8")
 
 
-def _write_memory_bodies(paths, payload: dict[str, object], imported_memories):
+def _write_memory_bodies(
+    paths,
+    payload: dict[str, object],
+    imported_memories,
+    *,
+    replace: bool,
+):
     body_map = payload.get("memory_bodies")
     memory_bodies = body_map if isinstance(body_map, dict) else {}
     for memory in imported_memories:
-        body_path = paths.project_dir / memory.path
         body = memory_bodies.get(memory.id)
-        if isinstance(body, str) and body.strip():
-            body_path.parent.mkdir(parents=True, exist_ok=True)
-            body_path.write_text(body, encoding="utf-8")
+        if isinstance(body, str):
+            write_memory_body(
+                paths,
+                memory.id,
+                body,
+                source_run_id=memory.source_run_id,
+            )
             continue
-        if body_path.exists():
-            body_path.unlink()
+        if replace:
+            write_memory_body(
+                paths,
+                memory.id,
+                "",
+                source_run_id=memory.source_run_id,
+            )
 
 
 def _materialize_runs(

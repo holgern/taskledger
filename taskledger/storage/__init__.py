@@ -41,7 +41,9 @@ from taskledger.storage.items import update_work_item as update_work_item
 from taskledger.storage.memories import create_memory as create_memory
 from taskledger.storage.memories import delete_memory as delete_memory
 from taskledger.storage.memories import load_memories as load_memories
-from taskledger.storage.memories import memory_body_path as memory_body_path
+from taskledger.storage.memories import (
+    memory_markdown_path as memory_markdown_path,
+)
 from taskledger.storage.memories import read_memory_body as read_memory_body
 from taskledger.storage.memories import refresh_memory as refresh_memory
 from taskledger.storage.memories import rename_memory as rename_memory
@@ -206,11 +208,9 @@ def _project_paths_for_root(workspace_root: Path, project_dir: Path) -> ProjectP
         workflows_dir=workflows_dir,
         workflow_index_path=workflows_dir / "index.json",
         memories_dir=memories_dir,
-        memory_index_path=memories_dir / "index.json",
         contexts_dir=contexts_dir,
         context_index_path=contexts_dir / "index.json",
         items_dir=items_dir,
-        item_index_path=items_dir / "index.json",
         stages_dir=stages_dir,
         stage_index_path=stages_dir / "index.json",
         runs_dir=project_dir / "runs",
@@ -242,9 +242,7 @@ def init_project_state(workspace_root: Path) -> tuple[ProjectPaths, list[str]]:
         (paths.config_path, DEFAULT_PROJECT_TOML),
         (paths.repo_index_path, "[]\n"),
         (paths.workflow_index_path, "[]\n"),
-        (paths.memory_index_path, "[]\n"),
         (paths.context_index_path, "[]\n"),
-        (paths.item_index_path, "[]\n"),
         (paths.stage_index_path, "[]\n"),
         (validation_records_index_path(paths), "[]\n"),
     ):
@@ -257,15 +255,14 @@ def init_project_state(workspace_root: Path) -> tuple[ProjectPaths, list[str]]:
 
 def ensure_project_exists(workspace_root: Path) -> ProjectPaths:
     paths = resolve_project_paths(workspace_root)
+    _reject_legacy_item_memory_indexes(paths)
     missing = [
         path
         for path in (
             paths.config_path,
             paths.repo_index_path,
             paths.workflow_index_path,
-            paths.memory_index_path,
             paths.context_index_path,
-            paths.item_index_path,
             paths.stage_index_path,
         )
         if not path.exists()
@@ -535,6 +532,7 @@ def _validate_project_config_overrides(data: dict[str, object], path: Path) -> N
 def _ensure_additive_project_files(paths: ProjectPaths) -> None:
     for directory in (
         paths.repos_dir,
+        paths.memories_dir,
         paths.items_dir,
         paths.runs_dir,
         validation_records_dir(paths),
@@ -547,12 +545,26 @@ def _ensure_additive_project_files(paths: ProjectPaths) -> None:
             raise LaunchError(f"Failed to create {directory}: {exc}") from exc
     for path in (
         paths.repo_index_path,
-        paths.item_index_path,
         validation_records_index_path(paths),
     ):
         if path.exists():
             continue
         _write_text(path, "[]\n")
+
+
+def _reject_legacy_item_memory_indexes(paths: ProjectPaths) -> None:
+    legacy_item_index = paths.items_dir / "index.json"
+    legacy_memory_index = paths.memories_dir / "index.json"
+    if legacy_item_index.exists():
+        raise LaunchError(
+            "Legacy item JSON storage is unsupported after this refactor: "
+            f"remove {legacy_item_index}."
+        )
+    if legacy_memory_index.exists():
+        raise LaunchError(
+            "Legacy memory JSON storage is unsupported after this refactor: "
+            f"remove {legacy_memory_index}."
+        )
 
 
 def _artifact_rules_from_overrides(

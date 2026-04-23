@@ -25,6 +25,7 @@ keywords = ["cli", "durable-state", "project-state", "developer-tools", "workflo
 dependencies = [
     "typer",
     "tiktoken",
+    "PyYAML",
     'tomli; python_version < "3.11"',
 ]
 classifiers = [

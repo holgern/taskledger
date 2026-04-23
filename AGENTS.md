@@ -48,9 +48,9 @@ Treat these paths as compatibility-sensitive:
 
 - `.taskledger/project.toml`
 - `.taskledger/repos/index.json`
-- `.taskledger/memories/index.json`
+- `.taskledger/memories/<memory_id>.md`
 - `.taskledger/contexts/index.json`
-- `.taskledger/items/index.json`
+- `.taskledger/items/<item_id>.md`
 - `.taskledger/runs/<run_id>/record.json`
 - `.taskledger/validation/records.json`
 
@@ -216,7 +216,7 @@ Preserve or improve checks for:
 
 - missing taskledger root files
 - missing repo directories
-- missing memory body files
+- missing memory markdown files
 - empty memories
 - broken context references
 - broken work-item links
@@ -245,7 +245,7 @@ Prefer the narrowest useful tests first.
 
 ### 11.1 Highest-value test areas
 
-- storage round-trips for models and indexes
+- storage round-trips for models and markdown/index persistence
 - CLI success and failure cases
 - import/export/snapshot behavior
 - doctor diagnostics and broken-link detection
