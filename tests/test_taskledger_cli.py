@@ -121,18 +121,16 @@ def test_taskledger_status_json_reports_counts(tmp_path: Path) -> None:
 
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
-    assert payload == {
-        "kind": "taskledger_status",
-        "counts": {
-            "contexts": 0,
-            "memories": 0,
-            "repos": 0,
-            "runs": 0,
-            "validation_records": 0,
-            "work_items": 1,
-        },
-        "healthy": True,
-    }
+    assert payload["kind"] == "taskledger_status"
+    assert payload["healthy"] is True
+    assert payload["counts"]["contexts"] == 0
+    assert payload["counts"]["memories"] == 0
+    assert payload["counts"]["repos"] == 0
+    assert payload["counts"]["runs"] == 0
+    assert payload["counts"]["validation_records"] == 0
+    assert payload["counts"]["work_items"] == 1
+    assert payload["counts"]["tasks_v2"] == 0
+    assert payload["counts"]["introductions_v2"] == 0
 
 
 def test_taskledger_status_full_includes_detailed_payload(tmp_path: Path) -> None:
@@ -152,10 +150,14 @@ def test_taskledger_status_full_includes_detailed_payload(tmp_path: Path) -> Non
     assert "next" in payload
 
 
-def test_taskledger_removed_plan_pbi_and_migrate_commands(tmp_path: Path) -> None:
+def test_taskledger_removed_pbi_and_migrate_commands(tmp_path: Path) -> None:
     runner.invoke(app, ["--cwd", str(tmp_path), "init"])
 
-    for command in (["plan", "--help"], ["pbi", "--help"], ["migrate", "--help"]):
+    plan_result = runner.invoke(app, ["--cwd", str(tmp_path), "plan", "--help"])
+    assert plan_result.exit_code == 0
+    assert "propose" in plan_result.stdout
+
+    for command in (["pbi", "--help"], ["migrate", "--help"]):
         result = runner.invoke(app, ["--cwd", str(tmp_path), *command])
         assert result.exit_code != 0
 

@@ -290,7 +290,10 @@ def test_grep_command(tmp_path: Path) -> None:
     _init_project(tmp_path)
     repo_dir = tmp_path / "repo"
     repo_dir.mkdir()
-    (repo_dir / "grep_target.py").write_text("import os\nhello world\n", encoding="utf-8")
+    (repo_dir / "grep_target.py").write_text(
+        "import os\nhello world\n",
+        encoding="utf-8",
+    )
     runner.invoke(
         app,
         [

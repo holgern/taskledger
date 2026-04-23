@@ -71,8 +71,14 @@ def test_compose_input_counts_and_explanations():
 
     # Expect the different explanation branches to be present
     assert any("saved contexts expanded into" in e for e in explanations)
-    assert any("expanded file inputs include files pulled in" in e for e in explanations)
-    assert any("expansion order shows additional source material" in e for e in explanations)
+    assert any(
+        "expanded file inputs include files pulled in" in e
+        for e in explanations
+    )
+    assert any(
+        "expansion order shows additional source material" in e
+        for e in explanations
+    )
     assert any("truncation warnings explain" in e for e in explanations)
 
     counts = _compose_input_counts(expanded_inputs)
@@ -113,7 +119,12 @@ def test_build_project_compose_payload(tmp_path: Path):
         body="b",
         metadata={"repo": "repo1", "truncation_notice": "tr"},
     )
-    bundle = ContextBundle(name="b", sources=(cs,), composed_text="composed", content_hash="hash1")
+    bundle = ContextBundle(
+        name="b",
+        sources=(cs,),
+        composed_text="composed",
+        content_hash="hash1",
+    )
 
     explicit_inputs = {
         "context_inputs": (),
@@ -158,7 +169,10 @@ def test_build_project_compose_payload(tmp_path: Path):
     assert proj["context_hash"] == "hash1"
     assert proj["repo_refs"] == ["repo1"]
     assert proj["execution_cwd"] == str(execution_cwd.relative_to(ws))
-    assert "Composed prompt exceeds the local project safety limit before execution." in proj["warnings"]
+    assert (
+        "Composed prompt exceeds the local project safety limit before execution."
+        in proj["warnings"]
+    )
     assert proj["prompt_path"] == str(prompt_path.relative_to(ws))
     assert proj["total_prompt_chars"] == len(bundle.composed_text)
     assert isinstance(proj["sources"], list)

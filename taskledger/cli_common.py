@@ -54,6 +54,11 @@ def emit_error(ctx: typer.Context, message: str) -> None:
         typer.echo(message, err=True)
 
 
+def launch_error_exit_code(exc: Exception, default: int = 1) -> int:
+    code = getattr(exc, "taskledger_exit_code", default)
+    return code if isinstance(code, int) else default
+
+
 def read_text_input(
     *,
     text: str | None,

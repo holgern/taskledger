@@ -27,6 +27,7 @@ def test_cli_command_tree_matches_option_b_split_contract(tmp_path: Path) -> Non
         "status",
         "board",
         "next",
+        "next-action",
         "doctor",
         "report",
         "export",
@@ -36,6 +37,19 @@ def test_cli_command_tree_matches_option_b_split_contract(tmp_path: Path) -> Non
         "grep",
         "symbols",
         "deps",
+        "task",
+        "plan",
+        "question",
+        "implement",
+        "validate",
+        "todo",
+        "intro",
+        "file",
+        "require",
+        "lock",
+        "handoff",
+        "can",
+        "reindex",
         "item",
         "memory",
         "context",
@@ -82,7 +96,22 @@ def test_workflow_group_includes_parity_commands(tmp_path: Path) -> None:
 def test_extended_cli_groups_are_registered(tmp_path: Path) -> None:
     runner.invoke(app, ["--cwd", str(tmp_path), "init"])
 
-    for command in ("exec-request", "compose", "runtime-support"):
+    for command in (
+        "exec-request",
+        "compose",
+        "runtime-support",
+        "task",
+        "plan",
+        "question",
+        "implement",
+        "validate",
+        "todo",
+        "intro",
+        "file",
+        "require",
+        "lock",
+        "handoff",
+    ):
         result = runner.invoke(app, ["--cwd", str(tmp_path), command, "--help"])
         assert result.exit_code == 0
 

@@ -106,22 +106,48 @@ class TestLatestStageRecord:
         assert result is not None
         assert result.record_id == "sr-2"
 
-    def test_picks_latest_by_created_at_when_updated_at_equal(self, tmp_path: Path) -> None:
+    def test_picks_latest_by_created_at_when_updated_at_equal(
+        self, tmp_path: Path
+    ) -> None:
         paths = _paths(tmp_path)
-        save_stage_records(paths, [
-            _record(record_id="sr-1", created_at="2025-01-01T00:00:00", updated_at="2025-01-01T00:00:00"),
-            _record(record_id="sr-2", created_at="2025-01-02T00:00:00", updated_at="2025-01-01T00:00:00"),
-        ])
+        save_stage_records(
+            paths,
+            [
+                _record(
+                    record_id="sr-1",
+                    created_at="2025-01-01T00:00:00",
+                    updated_at="2025-01-01T00:00:00",
+                ),
+                _record(
+                    record_id="sr-2",
+                    created_at="2025-01-02T00:00:00",
+                    updated_at="2025-01-01T00:00:00",
+                ),
+            ],
+        )
         result = latest_stage_record(paths, "it-1", "implement")
         assert result is not None
         assert result.record_id == "sr-2"
 
-    def test_picks_latest_by_record_id_when_timestamps_equal(self, tmp_path: Path) -> None:
+    def test_picks_latest_by_record_id_when_timestamps_equal(
+        self, tmp_path: Path
+    ) -> None:
         paths = _paths(tmp_path)
-        save_stage_records(paths, [
-            _record(record_id="sr-1", created_at="2025-01-01T00:00:00", updated_at="2025-01-01T00:00:00"),
-            _record(record_id="sr-2", created_at="2025-01-01T00:00:00", updated_at="2025-01-01T00:00:00"),
-        ])
+        save_stage_records(
+            paths,
+            [
+                _record(
+                    record_id="sr-1",
+                    created_at="2025-01-01T00:00:00",
+                    updated_at="2025-01-01T00:00:00",
+                ),
+                _record(
+                    record_id="sr-2",
+                    created_at="2025-01-01T00:00:00",
+                    updated_at="2025-01-01T00:00:00",
+                ),
+            ],
+        )
         result = latest_stage_record(paths, "it-1", "implement")
         assert result is not None
         assert result.record_id == "sr-2"

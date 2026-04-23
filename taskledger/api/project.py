@@ -13,6 +13,7 @@ from taskledger.exchange import (
     write_project_snapshot,
 )
 from taskledger.models import ProjectState
+from taskledger.services.doctor_v2 import inspect_v2_project
 from taskledger.storage import (
     ensure_project_exists,
     init_project_state,
@@ -20,6 +21,7 @@ from taskledger.storage import (
     load_validation_records,
     resolve_taskledger_root,
 )
+from taskledger.storage.v2 import list_introductions, list_tasks
 from taskledger.workflow import build_workflow_summary, choose_next_workflow_item
 
 
@@ -37,9 +39,16 @@ def project_status_summary(workspace_root: Path) -> dict[str, object]:
     state = load_project_state(workspace_root, recent_runs_limit=None)
     doctor = inspect_project(workspace_root)
     validation_records = load_validation_records(state.paths)
+    tasks_v2 = list_tasks(workspace_root)
+    introductions_v2 = list_introductions(workspace_root)
     return {
         "kind": "taskledger_status",
-        "counts": _project_counts(state, validation_records=validation_records),
+        "counts": _project_counts(
+            state,
+            validation_records=validation_records,
+            v2_tasks=tasks_v2,
+            v2_introductions=introductions_v2,
+        ),
         "healthy": bool(doctor["healthy"]),
     }
 
@@ -50,11 +59,19 @@ def project_status(workspace_root: Path) -> dict[str, object]:
     next_step = project_next(workspace_root)
     validation_records = load_validation_records(state.paths)
     workflow = build_workflow_summary(state)
+    v2_doctor = inspect_v2_project(workspace_root)
+    tasks_v2 = list_tasks(workspace_root)
+    introductions_v2 = list_introductions(workspace_root)
     return {
         "kind": "taskledger_status",
         "project_dir": str(state.paths.project_dir),
         "canonical_root": str(resolve_taskledger_root(workspace_root)),
-        "counts": _project_counts(state, validation_records=validation_records),
+        "counts": _project_counts(
+            state,
+            validation_records=validation_records,
+            v2_tasks=tasks_v2,
+            v2_introductions=introductions_v2,
+        ),
         "run_inventory": summarize_run_inventory(workspace_root),
         "validation_summary": summarize_validation_records(workspace_root),
         "workflow": workflow,
@@ -62,6 +79,7 @@ def project_status(workspace_root: Path) -> dict[str, object]:
         "warnings": list(doctor["warnings"]),
         "errors": list(doctor["errors"]),
         "next": next_step,
+        "v2": v2_doctor,
     }
 
 
@@ -162,6 +180,7 @@ def project_report(workspace_root: Path) -> dict[str, object]:
         "status": status,
         "board": board,
         "doctor": inspect_project(workspace_root),
+        "v2": inspect_v2_project(workspace_root),
     }
 
 
@@ -210,9 +229,13 @@ def project_snapshot(
 
 
 def _project_counts(
-    state: ProjectState, *, validation_records: list[dict[str, object]]
+    state: ProjectState,
+    *,
+    validation_records: list[dict[str, object]],
+    v2_tasks: list | None = None,
+    v2_introductions: list | None = None,
 ) -> dict[str, int]:
-    return {
+    counts = {
         "repos": len(state.repos),
         "memories": len(state.memories),
         "contexts": len(state.contexts),
@@ -220,6 +243,11 @@ def _project_counts(
         "runs": len(state.recent_runs),
         "validation_records": len(validation_records),
     }
+    if v2_tasks is not None:
+        counts["tasks_v2"] = len(v2_tasks)
+    if v2_introductions is not None:
+        counts["introductions_v2"] = len(v2_introductions)
+    return counts
 
 
 def _group_work_items_by_status(state: ProjectState) -> dict[str, int]:

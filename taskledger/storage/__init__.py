@@ -232,6 +232,13 @@ def init_project_state(workspace_root: Path) -> tuple[ProjectPaths, list[str]]:
         paths.items_dir,
         paths.stages_dir,
         paths.runs_dir,
+        paths.project_dir / "introductions",
+        paths.project_dir / "tasks",
+        paths.project_dir / "plans",
+        paths.project_dir / "questions",
+        paths.project_dir / "changes",
+        paths.project_dir / "events",
+        paths.project_dir / "indexes",
         validation_records_dir(paths),
     ):
         if directory.exists():
@@ -244,6 +251,10 @@ def init_project_state(workspace_root: Path) -> tuple[ProjectPaths, list[str]]:
         (paths.workflow_index_path, "[]\n"),
         (paths.context_index_path, "[]\n"),
         (paths.stage_index_path, "[]\n"),
+        (paths.project_dir / "indexes" / "tasks.json", "[]\n"),
+        (paths.project_dir / "indexes" / "active_locks.json", "[]\n"),
+        (paths.project_dir / "indexes" / "dependencies.json", "[]\n"),
+        (paths.project_dir / "indexes" / "introductions.json", "[]\n"),
         (validation_records_index_path(paths), "[]\n"),
     ):
         if path.exists():
@@ -535,6 +546,13 @@ def _ensure_additive_project_files(paths: ProjectPaths) -> None:
         paths.memories_dir,
         paths.items_dir,
         paths.runs_dir,
+        paths.project_dir / "introductions",
+        paths.project_dir / "tasks",
+        paths.project_dir / "plans",
+        paths.project_dir / "questions",
+        paths.project_dir / "changes",
+        paths.project_dir / "events",
+        paths.project_dir / "indexes",
         validation_records_dir(paths),
     ):
         if directory.exists():
@@ -545,6 +563,10 @@ def _ensure_additive_project_files(paths: ProjectPaths) -> None:
             raise LaunchError(f"Failed to create {directory}: {exc}") from exc
     for path in (
         paths.repo_index_path,
+        paths.project_dir / "indexes" / "tasks.json",
+        paths.project_dir / "indexes" / "active_locks.json",
+        paths.project_dir / "indexes" / "dependencies.json",
+        paths.project_dir / "indexes" / "introductions.json",
         validation_records_index_path(paths),
     ):
         if path.exists():

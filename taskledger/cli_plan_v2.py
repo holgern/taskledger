@@ -1,0 +1,147 @@
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Annotated
+
+import typer
+
+from taskledger.api.plans import (
+    approve_plan,
+    diff_plan,
+    propose_plan,
+    reject_plan,
+    revise_plan,
+    show_plan,
+    start_planning,
+)
+from taskledger.cli_common import (
+    cli_state_from_context,
+    emit_error,
+    emit_payload,
+    launch_error_exit_code,
+    read_text_input,
+)
+from taskledger.errors import LaunchError
+
+
+def register_plan_v2_commands(app: typer.Typer) -> None:
+    @app.command("start")
+    def start_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = start_planning(state.cwd, task_ref)
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, payload, human=f"started planning {payload['task_id']}")
+
+    @app.command("propose")
+    def propose_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        text: Annotated[str | None, typer.Option("--text")] = None,
+        from_file: Annotated[Path | None, typer.Option("--file")] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = propose_plan(
+                state.cwd,
+                task_ref,
+                body=read_text_input(text=text, from_file=from_file),
+            )
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(
+            ctx,
+            payload,
+            human=f"proposed plan v{payload['plan_version']} for {payload['task_id']}",
+        )
+
+    @app.command("show")
+    def show_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        version: Annotated[int | None, typer.Option("--version")] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = show_plan(state.cwd, task_ref, version=version)
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        plan = payload["plan"]
+        assert isinstance(plan, dict)
+        emit_payload(
+            ctx,
+            payload,
+            human=f"plan v{plan['plan_version']} ({plan['status']})",
+        )
+
+    @app.command("diff")
+    def diff_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        from_version: Annotated[int, typer.Option("--from")] = 1,
+        to_version: Annotated[int, typer.Option("--to")] = 1,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = diff_plan(
+                state.cwd,
+                task_ref,
+                from_version=from_version,
+                to_version=to_version,
+            )
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, payload, human=str(payload["diff"]))
+
+    @app.command("approve")
+    def approve_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        version: Annotated[int, typer.Option("--version")],
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = approve_plan(state.cwd, task_ref, version=version)
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(
+            ctx,
+            payload,
+            human=f"approved plan v{payload['plan_version']} for {payload['task_id']}",
+        )
+
+    @app.command("reject")
+    def reject_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        reason: Annotated[str | None, typer.Option("--reason")] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = reject_plan(state.cwd, task_ref, reason=reason)
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, payload, human=f"rejected plan for {payload['task_id']}")
+
+    @app.command("revise")
+    def revise_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = revise_plan(state.cwd, task_ref)
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, payload, human=f"restarted planning {payload['task_id']}")

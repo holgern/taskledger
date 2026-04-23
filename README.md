@@ -79,6 +79,23 @@ taskledger runs list
 taskledger validation summary
 ```
 
+Task-first v2 workflow commands are also available alongside the legacy
+item/memory surface:
+
+```bash
+taskledger task create rewrite-v2 --description "Migrate to the task-centric v2 design."
+taskledger plan start rewrite-v2
+taskledger plan propose rewrite-v2 --file ./plan.md
+taskledger plan approve rewrite-v2 --version 1
+taskledger implement start rewrite-v2
+taskledger implement add-change rewrite-v2 --path taskledger/storage/v2.py --kind edit --summary "Added v2 storage."
+taskledger implement finish rewrite-v2 --summary "Implemented v2 storage and CLI."
+taskledger validate start rewrite-v2
+taskledger validate add-check rewrite-v2 --name "pytest -q passes" --status pass
+taskledger validate finish rewrite-v2 --result passed --summary "Validated the migration."
+taskledger handoff validation-context rewrite-v2
+```
+
 Inspect machine-readable state:
 
 ```bash
@@ -115,6 +132,8 @@ Top-level commands:
 - `export`, `import`, `snapshot`
 - `search`, `grep`, `symbols`, `deps`
 - `item`, `memory`, `context`, `repo`, `runs`, `validation`, `workflow`
+- `task`, `plan`, `question`, `implement`, `validate`, `todo`
+- `intro`, `file`, `require`, `lock`, `handoff`, `next-action`, `can`, `reindex`
 - `exec-request`, `compose`, `runtime-support`
 
 Notable lifecycle commands:
@@ -128,6 +147,18 @@ Notable lifecycle commands:
 - `taskledger exec-request build|expand|record-outcome`
 - `taskledger compose expand|bundle`
 - `taskledger runtime-support config|run-layout|resolve-repo`
+- `taskledger task create|list|show|edit|cancel|close`
+- `taskledger plan start|propose|show|diff|approve|reject|revise`
+- `taskledger question add|list|answer|dismiss`
+- `taskledger implement start|log|add-change|finish`
+- `taskledger validate start|add-check|finish`
+- `taskledger todo add|list|done|undone`
+- `taskledger intro create|list|show|link`
+- `taskledger file link|unlink`
+- `taskledger require add|list`
+- `taskledger lock show|break`
+- `taskledger handoff show|plan-context|implementation-context|validation-context`
+- `taskledger doctor locks`
 
 Item dossier and composition examples:
 

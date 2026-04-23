@@ -32,16 +32,53 @@ from taskledger.cli_common import (
 from taskledger.cli_compose import register_compose_commands
 from taskledger.cli_context import register_context_commands
 from taskledger.cli_execution_requests import register_execution_request_commands
+from taskledger.cli_implement_v2 import register_implement_v2_commands
 from taskledger.cli_item import register_item_commands
 from taskledger.cli_memory import register_memory_commands
+from taskledger.cli_misc_v2 import (
+    emit_can_command,
+    emit_doctor_command,
+    emit_doctor_locks_command,
+    emit_next_action_command,
+    emit_reindex_command,
+    register_file_v2_commands,
+    register_handoff_v2_commands,
+    register_intro_v2_commands,
+    register_lock_v2_commands,
+    register_require_v2_commands,
+    register_todo_v2_commands,
+)
+from taskledger.cli_plan_v2 import register_plan_v2_commands
+from taskledger.cli_question_v2 import register_question_v2_commands
 from taskledger.cli_repo import register_repo_commands
 from taskledger.cli_runs import register_runs_commands
 from taskledger.cli_runtime_support import register_runtime_support_commands
+from taskledger.cli_task_v2 import register_task_v2_commands
+from taskledger.cli_validate_v2 import register_validate_v2_commands
 from taskledger.cli_validation import register_validation_commands
 from taskledger.cli_workflow import register_workflow_commands
 from taskledger.errors import LaunchError
 
 app = typer.Typer(add_completion=False, help="Manage durable taskledger project state.")
+task_app = typer.Typer(add_completion=False, help="Manage v2 tasks.")
+plan_app = typer.Typer(add_completion=False, help="Manage versioned task plans.")
+question_app = typer.Typer(add_completion=False, help="Manage planning questions.")
+implement_app = typer.Typer(
+    add_completion=False,
+    help="Manage implementation runs and change logs.",
+)
+validate_app = typer.Typer(add_completion=False, help="Manage validation runs.")
+todo_app = typer.Typer(add_completion=False, help="Manage embedded task todos.")
+intro_app = typer.Typer(add_completion=False, help="Manage shared introductions.")
+file_app = typer.Typer(add_completion=False, help="Manage task file links.")
+require_app = typer.Typer(add_completion=False, help="Manage task requirements.")
+lock_app = typer.Typer(add_completion=False, help="Inspect and repair task locks.")
+handoff_app = typer.Typer(add_completion=False, help="Render fresh-context handoffs.")
+doctor_app = typer.Typer(
+    add_completion=False,
+    help="Inspect project and v2 task integrity.",
+    invoke_without_command=True,
+)
 item_app = typer.Typer(add_completion=False, help="Manage work items.")
 memory_app = typer.Typer(add_completion=False, help="Manage memories.")
 context_app = typer.Typer(add_completion=False, help="Manage contexts.")
@@ -65,6 +102,18 @@ runtime_support_app = typer.Typer(
     add_completion=False,
     help="Inspect runtime support configuration and helpers.",
 )
+app.add_typer(task_app, name="task")
+app.add_typer(plan_app, name="plan")
+app.add_typer(question_app, name="question")
+app.add_typer(implement_app, name="implement")
+app.add_typer(validate_app, name="validate")
+app.add_typer(todo_app, name="todo")
+app.add_typer(intro_app, name="intro")
+app.add_typer(file_app, name="file")
+app.add_typer(require_app, name="require")
+app.add_typer(lock_app, name="lock")
+app.add_typer(handoff_app, name="handoff")
+app.add_typer(doctor_app, name="doctor")
 app.add_typer(item_app, name="item")
 app.add_typer(memory_app, name="memory")
 app.add_typer(context_app, name="context")
@@ -76,6 +125,17 @@ app.add_typer(workflow_app, name="workflow")
 app.add_typer(execution_request_app, name="exec-request")
 app.add_typer(compose_app, name="compose")
 app.add_typer(runtime_support_app, name="runtime-support")
+register_task_v2_commands(task_app)
+register_plan_v2_commands(plan_app)
+register_question_v2_commands(question_app)
+register_implement_v2_commands(implement_app)
+register_validate_v2_commands(validate_app)
+register_todo_v2_commands(todo_app)
+register_intro_v2_commands(intro_app)
+register_file_v2_commands(file_app)
+register_require_v2_commands(require_app)
+register_lock_v2_commands(lock_app)
+register_handoff_v2_commands(handoff_app)
 register_item_commands(item_app)
 register_memory_commands(memory_app)
 register_context_commands(context_app)
@@ -159,14 +219,48 @@ def next_command(ctx: typer.Context) -> None:
     _emit_project_payload(ctx, project_next, allow_none=True)
 
 
-@app.command("doctor")
+@doctor_app.callback()
 def doctor_command(ctx: typer.Context) -> None:
+    if ctx.invoked_subcommand is not None:
+        return
+    emit_doctor_command(ctx)
+
+
+@doctor_app.command("legacy")
+def doctor_legacy_command(ctx: typer.Context) -> None:
     _emit_project_payload(ctx, project_doctor)
+
+
+@doctor_app.command("locks")
+def doctor_locks_command(ctx: typer.Context) -> None:
+    emit_doctor_locks_command(ctx)
 
 
 @app.command("report")
 def report_command(ctx: typer.Context) -> None:
     _emit_project_payload(ctx, project_report)
+
+
+@app.command("next-action")
+def next_action_command(
+    ctx: typer.Context,
+    task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+) -> None:
+    emit_next_action_command(ctx, task_ref)
+
+
+@app.command("can")
+def can_command(
+    ctx: typer.Context,
+    task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+    action: Annotated[str, typer.Argument(..., help="Action name.")],
+) -> None:
+    emit_can_command(ctx, task_ref, action)
+
+
+@app.command("reindex")
+def reindex_command(ctx: typer.Context) -> None:
+    emit_reindex_command(ctx)
 
 
 @app.command("export")

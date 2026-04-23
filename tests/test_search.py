@@ -16,7 +16,11 @@ from taskledger.search import (
 from taskledger.storage import add_repo, init_project_state
 
 
-def setup_repo_with_files(tmp_path: Path, name: str, files: dict[str, bytes | str]) -> Path:
+def setup_repo_with_files(
+    tmp_path: Path,
+    name: str,
+    files: dict[str, bytes | str],
+) -> Path:
     paths, _ = init_project_state(tmp_path)
     repo_dir = tmp_path / name
     repo_dir.mkdir()
@@ -55,7 +59,12 @@ def test_search_grep_and_symbols_basic(tmp_path: Path):
 
     # symbols_project should discover the python symbol
     sym = symbols_project(paths, query="searchfunc")
-    assert any(s.kind == "symbol" and s.symbol and s.symbol.lower().startswith("searchfunc") for s in sym)
+    assert any(
+        s.kind == "symbol"
+        and s.symbol
+        and s.symbol.lower().startswith("searchfunc")
+        for s in sym
+    )
 
     # iter_repo_files should skip binary/unknown extensions and hidden dirs
     seen = [str(rel) for _repo, _file, rel in iter_repo_files(paths)]
