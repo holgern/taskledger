@@ -179,6 +179,7 @@ Status:
 .. code-block:: bash
 
    taskledger --json status
+   taskledger --json status --full
 
 .. code-block:: json
 
@@ -192,8 +193,11 @@ Status:
        "validation_records": 1,
        "work_items": 1
      },
-      "healthy": true
-    }
+     "healthy": true
+   }
+
+``taskledger status`` emits this compact summary by default. Add ``--full``
+to include the expanded doctor, workflow, and next-action details.
 
 Item summary excerpt:
 

@@ -92,8 +92,36 @@ def test_taskledger_status_json_reports_counts(tmp_path: Path) -> None:
     result = runner.invoke(app, ["--cwd", str(tmp_path), "--json", "status"])
 
     assert result.exit_code == 0
-    assert '"kind": "taskledger_status"' in result.stdout
-    assert '"work_items": 1' in result.stdout
+    payload = json.loads(result.stdout)
+    assert payload == {
+        "kind": "taskledger_status",
+        "counts": {
+            "contexts": 0,
+            "memories": 0,
+            "repos": 0,
+            "runs": 0,
+            "validation_records": 0,
+            "work_items": 1,
+        },
+        "healthy": True,
+    }
+
+
+def test_taskledger_status_full_includes_detailed_payload(tmp_path: Path) -> None:
+    runner.invoke(app, ["--cwd", str(tmp_path), "init"])
+
+    result = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "--json", "status", "--full"],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["kind"] == "taskledger_status"
+    assert "run_inventory" in payload
+    assert "validation_summary" in payload
+    assert "workflow" in payload
+    assert "next" in payload
 
 
 def test_taskledger_removed_plan_pbi_and_migrate_commands(tmp_path: Path) -> None:
@@ -542,8 +570,9 @@ def test_taskledger_item_lifecycle_requires_plan_content(tmp_path: Path) -> None
     assert "cannot be approved without plan content" in approve_empty.stdout
     assert knowledge_empty.exit_code == 0
     assert "approval_ready: no" in knowledge_empty.stdout
-    assert "taskledger item memory write lifecycle-check --role plan --text \"...\"" in (
-        knowledge_empty.stdout
+    assert (
+        "taskledger item memory write lifecycle-check --role plan --text \"...\""
+        in knowledge_empty.stdout
     )
     assert close_result.exit_code == 0
     assert reopen_draft.exit_code == 0

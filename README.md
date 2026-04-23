@@ -72,6 +72,9 @@ taskledger --json report
 taskledger --json export --include-bodies
 ```
 
+`taskledger status` is intentionally compact. Use `--full` when you need the
+expanded doctor, workflow, and next-action details.
+
 Example status payload:
 
 ```json

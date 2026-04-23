@@ -33,6 +33,17 @@ def init_project(workspace_root: Path) -> dict[str, object]:
     }
 
 
+def project_status_summary(workspace_root: Path) -> dict[str, object]:
+    state = load_project_state(workspace_root, recent_runs_limit=None)
+    doctor = inspect_project(workspace_root)
+    validation_records = load_validation_records(state.paths)
+    return {
+        "kind": "taskledger_status",
+        "counts": _project_counts(state, validation_records=validation_records),
+        "healthy": bool(doctor["healthy"]),
+    }
+
+
 def project_status(workspace_root: Path) -> dict[str, object]:
     state = load_project_state(workspace_root, recent_runs_limit=None)
     doctor = inspect_project(workspace_root)

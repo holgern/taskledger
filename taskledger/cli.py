@@ -15,6 +15,7 @@ from taskledger.api.project import (
     project_report,
     project_snapshot,
     project_status,
+    project_status_summary,
 )
 from taskledger.api.search import (
     dependencies_for_module,
@@ -124,8 +125,28 @@ def init_command(ctx: typer.Context) -> None:
 
 
 @app.command("status")
-def status_command(ctx: typer.Context) -> None:
-    _emit_project_payload(ctx, project_status)
+def status_command(
+    ctx: typer.Context,
+    full: Annotated[
+        bool,
+        typer.Option(
+            "--full",
+            help="Show the full status payload instead of the compact summary.",
+        ),
+    ] = False,
+) -> None:
+    state = ctx.obj
+    assert isinstance(state, CLIState)
+    try:
+        payload = (
+            project_status(state.cwd)
+            if full
+            else project_status_summary(state.cwd)
+        )
+    except LaunchError as exc:
+        emit_error(ctx, str(exc))
+        raise typer.Exit(code=1) from exc
+    emit_payload(ctx, payload)
 
 
 @app.command("board")
