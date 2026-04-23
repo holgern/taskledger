@@ -134,6 +134,7 @@ Canonical functions:
 - `resolve_context`
 - `rename_context`
 - `delete_context`
+- `build_context_for_item`
 
 ### Items (`taskledger.api.items`)
 
@@ -146,6 +147,11 @@ Canonical functions:
 - `approve_item`
 - `reopen_item`
 - `close_item`
+- `item_summary`
+- `build_item_work_prompt`
+- `start_item_work`
+- `complete_item_stage`
+- `refine_item`
 - `item_memory_refs`
 - `resolve_item_memory`
 - `read_item_memory_body`
@@ -195,6 +201,7 @@ Canonical functions:
 - `cleanup_runs`
 - `promote_run_output`
 - `promote_run_report`
+- `apply_run_result`
 - `summarize_run_inventory`
 
 ### Validation (`taskledger.api.validation`)

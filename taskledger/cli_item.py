@@ -7,20 +7,25 @@ import typer
 
 from taskledger.api.items import (
     approve_item,
+    build_item_work_prompt,
     close_item,
+    complete_item_stage,
     create_item,
     delete_item_memory,
     item_dossier,
     item_memory_refs,
+    item_summary,
     list_items,
     next_action_payload,
     read_item_memory_body,
+    refine_item,
     rename_item_memory,
     render_item_dossier_markdown,
     reopen_item,
     resolve_item_memory,
     retag_item_memory,
     show_item,
+    start_item_work,
     update_item,
     write_item_memory_body,
 )
@@ -145,6 +150,113 @@ def register_item_commands(app: typer.Typer) -> None:  # noqa: C901
                     ("next_action_actor", next_action_payload(item)["actor"]),
                     ("description", item.description),
                 ],
+            ),
+        )
+
+    @app.command("summary")
+    def item_summary_command(
+        ctx: typer.Context,
+        ref: Annotated[str, typer.Argument(..., help="Work item ref.")],
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = item_summary(state.cwd, ref)
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=1) from exc
+        item = payload["item"]
+        next_action = payload["next_action"]
+        assert isinstance(item, dict)
+        assert isinstance(next_action, dict)
+        emit_payload(
+            ctx,
+            payload,
+            human=human_kv(
+                f"ITEM SUMMARY {item['slug']}",
+                [
+                    ("id", item["id"]),
+                    ("status", item["status"]),
+                    ("stage", item["stage"]),
+                    ("workflow_id", item["workflow_id"]),
+                    ("target_repo_ref", item["target_repo_ref"]),
+                    ("save_target_ref", item["save_target_ref"]),
+                    ("next_action", next_action["label"]),
+                ],
+            ),
+        )
+
+    @app.command("work-prompt")
+    def item_work_prompt_command(
+        ctx: typer.Context,
+        ref: Annotated[str, typer.Argument(..., help="Work item ref.")],
+        stage: Annotated[
+            str | None,
+            typer.Option("--stage", help="Optional workflow stage override."),
+        ] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = build_item_work_prompt(state.cwd, ref, stage_id=stage)
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=1) from exc
+        emit_payload(
+            ctx,
+            payload,
+            human="\n".join(
+                [
+                    f"WORK PROMPT {payload['item_ref']}",
+                    f"stage: {payload['stage']}",
+                    f"target_repo_ref: {payload['target_repo_ref'] or '-'}",
+                    f"save_target_ref: {payload['save_target_ref'] or '-'}",
+                    "",
+                    str(payload["prompt"]),
+                ]
+            ),
+        )
+
+    @app.command("start")
+    def item_start_command(
+        ctx: typer.Context,
+        ref: Annotated[str, typer.Argument(..., help="Work item ref.")],
+        mark_running: Annotated[
+            bool,
+            typer.Option(
+                "--mark-running",
+                help="Mark the selected stage as running when possible.",
+            ),
+        ] = False,
+        stage: Annotated[
+            str | None,
+            typer.Option("--stage", help="Optional workflow stage override."),
+        ] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = start_item_work(
+                state.cwd,
+                ref,
+                mark_running=mark_running,
+                stage_id=stage,
+            )
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=1) from exc
+        item = payload["item"]
+        workflow = payload["workflow"]
+        assert isinstance(item, dict)
+        assert isinstance(workflow, dict)
+        emit_payload(
+            ctx,
+            payload,
+            human="\n".join(
+                [
+                    f"START ITEM {item['slug']}",
+                    f"stage: {workflow['current_stage']}",
+                    f"marked_running: {workflow['marked_running']}",
+                    "",
+                    str(payload["prompt"]),
+                ]
             ),
         )
 
@@ -411,6 +523,98 @@ def register_item_commands(app: typer.Typer) -> None:  # noqa: C901
             human=f"updated work item {item.slug} ({item.id})",
         )
 
+    @app.command("refine")
+    def item_refine_command(
+        ctx: typer.Context,
+        ref: Annotated[str, typer.Argument(..., help="Work item ref.")],
+        title: Annotated[
+            str | None,
+            typer.Option("--title", help="Replacement item title."),
+        ] = None,
+        description: Annotated[
+            str | None,
+            typer.Option("--description", help="Replacement item description."),
+        ] = None,
+        notes: Annotated[
+            str | None,
+            typer.Option("--notes", help="Replacement item notes."),
+        ] = None,
+        acceptance: Annotated[
+            list[str] | None,
+            typer.Option("--acceptance", help="Replacement acceptance criterion."),
+        ] = None,
+        add_acceptance: Annotated[
+            list[str] | None,
+            typer.Option("--add-acceptance", help="Acceptance criterion to add."),
+        ] = None,
+        validation_check: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--validation-check",
+                help="Replacement validation checklist entry.",
+            ),
+        ] = None,
+        add_validation_check: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--add-validation-check",
+                help="Validation checklist entry to add.",
+            ),
+        ] = None,
+        repo_refs: Annotated[
+            list[str] | None,
+            typer.Option("--repo", help="Replacement repo refs. Repeatable."),
+        ] = None,
+        add_repo_refs: Annotated[
+            list[str] | None,
+            typer.Option("--add-repo", help="Repo ref to add. Repeatable."),
+        ] = None,
+        target_repo: Annotated[
+            str | None,
+            typer.Option("--target-repo", help="Replacement target repo ref."),
+        ] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = refine_item(
+                state.cwd,
+                ref,
+                title=title,
+                description=description,
+                notes=notes,
+                acceptance_criteria=(
+                    tuple(acceptance or ()) if acceptance is not None else None
+                ),
+                add_acceptance=tuple(add_acceptance or ()),
+                validation_checks=(
+                    tuple(validation_check or ())
+                    if validation_check is not None
+                    else None
+                ),
+                add_validation_checks=tuple(add_validation_check or ()),
+                repo_refs=tuple(repo_refs or ()) if repo_refs is not None else None,
+                add_repo_refs=tuple(add_repo_refs or ()),
+                target_repo_ref=target_repo,
+            )
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=1) from exc
+        item = payload["item"]
+        updated_fields = payload.get("updated_fields", [])
+        assert isinstance(item, dict)
+        emit_payload(
+            ctx,
+            payload,
+            human=(
+                f"refined work item {item['slug']}"
+                + (
+                    f" ({', '.join(str(field) for field in updated_fields)})"
+                    if isinstance(updated_fields, list) and updated_fields
+                    else ""
+                )
+            ),
+        )
+
     @app.command("approve")
     def item_approve_command(
         ctx: typer.Context,
@@ -455,6 +659,52 @@ def register_item_commands(app: typer.Typer) -> None:  # noqa: C901
                     ("actor", payload["actor"]),
                     ("reason", payload["reason"]),
                 ],
+            ),
+        )
+
+    @app.command("complete-stage")
+    def item_complete_stage_command(
+        ctx: typer.Context,
+        ref: Annotated[str, typer.Argument(..., help="Work item ref.")],
+        stage: Annotated[
+            str,
+            typer.Option("--stage", help="Workflow stage id to complete."),
+        ],
+        run_refs: Annotated[
+            list[str] | None,
+            typer.Option("--run", help="Run ref to attach. Repeatable."),
+        ] = None,
+        validation_refs: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--validation",
+                help="Validation ref to attach. Repeatable.",
+            ),
+        ] = None,
+        summary: Annotated[
+            str | None,
+            typer.Option("--summary", help="Optional completion summary."),
+        ] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = complete_item_stage(
+                state.cwd,
+                ref,
+                stage_id=stage,
+                run_refs=tuple(run_refs or ()),
+                validation_refs=tuple(validation_refs or ()),
+                summary=summary,
+            )
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=1) from exc
+        emit_payload(
+            ctx,
+            payload,
+            human=(
+                f"completed stage {payload['completed_stage']} "
+                f"for {payload['item_ref']}"
             ),
         )
 

@@ -5,6 +5,7 @@ from typing import Annotated
 import typer
 
 from taskledger.api.contexts import (
+    build_context_for_item,
     create_context_entry,
     delete_context_entry,
     list_context_entries,
@@ -22,6 +23,46 @@ from taskledger.errors import LaunchError
 
 
 def register_context_commands(app: typer.Typer) -> None:
+    @app.command("build-for-item")
+    def context_build_for_item_command(
+        ctx: typer.Context,
+        item_ref: Annotated[str, typer.Argument(..., help="Work item ref.")],
+        include_runs: Annotated[
+            bool,
+            typer.Option("--include-runs/--no-runs", help="Include recent runs."),
+        ] = True,
+        include_validation: Annotated[
+            bool,
+            typer.Option(
+                "--include-validation/--no-validation",
+                help="Include validation records.",
+            ),
+        ] = True,
+        save_as: Annotated[
+            str | None,
+            typer.Option("--save-as", help="Optional context name override."),
+        ] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = build_context_for_item(
+                state.cwd,
+                item_ref,
+                include_runs=include_runs,
+                include_validation=include_validation,
+                save_as=save_as,
+            )
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=1) from exc
+        context = payload["context"]
+        assert isinstance(context, dict)
+        emit_payload(
+            ctx,
+            payload,
+            human=f"built context {context['name']} ({context['id']})",
+        )
+
     @app.command("save")
     def context_save_command(
         ctx: typer.Context,

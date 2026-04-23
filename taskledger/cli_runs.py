@@ -5,6 +5,7 @@ from typing import Annotated
 import typer
 
 from taskledger.api.runs import (
+    apply_run_result,
     cleanup_run_records,
     delete_run_entry,
     list_runs,
@@ -24,6 +25,44 @@ from taskledger.errors import LaunchError
 
 
 def register_runs_commands(app: typer.Typer) -> None:
+    @app.command("apply")
+    def runs_apply_command(
+        ctx: typer.Context,
+        run_id: Annotated[str, typer.Argument(..., help="Run id.")],
+        mode: Annotated[
+            str,
+            typer.Option("--as", help="Promotion mode: output or report."),
+        ] = "output",
+        mark_stage_succeeded: Annotated[
+            bool,
+            typer.Option(
+                "--mark-stage-succeeded",
+                help="Mark the related workflow stage succeeded.",
+            ),
+        ] = False,
+        summary: Annotated[
+            str | None,
+            typer.Option("--summary", help="Optional stage completion summary."),
+        ] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = apply_run_result(
+                state.cwd,
+                run_id,
+                mode=mode,
+                mark_stage_succeeded=mark_stage_succeeded,
+                summary=summary,
+            )
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=1) from exc
+        emit_payload(
+            ctx,
+            payload,
+            human=f"applied run {payload['run']['id']} as {payload['applied']['mode']}",
+        )
+
     @app.command("list")
     def runs_list_command(
         ctx: typer.Context,

@@ -4,6 +4,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from taskledger.api.types import ItemDossier, ItemDossierSection, Memory, WorkItem
+from taskledger.api.workflows import mark_stage_running, mark_stage_succeeded
 from taskledger.errors import LaunchError
 from taskledger.models import ProjectPaths, utc_now_iso
 from taskledger.storage import (
@@ -16,6 +17,7 @@ from taskledger.storage import (
     load_validation_records,
     load_work_items,
     read_memory_body,
+    refresh_memory,
     rename_memory,
     resolve_memory,
     resolve_work_item,
@@ -24,6 +26,7 @@ from taskledger.storage import (
     update_work_item,
     write_memory_body,
 )
+from taskledger.storage.common import summarize_text
 from taskledger.workflow import (
     default_workflow_id_for_paths,
     item_stage_records_for_paths,
@@ -55,6 +58,19 @@ _ITEM_MEMORY_ROLE_TITLES = {
     "implementation": "Implementation",
     "validation": "Validation",
     "save_target": "Save Target",
+}
+_ACTIONABLE_STAGE_STATUSES = {"ready", "running", "failed", "needs_review"}
+_STAGE_ROLE_BY_STAGE_ID = {
+    "plan": "plan",
+    "implement": "implementation",
+    "validate": "validation",
+    "validate_summary": "validation",
+}
+_STAGE_ROLE_BY_KIND = {
+    "analysis": "analysis",
+    "implementation": "implementation",
+    "validation": "validation",
+    "summary": "validation",
 }
 
 
@@ -329,6 +345,287 @@ def update_item(
     if updated == item:
         raise LaunchError("No item updates requested.")
     return update_work_item(paths, ref, updated)
+
+
+def item_summary(workspace_root: Path, item_ref: str) -> dict[str, object]:
+    state = load_project_state(workspace_root, recent_runs_limit=0)
+    item = resolve_work_item(state.paths, item_ref)
+    return _item_summary_payload(state, item)
+
+
+def build_item_work_prompt(
+    workspace_root: Path,
+    item_ref: str,
+    *,
+    stage_id: str | None = None,
+) -> dict[str, object]:
+    state = load_project_state(workspace_root, recent_runs_limit=0)
+    item = resolve_work_item(state.paths, item_ref)
+    workflow_payload = item_workflow_state_payload(state, item)
+    stage_detail = _resolve_summary_stage(workflow_payload, stage_id=stage_id)
+    state_payload = workflow_payload.get("state")
+    state_payload = state_payload if isinstance(state_payload, dict) else {}
+    if stage_detail is None:
+        return {
+            "item_ref": item.slug,
+            "item_id": item.id,
+            "stage": state_payload.get("current_stage_id"),
+            "target_repo_ref": item.target_repo_ref,
+            "save_target_ref": item.save_target_ref,
+            "suggested_memory_role": None,
+            "context_refs": _referencing_context_refs(state.paths, item),
+            "blocked_by": list(state_payload.get("blocking_reasons", ()))
+            if isinstance(state_payload.get("blocking_reasons"), list)
+            else [],
+            "prompt": (
+                f"Review completed Taskledger item {item.slug} ({item.id}) and capture "
+                "any final context worth preserving."
+            ),
+        }
+    suggested_memory_role = _memory_role_for_stage_detail(stage_detail)
+    save_target_ref = _save_target_ref_for_stage(item, stage_detail)
+    blocked_by = _stage_blocked_by(stage_detail)
+    prompt = _build_work_prompt_text(
+        item,
+        stage_detail=stage_detail,
+        target_repo_ref=item.target_repo_ref,
+        save_target_ref=save_target_ref,
+        suggested_memory_role=suggested_memory_role,
+        blocked_by=blocked_by,
+    )
+    return {
+        "item_ref": item.slug,
+        "item_id": item.id,
+        "stage": str(stage_detail["stage_id"]),
+        "target_repo_ref": item.target_repo_ref,
+        "save_target_ref": save_target_ref,
+        "suggested_memory_role": suggested_memory_role,
+        "context_refs": _referencing_context_refs(state.paths, item),
+        "blocked_by": blocked_by,
+        "prompt": prompt,
+    }
+
+
+def start_item_work(
+    workspace_root: Path,
+    item_ref: str,
+    *,
+    mark_running: bool = False,
+    stage_id: str | None = None,
+) -> dict[str, object]:
+    prompt_payload = build_item_work_prompt(
+        workspace_root,
+        item_ref,
+        stage_id=stage_id,
+    )
+    marked_running = False
+    if mark_running:
+        state = load_project_state(workspace_root, recent_runs_limit=0)
+        item = resolve_work_item(state.paths, item_ref)
+        workflow_payload = item_workflow_state_payload(state, item)
+        stage_detail = _resolve_summary_stage(
+            workflow_payload,
+            stage_id=str(prompt_payload["stage"]),
+        )
+        stage_status = str(stage_detail.get("stage_status") or "not_started")
+        if stage_status == "running":
+            marked_running = False
+        elif stage_status in {"ready", "failed", "needs_review"}:
+            mark_stage_running(workspace_root, item.id, str(stage_detail["stage_id"]))
+            marked_running = True
+        else:
+            blocked_by = _stage_blocked_by(stage_detail)
+            reason = ", ".join(blocked_by) if blocked_by else stage_status
+            raise LaunchError(
+                f"Stage {stage_detail['stage_id']} cannot be marked running: {reason}"
+            )
+
+    summary = item_summary(workspace_root, item_ref)
+    prompt_payload = build_item_work_prompt(
+        workspace_root,
+        item_ref,
+        stage_id=str(prompt_payload["stage"]),
+    )
+    item_payload = summary["item"]
+    assert isinstance(item_payload, dict)
+    next_action = summary["next_action"]
+    memories = summary["memories"]
+    return {
+        "item": item_payload,
+        "workflow": {
+            "workflow_id": item_payload["workflow_id"],
+            "current_stage": prompt_payload["stage"],
+            "marked_running": marked_running,
+            "blocked_by": prompt_payload["blocked_by"],
+        },
+        "next_action": next_action,
+        "target_repo_ref": prompt_payload["target_repo_ref"],
+        "save_target_ref": prompt_payload["save_target_ref"],
+        "memories": memories,
+        "context_refs": prompt_payload["context_refs"],
+        "prompt": prompt_payload["prompt"],
+    }
+
+
+def complete_item_stage(
+    workspace_root: Path,
+    item_ref: str,
+    *,
+    stage_id: str,
+    run_refs: tuple[str, ...] = (),
+    validation_refs: tuple[str, ...] = (),
+    summary: str | None = None,
+) -> dict[str, object]:
+    state = load_project_state(workspace_root, recent_runs_limit=0)
+    item = resolve_work_item(state.paths, item_ref)
+    workflow_payload = item_workflow_state_payload(state, item)
+    stage_detail = _resolve_summary_stage(workflow_payload, stage_id=stage_id)
+    _ensure_stage_can_complete(stage_detail)
+
+    normalized_run_refs = tuple(
+        show["id"]
+        for show in _resolved_run_payloads(workspace_root, run_refs)
+    )
+    normalized_validation_refs = _resolved_validation_refs(
+        workspace_root,
+        validation_refs,
+    )
+    item = _attach_run_refs_to_item(state.paths, item, normalized_run_refs)
+    save_target_ref = _save_target_ref_for_stage(item, stage_detail)
+    mark_stage_succeeded(
+        workspace_root,
+        item.id,
+        stage_id,
+        run_id=normalized_run_refs[0] if normalized_run_refs else None,
+        summary=summary,
+        save_target=save_target_ref,
+        validation_record_refs=normalized_validation_refs,
+    )
+    updated_summary = item_summary(workspace_root, item.id)
+    refreshed_state = load_project_state(workspace_root, recent_runs_limit=0)
+    refreshed_item = resolve_work_item(refreshed_state.paths, item.id)
+    workflow_payload = item_workflow_state_payload(refreshed_state, refreshed_item)
+    state_payload = workflow_payload.get("state")
+    assert isinstance(state_payload, dict)
+    workflow_state = {
+        "current_stage": state_payload.get("current_stage_id"),
+        "status": state_payload.get("workflow_status"),
+    }
+    return {
+        "item_ref": item.slug,
+        "completed_stage": stage_id,
+        "attached_run_refs": list(normalized_run_refs),
+        "attached_validation_refs": list(normalized_validation_refs),
+        "workflow": workflow_state,
+        "item": updated_summary["item"],
+    }
+
+
+def refine_item(
+    workspace_root: Path,
+    item_ref: str,
+    *,
+    title: str | None = None,
+    description: str | None = None,
+    notes: str | None = None,
+    acceptance_criteria: tuple[str, ...] | None = None,
+    add_acceptance: tuple[str, ...] = (),
+    validation_checks: tuple[str, ...] | None = None,
+    add_validation_checks: tuple[str, ...] = (),
+    repo_refs: tuple[str, ...] | None = None,
+    add_repo_refs: tuple[str, ...] = (),
+    target_repo_ref: str | None = None,
+) -> dict[str, object]:
+    paths = load_project_state(workspace_root).paths
+    item = resolve_work_item(paths, item_ref)
+    updated_fields: list[str] = []
+
+    normalized_title = _normalize_optional_text(title, field_name="title")
+    normalized_description = _normalize_optional_text(
+        description,
+        field_name="description",
+    )
+    normalized_notes = _normalize_optional_text(notes, field_name="notes")
+    normalized_target_repo = _normalize_optional_text(
+        target_repo_ref,
+        field_name="target_repo",
+    )
+
+    next_acceptance = (
+        _normalize_text_values(
+            acceptance_criteria,
+            field_name="acceptance criteria",
+        )
+        if acceptance_criteria is not None
+        else _apply_sequence_patch(
+            item.acceptance_criteria,
+            _normalize_text_values(add_acceptance, field_name="acceptance criteria"),
+            (),
+            field_name="acceptance criteria",
+        )
+    )
+    next_validation = (
+        _normalize_text_values(
+            validation_checks,
+            field_name="validation checklist item",
+        )
+        if validation_checks is not None
+        else _apply_sequence_patch(
+            item.validation_checklist,
+            _normalize_text_values(
+                add_validation_checks,
+                field_name="validation checklist item",
+            ),
+            (),
+            field_name="validation checklist item",
+        )
+    )
+    next_repo_refs = (
+        _normalize_text_values(repo_refs, field_name="repo")
+        if repo_refs is not None
+        else _apply_sequence_patch(
+            item.repo_refs,
+            _normalize_text_values(add_repo_refs, field_name="repo"),
+            (),
+            field_name="repo",
+        )
+    )
+
+    updated = replace(
+        item,
+        title=normalized_title or item.title,
+        description=normalized_description or item.description,
+        notes=normalized_notes if normalized_notes is not None else item.notes,
+        acceptance_criteria=next_acceptance,
+        validation_checklist=next_validation,
+        repo_refs=next_repo_refs,
+        target_repo_ref=(
+            normalized_target_repo
+            if normalized_target_repo is not None
+            else item.target_repo_ref
+        ),
+    )
+    if updated == item:
+        raise LaunchError("No item refinements requested.")
+    if updated.title != item.title:
+        updated_fields.append("title")
+    if updated.description != item.description:
+        updated_fields.append("description")
+    if updated.notes != item.notes:
+        updated_fields.append("notes")
+    if updated.acceptance_criteria != item.acceptance_criteria:
+        updated_fields.append("acceptance_criteria")
+    if updated.validation_checklist != item.validation_checklist:
+        updated_fields.append("validation_checks")
+    if updated.repo_refs != item.repo_refs:
+        updated_fields.append("repo_refs")
+    if updated.target_repo_ref != item.target_repo_ref:
+        updated_fields.append("target_repo_ref")
+
+    saved = update_work_item(paths, item.id, updated)
+    payload = item_summary(workspace_root, saved.id)
+    payload["updated_fields"] = updated_fields
+    return payload
 
 
 def item_dossier(
@@ -1010,3 +1307,414 @@ def _apply_sequence_patch(
 
 def _title_from_slug(slug: str) -> str:
     return slug.replace("-", " ").strip().title() or "Project Work Item"
+
+
+def _item_summary_payload(state, item: WorkItem) -> dict[str, object]:
+    workflow_payload = item_workflow_state_payload(state, item)
+    stage_records = item_stage_records_for_paths(
+        state.paths,
+        item.id,
+        workflow_id=item.workflow_id or default_workflow_id_for_paths(state.paths),
+    )
+    stage_detail = _resolve_summary_stage(workflow_payload, stage_id=None)
+    next_action = _next_action_summary(item, workflow_payload, stage_detail)
+    recent_runs = [
+        _run_summary_payload(record, stage_records=stage_records)
+        for record in _related_run_records(
+            state.paths,
+            item,
+            stage_records=stage_records,
+        )[:5]
+    ]
+    validation_records = [
+        _validation_summary_payload(record)
+        for record in _related_validation_records(
+            state.paths,
+            item,
+            stage_records=stage_records,
+        )[:5]
+    ]
+    return {
+        "item": {
+            "id": item.id,
+            "slug": item.slug,
+            "title": item.title,
+            "description": item.description,
+            "status": item.status,
+            "workflow_id": (
+                item.workflow_id or default_workflow_id_for_paths(state.paths)
+            ),
+            "stage": (
+                str(stage_detail["stage_id"]) if stage_detail is not None else None
+            ),
+            "repo_refs": list(item.repo_refs),
+            "target_repo_ref": item.target_repo_ref,
+            "save_target_ref": item.save_target_ref,
+        },
+        "next_action": next_action,
+        "memories": {
+            role: _memory_summary_payload(state.paths, getattr(item, field_name))
+            for role, field_name in _ITEM_MEMORY_ROLE_FIELDS.items()
+            if role != "save_target"
+        },
+        "acceptance_criteria": list(item.acceptance_criteria),
+        "validation_checks": list(item.validation_checklist),
+        "context_refs": _referencing_context_refs(state.paths, item),
+        "recent_runs": recent_runs,
+        "validation_records": validation_records,
+    }
+
+
+def _memory_summary_payload(paths, memory_ref: str | None) -> dict[str, object] | None:
+    if memory_ref is None:
+        return None
+    try:
+        memory = refresh_memory(paths, memory_ref)
+    except LaunchError:
+        return {"ref": memory_ref, "excerpt": None, "missing": True}
+    body = read_memory_body(paths, memory).strip()
+    excerpt = memory.summary or summarize_text(body) or None
+    return {"ref": memory.id, "excerpt": excerpt}
+
+
+def _resolve_summary_stage(
+    workflow_payload: dict[str, object],
+    *,
+    stage_id: str | None,
+) -> dict[str, object] | None:
+    stages = workflow_payload.get("stages")
+    if not isinstance(stages, list):
+        return None
+    if stage_id is not None:
+        stage_detail = next(
+            (
+                stage
+                for stage in stages
+                if isinstance(stage, dict) and stage.get("stage_id") == stage_id
+            ),
+            None,
+        )
+        if stage_detail is None:
+            raise LaunchError(f"Unknown workflow stage: {stage_id}")
+        if bool(stage_detail.get("complete")):
+            raise LaunchError(f"Workflow stage {stage_id} is already complete.")
+        return stage_detail
+    for stage in stages:
+        if not isinstance(stage, dict) or bool(stage.get("complete")):
+            continue
+        stage_status = str(stage.get("stage_status") or "not_started")
+        if stage_status in _ACTIONABLE_STAGE_STATUSES:
+            return stage
+    return next(
+        (
+            stage
+            for stage in stages
+            if isinstance(stage, dict) and not bool(stage.get("complete"))
+        ),
+        None,
+    )
+
+
+def _next_action_summary(
+    item: WorkItem,
+    workflow_payload: dict[str, object],
+    stage_detail: dict[str, object] | None,
+) -> dict[str, object]:
+    state = workflow_payload.get("state")
+    state = state if isinstance(state, dict) else {}
+    if stage_detail is not None:
+        stage_id = str(stage_detail.get("stage_id") or "")
+        label = str(stage_detail.get("label") or stage_id)
+        stage_status = str(stage_detail.get("stage_status") or "not_started")
+        blocked_by = _stage_blocked_by(stage_detail)
+        if stage_status in _ACTIONABLE_STAGE_STATUSES:
+            verb = (
+                "Continue"
+                if stage_status in {"running", "failed", "needs_review"}
+                else "Start"
+            )
+            return {
+                "kind": "work_stage",
+                "stage": stage_id,
+                "label": f"{verb} {label.lower()}",
+                "status": stage_status,
+                "blocked_by": blocked_by,
+            }
+        if "approval:item" in blocked_by:
+            return {
+                "kind": "approval",
+                "stage": stage_id,
+                "label": f"Approve {label.lower()}",
+                "status": stage_status,
+                "blocked_by": blocked_by,
+            }
+        if blocked_by:
+            return {
+                "kind": "blocked_stage",
+                "stage": stage_id,
+                "label": f"Unblock {label.lower()}",
+                "status": stage_status,
+                "blocked_by": blocked_by,
+            }
+    legacy = next_action_payload(item)
+    return {
+        "kind": str(legacy["kind"]),
+        "stage": state.get("current_stage_id"),
+        "label": str(legacy["action"]).replace("_", " ").title(),
+        "status": state.get("stage_status"),
+        "blocked_by": list(state.get("blocking_reasons", ()))
+        if isinstance(state.get("blocking_reasons"), list)
+        else [],
+    }
+
+
+def _related_run_records(paths, item: WorkItem, *, stage_records: list) -> list[object]:
+    all_runs = load_run_records(paths, limit=None)
+    selected = [
+        record
+        for record in all_runs
+        if record.project_item_ref == item.id
+        or record.run_id in item.linked_runs
+        or any(stage_record.run_id == record.run_id for stage_record in stage_records)
+    ]
+    return sorted(
+        selected,
+        key=lambda record: (
+            record.finished_at,
+            record.started_at,
+            record.run_id,
+        ),
+        reverse=True,
+    )
+
+
+def _run_summary_payload(record, *, stage_records: list) -> dict[str, object]:
+    stage = _stage_id_from_run(record, stage_records=stage_records)
+    return {
+        "id": record.run_id,
+        "stage": stage,
+        "status": record.status,
+        "started_at": record.started_at,
+        "finished_at": record.finished_at,
+        "summary": record.output_summary or record.prompt_summary,
+    }
+
+
+def _stage_id_from_run(record, *, stage_records: list) -> str | None:
+    stage_record = next(
+        (
+            current
+            for current in sorted(
+                stage_records,
+                key=lambda entry: (
+                    entry.updated_at or "",
+                    entry.created_at or "",
+                    entry.record_id,
+                ),
+                reverse=True,
+            )
+            if current.run_id == record.run_id
+        ),
+        None,
+    )
+    if stage_record is not None:
+        return stage_record.stage_id
+    mapping = {
+        "analysis": "analysis",
+        "state": "state",
+        "plan": "plan",
+        "implementation": "implement",
+        "validation": "validate",
+    }
+    return mapping.get(record.stage) if record.stage is not None else None
+
+
+def _related_validation_records(
+    paths,
+    item: WorkItem,
+    *,
+    stage_records: list,
+) -> list[dict[str, object]]:
+    stage_validation_refs = {
+        ref for record in stage_records for ref in record.validation_record_refs
+    }
+    records = [
+        record
+        for record in load_validation_records(paths)
+        if str(record.get("project_item_ref")) == item.id
+        or str(record.get("id")) in stage_validation_refs
+    ]
+    return sorted(
+        records,
+        key=lambda record: (
+            str(record.get("created_at") or ""),
+            str(record.get("id") or ""),
+        ),
+        reverse=True,
+    )
+
+
+def _validation_summary_payload(record: dict[str, object]) -> dict[str, object]:
+    summary = record.get("notes") or record.get("verdict") or record.get("status")
+    return {
+        "id": str(record.get("id") or ""),
+        "status": str(record.get("status") or "unknown"),
+        "kind": str(record.get("kind") or "unknown"),
+        "run_id": record.get("run_id"),
+        "memory_ref": record.get("memory_ref"),
+        "summary": str(summary) if summary is not None else None,
+    }
+
+
+def _memory_role_for_stage_detail(stage_detail: dict[str, object]) -> str | None:
+    stage_id = stage_detail.get("stage_id")
+    if isinstance(stage_id, str) and stage_id in _STAGE_ROLE_BY_STAGE_ID:
+        return _STAGE_ROLE_BY_STAGE_ID[stage_id]
+    kind = stage_detail.get("kind")
+    if isinstance(kind, str):
+        return _STAGE_ROLE_BY_KIND.get(kind)
+    return None
+
+
+def _save_target_ref_for_stage(
+    item: WorkItem,
+    stage_detail: dict[str, object],
+) -> str | None:
+    suggested_memory_role = _memory_role_for_stage_detail(stage_detail)
+    if suggested_memory_role is not None:
+        field_name = _memory_field_for_role(suggested_memory_role)
+        stage_memory_ref = getattr(item, field_name)
+        if isinstance(stage_memory_ref, str):
+            return stage_memory_ref
+    if str(stage_detail.get("save_target_rule") or "") == "validation_record":
+        return None
+    return item.save_target_ref
+
+
+def _build_work_prompt_text(
+    item: WorkItem,
+    *,
+    stage_detail: dict[str, object],
+    target_repo_ref: str | None,
+    save_target_ref: str | None,
+    suggested_memory_role: str | None,
+    blocked_by: list[str],
+) -> str:
+    label = str(stage_detail.get("label") or stage_detail.get("stage_id") or "work")
+    stage_id = str(stage_detail.get("stage_id") or "")
+    stage_status = str(stage_detail.get("stage_status") or "not_started")
+    lines = [
+        f"Work on Taskledger item {item.slug} ({item.id}).",
+        (
+            f"Continue the {label.lower()} stage ({stage_id})."
+            if stage_status in {"running", "failed", "needs_review"}
+            else f"Focus on the {label.lower()} stage ({stage_id})."
+        ),
+        item.description.strip(),
+    ]
+    if target_repo_ref:
+        lines.append(f"Use repo {target_repo_ref}.")
+    if save_target_ref:
+        lines.append(f"Save important notes to {save_target_ref}.")
+    elif suggested_memory_role:
+        lines.append(
+            "Save important notes to the "
+            f"{suggested_memory_role} memory when appropriate."
+        )
+    if blocked_by:
+        lines.append("Current blockers: " + ", ".join(blocked_by) + ".")
+    return "\n\n".join(line for line in lines if line)
+
+
+def _referencing_context_refs(paths, item: WorkItem) -> list[str]:
+    return [
+        context.id
+        for context in load_contexts(paths)
+        if item.id in context.item_refs or item.slug in context.item_refs
+    ]
+
+
+def _stage_blocked_by(stage_detail: dict[str, object]) -> list[str]:
+    blocked = stage_detail.get("blocked_by")
+    if not isinstance(blocked, list):
+        return []
+    return [str(reason) for reason in blocked]
+
+
+def _ensure_stage_can_complete(stage_detail: dict[str, object]) -> None:
+    if bool(stage_detail.get("complete")):
+        raise LaunchError(
+            f"Workflow stage {stage_detail['stage_id']} is already complete."
+        )
+    stage_status = str(stage_detail.get("stage_status") or "not_started")
+    blocked_by = _stage_blocked_by(stage_detail)
+    if stage_status in {"running", "failed", "needs_review", "ready"}:
+        return
+    reason = ", ".join(blocked_by) if blocked_by else stage_status
+    raise LaunchError(
+        f"Workflow stage {stage_detail['stage_id']} cannot be completed: {reason}"
+    )
+
+
+def _resolved_run_payloads(
+    workspace_root: Path,
+    run_refs: tuple[str, ...],
+) -> list[dict[str, object]]:
+    paths = load_project_state(workspace_root).paths
+    available_runs = {
+        record.run_id: record
+        for record in load_run_records(paths, limit=None)
+    }
+    resolved: list[dict[str, object]] = []
+    for run_ref in run_refs:
+        run = available_runs.get(run_ref)
+        if run is None:
+            raise LaunchError(f"Unknown project run: {run_ref}")
+        resolved.append({"id": run.run_id, "stage": run.stage, "status": run.status})
+    return resolved
+
+
+def _resolved_validation_refs(
+    workspace_root: Path,
+    validation_refs: tuple[str, ...],
+) -> tuple[str, ...]:
+    if not validation_refs:
+        return ()
+    record_ids = {
+        str(record.get("id"))
+        for record in load_validation_records(load_project_state(workspace_root).paths)
+    }
+    normalized: list[str] = []
+    for ref in validation_refs:
+        if ref not in record_ids:
+            raise LaunchError(f"Unknown validation record: {ref}")
+        if ref not in normalized:
+            normalized.append(ref)
+    return tuple(normalized)
+
+
+def _attach_run_refs_to_item(
+    paths,
+    item: WorkItem,
+    run_refs: tuple[str, ...],
+) -> WorkItem:
+    if not run_refs:
+        return item
+    linked_runs = list(item.linked_runs)
+    for run_ref in run_refs:
+        if run_ref not in linked_runs:
+            linked_runs.append(run_ref)
+    updated = replace(item, linked_runs=tuple(linked_runs))
+    return update_work_item(paths, item.id, updated)
+
+
+def _workflow_state_summary(summary_payload: dict[str, object]) -> dict[str, object]:
+    item = summary_payload.get("item")
+    next_action = summary_payload.get("next_action")
+    assert isinstance(item, dict)
+    assert isinstance(next_action, dict)
+    return {
+        "current_stage": item.get("stage"),
+        "status": item.get("status"),
+        "next_action": next_action.get("kind"),
+    }

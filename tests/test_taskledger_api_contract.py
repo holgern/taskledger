@@ -207,6 +207,13 @@ SIGNATURE_CONTRACT = {
             ("workspace_root", PK, REQUIRED),
             ("ref", PK, REQUIRED),
         ),
+        "build_context_for_item": (
+            ("workspace_root", PK, REQUIRED),
+            ("item_ref", PK, REQUIRED),
+            ("include_runs", KO, True),
+            ("include_validation", KO, True),
+            ("save_as", KO, None),
+        ),
     },
     "taskledger.api.items": {
         "create_item": (
@@ -255,6 +262,43 @@ SIGNATURE_CONTRACT = {
         "close_item": (
             ("workspace_root", PK, REQUIRED),
             ("ref", PK, REQUIRED),
+        ),
+        "item_summary": (
+            ("workspace_root", PK, REQUIRED),
+            ("item_ref", PK, REQUIRED),
+        ),
+        "build_item_work_prompt": (
+            ("workspace_root", PK, REQUIRED),
+            ("item_ref", PK, REQUIRED),
+            ("stage_id", KO, None),
+        ),
+        "start_item_work": (
+            ("workspace_root", PK, REQUIRED),
+            ("item_ref", PK, REQUIRED),
+            ("mark_running", KO, False),
+            ("stage_id", KO, None),
+        ),
+        "complete_item_stage": (
+            ("workspace_root", PK, REQUIRED),
+            ("item_ref", PK, REQUIRED),
+            ("stage_id", KO, REQUIRED),
+            ("run_refs", KO, ()),
+            ("validation_refs", KO, ()),
+            ("summary", KO, None),
+        ),
+        "refine_item": (
+            ("workspace_root", PK, REQUIRED),
+            ("item_ref", PK, REQUIRED),
+            ("title", KO, None),
+            ("description", KO, None),
+            ("notes", KO, None),
+            ("acceptance_criteria", KO, None),
+            ("add_acceptance", KO, ()),
+            ("validation_checks", KO, None),
+            ("add_validation_checks", KO, ()),
+            ("repo_refs", KO, None),
+            ("add_repo_refs", KO, ()),
+            ("target_repo_ref", KO, None),
         ),
         "item_memory_refs": (
             ("workspace_root", PK, REQUIRED),
@@ -412,6 +456,13 @@ SIGNATURE_CONTRACT = {
             ("workspace_root", PK, REQUIRED),
             ("run_id", PK, REQUIRED),
             ("name", KO, REQUIRED),
+        ),
+        "apply_run_result": (
+            ("workspace_root", PK, REQUIRED),
+            ("run_ref", PK, REQUIRED),
+            ("mode", KO, "output"),
+            ("mark_stage_succeeded", KO, False),
+            ("summary", KO, None),
         ),
         "summarize_run_inventory": (("workspace_root", PK, REQUIRED),),
     },

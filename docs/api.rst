@@ -122,6 +122,7 @@ Contexts (``taskledger.api.contexts``):
 - ``resolve_context``
 - ``rename_context``
 - ``delete_context``
+- ``build_context_for_item``
 
 Items (``taskledger.api.items``):
 
@@ -132,6 +133,11 @@ Items (``taskledger.api.items``):
 - ``approve_item``
 - ``reopen_item``
 - ``close_item``
+- ``item_summary``
+- ``build_item_work_prompt``
+- ``start_item_work``
+- ``complete_item_stage``
+- ``refine_item``
 - ``item_memory_refs``
 - ``resolve_item_memory``
 - ``read_item_memory_body``
@@ -175,6 +181,7 @@ Runs (``taskledger.api.runs``):
 - ``cleanup_runs``
 - ``promote_run_output``
 - ``promote_run_report``
+- ``apply_run_result``
 - ``summarize_run_inventory``
 
 Validation (``taskledger.api.validation``):
@@ -223,8 +230,31 @@ and additive workflow metadata used by ``taskledger next`` and
 - ``artifact_rules``
 - ``default_artifact_order``
 
-Runs also expose ``summarize_run_inventory`` through ``taskledger.api.runs`` for
-machine-readable inventory summaries.
+Runs also expose ``summarize_run_inventory`` and ``apply_run_result`` through
+``taskledger.api.runs`` for machine-readable inventory summaries and
+item-aware run promotion.
+
+Composite machine-facing helpers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The item, run, and context APIs now include higher-level helpers for thin
+integrations that need one-shot machine payloads rather than low-level CRUD
+orchestration:
+
+- ``item_summary(...)`` returns compact item/workflow/memory/run/validation
+  state.
+- ``build_item_work_prompt(...)`` returns a workflow-aware prompt seed with
+  target repo and save target hints.
+- ``start_item_work(...)`` packages summary, prompt, and optional
+  ``mark_running`` behavior into one call.
+- ``complete_item_stage(...)`` wraps common stage-completion flow with optional
+  run and validation attachments.
+- ``refine_item(...)`` applies structured item refinements and returns the
+  updated summary payload.
+- ``apply_run_result(...)`` promotes run output or report content and can link
+  it back to the related item and workflow stage.
+- ``build_context_for_item(...)`` creates or refreshes an item-focused context
+  entry and returns a machine-readable source summary.
 
 Composition API
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

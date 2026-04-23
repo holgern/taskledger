@@ -17,6 +17,7 @@ import pytest
                 "resolve_context",
                 "rename_context",
                 "delete_context",
+                "build_context_for_item",
             ),
         ),
         (
@@ -28,6 +29,11 @@ import pytest
                 "approve_item",
                 "reopen_item",
                 "close_item",
+                "item_summary",
+                "build_item_work_prompt",
+                "start_item_work",
+                "complete_item_stage",
+                "refine_item",
             ),
         ),
         (
@@ -67,6 +73,7 @@ import pytest
                 "cleanup_runs",
                 "promote_run_output",
                 "promote_run_report",
+                "apply_run_result",
             ),
         ),
         (

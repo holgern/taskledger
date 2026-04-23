@@ -39,6 +39,26 @@ Create, inspect, and move work items through the built-in lifecycle:
 ``taskledger item approve`` now requires planning evidence: non-empty plan memory
 content, acceptance criteria, or validation checklist entries.
 
+Composite item actions
+^^^^^^^^^^^^^^^^^^^^^^
+
+For machine-oriented integrations, use the composite item commands to reduce
+multi-call orchestration:
+
+.. code-block:: bash
+
+   taskledger --json item summary parser-fix
+   taskledger --json item work-prompt parser-fix
+   taskledger --json item start parser-fix --mark-running
+   taskledger --json item complete-stage parser-fix --stage implement --run run-1 --summary "Implemented parser tests"
+   taskledger --json item refine parser-fix --description "Tighten parser fallback behavior" --acceptance "Parser tests pass"
+
+``taskledger item summary`` returns a compact machine-facing payload with item
+identity, workflow stage, next action, memory excerpts, recent runs, and recent
+validation records. ``taskledger item work-prompt`` and ``taskledger item
+start`` build on the same workflow state to provide a ready-to-use prompt seed
+and execution metadata.
+
 Memories
 --------
 
@@ -67,6 +87,12 @@ loop-artifact refs.
    taskledger context show ctx-1
    taskledger context rename parser-context --new-name release-parser-context
    taskledger context delete release-parser-context
+   taskledger --json context build-for-item parser-fix --save-as parser-fix-working
+
+``taskledger context build-for-item`` creates or refreshes an item-focused
+working context by gathering the item itself, linked memories, inline work
+prompt material, and optional run/validation summaries into one saved context
+entry.
 
 Repositories and search
 -----------------------
@@ -101,6 +127,12 @@ Saved run records can be inspected, promoted to memories, or cleaned up.
    taskledger runs summary
    taskledger runs cleanup --keep 20
    taskledger runs delete run-1
+   taskledger --json runs apply run-1 --as output --mark-stage-succeeded --summary "Implemented parser tests"
+   taskledger --json run apply run-1 --as report
+
+``taskledger runs apply`` (also available as ``taskledger run apply``) promotes
+run output or report content into a memory, links it back onto the related item
+when possible, and can optionally mark the related workflow stage succeeded.
 
 Validation records
 ------------------
@@ -133,6 +165,12 @@ JSON output
 
 Use ``--json`` for machine-readable output.
 
+Composite item summary:
+
+.. code-block:: bash
+
+   taskledger --json item summary parser-fix
+
 Status:
 
 .. code-block:: bash
@@ -151,7 +189,33 @@ Status:
        "validation_records": 1,
        "work_items": 1
      },
-     "healthy": true
+      "healthy": true
+    }
+
+Item summary excerpt:
+
+.. code-block:: json
+
+   {
+     "item": {
+       "id": "it-1",
+       "slug": "parser-fix",
+       "status": "in_progress",
+       "workflow_id": "default-item-v1",
+       "stage": "implement",
+       "target_repo_ref": "core"
+     },
+     "next_action": {
+       "kind": "work_stage",
+       "stage": "implement",
+       "label": "Start implement"
+     },
+     "memories": {
+       "analysis": {
+         "ref": "mem-1",
+         "excerpt": "Parser fallback still fails on nested input."
+       }
+     }
    }
 
 Report:

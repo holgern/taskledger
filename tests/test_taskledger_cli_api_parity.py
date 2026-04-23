@@ -41,6 +41,7 @@ def test_cli_command_tree_matches_option_b_split_contract(tmp_path: Path) -> Non
         "context",
         "repo",
         "runs",
+        "run",
         "validation",
         "workflow",
         "exec-request",
@@ -93,3 +94,26 @@ def test_item_group_includes_view_and_dossier_commands(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert "view" in result.stdout
     assert "dossier" in result.stdout
+    for command in (
+        "summary",
+        "work-prompt",
+        "start",
+        "complete-stage",
+        "refine",
+    ):
+        assert command in result.stdout
+
+
+def test_context_and_runs_groups_include_composite_commands(tmp_path: Path) -> None:
+    runner.invoke(app, ["--cwd", str(tmp_path), "init"])
+
+    context_result = runner.invoke(app, ["--cwd", str(tmp_path), "context", "--help"])
+    runs_result = runner.invoke(app, ["--cwd", str(tmp_path), "runs", "--help"])
+    run_result = runner.invoke(app, ["--cwd", str(tmp_path), "run", "--help"])
+
+    assert context_result.exit_code == 0
+    assert "build-for-item" in context_result.stdout
+    assert runs_result.exit_code == 0
+    assert "apply" in runs_result.stdout
+    assert run_result.exit_code == 0
+    assert "apply" in run_result.stdout
