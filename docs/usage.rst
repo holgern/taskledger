@@ -31,6 +31,7 @@ Create, inspect, and move work items through the built-in lifecycle:
    taskledger item list
    taskledger item show parser-fix
    taskledger item view parser-fix
+   taskledger item knowledge parser-fix
    taskledger item memory write parser-fix --role plan --text "1. Reproduce parser issue"
    taskledger item update parser-fix --add-label parser --add-acceptance "Parser tests pass"
    taskledger item approve parser-fix
@@ -38,6 +39,8 @@ Create, inspect, and move work items through the built-in lifecycle:
 
 ``taskledger item approve`` now requires planning evidence: non-empty plan memory
 content, acceptance criteria, or validation checklist entries.
+``taskledger item knowledge`` summarizes which of those signals exist, where they
+live, and the commands for adding the missing pieces.
 
 Composite item actions
 ^^^^^^^^^^^^^^^^^^^^^^

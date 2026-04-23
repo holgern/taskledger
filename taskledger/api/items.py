@@ -353,6 +353,72 @@ def item_summary(workspace_root: Path, item_ref: str) -> dict[str, object]:
     return _item_summary_payload(state, item)
 
 
+def item_knowledge(workspace_root: Path, item_ref: str) -> dict[str, object]:
+    state = load_project_state(workspace_root, recent_runs_limit=0)
+    item = resolve_work_item(state.paths, item_ref)
+    memory_refs = _memory_refs_for_item(item)
+    plan_memory = _plan_memory_knowledge_payload(
+        state.paths,
+        item,
+        memory_refs.get("plan"),
+    )
+    acceptance_criteria = _knowledge_list_payload(
+        "Acceptance Criteria",
+        item.acceptance_criteria,
+        add_command=f'taskledger item update {item.slug} --add-acceptance "..."',
+        inspect_command=f"taskledger item dossier {item.slug}",
+    )
+    validation_checklist = _knowledge_list_payload(
+        "Validation Checklist",
+        item.validation_checklist,
+        add_command=(
+            f'taskledger item update {item.slug} --add-validation-check "..."'
+        ),
+        inspect_command=f"taskledger item dossier {item.slug}",
+    )
+    approval_ready = _has_planning_evidence(state.paths, item)
+    blocking_requirements: list[str] = []
+    if not approval_ready:
+        if not plan_memory["has_content"]:
+            blocking_requirements.append("plan content")
+        if not acceptance_criteria["entries"]:
+            blocking_requirements.append("acceptance criteria")
+        if not validation_checklist["entries"]:
+            blocking_requirements.append("validation checklist")
+    commands = (
+        [f"taskledger item approve {item.slug}"]
+        if approval_ready
+        else [
+            command
+            for command in (
+                plan_memory["command"],
+                acceptance_criteria["command"],
+                validation_checklist["command"],
+            )
+            if command is not None
+        ]
+    )
+    return {
+        "item": {
+            "id": item.id,
+            "slug": item.slug,
+            "title": item.title,
+            "status": item.status,
+            "stage": item.stage,
+            "workflow_status": item.workflow_status,
+            "stage_status": item.stage_status,
+        },
+        "approval_ready": approval_ready,
+        "blocking_requirements": blocking_requirements,
+        "next_action": next_action_payload(item),
+        "plan_memory": plan_memory,
+        "acceptance_criteria": acceptance_criteria,
+        "validation_checklist": validation_checklist,
+        "context_refs": _referencing_context_refs(state.paths, item),
+        "commands": commands,
+    }
+
+
 def build_item_work_prompt(
     workspace_root: Path,
     item_ref: str,
@@ -1375,6 +1441,74 @@ def _memory_summary_payload(paths, memory_ref: str | None) -> dict[str, object] 
     body = read_memory_body(paths, memory).strip()
     excerpt = memory.summary or summarize_text(body) or None
     return {"ref": memory.id, "excerpt": excerpt}
+
+
+def _plan_memory_knowledge_payload(
+    paths,
+    item: WorkItem,
+    memory_ref: str | None,
+) -> dict[str, object]:
+    add_command = f'taskledger item memory write {item.slug} --role plan --text "..."'
+    if memory_ref is None:
+        return {
+            "title": "Plan Memory",
+            "role": "plan",
+            "status": "missing",
+            "has_content": False,
+            "ref": None,
+            "name": None,
+            "summary": None,
+            "excerpt": None,
+            "command": add_command,
+        }
+    try:
+        memory = resolve_memory(paths, memory_ref)
+    except LaunchError:
+        return {
+            "title": "Plan Memory",
+            "role": "plan",
+            "status": "invalid",
+            "has_content": False,
+            "ref": memory_ref,
+            "name": None,
+            "summary": None,
+            "excerpt": None,
+            "command": add_command,
+        }
+    body = read_memory_body(paths, memory)
+    has_content = bool(body.strip())
+    return {
+        "title": "Plan Memory",
+        "role": "plan",
+        "status": "present" if has_content else "empty",
+        "has_content": has_content,
+        "ref": memory.id,
+        "name": memory.name,
+        "summary": memory.summary,
+        "excerpt": summarize_text(body),
+        "command": (
+            f"taskledger item memory show {item.slug} --role plan"
+            if has_content
+            else add_command
+        ),
+    }
+
+
+def _knowledge_list_payload(
+    title: str,
+    values: tuple[str, ...],
+    *,
+    add_command: str,
+    inspect_command: str,
+) -> dict[str, object]:
+    cleaned = [value.strip() for value in values if value.strip()]
+    return {
+        "title": title,
+        "status": "present" if cleaned else "missing",
+        "entries": cleaned,
+        "count": len(cleaned),
+        "command": inspect_command if cleaned else add_command,
+    }
 
 
 def _resolve_summary_stage(

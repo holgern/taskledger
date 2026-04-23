@@ -267,6 +267,10 @@ SIGNATURE_CONTRACT = {
             ("workspace_root", PK, REQUIRED),
             ("item_ref", PK, REQUIRED),
         ),
+        "item_knowledge": (
+            ("workspace_root", PK, REQUIRED),
+            ("item_ref", PK, REQUIRED),
+        ),
         "build_item_work_prompt": (
             ("workspace_root", PK, REQUIRED),
             ("item_ref", PK, REQUIRED),

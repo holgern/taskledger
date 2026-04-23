@@ -30,6 +30,7 @@ import pytest
                 "reopen_item",
                 "close_item",
                 "item_summary",
+                "item_knowledge",
                 "build_item_work_prompt",
                 "start_item_work",
                 "complete_item_stage",

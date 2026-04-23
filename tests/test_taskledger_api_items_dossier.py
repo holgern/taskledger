@@ -6,6 +6,7 @@ from taskledger.api.contexts import save_context
 from taskledger.api.items import (
     create_item,
     item_dossier,
+    item_knowledge,
     render_item_dossier_markdown,
     write_item_memory_body,
 )
@@ -121,3 +122,41 @@ def test_item_dossier_includes_validation_and_referencing_contexts(
     assert contexts is not None
     assert "val-1" in validation.body
     assert "Review Context (ctx-1)" in contexts.body
+
+
+def test_item_knowledge_highlights_missing_evidence_and_commands(
+    tmp_path: Path,
+) -> None:
+    init_project(tmp_path)
+    item = create_item(tmp_path, slug="knowledge-gap", description="Knowledge gaps")
+
+    payload = item_knowledge(tmp_path, item.id)
+
+    assert payload["approval_ready"] is False
+    assert payload["blocking_requirements"] == [
+        "plan content",
+        "acceptance criteria",
+        "validation checklist",
+    ]
+    assert payload["plan_memory"]["status"] == "missing"
+    assert payload["commands"] == [
+        'taskledger item memory write knowledge-gap --role plan --text "..."',
+        'taskledger item update knowledge-gap --add-acceptance "..."',
+        'taskledger item update knowledge-gap --add-validation-check "..."',
+    ]
+
+
+def test_item_knowledge_points_to_approve_when_plan_exists(tmp_path: Path) -> None:
+    init_project(tmp_path)
+    item = create_item(tmp_path, slug="knowledge-ready", description="Ready item")
+    write_item_memory_body(tmp_path, item.id, "plan", "Plan content")
+
+    payload = item_knowledge(tmp_path, item.id)
+
+    assert payload["approval_ready"] is True
+    assert payload["blocking_requirements"] == []
+    assert payload["plan_memory"]["status"] == "present"
+    assert payload["plan_memory"]["command"] == (
+        "taskledger item memory show knowledge-ready --role plan"
+    )
+    assert payload["commands"] == ["taskledger item approve knowledge-ready"]

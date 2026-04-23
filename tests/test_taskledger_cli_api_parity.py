@@ -94,8 +94,10 @@ def test_item_group_includes_view_and_dossier_commands(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert "view" in result.stdout
     assert "dossier" in result.stdout
+    assert "knowledge" in result.stdout
     for command in (
         "summary",
+        "knowledge",
         "work-prompt",
         "start",
         "complete-stage",

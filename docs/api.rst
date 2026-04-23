@@ -134,6 +134,7 @@ Items (``taskledger.api.items``):
 - ``reopen_item``
 - ``close_item``
 - ``item_summary``
+- ``item_knowledge``
 - ``build_item_work_prompt``
 - ``start_item_work``
 - ``complete_item_stage``
@@ -243,6 +244,8 @@ orchestration:
 
 - ``item_summary(...)`` returns compact item/workflow/memory/run/validation
   state.
+- ``item_knowledge(...)`` returns the planning evidence required for approval,
+  plus the exact commands to inspect or add missing knowledge.
 - ``build_item_work_prompt(...)`` returns a workflow-aware prompt seed with
   target repo and save target hints.
 - ``start_item_work(...)`` packages summary, prompt, and optional

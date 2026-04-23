@@ -41,6 +41,7 @@ taskledger item create parser-fix --text "Repair parser handling."
 taskledger item list
 taskledger item show parser-fix
 taskledger item view parser-fix
+taskledger item knowledge parser-fix
 taskledger item memory write parser-fix --role plan --text "1. Update parser tests"
 taskledger item approve parser-fix
 

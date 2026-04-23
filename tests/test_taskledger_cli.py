@@ -502,6 +502,10 @@ def test_taskledger_item_lifecycle_requires_plan_content(tmp_path: Path) -> None
         app,
         ["--cwd", str(tmp_path), "--json", "item", "approve", "it-1"],
     )
+    knowledge_empty = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "item", "knowledge", "it-1"],
+    )
     close_result = runner.invoke(
         app,
         ["--cwd", str(tmp_path), "item", "close", "it-1"],
@@ -536,6 +540,11 @@ def test_taskledger_item_lifecycle_requires_plan_content(tmp_path: Path) -> None
 
     assert approve_empty.exit_code == 1
     assert "cannot be approved without plan content" in approve_empty.stdout
+    assert knowledge_empty.exit_code == 0
+    assert "approval_ready: no" in knowledge_empty.stdout
+    assert "taskledger item memory write lifecycle-check --role plan --text \"...\"" in (
+        knowledge_empty.stdout
+    )
     assert close_result.exit_code == 0
     assert reopen_draft.exit_code == 0
     assert '"status": "draft"' in reopen_draft.stdout

@@ -11,6 +11,7 @@ from taskledger.api.items import (
     close_item,
     complete_item_stage,
     create_item,
+    item_knowledge,
     delete_item_memory,
     item_dossier,
     item_memory_refs,
@@ -183,6 +184,23 @@ def register_item_commands(app: typer.Typer) -> None:  # noqa: C901
                     ("next_action", next_action["label"]),
                 ],
             ),
+        )
+
+    @app.command("knowledge")
+    def item_knowledge_command(
+        ctx: typer.Context,
+        ref: Annotated[str, typer.Argument(..., help="Work item ref.")],
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = item_knowledge(state.cwd, ref)
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=1) from exc
+        emit_payload(
+            ctx,
+            payload,
+            human=_render_item_knowledge(payload),
         )
 
     @app.command("work-prompt")
@@ -1001,3 +1019,96 @@ def _emit_item_dossier(
     if output_path is not None:
         human = f"{rendered.rstrip()}\n\nwrote dossier: {output_path}\n"
     emit_payload(ctx, payload, human=human)
+
+
+def _render_item_knowledge(payload: dict[str, object]) -> str:
+    item = payload["item"]
+    assert isinstance(item, dict)
+    next_action = payload["next_action"]
+    assert isinstance(next_action, dict)
+    plan_memory = payload["plan_memory"]
+    assert isinstance(plan_memory, dict)
+    acceptance = payload["acceptance_criteria"]
+    assert isinstance(acceptance, dict)
+    validation = payload["validation_checklist"]
+    assert isinstance(validation, dict)
+    context_refs = payload.get("context_refs", [])
+    commands = payload.get("commands", [])
+    blocking_requirements = payload.get("blocking_requirements", [])
+    context_rows = (
+        [f"- {context_ref}" for context_ref in context_refs]
+        if isinstance(context_refs, list)
+        else []
+    )
+    command_rows = (
+        [f"- {command}" for command in commands] if isinstance(commands, list) else []
+    )
+    lines = [
+        human_kv(
+            f"ITEM KNOWLEDGE {item['slug']}",
+            [
+                ("id", item["id"]),
+                ("status", item["status"]),
+                (
+                    "approval_ready",
+                    "yes" if payload.get("approval_ready") else "no",
+                ),
+                ("next_action", next_action.get("action")),
+                ("next_reason", next_action.get("reason")),
+                (
+                    "blocking_requirements",
+                    ", ".join(str(entry) for entry in blocking_requirements)
+                    if isinstance(blocking_requirements, list) and blocking_requirements
+                    else "(none)",
+                ),
+            ],
+        ),
+        "",
+        human_kv(
+            str(plan_memory["title"]),
+            [
+                ("status", plan_memory["status"]),
+                ("ref", plan_memory["ref"] or "-"),
+                ("name", plan_memory["name"] or "-"),
+                (
+                    "summary",
+                    plan_memory["summary"] or plan_memory["excerpt"] or "-",
+                ),
+                ("command", plan_memory["command"]),
+            ],
+        ),
+        "",
+        _render_knowledge_list_section(acceptance),
+        "",
+        _render_knowledge_list_section(validation),
+        "",
+        human_list(
+            "RELATED CONTEXTS",
+            context_rows,
+        ),
+        "",
+        human_list(
+            "SUGGESTED COMMANDS",
+            command_rows,
+        ),
+    ]
+    return "\n".join(lines)
+
+
+def _render_knowledge_list_section(section: dict[str, object]) -> str:
+    title = str(section["title"])
+    entries = section.get("entries", [])
+    command = section.get("command")
+    lines = [
+        title,
+        f"status: {section.get('status')}",
+        f"count: {section.get('count')}",
+    ]
+    if isinstance(entries, list) and entries:
+        lines.append("entries:")
+        lines.extend(f"- {entry}" for entry in entries)
+    else:
+        lines.append("entries: (empty)")
+    if command is not None:
+        lines.append(f"command: {command}")
+    return "\n".join(lines)
