@@ -50,6 +50,10 @@ taskledger memory prepend parser-analysis --text "Priority: high"
 taskledger memory retag parser-analysis --add-tag analysis --add-tag parser
 ```
 
+For file-to-item ingestion, use the external `taskingest` Python CLI. It handles
+the file discovery and item creation step before `taskledger` takes over durable
+state management.
+
 Manage saved contexts, repos, runs, and validation records:
 
 ```bash

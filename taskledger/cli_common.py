@@ -55,7 +55,10 @@ def emit_error(ctx: typer.Context, message: str) -> None:
 
 
 def read_text_input(
-    *, text: str | None, from_file: Path | None, text_label: str = "--text"
+    *,
+    text: str | None,
+    from_file: Path | None = None,
+    text_label: str = "--text",
 ) -> str:
     if text and from_file is not None:
         raise LaunchError(f"Use either {text_label} or --from-file, not both.")

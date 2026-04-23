@@ -74,15 +74,10 @@ def test_taskledger_init_item_and_memory_workflow(tmp_path: Path) -> None:
     assert "pytest output" in memory_show.stdout
 
 
-def test_taskledger_item_create_uses_description_and_from_file(tmp_path: Path) -> None:
+def test_taskledger_item_create_uses_description(tmp_path: Path) -> None:
     runner.invoke(app, ["--cwd", str(tmp_path), "init"])
-    description_file = tmp_path / "coverage-description.txt"
-    description_file.write_text(
-        "Improve coverage for the storage layer.",
-        encoding="utf-8",
-    )
 
-    create_from_description = runner.invoke(
+    create_result = runner.invoke(
         app,
         [
             "--cwd",
@@ -94,36 +89,17 @@ def test_taskledger_item_create_uses_description_and_from_file(tmp_path: Path) -
             "Run pytest --cov=taskledger tests/ and add a focused test.",
         ],
     )
-    create_from_file = runner.invoke(
-        app,
-        [
-            "--cwd",
-            str(tmp_path),
-            "item",
-            "create",
-            "increase-coverage-4",
-            "--from-file",
-            str(description_file),
-        ],
-    )
-    show_from_description = runner.invoke(
+    show_result = runner.invoke(
         app,
         ["--cwd", str(tmp_path), "item", "show", "it-1"],
     )
-    show_from_file = runner.invoke(
-        app,
-        ["--cwd", str(tmp_path), "item", "show", "it-2"],
-    )
 
-    assert create_from_description.exit_code == 0
-    assert create_from_file.exit_code == 0
-    assert show_from_description.exit_code == 0
+    assert create_result.exit_code == 0
+    assert show_result.exit_code == 0
     assert (
         "Run pytest --cov=taskledger tests/ and add a focused test."
-        in show_from_description.stdout
+        in show_result.stdout
     )
-    assert show_from_file.exit_code == 0
-    assert "Improve coverage for the storage layer." in show_from_file.stdout
 
 
 def test_taskledger_status_json_reports_counts(tmp_path: Path) -> None:

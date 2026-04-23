@@ -42,6 +42,10 @@ content, acceptance criteria, or validation checklist entries.
 ``taskledger item knowledge`` summarizes which of those signals exist, where they
 live, and the commands for adding the missing pieces.
 
+For file-to-item ingestion, use the external ``taskingest`` Python CLI. It
+handles file discovery and item creation before ``taskledger`` manages the
+durable state.
+
 Composite item actions
 ^^^^^^^^^^^^^^^^^^^^^^
 

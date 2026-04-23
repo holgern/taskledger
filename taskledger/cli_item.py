@@ -57,10 +57,6 @@ def register_item_commands(app: typer.Typer) -> None:  # noqa: C901
             str | None,
             typer.Option("--description", help="Work item description."),
         ] = None,
-        from_file: Annotated[
-            Path | None,
-            typer.Option("--from-file", help="Read work item description from a file."),
-        ] = None,
         title: Annotated[
             str | None,
             typer.Option("--title", help="Optional work item title."),
@@ -81,12 +77,10 @@ def register_item_commands(app: typer.Typer) -> None:  # noqa: C901
                 slug=slug,
                 description=read_text_input(
                     text=description,
-                    from_file=from_file,
                     text_label="--description",
                 ),
                 title=title,
                 repo_refs=tuple(repo_refs or ()),
-                source_path=from_file,
                 target_repo_ref=target_repo,
             )
         except LaunchError as exc:
