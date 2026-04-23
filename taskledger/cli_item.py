@@ -11,9 +11,9 @@ from taskledger.api.items import (
     close_item,
     complete_item_stage,
     create_item,
-    item_knowledge,
     delete_item_memory,
     item_dossier,
+    item_knowledge,
     item_memory_refs,
     item_summary,
     list_items,
@@ -53,9 +53,9 @@ def register_item_commands(app: typer.Typer) -> None:  # noqa: C901
     def item_create_command(
         ctx: typer.Context,
         slug: Annotated[str, typer.Argument(..., help="Work item slug.")],
-        text: Annotated[
+        description: Annotated[
             str | None,
-            typer.Option("--text", help="Work item description text."),
+            typer.Option("--description", help="Work item description."),
         ] = None,
         from_file: Annotated[
             Path | None,
@@ -79,7 +79,11 @@ def register_item_commands(app: typer.Typer) -> None:  # noqa: C901
             item = create_item(
                 state.cwd,
                 slug=slug,
-                description=read_text_input(text=text, from_file=from_file),
+                description=read_text_input(
+                    text=description,
+                    from_file=from_file,
+                    text_label="--description",
+                ),
                 title=title,
                 repo_refs=tuple(repo_refs or ()),
                 source_path=from_file,

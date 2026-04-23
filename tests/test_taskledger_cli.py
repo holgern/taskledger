@@ -32,7 +32,7 @@ def test_taskledger_init_item_and_memory_workflow(tmp_path: Path) -> None:
             "item",
             "create",
             "parser-fix",
-            "--text",
+            "--description",
             "Repair the parser handling.",
         ],
     )
@@ -74,6 +74,58 @@ def test_taskledger_init_item_and_memory_workflow(tmp_path: Path) -> None:
     assert "pytest output" in memory_show.stdout
 
 
+def test_taskledger_item_create_uses_description_and_from_file(tmp_path: Path) -> None:
+    runner.invoke(app, ["--cwd", str(tmp_path), "init"])
+    description_file = tmp_path / "coverage-description.txt"
+    description_file.write_text(
+        "Improve coverage for the storage layer.",
+        encoding="utf-8",
+    )
+
+    create_from_description = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "item",
+            "create",
+            "increase-coverage-3",
+            "--description",
+            "Run pytest --cov=taskledger tests/ and add a focused test.",
+        ],
+    )
+    create_from_file = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "item",
+            "create",
+            "increase-coverage-4",
+            "--from-file",
+            str(description_file),
+        ],
+    )
+    show_from_description = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "item", "show", "it-1"],
+    )
+    show_from_file = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "item", "show", "it-2"],
+    )
+
+    assert create_from_description.exit_code == 0
+    assert create_from_file.exit_code == 0
+    assert show_from_description.exit_code == 0
+    assert (
+        "Run pytest --cov=taskledger tests/ and add a focused test."
+        in show_from_description.stdout
+    )
+    assert show_from_file.exit_code == 0
+    assert "Improve coverage for the storage layer." in show_from_file.stdout
+
+
 def test_taskledger_status_json_reports_counts(tmp_path: Path) -> None:
     runner.invoke(app, ["--cwd", str(tmp_path), "init"])
     runner.invoke(
@@ -84,7 +136,7 @@ def test_taskledger_status_json_reports_counts(tmp_path: Path) -> None:
             "item",
             "create",
             "sale-line-fix",
-            "--text",
+            "--description",
             "Implement the fix.",
         ],
     )
@@ -252,7 +304,7 @@ def test_taskledger_item_memory_role_access(tmp_path: Path) -> None:
             "item",
             "create",
             "plan-ux",
-            "--text",
+            "--description",
             "Track plan updates",
         ],
     )
@@ -348,7 +400,7 @@ def test_taskledger_item_view_command_and_alias(tmp_path: Path) -> None:
             "item",
             "create",
             "view-item",
-            "--text",
+            "--description",
             "Inspect one command output.",
         ],
     )
@@ -444,7 +496,7 @@ def test_taskledger_item_update_and_invalid_removals(tmp_path: Path) -> None:
             "item",
             "create",
             "item-update",
-            "--text",
+            "--description",
             "Original description",
         ],
     )
@@ -521,7 +573,7 @@ def test_taskledger_item_lifecycle_requires_plan_content(tmp_path: Path) -> None
             "item",
             "create",
             "lifecycle-check",
-            "--text",
+            "--description",
             "Lifecycle behavior",
         ],
     )
@@ -714,7 +766,7 @@ def test_taskledger_validation_commands_cover_add_list_remove_and_summary(
             "item",
             "create",
             "parser-fix",
-            "--text",
+            "--description",
             "Repair the parser handling.",
         ],
     )
@@ -776,7 +828,7 @@ def test_taskledger_exec_request_commands_cover_build_expand_and_outcome(
             "item",
             "create",
             "exec-req",
-            "--text",
+            "--description",
             "Exercise execution request commands.",
         ],
     )
@@ -864,7 +916,7 @@ def test_taskledger_compose_and_runtime_support_commands(tmp_path: Path) -> None
             "item",
             "create",
             "compose-ops",
-            "--text",
+            "--description",
             "Exercise compose and runtime support commands.",
         ],
     )
@@ -1010,7 +1062,7 @@ def test_taskledger_file_reference_mode_and_directory_flags(tmp_path: Path) -> N
             "item",
             "create",
             "reference-mode",
-            "--text",
+            "--description",
             "Exercise reference mode.",
         ],
     )
@@ -1112,7 +1164,7 @@ def test_taskledger_workflow_commands_cover_show_state_and_transitions(
             "item",
             "create",
             "workflow-fix",
-            "--text",
+            "--description",
             "Add workflow support.",
         ],
     )
@@ -1169,7 +1221,7 @@ def test_taskledger_workflow_commands_cover_parity_contract(tmp_path: Path) -> N
             "item",
             "create",
             "workflow-contract",
-            "--text",
+            "--description",
             "Exercise workflow parity commands.",
         ],
     )

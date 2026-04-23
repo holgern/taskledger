@@ -27,7 +27,7 @@ Create, inspect, and move work items through the built-in lifecycle:
 
 .. code-block:: bash
 
-   taskledger item create parser-fix --text "Repair parser handling."
+   taskledger item create parser-fix --description "Repair parser handling."
    taskledger item list
    taskledger item show parser-fix
    taskledger item view parser-fix
