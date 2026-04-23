@@ -18,6 +18,9 @@ from taskledger.models import (
     utc_now_iso,
 )
 from taskledger.storage.frontmatter import (
+    MARKDOWN_FILE_VERSION,
+)
+from taskledger.storage.frontmatter import (
     iter_markdown_files as _iter_markdown_files,
 )
 from taskledger.storage.frontmatter import (
@@ -47,6 +50,7 @@ _WORK_ITEM_STAGES = {
     "closure",
 }
 _REQUIRED_ITEM_KEYS = (
+    "file_version",
     "id",
     "slug",
     "title",
@@ -62,6 +66,7 @@ def load_work_items(paths: ProjectPaths) -> list[ProjectWorkItem]:
     for item_file in _iter_markdown_files(paths.items_dir):
         metadata, body = _read_markdown_front_matter(item_file)
         _validate_required_keys(metadata, item_file)
+        _validate_file_version(metadata, item_file)
         item_id = _string_metadata_value(metadata, "id", path=item_file)
         if item_file.stem != item_id:
             raise LaunchError(
@@ -251,6 +256,7 @@ def _id_sort_key(value: str) -> tuple[int, int, str]:
 def _write_work_item_document(paths: ProjectPaths, item: ProjectWorkItem) -> None:
     metadata = item.to_dict()
     metadata.pop("description", None)
+    metadata["file_version"] = MARKDOWN_FILE_VERSION
     _write_markdown_front_matter(
         paths.items_dir / f"{item.id}.md",
         metadata,
@@ -275,3 +281,17 @@ def _validate_required_keys(metadata: dict[str, object], path: Path) -> None:
     raise LaunchError(
         f"Invalid work item front matter {path}: missing required keys: {missing_text}."
     )
+
+
+def _validate_file_version(metadata: dict[str, object], path: Path) -> None:
+    value = metadata.get("file_version")
+    if not isinstance(value, str):
+        raise LaunchError(
+            "Invalid work item front matter "
+            f"{path}: key 'file_version' must be a string."
+        )
+    if value != MARKDOWN_FILE_VERSION:
+        raise LaunchError(
+            f"Unsupported work item file_version {value!r} in {path}; "
+            f"expected {MARKDOWN_FILE_VERSION!r}."
+        )

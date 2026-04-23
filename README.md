@@ -26,6 +26,7 @@ execution control.
   `.taskledger/memories/<id>.md`
 - work items are stored as one Markdown document per item:
   `.taskledger/items/<id>.md`
+- both item and memory YAML headers include a fixed `file_version` field
 - repos, contexts, workflows, stages, and validation keep JSON index files
 
 ## Install

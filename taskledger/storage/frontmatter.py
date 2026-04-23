@@ -10,6 +10,7 @@ from taskledger.storage.common import read_text as _read_text
 from taskledger.storage.common import write_text as _write_text
 
 _FRONT_MATTER_PATTERN = re.compile(r"^---\n(?P<meta>.*?)\n---(?:\n|$)", re.DOTALL)
+MARKDOWN_FILE_VERSION = "v1"
 
 
 def read_markdown_front_matter(path: Path) -> tuple[dict[str, object], str]:

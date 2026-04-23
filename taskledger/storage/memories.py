@@ -12,6 +12,9 @@ from taskledger.storage.common import content_hash as _content_hash
 from taskledger.storage.common import merge_text as _merge_text
 from taskledger.storage.common import summarize_text as _summarize_text
 from taskledger.storage.frontmatter import (
+    MARKDOWN_FILE_VERSION,
+)
+from taskledger.storage.frontmatter import (
     iter_markdown_files as _iter_markdown_files,
 )
 from taskledger.storage.frontmatter import (
@@ -23,6 +26,7 @@ from taskledger.storage.frontmatter import (
 
 _NUMERIC_SUFFIX_PATTERN = re.compile(r".*-(\d+)$")
 _REQUIRED_MEMORY_KEYS = (
+    "file_version",
     "id",
     "name",
     "slug",
@@ -41,6 +45,7 @@ def load_memories(paths: ProjectPaths) -> list[ProjectMemory]:
     for memory_file in _iter_markdown_files(paths.memories_dir):
         metadata, body = _read_markdown_front_matter(memory_file)
         _validate_required_keys(metadata, memory_file, label="memory")
+        _validate_file_version(metadata, memory_file, label="memory")
         memory_id = _string_metadata_value(metadata, "id", path=memory_file)
         if memory_file.stem != memory_id:
             raise LaunchError(
@@ -314,7 +319,7 @@ def _write_memory_document(
     )
     _write_markdown_front_matter(
         memory_markdown_path(paths, normalized),
-        normalized.to_dict(),
+        {"file_version": MARKDOWN_FILE_VERSION, **normalized.to_dict()},
         body,
     )
 
@@ -338,3 +343,18 @@ def _validate_required_keys(
     raise LaunchError(
         f"Invalid {label} front matter {path}: missing required keys: {missing_text}."
     )
+
+
+def _validate_file_version(
+    metadata: dict[str, object], path: Path, *, label: str
+) -> None:
+    value = metadata.get("file_version")
+    if not isinstance(value, str):
+        raise LaunchError(
+            f"Invalid {label} front matter {path}: key 'file_version' must be a string."
+        )
+    if value != MARKDOWN_FILE_VERSION:
+        raise LaunchError(
+            f"Unsupported {label} file_version {value!r} in {path}; "
+            f"expected {MARKDOWN_FILE_VERSION!r}."
+        )

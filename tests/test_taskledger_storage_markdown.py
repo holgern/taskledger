@@ -63,6 +63,7 @@ def test_memory_create_and_load_round_trip_markdown(tmp_path: Path) -> None:
 
     memory_path = paths.memories_dir / f"{created.id}.md"
     metadata, body = read_markdown_front_matter(memory_path)
+    assert metadata["file_version"] == "v1"
     assert metadata["id"] == created.id
     assert metadata["path"] == f"memories/{created.id}.md"
     assert body == "Step 1\nStep 2"
@@ -83,6 +84,7 @@ def test_memory_write_empty_body_keeps_markdown_file(tmp_path: Path) -> None:
     metadata, body = read_markdown_front_matter(memory_path)
 
     assert memory_path.exists()
+    assert metadata["file_version"] == "v1"
     assert body == ""
     assert metadata["summary"] is None
     assert metadata["content_hash"] is None
@@ -135,6 +137,7 @@ def test_memory_loader_rejects_filename_and_id_mismatch(tmp_path: Path) -> None:
         paths.memories_dir / "mem-1.md",
         {
             "id": "mem-2",
+            "file_version": "v1",
             "name": "Mismatch",
             "slug": "mismatch",
             "path": "memories/mem-2.md",
@@ -158,6 +161,7 @@ def test_memory_loader_rejects_path_mismatch(tmp_path: Path) -> None:
         paths.memories_dir / "mem-1.md",
         {
             "id": "mem-1",
+            "file_version": "v1",
             "name": "Mismatch",
             "slug": "mismatch",
             "path": "memories/other.md",
@@ -188,6 +192,7 @@ def test_save_memories_preserves_existing_body_and_removes_stale_files(
         paths.memories_dir / f"{memory_a.id}.md"
     )
     assert metadata["name"] == "A Updated"
+    assert metadata["file_version"] == "v1"
     assert body == "keep me"
     assert not (paths.memories_dir / f"{memory_b.id}.md").exists()
 
@@ -204,6 +209,7 @@ def test_item_create_and_load_round_trip_uses_body_description(tmp_path: Path) -
 
     item_path = paths.items_dir / f"{created.id}.md"
     metadata, body = read_markdown_front_matter(item_path)
+    assert metadata["file_version"] == "v1"
     assert metadata["id"] == created.id
     assert "description" not in metadata
     assert body == "Repair parser handling"
@@ -219,6 +225,7 @@ def test_item_loader_prefers_body_over_front_matter_description(tmp_path: Path) 
         paths.items_dir / "it-1.md",
         {
             "id": "it-1",
+            "file_version": "v1",
             "slug": "body-canonical",
             "title": "Body Canonical",
             "description": "wrong source",
@@ -250,6 +257,7 @@ def test_item_update_rewrites_same_file(tmp_path: Path) -> None:
     )
 
     metadata, body = read_markdown_front_matter(paths.items_dir / f"{created.id}.md")
+    assert metadata["file_version"] == "v1"
     assert metadata["title"] == "After"
     assert body == "after text"
     assert updated.id == created.id
@@ -287,6 +295,7 @@ def test_item_loader_rejects_filename_and_id_mismatch(tmp_path: Path) -> None:
         paths.items_dir / "it-1.md",
         {
             "id": "it-2",
+            "file_version": "v1",
             "slug": "mismatch",
             "title": "Mismatch",
             "status": "draft",
@@ -309,6 +318,52 @@ def test_save_work_items_removes_stale_files(tmp_path: Path) -> None:
     save_work_items(paths, [replace(item_a, title="A2", description="a2")])
 
     metadata, body = read_markdown_front_matter(paths.items_dir / f"{item_a.id}.md")
+    assert metadata["file_version"] == "v1"
     assert metadata["title"] == "A2"
     assert body == "a2"
     assert not (paths.items_dir / f"{item_b.id}.md").exists()
+
+
+def test_memory_loader_rejects_unsupported_file_version(tmp_path: Path) -> None:
+    paths, _ = init_project_state(tmp_path)
+    write_markdown_front_matter(
+        paths.memories_dir / "mem-1.md",
+        {
+            "file_version": "v2",
+            "id": "mem-1",
+            "name": "Mismatch",
+            "slug": "mismatch",
+            "path": "memories/mem-1.md",
+            "tags": [],
+            "summary": None,
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+            "source_run_id": None,
+            "content_hash": None,
+        },
+        "",
+    )
+
+    with pytest.raises(LaunchError, match="Unsupported memory file_version"):
+        load_memories(paths)
+
+
+def test_item_loader_rejects_unsupported_file_version(tmp_path: Path) -> None:
+    paths, _ = init_project_state(tmp_path)
+    write_markdown_front_matter(
+        paths.items_dir / "it-1.md",
+        {
+            "file_version": "v2",
+            "id": "it-1",
+            "slug": "mismatch",
+            "title": "Mismatch",
+            "status": "draft",
+            "stage": "intake",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+        },
+        "text",
+    )
+
+    with pytest.raises(LaunchError, match="Unsupported work item file_version"):
+        load_work_items(paths)
