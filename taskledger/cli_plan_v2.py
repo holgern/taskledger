@@ -21,6 +21,7 @@ from taskledger.cli_common import (
     emit_payload,
     launch_error_exit_code,
     read_text_input,
+    resolve_cli_task,
 )
 from taskledger.errors import LaunchError
 
@@ -29,11 +30,19 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
     @app.command("start")
     def start_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        task_option: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            payload = start_planning(state.cwd, task_ref)
+            task = resolve_cli_task(state.cwd, task_option or task_ref)
+            payload = start_planning(state.cwd, task.id)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -42,16 +51,24 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
     @app.command("propose")
     def propose_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
         text: Annotated[str | None, typer.Option("--text")] = None,
         from_file: Annotated[Path | None, typer.Option("--file")] = None,
         criterion: Annotated[list[str] | None, typer.Option("--criterion")] = None,
+        task_option: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
+            task = resolve_cli_task(state.cwd, task_option or task_ref)
             payload = propose_plan(
                 state.cwd,
-                task_ref,
+                task.id,
                 body=read_text_input(text=text, from_file=from_file),
                 criteria=tuple(criterion or ()),
             )
@@ -67,12 +84,20 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
     @app.command("show")
     def show_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
         version: Annotated[int | None, typer.Option("--version")] = None,
+        task_option: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            payload = show_plan(state.cwd, task_ref, version=version)
+            task = resolve_cli_task(state.cwd, task_option or task_ref)
+            payload = show_plan(state.cwd, task.id, version=version)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -87,11 +112,19 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
     @app.command("list")
     def list_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        task_option: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            payload = list_plan_versions(state.cwd, task_ref)
+            task = resolve_cli_task(state.cwd, task_option or task_ref)
+            payload = list_plan_versions(state.cwd, task.id)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -108,15 +141,23 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
     @app.command("diff")
     def diff_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
         from_version: Annotated[int, typer.Option("--from")] = 1,
         to_version: Annotated[int, typer.Option("--to")] = 1,
+        task_option: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
+            task = resolve_cli_task(state.cwd, task_option or task_ref)
             payload = diff_plan(
                 state.cwd,
-                task_ref,
+                task.id,
                 from_version=from_version,
                 to_version=to_version,
             )
@@ -128,7 +169,6 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
     @app.command("approve")
     def approve_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
         version: Annotated[int, typer.Option("--version")],
         actor: Annotated[str, typer.Option("--actor")] = "user",
         actor_name: Annotated[str | None, typer.Option("--actor-name")] = None,
@@ -140,12 +180,21 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
         allow_empty_criteria: Annotated[
             bool, typer.Option("--allow-empty-criteria")
         ] = False,
+        task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        task_option: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
+            task = resolve_cli_task(state.cwd, task_option or task_ref)
             payload = approve_plan(
                 state.cwd,
-                task_ref,
+                task.id,
                 version=version,
                 actor_type=actor,
                 actor_name=actor_name,
@@ -166,12 +215,20 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
     @app.command("reject")
     def reject_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
         reason: Annotated[str | None, typer.Option("--reason")] = None,
+        task_option: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            payload = reject_plan(state.cwd, task_ref, reason=reason)
+            task = resolve_cli_task(state.cwd, task_option or task_ref)
+            payload = reject_plan(state.cwd, task.id, reason=reason)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -180,11 +237,19 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
     @app.command("revise")
     def revise_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        task_option: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            payload = revise_plan(state.cwd, task_ref)
+            task = resolve_cli_task(state.cwd, task_option or task_ref)
+            payload = revise_plan(state.cwd, task.id)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc

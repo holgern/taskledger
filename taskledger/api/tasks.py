@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 from taskledger.services.tasks import (
+    activate_task,
     add_file_link,
     add_requirement,
     add_todo,
     can_perform,
     cancel_task,
+    clear_active_task,
     close_task,
     create_task,
+    deactivate_task,
     edit_task,
     list_file_links,
     list_task_summaries,
@@ -16,7 +19,9 @@ from taskledger.services.tasks import (
     remove_file_link,
     remove_requirement,
     repair_task_record,
+    resolve_active_task,
     set_todo_done,
+    show_active_task,
     show_task,
     show_todo,
     task_dossier,
@@ -25,6 +30,11 @@ from taskledger.services.tasks import (
 
 __all__ = [
     "create_task",
+    "show_active_task",
+    "activate_task",
+    "deactivate_task",
+    "clear_active_task",
+    "resolve_active_task",
     "list_task_summaries",
     "show_task",
     "edit_task",

@@ -81,6 +81,23 @@ class LaunchError(TaskledgerError):
     error_type = "LaunchError"
 
 
+class NoActiveTask(LaunchError):
+    code = "NO_ACTIVE_TASK"
+    exit_code = 5
+    error_type = "NoActiveTask"
+
+    def __init__(self) -> None:
+        super().__init__(
+            "No active task is set. Run `taskledger task activate <task-ref>` "
+            "or pass `--task <task-ref>`.",
+            remediation=[
+                "Run `taskledger task list` to find a task.",
+                "Run `taskledger task activate <task-ref>` to set the active task.",
+                "Or pass `--task <task-ref>` to this command.",
+            ],
+        )
+
+
 class InvalidPromptError(TaskledgerError):
     """Raised when prompt input is empty or invalid."""
 
@@ -119,7 +136,7 @@ class DependencyIncomplete(TaskledgerError):
     error_type = "DependencyIncomplete"
 
 
-class LockConflict(TaskledgerError):
+class LockConflict(LaunchError):
     code = "LOCK_CONFLICT"
     exit_code = 4
     error_type = "LockConflict"
@@ -131,9 +148,14 @@ class StaleLockRequiresBreak(TaskledgerError):
     error_type = "StaleLockRequiresBreak"
 
 
-class StorageCorruption(TaskledgerError):
+class StorageCorruption(LaunchError):
     code = "STORAGE_CORRUPTION"
     exit_code = 6
+    error_type = "StorageCorruption"
+
+
+class ActiveTaskNotFound(StorageCorruption):
+    code = "ACTIVE_TASK_NOT_FOUND"
     error_type = "StorageCorruption"
 
 

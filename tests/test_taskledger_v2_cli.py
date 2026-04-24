@@ -53,7 +53,11 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
     )
     assert runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "--json", "can", "rewrite-v2", "plan"],
+        ["--cwd", str(tmp_path), "task", "activate", "rewrite-v2"],
+    ).exit_code == 0
+    assert runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "--json", "can", "plan"],
     ).stdout
     start_plan = _json(
         runner.invoke(
@@ -71,7 +75,6 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
                 str(tmp_path),
                 "question",
                 "add",
-                "rewrite-v2",
                 "--text",
                 "Should exports include v2?",
             ],
@@ -86,7 +89,6 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
                 str(tmp_path),
                 "question",
                 "answer",
-                "rewrite-v2",
                 "q-0001",
                 "--text",
                 "Yes.",
@@ -256,7 +258,6 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
             str(tmp_path),
             "handoff",
             "validation-context",
-            "rewrite-v2",
         ],
     )
     assert handoff_result.exit_code == 0
@@ -315,13 +316,14 @@ def test_v2_lock_break_and_expired_lock_report(tmp_path: Path) -> None:
             "--cwd",
             str(tmp_path),
             "--json",
-            "lock",
-            "break",
-            "lock-task",
-            "--reason",
-            "recover stale planning lock",
-        ],
-    )
+                "lock",
+                "break",
+                "--reason",
+                "recover stale planning lock",
+                "--task",
+                "lock-task",
+            ],
+        )
     assert break_result.exit_code == 0
     assert _json(break_result)["result"]["command"] == "lock break"
     assert not lock_path.exists()
@@ -347,12 +349,18 @@ def test_task_first_support_commands_are_available(tmp_path: Path) -> None:
     assert (
         runner.invoke(
             app,
+            ["--cwd", str(tmp_path), "task", "activate", "support-task"],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
             [
                 "--cwd",
                 str(tmp_path),
                 "todo",
                 "add",
-                "support-task",
                 "--text",
                 "write docs",
             ],
@@ -367,7 +375,6 @@ def test_task_first_support_commands_are_available(tmp_path: Path) -> None:
                 str(tmp_path),
                 "file",
                 "link",
-                "support-task",
                 "--path",
                 "README.md",
                 "--kind",
@@ -379,13 +386,13 @@ def test_task_first_support_commands_are_available(tmp_path: Path) -> None:
 
     todo_show = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "--json", "todo", "show", "support-task", "todo-0001"],
+        ["--cwd", str(tmp_path), "--json", "todo", "show", "todo-0001"],
     )
     assert _json(todo_show)["result"]["todo"]["id"] == "todo-0001"
 
     file_list = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "file", "list", "support-task"],
+        ["--cwd", str(tmp_path), "file", "list"],
     )
     assert file_list.exit_code == 0
     assert "@README.md [doc]" in file_list.stdout
@@ -435,9 +442,10 @@ def test_plan_approval_blocks_open_questions_with_json_error(tmp_path: Path) -> 
             str(tmp_path),
             "question",
             "add",
-            "question-blocked",
             "--text",
             "Need one more decision?",
+            "--task",
+            "question-blocked",
         ],
     )
     runner.invoke(

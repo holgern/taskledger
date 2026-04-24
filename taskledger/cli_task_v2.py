@@ -6,11 +6,15 @@ from typing import Annotated, cast
 import typer
 
 from taskledger.api.tasks import (
+    activate_task,
     cancel_task,
+    clear_active_task,
     close_task,
     create_task,
+    deactivate_task,
     edit_task,
     list_task_summaries,
+    show_active_task,
     show_task,
     task_dossier,
 )
@@ -20,11 +24,12 @@ from taskledger.cli_common import (
     emit_payload,
     launch_error_exit_code,
     read_text_input,
+    resolve_cli_task,
 )
 from taskledger.errors import LaunchError
 
 
-def register_task_v2_commands(app: typer.Typer) -> None:
+def register_task_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     @app.command("create")
     def create_command(
         ctx: typer.Context,
@@ -78,14 +83,76 @@ def register_task_v2_commands(app: typer.Typer) -> None:
                 )
         emit_payload(ctx, payload, human="\n".join(human_lines))
 
-    @app.command("show")
-    def show_command(
+    @app.command("active")
+    def active_command(ctx: typer.Context) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = show_active_task(state.cwd)
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(
+            ctx,
+            payload,
+            human=f"{payload['slug']} ({payload['task_id']})",
+        )
+
+    @app.command("activate")
+    def activate_command(
         ctx: typer.Context,
         ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        reason: Annotated[str | None, typer.Option("--reason")] = None,
+        force: Annotated[bool, typer.Option("--force")] = False,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            payload = show_task(state.cwd, ref)
+            payload = activate_task(state.cwd, ref, reason=reason, force=force)
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        changed = "activated" if payload["changed"] else "already active"
+        emit_payload(ctx, payload, human=f"{changed} {payload['task_id']}")
+
+    @app.command("deactivate")
+    def deactivate_command(
+        ctx: typer.Context,
+        reason: Annotated[str, typer.Option("--reason")],
+        force: Annotated[bool, typer.Option("--force")] = False,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = deactivate_task(state.cwd, reason=reason, force=force)
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, payload, human=f"deactivated {payload['task_id']}")
+
+    @app.command("clear-active")
+    def clear_active_command(
+        ctx: typer.Context,
+        reason: Annotated[str, typer.Option("--reason")],
+        force: Annotated[bool, typer.Option("--force")] = False,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = clear_active_task(state.cwd, reason=reason, force=force)
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, payload, human=f"cleared active task {payload['task_id']}")
+
+    @app.command("show")
+    def show_command(
+        ctx: typer.Context,
+        ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = resolve_cli_task(state.cwd, ref)
+            payload = show_task(state.cwd, task.id)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -105,7 +172,10 @@ def register_task_v2_commands(app: typer.Typer) -> None:
     @app.command("edit")
     def edit_command(
         ctx: typer.Context,
-        ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
         title: Annotated[str | None, typer.Option("--title")] = None,
         description: Annotated[str | None, typer.Option("--description")] = None,
         from_file: Annotated[Path | None, typer.Option("--from-file")] = None,
@@ -120,9 +190,10 @@ def register_task_v2_commands(app: typer.Typer) -> None:
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
+            task = resolve_cli_task(state.cwd, ref)
             task = edit_task(
                 state.cwd,
-                ref,
+                task.id,
                 title=title,
                 description=(
                     read_text_input(text=description, from_file=from_file)
@@ -143,12 +214,16 @@ def register_task_v2_commands(app: typer.Typer) -> None:
     @app.command("cancel")
     def cancel_command(
         ctx: typer.Context,
-        ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
         reason: Annotated[str | None, typer.Option("--reason")] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            payload = cancel_task(state.cwd, ref, reason=reason)
+            task = resolve_cli_task(state.cwd, ref)
+            payload = cancel_task(state.cwd, task.id, reason=reason)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -157,11 +232,15 @@ def register_task_v2_commands(app: typer.Typer) -> None:
     @app.command("close")
     def close_command(
         ctx: typer.Context,
-        ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            payload = close_task(state.cwd, ref)
+            task = resolve_cli_task(state.cwd, ref)
+            payload = close_task(state.cwd, task.id)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -170,12 +249,16 @@ def register_task_v2_commands(app: typer.Typer) -> None:
     @app.command("dossier")
     def dossier_command(
         ctx: typer.Context,
-        ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
         format_name: Annotated[str, typer.Option("--format")] = "markdown",
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            payload = task_dossier(state.cwd, ref, format_name=format_name)
+            task = resolve_cli_task(state.cwd, ref)
+            payload = task_dossier(state.cwd, task.id, format_name=format_name)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc

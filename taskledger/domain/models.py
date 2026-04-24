@@ -66,6 +66,43 @@ class ActorRef:
 
 
 @dataclass(slots=True, frozen=True)
+class ActiveTaskState:
+    task_id: str
+    activated_at: str = field(default_factory=utc_now_iso)
+    activated_by: ActorRef = field(default_factory=ActorRef)
+    reason: str | None = None
+    previous_task_id: str | None = None
+    schema_version: int = TASKLEDGER_SCHEMA_VERSION
+    object_type: str = "active_task"
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema_version": self.schema_version,
+            "object_type": self.object_type,
+            "task_id": self.task_id,
+            "activated_at": self.activated_at,
+            "activated_by": self.activated_by.to_dict(),
+            "reason": self.reason,
+            "previous_task_id": self.previous_task_id,
+        }
+
+    @classmethod
+    def from_dict(cls, data: object) -> ActiveTaskState:
+        if not isinstance(data, dict):
+            raise LaunchError("Invalid active task state: expected mapping.")
+        _require_contract(data, expected_object_type="active_task")
+        return cls(
+            task_id=_string_value(data, "task_id"),
+            activated_at=_optional_string(data.get("activated_at")) or utc_now_iso(),
+            activated_by=ActorRef.from_dict(data.get("activated_by")),
+            reason=_optional_string(data.get("reason")),
+            previous_task_id=_optional_string(data.get("previous_task_id")),
+            schema_version=_int_value(data, "schema_version"),
+            object_type=_string_value(data, "object_type"),
+        )
+
+
+@dataclass(slots=True, frozen=True)
 class FileLink:
     path: str
     kind: FileLinkKind = "code"

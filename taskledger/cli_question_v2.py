@@ -15,21 +15,26 @@ from taskledger.cli_common import (
     emit_error,
     emit_payload,
     launch_error_exit_code,
+    resolve_cli_task,
 )
 from taskledger.errors import LaunchError
-from taskledger.storage.v2 import list_questions, resolve_task
+from taskledger.storage.v2 import list_questions
 
 
 def register_question_v2_commands(app: typer.Typer) -> None:
     @app.command("add")
     def add_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
         text: Annotated[str, typer.Option("--text")],
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            question = add_question(state.cwd, task_ref, text=text)
+            task = resolve_cli_task(state.cwd, task_ref)
+            question = add_question(state.cwd, task.id, text=text)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -38,11 +43,14 @@ def register_question_v2_commands(app: typer.Typer) -> None:
     @app.command("list")
     def list_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            task = resolve_task(state.cwd, task_ref)
+            task = resolve_cli_task(state.cwd, task_ref)
             payload = [item.to_dict() for item in list_questions(state.cwd, task.id)]
         except LaunchError as exc:
             emit_error(ctx, exc)
@@ -59,13 +67,17 @@ def register_question_v2_commands(app: typer.Typer) -> None:
     @app.command("answer")
     def answer_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
         question_id: Annotated[str, typer.Argument(..., help="Question id.")],
         text: Annotated[str, typer.Option("--text")],
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            question = answer_question(state.cwd, task_ref, question_id, text=text)
+            task = resolve_cli_task(state.cwd, task_ref)
+            question = answer_question(state.cwd, task.id, question_id, text=text)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -74,12 +86,16 @@ def register_question_v2_commands(app: typer.Typer) -> None:
     @app.command("dismiss")
     def dismiss_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
         question_id: Annotated[str, typer.Argument(..., help="Question id.")],
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            question = dismiss_question(state.cwd, task_ref, question_id)
+            task = resolve_cli_task(state.cwd, task_ref)
+            question = dismiss_question(state.cwd, task.id, question_id)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -88,11 +104,15 @@ def register_question_v2_commands(app: typer.Typer) -> None:
     @app.command("open")
     def open_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            payload = list_open_questions(state.cwd, task_ref)
+            task = resolve_cli_task(state.cwd, task_ref)
+            payload = list_open_questions(state.cwd, task.id)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc

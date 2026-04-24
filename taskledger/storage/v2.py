@@ -8,6 +8,7 @@ from typing import TypeVar
 import yaml
 
 from taskledger.domain.models import (
+    ActiveTaskState,
     CodeChangeRecord,
     DependencyRequirement,
     IntroductionRecord,
@@ -20,7 +21,7 @@ from taskledger.domain.models import (
     TaskRunRecord,
     TodoCollection,
 )
-from taskledger.errors import LaunchError
+from taskledger.errors import ActiveTaskNotFound, LaunchError, NoActiveTask
 from taskledger.storage import resolve_taskledger_root
 from taskledger.storage.atomic import atomic_write_text
 from taskledger.storage.frontmatter import (
@@ -45,6 +46,7 @@ class V2Paths:
     changes_dir: Path
     events_dir: Path
     indexes_dir: Path
+    active_task_path: Path
     tasks_index_path: Path
     active_locks_index_path: Path
     dependencies_index_path: Path
@@ -67,6 +69,7 @@ def resolve_v2_paths(workspace_root: Path) -> V2Paths:
         changes_dir=project_dir / "changes",
         events_dir=project_dir / "events",
         indexes_dir=indexes_dir,
+        active_task_path=project_dir / "active-task.yaml",
         tasks_index_path=indexes_dir / "tasks.json",
         active_locks_index_path=indexes_dir / "active_locks.json",
         dependencies_index_path=indexes_dir / "dependencies.json",
@@ -115,6 +118,59 @@ def resolve_task(workspace_root: Path, ref: str) -> TaskRecord:
         if task.id == ref or task.id == normalized_id or task.slug == normalized_ref:
             return task
     raise LaunchError(f"Task not found: {ref}")
+
+
+def load_active_task_state(workspace_root: Path) -> ActiveTaskState | None:
+    paths = ensure_v2_layout(workspace_root)
+    if not paths.active_task_path.exists():
+        return None
+    try:
+        payload = yaml.safe_load(paths.active_task_path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        raise LaunchError(f"Invalid active task state: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise LaunchError("Invalid active task state: expected mapping.")
+    return ActiveTaskState.from_dict(payload)
+
+
+def save_active_task_state(
+    workspace_root: Path,
+    state: ActiveTaskState,
+) -> ActiveTaskState:
+    paths = ensure_v2_layout(workspace_root)
+    _write_yaml(paths.active_task_path, state.to_dict())
+    return state
+
+
+def clear_active_task_state(workspace_root: Path) -> ActiveTaskState | None:
+    paths = ensure_v2_layout(workspace_root)
+    state = load_active_task_state(workspace_root)
+    if paths.active_task_path.exists():
+        paths.active_task_path.unlink()
+    return state
+
+
+def resolve_active_task(workspace_root: Path) -> TaskRecord:
+    state = load_active_task_state(workspace_root)
+    if state is None:
+        raise NoActiveTask()
+    try:
+        return resolve_task(workspace_root, state.task_id)
+    except LaunchError as exc:
+        raise ActiveTaskNotFound(
+            f"Active task points to missing task: {state.task_id}",
+            details={"task_id": state.task_id},
+            task_id=state.task_id,
+        ) from exc
+
+
+def resolve_task_or_active(
+    workspace_root: Path,
+    ref: str | None = None,
+) -> TaskRecord:
+    if ref is not None and ref.strip():
+        return resolve_task(workspace_root, ref)
+    return resolve_active_task(workspace_root)
 
 
 def save_task(workspace_root: Path, task: TaskRecord) -> TaskRecord:

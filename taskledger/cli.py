@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Annotated, Any, Callable, cast
+from typing import Annotated, Any, cast
 
 import typer
 
@@ -25,6 +26,7 @@ from taskledger.cli_common import (
     emit_error,
     emit_payload,
     launch_error_exit_code,
+    resolve_cli_task,
     resolve_workspace_root,
 )
 from taskledger.cli_implement_v2 import register_implement_v2_commands
@@ -102,19 +104,30 @@ register_handoff_v2_commands(handoff_app)
 @app.command("context")
 def context_command(
     ctx: typer.Context,
-    task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+    task_arg: Annotated[
+        str | None,
+        typer.Argument(help="Task ref. Defaults to the active task."),
+    ] = None,
     context_for: Annotated[
         str,
-        typer.Option("--for", help="Context mode: planning, implementation, validation, review, full."),
+        typer.Option(
+            "--for",
+            help="Context mode: planning, implementation, validation, review, full.",
+        ),
     ] = "full",
     format_name: Annotated[str, typer.Option("--format")] = "markdown",
+    task_ref: Annotated[
+        str | None,
+        typer.Option("--task", help="Task ref. Defaults to the active task."),
+    ] = None,
 ) -> None:
     state = ctx.obj
     assert isinstance(state, CLIState)
     try:
+        task = resolve_cli_task(state.cwd, task_ref or task_arg)
         payload = render_handoff(
             state.cwd,
-            task_ref,
+            task.id,
             mode=context_for,
             format_name=format_name,
         )
@@ -218,18 +231,32 @@ def doctor_indexes_command(ctx: typer.Context) -> None:
 @app.command("next-action")
 def next_action_command(
     ctx: typer.Context,
-    task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+    task_arg: Annotated[
+        str | None,
+        typer.Argument(help="Task ref. Defaults to the active task."),
+    ] = None,
+    task_ref: Annotated[
+        str | None,
+        typer.Option("--task", help="Task ref. Defaults to the active task."),
+    ] = None,
 ) -> None:
-    emit_next_action_command(ctx, task_ref)
+    emit_next_action_command(ctx, task_ref or task_arg)
 
 
 @app.command("can")
 def can_command(
     ctx: typer.Context,
-    task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
-    action: Annotated[str, typer.Argument(..., help="Action name.")],
+    action_or_task: Annotated[str, typer.Argument(..., help="Action name.")],
+    legacy_action: Annotated[str | None, typer.Argument(help="Action name.")] = None,
+    task_ref: Annotated[
+        str | None,
+        typer.Option("--task", help="Task ref. Defaults to the active task."),
+    ] = None,
 ) -> None:
-    emit_can_command(ctx, task_ref, action)
+    if legacy_action is None:
+        emit_can_command(ctx, task_ref, action_or_task)
+        return
+    emit_can_command(ctx, task_ref or action_or_task, legacy_action)
 
 
 @app.command("reindex")
@@ -245,15 +272,19 @@ def repair_index_command(ctx: typer.Context) -> None:
 @repair_app.command("lock")
 def repair_lock_command(
     ctx: typer.Context,
-    task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
     reason: Annotated[str, typer.Option("--reason")],
+    task_ref: Annotated[
+        str | None,
+        typer.Option("--task", help="Task ref. Defaults to the active task."),
+    ] = None,
 ) -> None:
     from taskledger.api.locks import break_lock
 
     state = ctx.obj
     assert isinstance(state, CLIState)
     try:
-        payload = break_lock(state.cwd, task_ref, reason=reason)
+        task = resolve_cli_task(state.cwd, task_ref)
+        payload = break_lock(state.cwd, task.id, reason=reason)
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -263,15 +294,19 @@ def repair_lock_command(
 @repair_app.command("task")
 def repair_task_command(
     ctx: typer.Context,
-    task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
     reason: Annotated[str, typer.Option("--reason")],
+    task_ref: Annotated[
+        str | None,
+        typer.Option("--task", help="Task ref. Defaults to the active task."),
+    ] = None,
 ) -> None:
     from taskledger.api.tasks import repair_task_record
 
     state = ctx.obj
     assert isinstance(state, CLIState)
     try:
-        payload = repair_task_record(state.cwd, task_ref, reason=reason)
+        task = resolve_cli_task(state.cwd, task_ref)
+        payload = repair_task_record(state.cwd, task.id, reason=reason)
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -434,7 +469,12 @@ def deps_command(
     emit_payload(ctx, payload)
 
 
-def _emit_search_results(ctx: typer.Context, factory: Callable[..., Any], *, title: str) -> None:
+def _emit_search_results(
+    ctx: typer.Context,
+    factory: Callable[..., Any],
+    *,
+    title: str,
+) -> None:
     state = ctx.obj
     assert isinstance(state, CLIState)
     try:

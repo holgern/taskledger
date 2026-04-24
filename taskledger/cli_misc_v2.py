@@ -33,6 +33,7 @@ from taskledger.cli_common import (
     emit_payload,
     launch_error_exit_code,
     read_text_input,
+    resolve_cli_task,
 )
 from taskledger.errors import LaunchError
 from taskledger.services.doctor_v2 import (
@@ -41,19 +42,27 @@ from taskledger.services.doctor_v2 import (
     inspect_v2_project,
     inspect_v2_schema,
 )
-from taskledger.storage.v2 import load_requirements, load_todos, resolve_task
+from taskledger.storage.v2 import load_requirements, load_todos
 
 
 def register_todo_v2_commands(app: typer.Typer) -> None:
     @app.command("add")
     def add_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(...)],
         text: Annotated[str, typer.Option("--text")],
+        task_arg: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            task = add_todo(state.cwd, task_ref, text=text)
+            task = resolve_cli_task(state.cwd, task_ref or task_arg)
+            task = add_todo(state.cwd, task.id, text=text)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -62,11 +71,18 @@ def register_todo_v2_commands(app: typer.Typer) -> None:
     @app.command("list")
     def list_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(...)],
+        task_arg: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            task = resolve_task(state.cwd, task_ref)
+            task = resolve_cli_task(state.cwd, task_ref or task_arg)
             todos = load_todos(state.cwd, task.id).todos
         except LaunchError as exc:
             emit_error(ctx, exc)
@@ -85,28 +101,56 @@ def register_todo_v2_commands(app: typer.Typer) -> None:
     @app.command("done")
     def done_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(...)],
         todo_id: Annotated[str, typer.Argument(...)],
+        legacy_todo_id: Annotated[str | None, typer.Argument(help="Todo id.")] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
-        _emit_todo_update(ctx, task_ref, todo_id, done=True)
+        target_ref, resolved_todo_id = _split_legacy_secondary_ref(
+            task_ref,
+            todo_id,
+            legacy_todo_id,
+        )
+        _emit_todo_update(ctx, target_ref, resolved_todo_id, done=True)
 
     @app.command("undone")
     def undone_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(...)],
         todo_id: Annotated[str, typer.Argument(...)],
+        legacy_todo_id: Annotated[str | None, typer.Argument(help="Todo id.")] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
-        _emit_todo_update(ctx, task_ref, todo_id, done=False)
+        target_ref, resolved_todo_id = _split_legacy_secondary_ref(
+            task_ref,
+            todo_id,
+            legacy_todo_id,
+        )
+        _emit_todo_update(ctx, target_ref, resolved_todo_id, done=False)
 
     @app.command("show")
     def show_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(...)],
         todo_id: Annotated[str, typer.Argument(...)],
+        legacy_todo_id: Annotated[str | None, typer.Argument(help="Todo id.")] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            payload = show_todo(state.cwd, task_ref, todo_id)
+            target_ref, resolved_todo_id = _split_legacy_secondary_ref(
+                task_ref,
+                todo_id,
+                legacy_todo_id,
+            )
+            task = resolve_cli_task(state.cwd, target_ref)
+            payload = show_todo(state.cwd, task.id, resolved_todo_id)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -164,12 +208,16 @@ def register_intro_v2_commands(app: typer.Typer) -> None:
     @app.command("link")
     def link_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(...)],
         intro_ref: Annotated[str, typer.Argument(...)],
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            task = link_introduction(state.cwd, task_ref, intro_ref)
+            task = resolve_cli_task(state.cwd, task_ref)
+            task = link_introduction(state.cwd, task.id, intro_ref)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -180,7 +228,6 @@ def register_file_v2_commands(app: typer.Typer) -> None:
     @app.command("link")
     def link_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(...)],
         path: Annotated[str, typer.Option("--path")],
         kind: Annotated[str, typer.Option("--kind")] = "code",
         label: Annotated[str | None, typer.Option("--label")] = None,
@@ -188,12 +235,21 @@ def register_file_v2_commands(app: typer.Typer) -> None:
             bool,
             typer.Option("--required-for-validation"),
         ] = False,
+        task_arg: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
+            task = resolve_cli_task(state.cwd, task_ref or task_arg)
             task = add_file_link(
                 state.cwd,
-                task_ref,
+                task.id,
                 path=path,
                 kind=kind,
                 label=label,
@@ -207,12 +263,20 @@ def register_file_v2_commands(app: typer.Typer) -> None:
     @app.command("unlink")
     def unlink_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(...)],
         path: Annotated[str, typer.Option("--path")],
+        task_arg: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            task = remove_file_link(state.cwd, task_ref, path=path)
+            task = resolve_cli_task(state.cwd, task_ref or task_arg)
+            task = remove_file_link(state.cwd, task.id, path=path)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -221,11 +285,19 @@ def register_file_v2_commands(app: typer.Typer) -> None:
     @app.command("list")
     def list_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(...)],
+        task_arg: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            payload = list_file_links(state.cwd, task_ref)
+            task = resolve_cli_task(state.cwd, task_ref or task_arg)
+            payload = list_file_links(state.cwd, task.id)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -244,7 +316,6 @@ def register_link_v2_commands(app: typer.Typer) -> None:
     @app.command("add")
     def add_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(...)],
         path: Annotated[str, typer.Option("--path")],
         kind: Annotated[str, typer.Option("--kind")] = "code",
         label: Annotated[str | None, typer.Option("--label")] = None,
@@ -252,10 +323,18 @@ def register_link_v2_commands(app: typer.Typer) -> None:
             bool,
             typer.Option("--required-for-validation"),
         ] = False,
+        task_arg: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         _emit_link_add(
             ctx,
-            task_ref,
+            task_ref or task_arg,
             path=path,
             kind=kind,
             label=label,
@@ -265,7 +344,6 @@ def register_link_v2_commands(app: typer.Typer) -> None:
     @app.command("link")
     def link_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(...)],
         path: Annotated[str, typer.Option("--path")],
         kind: Annotated[str, typer.Option("--kind")] = "code",
         label: Annotated[str | None, typer.Option("--label")] = None,
@@ -273,10 +351,18 @@ def register_link_v2_commands(app: typer.Typer) -> None:
             bool,
             typer.Option("--required-for-validation"),
         ] = False,
+        task_arg: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         _emit_link_add(
             ctx,
-            task_ref,
+            task_ref or task_arg,
             path=path,
             kind=kind,
             label=label,
@@ -286,37 +372,71 @@ def register_link_v2_commands(app: typer.Typer) -> None:
     @app.command("remove")
     def remove_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(...)],
         path: Annotated[str, typer.Option("--path")],
+        task_arg: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
-        _emit_link_remove(ctx, task_ref, path=path)
+        _emit_link_remove(ctx, task_ref or task_arg, path=path)
 
     @app.command("unlink")
     def unlink_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(...)],
         path: Annotated[str, typer.Option("--path")],
+        task_arg: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
-        _emit_link_remove(ctx, task_ref, path=path)
+        _emit_link_remove(ctx, task_ref or task_arg, path=path)
 
     @app.command("list")
     def list_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(...)],
+        task_arg: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
-        _emit_link_list(ctx, task_ref)
+        _emit_link_list(ctx, task_ref or task_arg)
 
 
 def register_require_v2_commands(app: typer.Typer) -> None:
     @app.command("add")
     def add_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(...)],
         required_task_ref: Annotated[str, typer.Argument(...)],
+        legacy_required_task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Required task ref."),
+        ] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            task = add_requirement(state.cwd, task_ref, required_task_ref)
+            target_ref, dependency_ref = _split_legacy_secondary_ref(
+                task_ref,
+                required_task_ref,
+                legacy_required_task_ref,
+            )
+            task = resolve_cli_task(state.cwd, target_ref)
+            task = add_requirement(state.cwd, task.id, dependency_ref)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -325,11 +445,14 @@ def register_require_v2_commands(app: typer.Typer) -> None:
     @app.command("list")
     def list_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(...)],
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            task = resolve_task(state.cwd, task_ref)
+            task = resolve_cli_task(state.cwd, task_ref)
             requirements = load_requirements(state.cwd, task.id).requirements
         except LaunchError as exc:
             emit_error(ctx, exc)
@@ -346,12 +469,25 @@ def register_require_v2_commands(app: typer.Typer) -> None:
     @app.command("remove")
     def remove_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(...)],
         required_task_ref: Annotated[str, typer.Argument(...)],
+        legacy_required_task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Required task ref."),
+        ] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            task = remove_requirement(state.cwd, task_ref, required_task_ref)
+            target_ref, dependency_ref = _split_legacy_secondary_ref(
+                task_ref,
+                required_task_ref,
+                legacy_required_task_ref,
+            )
+            task = resolve_cli_task(state.cwd, target_ref)
+            task = remove_requirement(state.cwd, task.id, dependency_ref)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -360,17 +496,30 @@ def register_require_v2_commands(app: typer.Typer) -> None:
     @app.command("waive")
     def waive_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(...)],
         required_task_ref: Annotated[str, typer.Argument(...)],
+        legacy_required_task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Required task ref."),
+        ] = None,
         actor: Annotated[str, typer.Option("--actor")] = "user",
         reason: Annotated[str, typer.Option("--reason")] = "",
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            task = waive_requirement(
-                state.cwd,
+            target_ref, dependency_ref = _split_legacy_secondary_ref(
                 task_ref,
                 required_task_ref,
+                legacy_required_task_ref,
+            )
+            task = resolve_cli_task(state.cwd, target_ref)
+            task = waive_requirement(
+                state.cwd,
+                task.id,
+                dependency_ref,
                 actor_type=actor,
                 reason=reason,
             )
@@ -382,7 +531,7 @@ def register_require_v2_commands(app: typer.Typer) -> None:
 
 def _emit_link_add(
     ctx: typer.Context,
-    task_ref: str,
+    task_ref: str | None,
     *,
     path: str,
     kind: str,
@@ -391,9 +540,10 @@ def _emit_link_add(
 ) -> None:
     state = cli_state_from_context(ctx)
     try:
+        task = resolve_cli_task(state.cwd, task_ref)
         task = add_file_link(
             state.cwd,
-            task_ref,
+            task.id,
             path=path,
             kind=kind,
             label=label,
@@ -405,20 +555,32 @@ def _emit_link_add(
     emit_payload(ctx, task.to_dict(), human=f"linked file on {task.id}")
 
 
-def _emit_link_remove(ctx: typer.Context, task_ref: str, *, path: str) -> None:
+def _split_legacy_secondary_ref(
+    task_ref: str | None,
+    primary_ref: str,
+    secondary_ref: str | None,
+) -> tuple[str | None, str]:
+    if secondary_ref is None:
+        return task_ref, primary_ref
+    return task_ref or primary_ref, secondary_ref
+
+
+def _emit_link_remove(ctx: typer.Context, task_ref: str | None, *, path: str) -> None:
     state = cli_state_from_context(ctx)
     try:
-        task = remove_file_link(state.cwd, task_ref, path=path)
+        task = resolve_cli_task(state.cwd, task_ref)
+        task = remove_file_link(state.cwd, task.id, path=path)
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
     emit_payload(ctx, task.to_dict(), human=f"unlinked file on {task.id}")
 
 
-def _emit_link_list(ctx: typer.Context, task_ref: str) -> None:
+def _emit_link_list(ctx: typer.Context, task_ref: str | None) -> None:
     state = cli_state_from_context(ctx)
     try:
-        payload = list_file_links(state.cwd, task_ref)
+        task = resolve_cli_task(state.cwd, task_ref)
+        payload = list_file_links(state.cwd, task.id)
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -437,11 +599,19 @@ def register_lock_v2_commands(app: typer.Typer) -> None:
     @app.command("show")
     def show_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(...)],
+        task_arg: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            payload = show_lock(state.cwd, task_ref)
+            task = resolve_cli_task(state.cwd, task_ref or task_arg)
+            payload = show_lock(state.cwd, task.id)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -450,12 +620,20 @@ def register_lock_v2_commands(app: typer.Typer) -> None:
     @app.command("break")
     def break_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(...)],
         reason: Annotated[str, typer.Option("--reason")],
+        task_arg: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            payload = break_lock(state.cwd, task_ref, reason=reason)
+            task = resolve_cli_task(state.cwd, task_ref or task_arg)
+            payload = break_lock(state.cwd, task.id, reason=reason)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -486,28 +664,54 @@ def register_handoff_v2_commands(app: typer.Typer) -> None:
     @app.command("show")
     def show_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(...)],
         format_name: Annotated[str, typer.Option("--format")] = "text",
+        task_arg: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
-        _emit_handoff(ctx, task_ref, mode="show", format_name=format_name)
+        _emit_handoff(ctx, task_ref or task_arg, mode="show", format_name=format_name)
 
     @app.command("plan-context")
     def plan_context_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(...)],
         format_name: Annotated[str, typer.Option("--format")] = "text",
+        task_arg: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
-        _emit_handoff(ctx, task_ref, mode="plan-context", format_name=format_name)
+        _emit_handoff(
+            ctx,
+            task_ref or task_arg,
+            mode="plan-context",
+            format_name=format_name,
+        )
 
     @app.command("implementation-context")
     def implementation_context_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(...)],
         format_name: Annotated[str, typer.Option("--format")] = "text",
+        task_arg: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         _emit_handoff(
             ctx,
-            task_ref,
+            task_ref or task_arg,
             mode="implementation-context",
             format_name=format_name,
         )
@@ -515,12 +719,19 @@ def register_handoff_v2_commands(app: typer.Typer) -> None:
     @app.command("validation-context")
     def validation_context_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(...)],
         format_name: Annotated[str, typer.Option("--format")] = "text",
+        task_arg: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         _emit_handoff(
             ctx,
-            task_ref,
+            task_ref or task_arg,
             mode="validation-context",
             format_name=format_name,
         )
@@ -528,21 +739,23 @@ def register_handoff_v2_commands(app: typer.Typer) -> None:
 
 def emit_next_action_command(
     ctx: typer.Context,
-    task_ref: str,
+    task_ref: str | None,
 ) -> None:
     state = cli_state_from_context(ctx)
     try:
-        payload = next_action(state.cwd, task_ref)
+        task = resolve_cli_task(state.cwd, task_ref)
+        payload = next_action(state.cwd, task.id)
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
     emit_payload(ctx, payload, human=f"{payload['action']}: {payload['reason']}")
 
 
-def emit_can_command(ctx: typer.Context, task_ref: str, action: str) -> None:
+def emit_can_command(ctx: typer.Context, task_ref: str | None, action: str) -> None:
     state = cli_state_from_context(ctx)
     try:
-        payload = can_perform(state.cwd, task_ref, action)
+        task = resolve_cli_task(state.cwd, task_ref)
+        payload = can_perform(state.cwd, task.id, action)
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -562,7 +775,10 @@ def emit_doctor_command(ctx: typer.Context) -> None:
     emit_payload(
         ctx,
         payload,
-        human=f"healthy: {payload['healthy']} errors: {len(cast(list[object], payload['errors']))}",
+        human=(
+            f"healthy: {payload['healthy']} "
+            f"errors: {len(cast(list[object], payload['errors']))}"
+        ),
     )
 
 
@@ -598,14 +814,15 @@ def emit_doctor_indexes_command(ctx: typer.Context) -> None:
 
 def _emit_todo_update(
     ctx: typer.Context,
-    task_ref: str,
+    task_ref: str | None,
     todo_id: str,
     *,
     done: bool,
 ) -> None:
     state = cli_state_from_context(ctx)
     try:
-        task = set_todo_done(state.cwd, task_ref, todo_id, done=done)
+        task = resolve_cli_task(state.cwd, task_ref)
+        task = set_todo_done(state.cwd, task.id, todo_id, done=done)
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -614,16 +831,17 @@ def _emit_todo_update(
 
 def _emit_handoff(
     ctx: typer.Context,
-    task_ref: str,
+    task_ref: str | None,
     *,
     mode: str,
     format_name: str,
 ) -> None:
     state = cli_state_from_context(ctx)
     try:
+        task = resolve_cli_task(state.cwd, task_ref)
         payload = render_handoff(
             state.cwd,
-            task_ref,
+            task.id,
             mode=mode,
             format_name=format_name,
         )

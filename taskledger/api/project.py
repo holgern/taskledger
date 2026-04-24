@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from typing import cast
 from pathlib import Path
+from typing import cast
 
 from taskledger.domain.policies import derive_active_stage
 from taskledger.exchange import (
@@ -21,6 +21,8 @@ from taskledger.storage.v2 import (
     list_runs,
     list_tasks,
     load_active_locks,
+    load_active_task_state,
+    resolve_task,
 )
 
 
@@ -40,6 +42,7 @@ def project_status_summary(workspace_root: Path) -> dict[str, object]:
         "kind": "taskledger_status",
         "counts": _project_counts(workspace_root),
         "healthy": bool(doctor["healthy"]),
+        "active_task": _active_task_status(workspace_root),
     }
 
 
@@ -52,6 +55,7 @@ def project_status(workspace_root: Path) -> dict[str, object]:
         "project_dir": str(resolve_taskledger_root(workspace_root)),
         "counts": _project_counts(workspace_root),
         "healthy": bool(doctor["healthy"]),
+        "active_task": _active_task_status(workspace_root),
         "errors": list(cast(list[object], doctor["errors"])),
         "warnings": list(cast(list[object], doctor["warnings"])),
         "repair_hints": list(cast(list[object], doctor["repair_hints"])),
@@ -137,4 +141,17 @@ def _project_counts(workspace_root: Path) -> dict[str, int]:
         "runs": sum(len(list_runs(workspace_root, task.id)) for task in tasks),
         "changes": sum(len(list_changes(workspace_root, task.id)) for task in tasks),
         "locks": len(load_active_locks(workspace_root)),
+    }
+
+
+def _active_task_status(workspace_root: Path) -> dict[str, object] | None:
+    state = load_active_task_state(workspace_root)
+    if state is None:
+        return None
+    task = resolve_task(workspace_root, state.task_id)
+    return {
+        "task_id": task.id,
+        "slug": task.slug,
+        "title": task.title,
+        "status_stage": task.status_stage,
     }

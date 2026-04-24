@@ -37,6 +37,11 @@ Task API
 --------
 
 - ``create_task``
+- ``show_active_task``
+- ``activate_task``
+- ``deactivate_task``
+- ``clear_active_task``
+- ``resolve_active_task``
 - ``list_task_summaries``
 - ``show_task``
 - ``edit_task``

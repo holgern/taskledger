@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import Literal, cast
 import difflib
 import getpass
 import os
@@ -10,11 +9,13 @@ import subprocess
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Literal, cast
 
 import yaml
 
 from taskledger.domain.models import (
     AcceptanceCriterion,
+    ActiveTaskState,
     ActorRef,
     CodeChangeRecord,
     DependencyRequirement,
@@ -62,11 +63,11 @@ from taskledger.domain.states import (
     IMPLEMENTABLE_TASK_STAGES,
     TaskStatusStage,
     normalize_file_link_kind,
-    require_transition,
     normalize_validation_check_status,
     normalize_validation_result,
+    require_transition,
 )
-from taskledger.errors import LaunchError
+from taskledger.errors import LaunchError, LockConflict, NoActiveTask
 from taskledger.ids import next_project_id, slugify_project_ref
 from taskledger.models import utc_now_iso
 from taskledger.storage.atomic import atomic_write_text
@@ -89,6 +90,7 @@ from taskledger.storage.v2 import (
     list_runs,
     list_tasks,
     load_active_locks,
+    load_active_task_state,
     load_links,
     load_requirements,
     load_todos,
@@ -99,6 +101,7 @@ from taskledger.storage.v2 import (
     resolve_run,
     resolve_task,
     resolve_v2_paths,
+    save_active_task_state,
     save_change,
     save_introduction,
     save_links,
@@ -111,6 +114,9 @@ from taskledger.storage.v2 import (
     task_artifacts_dir,
     task_audit_dir,
     task_lock_path,
+)
+from taskledger.storage.v2 import (
+    resolve_active_task as storage_resolve_active_task,
 )
 
 
@@ -150,6 +156,8 @@ def create_task(
 
 def list_task_summaries(workspace_root: Path) -> list[dict[str, object]]:
     tasks = list_tasks(workspace_root)
+    active_state = load_active_task_state(workspace_root)
+    active_task_id = active_state.task_id if active_state is not None else None
     return [
         {
             "id": task.id,
@@ -157,11 +165,137 @@ def list_task_summaries(workspace_root: Path) -> list[dict[str, object]]:
             "title": task.title,
             "status": task.status_stage,
             "status_stage": task.status_stage,
+            "is_active": task.id == active_task_id,
             "active_stage": _task_active_stage(workspace_root, task),
             "accepted_plan_version": task.accepted_plan_version,
         }
         for task in tasks
     ]
+
+
+def resolve_active_task(workspace_root: Path) -> TaskRecord:
+    return storage_resolve_active_task(workspace_root)
+
+
+def show_active_task(workspace_root: Path) -> dict[str, object]:
+    state = load_active_task_state(workspace_root)
+    if state is None:
+        raise NoActiveTask()
+    task = storage_resolve_active_task(workspace_root)
+    return _active_task_payload(
+        workspace_root,
+        task,
+        state=state,
+        changed=False,
+        previous_task_id=state.previous_task_id,
+    )
+
+
+def activate_task(
+    workspace_root: Path,
+    ref: str,
+    *,
+    reason: str | None = None,
+    actor_type: str = "user",
+    force: bool = False,
+) -> dict[str, object]:
+    task = resolve_task(workspace_root, ref)
+    previous = load_active_task_state(workspace_root)
+    previous_task_id = previous.task_id if previous is not None else None
+    if previous_task_id == task.id:
+        return _active_task_payload(
+            workspace_root,
+            task,
+            state=previous,
+            changed=False,
+            previous_task_id=previous.previous_task_id,
+        )
+    if previous_task_id is not None:
+        _ensure_active_switch_allowed(
+            workspace_root,
+            previous_task_id,
+            force=force,
+            reason=reason,
+        )
+    state = ActiveTaskState(
+        task_id=task.id,
+        activated_by=_actor_for_active_task(actor_type),
+        reason=reason,
+        previous_task_id=previous_task_id,
+    )
+    save_active_task_state(workspace_root, state)
+    project_dir = resolve_v2_paths(workspace_root).project_dir
+    if previous_task_id is not None:
+        _append_event(
+            project_dir,
+            previous_task_id,
+            "task.deactivated",
+            {"reason": reason, "next_task_id": task.id, "forced": force},
+        )
+    _append_event(
+        project_dir,
+        task.id,
+        "task.activated",
+        {"reason": reason, "previous_task_id": previous_task_id, "forced": force},
+    )
+    return _active_task_payload(
+        workspace_root,
+        task,
+        state=state,
+        changed=True,
+        previous_task_id=previous_task_id,
+    )
+
+
+def deactivate_task(
+    workspace_root: Path,
+    *,
+    reason: str,
+    actor_type: str = "user",
+    force: bool = False,
+) -> dict[str, object]:
+    return clear_active_task(
+        workspace_root,
+        reason=reason,
+        actor_type=actor_type,
+        force=force,
+    )
+
+
+def clear_active_task(
+    workspace_root: Path,
+    *,
+    reason: str,
+    actor_type: str = "user",
+    force: bool = False,
+) -> dict[str, object]:
+    from taskledger.storage.v2 import clear_active_task_state
+
+    state = load_active_task_state(workspace_root)
+    if state is None:
+        raise NoActiveTask()
+    _ensure_active_switch_allowed(
+        workspace_root,
+        state.task_id,
+        force=force,
+        reason=reason,
+    )
+    task = storage_resolve_active_task(workspace_root)
+    clear_active_task_state(workspace_root)
+    _append_event(
+        resolve_v2_paths(workspace_root).project_dir,
+        task.id,
+        "task.deactivated",
+        {"reason": reason, "forced": force, "actor_type": actor_type},
+    )
+    return _active_task_payload(
+        workspace_root,
+        task,
+        state=state,
+        changed=True,
+        previous_task_id=state.previous_task_id,
+        active=False,
+    )
 
 
 def show_task(workspace_root: Path, ref: str) -> dict[str, object]:
@@ -2470,6 +2604,69 @@ def _task_payload(task: TaskRecord, *, active_stage: str | None) -> dict[str, ob
     payload = task.to_dict()
     payload["active_stage"] = active_stage
     return payload
+
+
+def _active_task_payload(
+    workspace_root: Path,
+    task: TaskRecord,
+    *,
+    state: ActiveTaskState,
+    changed: bool,
+    previous_task_id: str | None,
+    active: bool = True,
+) -> dict[str, object]:
+    return {
+        "kind": "active_task",
+        "task_id": task.id,
+        "slug": task.slug,
+        "title": task.title,
+        "status_stage": task.status_stage,
+        "active_stage": _task_active_stage(workspace_root, task) if active else None,
+        "active": active,
+        "changed": changed,
+        "previous_task_id": previous_task_id,
+        "state": state.to_dict(),
+    }
+
+
+def _actor_for_active_task(actor_type: str) -> ActorRef:
+    if actor_type not in {"agent", "user", "system"}:
+        raise _cli_error(
+            f"Unsupported actor type: {actor_type}",
+            EXIT_CODE_BAD_INPUT,
+        )
+    base = _default_actor()
+    return replace(
+        base,
+        actor_type=cast(Literal["agent", "user", "system"], actor_type),
+    )
+
+
+def _ensure_active_switch_allowed(
+    workspace_root: Path,
+    task_id: str,
+    *,
+    force: bool,
+    reason: str | None,
+) -> None:
+    lock = _current_lock(workspace_root, task_id)
+    if lock is None or lock_is_expired(lock):
+        return
+    if force and reason and reason.strip():
+        return
+    raise LockConflict(
+        f"Active task {task_id} has a live {lock.stage} lock from {lock.run_id}. "
+        "Pass --force with --reason to switch or clear the active task.",
+        task_id=task_id,
+        details={"lock": lock.to_dict()},
+        remediation=[
+            f'taskledger lock show --task {task_id}',
+            (
+                "Pass --force --reason \"...\" only if you intend to leave "
+                "the lock in place."
+            ),
+        ],
+    )
 
 
 def _task_active_stage(

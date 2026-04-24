@@ -20,19 +20,24 @@ from taskledger.cli_common import (
     emit_error,
     emit_payload,
     launch_error_exit_code,
+    resolve_cli_task,
 )
 from taskledger.errors import LaunchError
 
 
-def register_implement_v2_commands(app: typer.Typer) -> None:
+def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     @app.command("start")
     def start_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            payload = start_implementation(state.cwd, task_ref)
+            task = resolve_cli_task(state.cwd, task_ref)
+            payload = start_implementation(state.cwd, task.id)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -45,12 +50,16 @@ def register_implement_v2_commands(app: typer.Typer) -> None:
     @app.command("log")
     def log_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
         message: Annotated[str, typer.Option("--message")],
+        task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            run = log_implementation(state.cwd, task_ref, message=message)
+            task = resolve_cli_task(state.cwd, task_ref)
+            run = log_implementation(state.cwd, task.id, message=message)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -58,18 +67,19 @@ def register_implement_v2_commands(app: typer.Typer) -> None:
 
     def _emit_change_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
         path: Annotated[str, typer.Option("--path")],
         kind: Annotated[str, typer.Option("--kind")] = "edit",
         summary: Annotated[str, typer.Option("--summary")] = "",
         command: Annotated[str | None, typer.Option("--command")] = None,
         git_diff_stat: Annotated[str | None, typer.Option("--git-diff-stat")] = None,
+        task_ref: str | None = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
+            task = resolve_cli_task(state.cwd, task_ref)
             change = add_change(
                 state.cwd,
-                task_ref,
+                task.id,
                 path=path,
                 kind=kind,
                 summary=summary,
@@ -84,39 +94,49 @@ def register_implement_v2_commands(app: typer.Typer) -> None:
     @app.command("change")
     def change_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
         path: Annotated[str, typer.Option("--path")],
         kind: Annotated[str, typer.Option("--kind")] = "edit",
         summary: Annotated[str, typer.Option("--summary")] = "",
         command: Annotated[str | None, typer.Option("--command")] = None,
         git_diff_stat: Annotated[str | None, typer.Option("--git-diff-stat")] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
-        _emit_change_command(ctx, task_ref, path, kind, summary, command, git_diff_stat)
+        _emit_change_command(ctx, path, kind, summary, command, git_diff_stat, task_ref)
 
     @app.command("add-change")
     def add_change_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
         path: Annotated[str, typer.Option("--path")],
         kind: Annotated[str, typer.Option("--kind")] = "edit",
         summary: Annotated[str, typer.Option("--summary")] = "",
         command: Annotated[str | None, typer.Option("--command")] = None,
         git_diff_stat: Annotated[str | None, typer.Option("--git-diff-stat")] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
-        _emit_change_command(ctx, task_ref, path, kind, summary, command, git_diff_stat)
+        _emit_change_command(ctx, path, kind, summary, command, git_diff_stat, task_ref)
 
     @app.command("scan-changes")
     def scan_changes_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
         from_git: Annotated[bool, typer.Option("--from-git")] = False,
         summary: Annotated[str, typer.Option("--summary")] = "",
+        task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
+            task = resolve_cli_task(state.cwd, task_ref)
             change = scan_changes(
                 state.cwd,
-                task_ref,
+                task.id,
                 from_git=from_git,
                 summary=summary,
             )
@@ -131,14 +151,18 @@ def register_implement_v2_commands(app: typer.Typer) -> None:
     )
     def command_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         argv = tuple(ctx.args)
         try:
+            task = resolve_cli_task(state.cwd, task_ref)
             payload = run_implementation_command(
                 state.cwd,
-                task_ref,
+                task.id,
                 argv=argv,
             )
         except LaunchError as exc:
@@ -153,12 +177,16 @@ def register_implement_v2_commands(app: typer.Typer) -> None:
     @app.command("deviation")
     def deviation_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
         message: Annotated[str, typer.Option("--message")],
+        task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            run = add_implementation_deviation(state.cwd, task_ref, message=message)
+            task = resolve_cli_task(state.cwd, task_ref)
+            run = add_implementation_deviation(state.cwd, task.id, message=message)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -167,15 +195,19 @@ def register_implement_v2_commands(app: typer.Typer) -> None:
     @app.command("artifact")
     def artifact_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
         path: Annotated[str, typer.Option("--path")],
         summary: Annotated[str, typer.Option("--summary")],
+        task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
+            task = resolve_cli_task(state.cwd, task_ref)
             run = add_implementation_artifact(
                 state.cwd,
-                task_ref,
+                task.id,
                 path=path,
                 summary=summary,
             )
@@ -187,12 +219,16 @@ def register_implement_v2_commands(app: typer.Typer) -> None:
     @app.command("finish")
     def finish_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
         summary: Annotated[str, typer.Option("--summary")],
+        task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            payload = finish_implementation(state.cwd, task_ref, summary=summary)
+            task = resolve_cli_task(state.cwd, task_ref)
+            payload = finish_implementation(state.cwd, task.id, summary=summary)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -205,14 +241,18 @@ def register_implement_v2_commands(app: typer.Typer) -> None:
     @app.command("show")
     def show_command(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
         run_id: Annotated[str | None, typer.Option("--run")] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
+            task = resolve_cli_task(state.cwd, task_ref)
             payload = show_task_run(
                 state.cwd,
-                task_ref,
+                task.id,
                 run_id=run_id,
                 run_type="implementation",
             )

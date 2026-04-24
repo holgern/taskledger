@@ -5,6 +5,7 @@ import shutil
 from pathlib import Path
 
 from taskledger.domain.models import (
+    ActiveTaskState,
     CodeChangeRecord,
     IntroductionRecord,
     PlanRecord,
@@ -23,9 +24,11 @@ from taskledger.storage.v2 import (
     V2Paths,
     ensure_v2_layout,
     load_active_locks,
+    load_active_task_state,
     overwrite_plan,
     plan_markdown_path,
     resolve_v2_paths,
+    save_active_task_state,
     save_change,
     save_introduction,
     save_plan,
@@ -149,6 +152,11 @@ def _export_v2_payload(workspace_root: Path) -> dict[str, object]:
     introductions = list_v2_introductions(workspace_root)
     return {
         "tasks": [item.to_dict() for item in tasks],
+        "active_task": (
+            active_state.to_dict()
+            if (active_state := load_active_task_state(workspace_root)) is not None
+            else None
+        ),
         "introductions": [item.to_dict() for item in introductions],
         "plans": [
             plan.to_dict()
@@ -185,6 +193,14 @@ def _import_v2_payload(workspace_root: Path, payload: dict[str, object]) -> None
     paths = resolve_v2_paths(workspace_root)
     for item in _dict_list(raw_v2.get("tasks")):
         save_task(workspace_root, TaskRecord.from_dict(item))
+    active_task = raw_v2.get("active_task")
+    if active_task is not None:
+        state = ActiveTaskState.from_dict(active_task)
+        if not any(task.id == state.task_id for task in list_v2_tasks(workspace_root)):
+            raise LaunchError(
+                f"Import active task points to missing task: {state.task_id}"
+            )
+        save_active_task_state(workspace_root, state)
     for item in _dict_list(raw_v2.get("introductions")):
         save_introduction(workspace_root, IntroductionRecord.from_dict(item))
     for item in _dict_list(raw_v2.get("plans")):
@@ -220,3 +236,5 @@ def _clear_v2_state(paths: V2Paths) -> None:
         if directory.exists():
             shutil.rmtree(directory)
         directory.mkdir(parents=True, exist_ok=True)
+    if paths.active_task_path.exists():
+        paths.active_task_path.unlink()

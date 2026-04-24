@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from typing import cast
 from pathlib import Path
+from typing import cast
 
 from taskledger.domain.policies import derive_active_stage
 from taskledger.storage.events import load_events
@@ -14,6 +14,7 @@ from taskledger.storage.v2 import (
     list_runs,
     list_tasks,
     load_active_locks,
+    load_active_task_state,
     load_requirements,
     load_todos,
     resolve_introduction,
@@ -38,6 +39,22 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
         for task_id, runs in task_runs.items()
         for run in runs
     }
+
+    try:
+        active_state = load_active_task_state(workspace_root)
+    except Exception as exc:
+        active_state = None
+        errors.append(f"Active task state is invalid: {exc}")
+    if active_state is not None:
+        active_task = task_map.get(active_state.task_id)
+        if active_task is None:
+            errors.append(
+                f"Active task points to missing task {active_state.task_id}."
+            )
+        elif active_task.status_stage in {"cancelled", "done"}:
+            warnings.append(
+                f"Active task {active_task.id} is {active_task.status_stage}."
+            )
 
     for task in tasks:
         plans = list_plans(workspace_root, task.id)
@@ -195,6 +212,7 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
                 len(list_changes(workspace_root, task.id)) for task in tasks
             ),
             "locks": len(locks),
+            "active_task": 1 if active_state is not None else 0,
         },
         "healthy": not errors,
         "errors": errors,

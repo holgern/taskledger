@@ -39,22 +39,23 @@ Create a task, propose a plan, approve it, implement it, and validate it:
 
 ```bash
 taskledger task create rewrite-v2 --title "Rewrite V2" --description "Migrate to the task-first design."
-taskledger plan start rewrite-v2
-taskledger question add rewrite-v2 --text "Should exports include the new state?"
-taskledger question answer rewrite-v2 q-0001 --text "Yes."
-taskledger plan propose rewrite-v2 --criterion "Accepted workflow is implemented." --file ./plan.md
-taskledger plan approve rewrite-v2 --version 1
+taskledger task activate rewrite-v2
+taskledger plan start
+taskledger question add --text "Should exports include the new state?"
+taskledger question answer q-0001 --text "Yes."
+taskledger plan propose --criterion "Accepted workflow is implemented." --file ./plan.md
+taskledger plan approve --version 1 --actor user --note "Ready."
 
-taskledger context rewrite-v2 --for implementation --format markdown
-taskledger implement start rewrite-v2
-taskledger implement log rewrite-v2 --message "Started wiring the new storage model."
-taskledger implement change rewrite-v2 --path taskledger/storage/v2.py --kind edit --summary "Normalized v2 markdown storage."
-taskledger implement finish rewrite-v2 --summary "Implemented the approved plan."
+taskledger context --for implementation --format markdown
+taskledger implement start
+taskledger implement log --message "Started wiring the new storage model."
+taskledger implement change --path taskledger/storage/v2.py --kind edit --summary "Normalized v2 markdown storage."
+taskledger implement finish --summary "Implemented the approved plan."
 
-taskledger context rewrite-v2 --for validation --format markdown
-taskledger validate start rewrite-v2
-taskledger validate check rewrite-v2 --criterion ac-0001 --status pass --evidence "pytest -q tests/test_taskledger_v2_cli.py"
-taskledger validate finish rewrite-v2 --result passed --summary "Validated the rewrite."
+taskledger context --for validation --format markdown
+taskledger validate start
+taskledger validate check --criterion ac-0001 --status pass --evidence "pytest -q tests/test_taskledger_v2_cli.py"
+taskledger validate finish --result passed --summary "Validated the rewrite."
 ```
 
 ## Storage layout
@@ -77,8 +78,9 @@ Use `--json` for machine-readable payloads:
 
 ```bash
 taskledger --json status --full
-taskledger --json task show rewrite-v2
-taskledger --json context rewrite-v2 --for validation --format json
+taskledger --json task active
+taskledger --json task show
+taskledger --json context --for validation --format json
 ```
 
 Example status payload:
@@ -98,6 +100,7 @@ Example status payload:
       "changes": 1,
       "locks": 0
     },
+    "active_task": null,
     "healthy": true
   },
   "events": []
@@ -109,10 +112,10 @@ Example status payload:
 Fresh-context handoff is a primary feature:
 
 ```bash
-taskledger context rewrite-v2 --for planning --format markdown
-taskledger context rewrite-v2 --for implementation --format markdown
-taskledger context rewrite-v2 --for validation --format json
-taskledger task dossier rewrite-v2 --format markdown
+taskledger context --for planning --format markdown
+taskledger context --for implementation --format markdown
+taskledger context --for validation --format json
+taskledger task dossier --format markdown
 ```
 
 ## Export, import, and snapshots
