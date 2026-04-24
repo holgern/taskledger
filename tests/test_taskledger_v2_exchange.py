@@ -31,34 +31,43 @@ def test_export_and_import_include_v2_state(tmp_path: Path) -> None:
     _init_project(source_root)
     _init_project(dest_root)
 
-    assert runner.invoke(
-        app,
-        [
-            "--cwd",
-            str(source_root),
-            "task",
-            "create",
-            "migrate-v2",
-            "--description",
-            "Migrate taskledger to v2.",
-        ],
-    ).exit_code == 0
-    assert runner.invoke(
-        app,
-        ["--cwd", str(source_root), "plan", "start", "migrate-v2"],
-    ).exit_code == 0
-    assert runner.invoke(
-        app,
-        [
-            "--cwd",
-            str(source_root),
-            "plan",
-            "propose",
-            "migrate-v2",
-            "--text",
-            "## Goal\n\nShip export support.",
-        ],
-    ).exit_code == 0
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(source_root),
+                "task",
+                "create",
+                "migrate-v2",
+                "--description",
+                "Migrate taskledger to v2.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(source_root), "plan", "start", "migrate-v2"],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(source_root),
+                "plan",
+                "propose",
+                "migrate-v2",
+                "--text",
+                "## Goal\n\nShip export support.",
+            ],
+        ).exit_code
+        == 0
+    )
 
     export_result = runner.invoke(
         app,

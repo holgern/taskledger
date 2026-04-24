@@ -1003,14 +1003,10 @@ def _ordered_artifact_rules(config: ProjectConfig) -> tuple[ProjectArtifactRule,
     rule_map = {rule.name: rule for rule in config.artifact_rules}
     if config.default_artifact_order:
         ordered = [
-            rule_map[name]
-            for name in config.default_artifact_order
-            if name in rule_map
+            rule_map[name] for name in config.default_artifact_order if name in rule_map
         ]
         seen = {rule.name for rule in ordered}
-        ordered.extend(
-            rule for rule in config.artifact_rules if rule.name not in seen
-        )
+        ordered.extend(rule for rule in config.artifact_rules if rule.name not in seen)
         return tuple(ordered)
     return config.artifact_rules
 

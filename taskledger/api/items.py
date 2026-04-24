@@ -549,8 +549,7 @@ def complete_item_stage(
     _ensure_stage_can_complete(stage_detail)
 
     normalized_run_refs = tuple(
-        show["id"]
-        for show in _resolved_run_payloads(workspace_root, run_refs)
+        show["id"] for show in _resolved_run_payloads(workspace_root, run_refs)
     )
     normalized_validation_refs = _resolved_validation_refs(
         workspace_root,
@@ -1031,11 +1030,7 @@ def _workflow_sections(
     stage_lines = [
         (
             f"- {record.record_id}  stage={record.stage_id}  status={record.status}"
-            + (
-                f"  run={record.run_id}"
-                if record.run_id is not None
-                else ""
-            )
+            + (f"  run={record.run_id}" if record.run_id is not None else "")
         ).strip()
         for record in sorted(
             stage_records,
@@ -1110,9 +1105,7 @@ def _validation_section(
 ) -> ItemDossierSection:
     validation_records = load_validation_records(paths)
     stage_validation_refs = {
-        ref
-        for record in stage_records
-        for ref in record.validation_record_refs
+        ref for record in stage_records for ref in record.validation_record_refs
     }
     selected: list[dict[str, object]] = []
     selected_ids: set[str] = set()
@@ -1796,8 +1789,7 @@ def _resolved_run_payloads(
 ) -> list[dict[str, object]]:
     paths = load_project_state(workspace_root).paths
     available_runs = {
-        record.run_id: record
-        for record in load_run_records(paths, limit=None)
+        record.run_id: record for record in load_run_records(paths, limit=None)
     }
     resolved: list[dict[str, object]] = []
     for run_ref in run_refs:

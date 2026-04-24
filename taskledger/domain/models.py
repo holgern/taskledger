@@ -1,17 +1,27 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal, cast
+from typing import Literal, cast
 
 from taskledger.domain.states import (
     TASKLEDGER_V2_FILE_VERSION,
+    ActiveTaskStatusStage,
     FileLinkKind,
     PlanStatus,
     QuestionStatus,
     RunStatus,
     RunType,
     TaskStatusStage,
+    ValidationCheckStatus,
     ValidationResult,
+    normalize_file_link_kind,
+    normalize_plan_status,
+    normalize_question_status,
+    normalize_run_status,
+    normalize_run_type,
+    normalize_task_status_stage,
+    normalize_validation_check_status,
+    normalize_validation_result,
 )
 from taskledger.errors import LaunchError
 from taskledger.models import utc_now_iso
@@ -67,12 +77,9 @@ class FileLink:
     def from_dict(cls, data: object) -> FileLink:
         if not isinstance(data, dict):
             raise LaunchError("Invalid file link: expected mapping.")
-        kind = _string_value(data, "kind")
-        if kind not in {"code", "test", "doc", "config", "directory", "artifact"}:
-            raise LaunchError(f"Unsupported file link kind: {kind}")
         return cls(
             path=_string_value(data, "path"),
-            kind=cast(FileLinkKind, kind),
+            kind=normalize_file_link_kind(_string_value(data, "kind")),
             label=_optional_string(data.get("label")),
             required_for_validation=bool(data.get("required_for_validation", False)),
         )
@@ -117,19 +124,28 @@ class TaskTodo:
 @dataclass(slots=True, frozen=True)
 class ValidationCheck:
     name: str
-    status: Literal["pass", "fail", "skip"] = "pass"
+    status: ValidationCheckStatus = "pass"
+    details: str | None = None
+    evidence: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
-        return {"name": self.name, "status": self.status}
+        return {
+            "name": self.name,
+            "status": self.status,
+            "details": self.details,
+            "evidence": list(self.evidence),
+        }
 
     @classmethod
     def from_dict(cls, data: object) -> ValidationCheck:
         if not isinstance(data, dict):
             raise LaunchError("Invalid validation check: expected mapping.")
-        status = _string_value(data, "status")
-        if status not in {"pass", "fail", "skip"}:
-            raise LaunchError(f"Unsupported validation check status: {status}")
-        return cls(name=_string_value(data, "name"), status=cast(Any, status))
+        return cls(
+            name=_string_value(data, "name"),
+            status=normalize_validation_check_status(_string_value(data, "status")),
+            details=_optional_string(data.get("details")),
+            evidence=_string_tuple(data.get("evidence")),
+        )
 
 
 @dataclass(slots=True, frozen=True)
@@ -188,13 +204,14 @@ class TaskRecord:
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> TaskRecord:
         _require_v2_file_version(data)
-        status_stage = _string_value(data, "status_stage")
         return cls(
             id=_string_value(data, "id"),
             slug=_string_value(data, "slug"),
             title=_string_value(data, "title"),
             body=_optional_string(data.get("body")) or "",
-            status_stage=cast(TaskStatusStage, status_stage),
+            status_stage=normalize_task_status_stage(
+                _string_value(data, "status_stage")
+            ),
             created_at=_optional_string(data.get("created_at")) or utc_now_iso(),
             updated_at=_optional_string(data.get("updated_at")) or utc_now_iso(),
             description_summary=_optional_string(data.get("description_summary")),
@@ -286,14 +303,11 @@ class PlanRecord:
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> PlanRecord:
         _require_v2_file_version(data)
-        status = _string_value(data, "status")
-        if status not in {"proposed", "accepted", "rejected"}:
-            raise LaunchError(f"Unsupported plan status: {status}")
         return cls(
             task_id=_string_value(data, "task_id"),
             plan_version=_int_value(data, "plan_version"),
             body=_optional_string(data.get("body")) or "",
-            status=cast(PlanStatus, status),
+            status=normalize_plan_status(_string_value(data, "status")),
             created_at=_optional_string(data.get("created_at")) or utc_now_iso(),
             created_by=ActorRef.from_dict(data.get("created_by")),
             supersedes=_optional_int(data.get("supersedes")),
@@ -331,15 +345,12 @@ class QuestionRecord:
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> QuestionRecord:
         _require_v2_file_version(data)
-        status = _string_value(data, "status")
-        if status not in {"open", "answered", "dismissed"}:
-            raise LaunchError(f"Unsupported question status: {status}")
         return cls(
             id=_string_value(data, "id"),
             task_id=_string_value(data, "task_id"),
             question=_string_value(data, "question"),
             plan_version=_optional_int(data.get("plan_version")),
-            status=cast(QuestionStatus, status),
+            status=normalize_question_status(_string_value(data, "status")),
             created_at=_optional_string(data.get("created_at")) or utc_now_iso(),
             answered_at=_optional_string(data.get("answered_at")),
             answered_by=_optional_string(data.get("answered_by")),
@@ -397,20 +408,12 @@ class TaskRunRecord:
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> TaskRunRecord:
         _require_v2_file_version(data)
-        run_type = _string_value(data, "run_type")
-        if run_type not in {"planning", "implementation", "validation"}:
-            raise LaunchError(f"Unsupported run type: {run_type}")
-        status = _string_value(data, "status")
-        if status not in {"running", "finished"}:
-            raise LaunchError(f"Unsupported run status: {status}")
         result = _optional_string(data.get("result"))
-        if result is not None and result not in {"passed", "failed"}:
-            raise LaunchError(f"Unsupported validation result: {result}")
         return cls(
             run_id=_string_value(data, "run_id"),
             task_id=_string_value(data, "task_id"),
-            run_type=cast(RunType, run_type),
-            status=cast(RunStatus, status),
+            run_type=normalize_run_type(_string_value(data, "run_type")),
+            status=normalize_run_status(_string_value(data, "status")),
             started_at=_optional_string(data.get("started_at")) or utc_now_iso(),
             finished_at=_optional_string(data.get("finished_at")),
             actor=ActorRef.from_dict(data.get("actor")),
@@ -430,7 +433,7 @@ class TaskRunRecord:
             ),
             evidence=_string_tuple(data.get("evidence")),
             recommendation=_optional_string(data.get("recommendation")),
-            result=cast(ValidationResult | None, result),
+            result=normalize_validation_result(result) if result is not None else None,
         )
 
 
@@ -444,6 +447,8 @@ class CodeChangeRecord:
     path: str
     summary: str
     git_commit: str | None = None
+    git_diff_stat: str | None = None
+    command: str | None = None
     before_hash: str | None = None
     after_hash: str | None = None
     exit_code: int | None = None
@@ -460,6 +465,8 @@ class CodeChangeRecord:
             "path": self.path,
             "summary": self.summary,
             "git_commit": self.git_commit,
+            "git_diff_stat": self.git_diff_stat,
+            "command": self.command,
             "before_hash": self.before_hash,
             "after_hash": self.after_hash,
             "exit_code": self.exit_code,
@@ -477,6 +484,8 @@ class CodeChangeRecord:
             path=_string_value(data, "path"),
             summary=_string_value(data, "summary"),
             git_commit=_optional_string(data.get("git_commit")),
+            git_diff_stat=_optional_string(data.get("git_diff_stat")),
+            command=_optional_string(data.get("command")),
             before_hash=_optional_string(data.get("before_hash")),
             after_hash=_optional_string(data.get("after_hash")),
             exit_code=_optional_int(data.get("exit_code")),
@@ -487,7 +496,7 @@ class CodeChangeRecord:
 class TaskLock:
     lock_id: str
     task_id: str
-    stage: str
+    stage: ActiveTaskStatusStage
     run_id: str
     created_at: str
     expires_at: str | None
@@ -511,10 +520,13 @@ class TaskLock:
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> TaskLock:
         _require_v2_file_version(data)
+        stage = normalize_task_status_stage(_string_value(data, "stage"))
+        if stage not in {"planning", "implementing", "validating"}:
+            raise LaunchError(f"Unsupported lock stage: {stage}")
         return cls(
             lock_id=_string_value(data, "lock_id"),
             task_id=_string_value(data, "task_id"),
-            stage=_string_value(data, "stage"),
+            stage=cast(ActiveTaskStatusStage, stage),
             run_id=_string_value(data, "run_id"),
             created_at=_string_value(data, "created_at"),
             expires_at=_optional_string(data.get("expires_at")),

@@ -43,6 +43,8 @@ class V2Paths:
     active_locks_index_path: Path
     dependencies_index_path: Path
     introductions_index_path: Path
+    latest_runs_index_path: Path
+    plan_versions_index_path: Path
 
 
 def resolve_v2_paths(workspace_root: Path) -> V2Paths:
@@ -63,6 +65,8 @@ def resolve_v2_paths(workspace_root: Path) -> V2Paths:
         active_locks_index_path=indexes_dir / "active_locks.json",
         dependencies_index_path=indexes_dir / "dependencies.json",
         introductions_index_path=indexes_dir / "introductions.json",
+        latest_runs_index_path=indexes_dir / "latest_runs.json",
+        plan_versions_index_path=indexes_dir / "plan_versions.json",
     )
 
 
@@ -85,6 +89,8 @@ def ensure_v2_layout(workspace_root: Path) -> V2Paths:
         paths.active_locks_index_path,
         paths.dependencies_index_path,
         paths.introductions_index_path,
+        paths.latest_runs_index_path,
+        paths.plan_versions_index_path,
     ):
         if index_path.exists():
             continue
@@ -156,8 +162,7 @@ def save_plan(workspace_root: Path, plan: PlanRecord) -> PlanRecord:
     path = plan_markdown_path(paths, plan.task_id, plan.plan_version)
     if path.exists():
         raise LaunchError(
-            "Plan version already exists: "
-            f"{plan.task_id} v{plan.plan_version}"
+            f"Plan version already exists: {plan.task_id} v{plan.plan_version}"
         )
     _write_markdown_record(path, plan.to_dict(), plan.body)
     return plan
@@ -244,9 +249,7 @@ def list_changes(workspace_root: Path, task_id: str) -> list[CodeChangeRecord]:
     )
 
 
-def save_change(
-    workspace_root: Path, change: CodeChangeRecord
-) -> CodeChangeRecord:
+def save_change(workspace_root: Path, change: CodeChangeRecord) -> CodeChangeRecord:
     paths = ensure_v2_layout(workspace_root)
     path = change_markdown_path(paths, change.task_id, change.change_id)
     _write_markdown_record(path, change.to_dict(), change.summary)

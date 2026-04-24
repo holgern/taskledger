@@ -23,9 +23,7 @@ from taskledger.storage import promote_run_to_memory as _promote_run_to_memory
 from taskledger.storage import resolve_run_record as _resolve_run_record
 
 
-def list_runs(
-    workspace_root: Path, *, limit: int | None = None
-) -> list[RunRecord]:
+def list_runs(workspace_root: Path, *, limit: int | None = None) -> list[RunRecord]:
     return _load_run_records(load_project_state(workspace_root).paths, limit=limit)
 
 
@@ -37,9 +35,7 @@ def delete_run(workspace_root: Path, run_id: str) -> RunRecord:
     return _delete_run(load_project_state(workspace_root).paths, run_id)
 
 
-def cleanup_runs(
-    workspace_root: Path, *, keep: int
-) -> list[RunRecord]:
+def cleanup_runs(workspace_root: Path, *, keep: int) -> list[RunRecord]:
     return _cleanup_runs(load_project_state(workspace_root).paths, keep=keep)
 
 
@@ -67,9 +63,7 @@ def delete_run_entry(workspace_root: Path, run_id: str) -> RunRecord:
     return delete_run(workspace_root, run_id)
 
 
-def cleanup_run_records(
-    workspace_root: Path, *, keep: int
-) -> list[RunRecord]:
+def cleanup_run_records(workspace_root: Path, *, keep: int) -> list[RunRecord]:
     return cleanup_runs(workspace_root, keep=keep)
 
 

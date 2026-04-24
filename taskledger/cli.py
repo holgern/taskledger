@@ -7,12 +7,8 @@ import typer
 
 from taskledger.api.project import (
     init_project,
-    project_board,
-    project_doctor,
     project_export,
     project_import,
-    project_next,
-    project_report,
     project_snapshot,
     project_status,
     project_status_summary,
@@ -29,12 +25,7 @@ from taskledger.cli_common import (
     emit_payload,
     resolve_workspace_root,
 )
-from taskledger.cli_compose import register_compose_commands
-from taskledger.cli_context import register_context_commands
-from taskledger.cli_execution_requests import register_execution_request_commands
 from taskledger.cli_implement_v2 import register_implement_v2_commands
-from taskledger.cli_item import register_item_commands
-from taskledger.cli_memory import register_memory_commands
 from taskledger.cli_misc_v2 import (
     emit_can_command,
     emit_doctor_command,
@@ -50,58 +41,28 @@ from taskledger.cli_misc_v2 import (
 )
 from taskledger.cli_plan_v2 import register_plan_v2_commands
 from taskledger.cli_question_v2 import register_question_v2_commands
-from taskledger.cli_repo import register_repo_commands
-from taskledger.cli_runs import register_runs_commands
-from taskledger.cli_runtime_support import register_runtime_support_commands
 from taskledger.cli_task_v2 import register_task_v2_commands
 from taskledger.cli_validate_v2 import register_validate_v2_commands
-from taskledger.cli_validation import register_validation_commands
-from taskledger.cli_workflow import register_workflow_commands
 from taskledger.errors import LaunchError
 
-app = typer.Typer(add_completion=False, help="Manage durable taskledger project state.")
-task_app = typer.Typer(add_completion=False, help="Manage v2 tasks.")
-plan_app = typer.Typer(add_completion=False, help="Manage versioned task plans.")
+app = typer.Typer(add_completion=False, help="Manage staged taskledger coding work.")
+task_app = typer.Typer(add_completion=False, help="Manage coding tasks.")
+plan_app = typer.Typer(add_completion=False, help="Manage plan versions.")
 question_app = typer.Typer(add_completion=False, help="Manage planning questions.")
-implement_app = typer.Typer(
-    add_completion=False,
-    help="Manage implementation runs and change logs.",
-)
+implement_app = typer.Typer(add_completion=False, help="Manage implementation runs.")
 validate_app = typer.Typer(add_completion=False, help="Manage validation runs.")
-todo_app = typer.Typer(add_completion=False, help="Manage embedded task todos.")
+todo_app = typer.Typer(add_completion=False, help="Manage task todos.")
 intro_app = typer.Typer(add_completion=False, help="Manage shared introductions.")
-file_app = typer.Typer(add_completion=False, help="Manage task file links.")
+file_app = typer.Typer(add_completion=False, help="Manage linked files.")
 require_app = typer.Typer(add_completion=False, help="Manage task requirements.")
-lock_app = typer.Typer(add_completion=False, help="Inspect and repair task locks.")
+lock_app = typer.Typer(add_completion=False, help="Inspect and repair locks.")
 handoff_app = typer.Typer(add_completion=False, help="Render fresh-context handoffs.")
 doctor_app = typer.Typer(
     add_completion=False,
-    help="Inspect project and v2 task integrity.",
+    help="Inspect taskledger integrity.",
     invoke_without_command=True,
 )
-item_app = typer.Typer(add_completion=False, help="Manage work items.")
-memory_app = typer.Typer(add_completion=False, help="Manage memories.")
-context_app = typer.Typer(add_completion=False, help="Manage contexts.")
-repo_app = typer.Typer(add_completion=False, help="Manage repos.")
-runs_app = typer.Typer(add_completion=False, help="Inspect saved runs.")
-run_app = typer.Typer(add_completion=False, help="Inspect and apply saved runs.")
-validation_app = typer.Typer(add_completion=False, help="Manage validation records.")
-workflow_app = typer.Typer(
-    add_completion=False,
-    help="Manage workflow definitions and stage state.",
-)
-execution_request_app = typer.Typer(
-    add_completion=False,
-    help="Build and inspect execution requests.",
-)
-compose_app = typer.Typer(
-    add_completion=False,
-    help="Inspect compose selection and bundle payloads.",
-)
-runtime_support_app = typer.Typer(
-    add_completion=False,
-    help="Inspect runtime support configuration and helpers.",
-)
+
 app.add_typer(task_app, name="task")
 app.add_typer(plan_app, name="plan")
 app.add_typer(question_app, name="question")
@@ -114,17 +75,7 @@ app.add_typer(require_app, name="require")
 app.add_typer(lock_app, name="lock")
 app.add_typer(handoff_app, name="handoff")
 app.add_typer(doctor_app, name="doctor")
-app.add_typer(item_app, name="item")
-app.add_typer(memory_app, name="memory")
-app.add_typer(context_app, name="context")
-app.add_typer(repo_app, name="repo")
-app.add_typer(runs_app, name="runs")
-app.add_typer(run_app, name="run")
-app.add_typer(validation_app, name="validation")
-app.add_typer(workflow_app, name="workflow")
-app.add_typer(execution_request_app, name="exec-request")
-app.add_typer(compose_app, name="compose")
-app.add_typer(runtime_support_app, name="runtime-support")
+
 register_task_v2_commands(task_app)
 register_plan_v2_commands(plan_app)
 register_question_v2_commands(question_app)
@@ -136,17 +87,6 @@ register_file_v2_commands(file_app)
 register_require_v2_commands(require_app)
 register_lock_v2_commands(lock_app)
 register_handoff_v2_commands(handoff_app)
-register_item_commands(item_app)
-register_memory_commands(memory_app)
-register_context_commands(context_app)
-register_repo_commands(repo_app)
-register_runs_commands(runs_app)
-register_runs_commands(run_app)
-register_validation_commands(validation_app)
-register_workflow_commands(workflow_app)
-register_execution_request_commands(execution_request_app)
-register_compose_commands(compose_app)
-register_runtime_support_commands(runtime_support_app)
 
 
 @app.callback()
@@ -199,24 +139,12 @@ def status_command(
     assert isinstance(state, CLIState)
     try:
         payload = (
-            project_status(state.cwd)
-            if full
-            else project_status_summary(state.cwd)
+            project_status(state.cwd) if full else project_status_summary(state.cwd)
         )
     except LaunchError as exc:
         emit_error(ctx, str(exc))
         raise typer.Exit(code=1) from exc
     emit_payload(ctx, payload)
-
-
-@app.command("board")
-def board_command(ctx: typer.Context) -> None:
-    _emit_project_payload(ctx, project_board)
-
-
-@app.command("next")
-def next_command(ctx: typer.Context) -> None:
-    _emit_project_payload(ctx, project_next, allow_none=True)
 
 
 @doctor_app.callback()
@@ -226,19 +154,9 @@ def doctor_command(ctx: typer.Context) -> None:
     emit_doctor_command(ctx)
 
 
-@doctor_app.command("legacy")
-def doctor_legacy_command(ctx: typer.Context) -> None:
-    _emit_project_payload(ctx, project_doctor)
-
-
 @doctor_app.command("locks")
 def doctor_locks_command(ctx: typer.Context) -> None:
     emit_doctor_locks_command(ctx)
-
-
-@app.command("report")
-def report_command(ctx: typer.Context) -> None:
-    _emit_project_payload(ctx, project_report)
 
 
 @app.command("next-action")
@@ -268,68 +186,63 @@ def export_command(
     ctx: typer.Context,
     include_bodies: Annotated[
         bool,
-        typer.Option(
-            "--include-bodies",
-            help="Include saved memory and context bodies.",
-        ),
+        typer.Option("--include-bodies", help="Include Markdown bodies in the export."),
     ] = False,
     include_run_artifacts: Annotated[
         bool,
-        typer.Option("--include-run-artifacts", help="Include saved run artifacts."),
+        typer.Option(
+            "--include-run-artifacts",
+            help="Include run artifact files in the export payload.",
+        ),
     ] = False,
 ) -> None:
     state = ctx.obj
     assert isinstance(state, CLIState)
-    emit_payload(
-        ctx,
-        project_export(
-            state.cwd,
-            include_bodies=include_bodies,
-            include_run_artifacts=include_run_artifacts,
-        ),
+    payload = project_export(
+        state.cwd,
+        include_bodies=include_bodies,
+        include_run_artifacts=include_run_artifacts,
     )
+    emit_payload(ctx, payload, human="exported taskledger state")
 
 
 @app.command("import")
 def import_command(
     ctx: typer.Context,
-    source: Annotated[Path, typer.Argument(..., help="Export JSON file to import.")],
+    source: Annotated[Path, typer.Argument(..., exists=True, readable=True)],
     replace: Annotated[
         bool,
-        typer.Option("--replace", help="Replace current taskledger state."),
+        typer.Option("--replace", help="Replace existing taskledger state."),
     ] = False,
 ) -> None:
     state = ctx.obj
     assert isinstance(state, CLIState)
+    text = source.read_text(encoding="utf-8")
     try:
-        text = source.read_text(encoding="utf-8")
         payload = project_import(state.cwd, text=text, replace=replace)
-    except (LaunchError, OSError) as exc:
+    except LaunchError as exc:
         emit_error(ctx, str(exc))
         raise typer.Exit(code=1) from exc
-    emit_payload(ctx, payload, human=f"imported taskledger from {source}")
+    emit_payload(ctx, payload, human="imported taskledger state")
 
 
 @app.command("snapshot")
 def snapshot_command(
     ctx: typer.Context,
-    output_dir: Annotated[
-        Path,
-        typer.Option(
-            "--output-dir",
-            help="Directory where the snapshot will be created.",
-        ),
-    ],
+    output_dir: Annotated[Path, typer.Argument(..., file_okay=False, dir_okay=True)],
     include_bodies: Annotated[
         bool,
         typer.Option(
             "--include-bodies",
-            help="Include saved memory and context bodies.",
+            help="Include Markdown bodies in the snapshot export.",
         ),
     ] = False,
     include_run_artifacts: Annotated[
         bool,
-        typer.Option("--include-run-artifacts", help="Include saved run artifacts."),
+        typer.Option(
+            "--include-run-artifacts",
+            help="Include run artifact files in the snapshot export.",
+        ),
     ] = False,
 ) -> None:
     state = ctx.obj
@@ -344,21 +257,15 @@ def snapshot_command(
     except LaunchError as exc:
         emit_error(ctx, str(exc))
         raise typer.Exit(code=1) from exc
-    emit_payload(ctx, payload)
+    emit_payload(ctx, payload, human=f"wrote snapshot to {payload['snapshot_dir']}")
 
 
 @app.command("search")
 def search_command(
     ctx: typer.Context,
     query: Annotated[str, typer.Argument(..., help="Search query.")],
-    repo_refs: Annotated[
-        list[str] | None,
-        typer.Option("--repo", help="Limit the search to one or more repos."),
-    ] = None,
-    limit: Annotated[
-        int,
-        typer.Option("--limit", help="Maximum number of matches to return."),
-    ] = 50,
+    repo_refs: Annotated[list[str] | None, typer.Option("--repo")] = None,
+    limit: Annotated[int, typer.Option("--limit")] = 50,
 ) -> None:
     _emit_search_results(
         ctx,
@@ -375,15 +282,9 @@ def search_command(
 @app.command("grep")
 def grep_command(
     ctx: typer.Context,
-    pattern: Annotated[str, typer.Argument(..., help="Regular expression to match.")],
-    repo_refs: Annotated[
-        list[str] | None,
-        typer.Option("--repo", help="Limit the grep to one or more repos."),
-    ] = None,
-    limit: Annotated[
-        int,
-        typer.Option("--limit", help="Maximum number of matches to return."),
-    ] = 100,
+    pattern: Annotated[str, typer.Argument(..., help="Regex pattern.")],
+    repo_refs: Annotated[list[str] | None, typer.Option("--repo")] = None,
+    limit: Annotated[int, typer.Option("--limit")] = 100,
 ) -> None:
     _emit_search_results(
         ctx,
@@ -401,14 +302,8 @@ def grep_command(
 def symbols_command(
     ctx: typer.Context,
     query: Annotated[str, typer.Argument(..., help="Symbol query.")],
-    repo_refs: Annotated[
-        list[str] | None,
-        typer.Option("--repo", help="Limit the symbol scan to one or more repos."),
-    ] = None,
-    limit: Annotated[
-        int,
-        typer.Option("--limit", help="Maximum number of matches to return."),
-    ] = 50,
+    repo_refs: Annotated[list[str] | None, typer.Option("--repo")] = None,
+    limit: Annotated[int, typer.Option("--limit")] = 50,
 ) -> None:
     _emit_search_results(
         ctx,
@@ -426,45 +321,19 @@ def symbols_command(
 def deps_command(
     ctx: typer.Context,
     repo_ref: Annotated[str, typer.Argument(..., help="Repo ref.")],
-    module: Annotated[str, typer.Argument(..., help="Module name.")],
+    module: Annotated[str, typer.Argument(..., help="Module path.")],
 ) -> None:
     state = ctx.obj
     assert isinstance(state, CLIState)
     try:
-        payload = dependencies_for_module(state.cwd, repo_ref=repo_ref, module=module)
+        payload = dependencies_for_module(
+            state.cwd,
+            repo_ref=repo_ref,
+            module=module,
+        )
     except LaunchError as exc:
         emit_error(ctx, str(exc))
         raise typer.Exit(code=1) from exc
-    emit_payload(
-        ctx,
-        payload.to_dict(),
-        human="\n".join(
-            [
-                f"MODULE {payload.module}",
-                f"repo: {payload.repo}",
-                f"manifest: {payload.manifest_path}",
-                f"depends: {', '.join(payload.depends) or '-'}",
-            ]
-        ),
-    )
-
-
-def _emit_project_payload(
-    ctx: typer.Context,
-    factory,
-    *,
-    allow_none: bool = False,
-) -> None:
-    state = ctx.obj
-    assert isinstance(state, CLIState)
-    try:
-        payload = factory(state.cwd)
-    except LaunchError as exc:
-        emit_error(ctx, str(exc))
-        raise typer.Exit(code=1) from exc
-    if payload is None and allow_none:
-        emit_payload(ctx, None, human="no next action")
-        return
     emit_payload(ctx, payload)
 
 
@@ -476,19 +345,12 @@ def _emit_search_results(ctx: typer.Context, factory, *, title: str) -> None:
     except LaunchError as exc:
         emit_error(ctx, str(exc))
         raise typer.Exit(code=1) from exc
-    emit_payload(
-        ctx,
-        [item.to_dict() for item in results],
-        human="\n".join(
-            [title]
-            + [
-                f"{item.repo}:{item.path}:{item.line or '-'}  {item.text}"
-                for item in results
-            ]
-            if results
-            else [title, "(empty)"]
-        ),
+    human = (
+        "\n".join([title, *[item.path for item in results]])
+        if results
+        else f"{title}\n(empty)"
     )
+    emit_payload(ctx, [item.to_dict() for item in results], human=human)
 
 
 def cli_main() -> None:

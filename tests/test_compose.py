@@ -72,12 +72,10 @@ def test_compose_input_counts_and_explanations():
     # Expect the different explanation branches to be present
     assert any("saved contexts expanded into" in e for e in explanations)
     assert any(
-        "expanded file inputs include files pulled in" in e
-        for e in explanations
+        "expanded file inputs include files pulled in" in e for e in explanations
     )
     assert any(
-        "expansion order shows additional source material" in e
-        for e in explanations
+        "expansion order shows additional source material" in e for e in explanations
     )
     assert any("truncation warnings explain" in e for e in explanations)
 

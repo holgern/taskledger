@@ -4,7 +4,12 @@ from typing import Annotated
 
 import typer
 
-from taskledger.api.questions import add_question, answer_question, dismiss_question
+from taskledger.api.questions import (
+    add_question,
+    answer_question,
+    dismiss_question,
+    list_open_questions,
+)
 from taskledger.cli_common import (
     cli_state_from_context,
     emit_error,
@@ -44,9 +49,7 @@ def register_question_v2_commands(app: typer.Typer) -> None:
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         lines = ["QUESTIONS"]
         for item in payload:
-            lines.append(
-                f"{item['id']}  {item['status']}  {item['question']}"
-            )
+            lines.append(f"{item['id']}  {item['status']}  {item['question']}")
         emit_payload(
             ctx,
             payload,
@@ -81,3 +84,26 @@ def register_question_v2_commands(app: typer.Typer) -> None:
             emit_error(ctx, str(exc))
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, question.to_dict(), human=f"dismissed {question.id}")
+
+    @app.command("open")
+    def open_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = list_open_questions(state.cwd, task_ref)
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        questions = payload["questions"]
+        assert isinstance(questions, list)
+        lines = ["OPEN QUESTIONS"]
+        for item in questions:
+            if isinstance(item, dict):
+                lines.append(f"{item['id']}  {item['question']}")
+        emit_payload(
+            ctx,
+            payload,
+            human="\n".join(lines) if questions else "OPEN QUESTIONS\n(empty)",
+        )

@@ -74,6 +74,8 @@ def cleanup_runs(paths: ProjectPaths, *, keep: int) -> list[ProjectRunRecord]:
     for record in load_run_records(paths, limit=None)[keep:]:
         deleted.append(delete_run(paths, record.run_id))
     return deleted
+
+
 def _run_sort_key(name: str) -> tuple[int, str]:
     match = _RUN_ID_PATTERN.match(name)
     if match is None:

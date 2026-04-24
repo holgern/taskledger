@@ -6,8 +6,11 @@ import typer
 
 from taskledger.api.task_runs import (
     add_change,
+    add_implementation_artifact,
+    add_implementation_deviation,
     finish_implementation,
     log_implementation,
+    show_task_run,
     start_implementation,
 )
 from taskledger.cli_common import (
@@ -58,6 +61,8 @@ def register_implement_v2_commands(app: typer.Typer) -> None:
         path: Annotated[str, typer.Option("--path")],
         kind: Annotated[str, typer.Option("--kind")] = "edit",
         summary: Annotated[str, typer.Option("--summary")] = "",
+        command: Annotated[str | None, typer.Option("--command")] = None,
+        git_diff_stat: Annotated[str | None, typer.Option("--git-diff-stat")] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
@@ -67,11 +72,47 @@ def register_implement_v2_commands(app: typer.Typer) -> None:
                 path=path,
                 kind=kind,
                 summary=summary,
+                command=command,
+                git_diff_stat=git_diff_stat,
             )
         except LaunchError as exc:
             emit_error(ctx, str(exc))
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, change.to_dict(), human=f"logged change {change.change_id}")
+
+    @app.command("deviation")
+    def deviation_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        message: Annotated[str, typer.Option("--message")],
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            run = add_implementation_deviation(state.cwd, task_ref, message=message)
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, run.to_dict(), human=f"logged deviation on {run.run_id}")
+
+    @app.command("artifact")
+    def artifact_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        path: Annotated[str, typer.Option("--path")],
+        summary: Annotated[str, typer.Option("--summary")],
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            run = add_implementation_artifact(
+                state.cwd,
+                task_ref,
+                path=path,
+                summary=summary,
+            )
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, run.to_dict(), human=f"logged artifact on {run.run_id}")
 
     @app.command("finish")
     def finish_command(
@@ -90,3 +131,24 @@ def register_implement_v2_commands(app: typer.Typer) -> None:
             payload,
             human=f"finished implementation {payload['run_id']}",
         )
+
+    @app.command("show")
+    def show_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        run_id: Annotated[str | None, typer.Option("--run")] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = show_task_run(
+                state.cwd,
+                task_ref,
+                run_id=run_id,
+                run_type="implementation",
+            )
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        run = payload["run"]
+        assert isinstance(run, dict)
+        emit_payload(ctx, payload, human=f"{run['run_id']}  {run['status']}")

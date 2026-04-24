@@ -78,10 +78,7 @@ def register_runs_commands(app: typer.Typer) -> None:
             [run.to_dict() for run in runs],
             human=human_list(
                 "RUNS",
-                [
-                    f"{run.run_id}  {run.status}  {run.origin or '-'}"
-                    for run in runs
-                ],
+                [f"{run.run_id}  {run.status}  {run.origin or '-'}" for run in runs],
             ),
         )
 

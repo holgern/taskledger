@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, cast
 
 from taskledger.errors import LaunchError
 
@@ -20,11 +20,12 @@ TaskStatusStage = Literal[
 ]
 ActiveTaskStatusStage = Literal["planning", "implementing", "validating"]
 RunType = Literal["planning", "implementation", "validation"]
-PlanStatus = Literal["proposed", "accepted", "rejected"]
+PlanStatus = Literal["draft", "proposed", "accepted", "superseded", "rejected"]
 QuestionStatus = Literal["open", "answered", "dismissed"]
-RunStatus = Literal["running", "finished"]
-ValidationResult = Literal["passed", "failed"]
-FileLinkKind = Literal["code", "test", "doc", "config", "directory", "artifact"]
+RunStatus = Literal["running", "finished", "passed", "failed", "blocked"]
+ValidationResult = Literal["passed", "failed", "blocked"]
+ValidationCheckStatus = Literal["pass", "fail", "warn", "not_run"]
+FileLinkKind = Literal["code", "test", "doc", "config", "dir", "other", "artifact"]
 EventName = Literal[
     "task.created",
     "task.updated",
@@ -100,3 +101,53 @@ def require_transition(current: TaskStatusStage, target: TaskStatusStage) -> Non
     if can_transition(current, target):
         return
     raise LaunchError(f"Invalid stage transition: {current} -> {target}")
+
+
+def normalize_task_status_stage(value: str) -> TaskStatusStage:
+    if value not in ALLOWED_STAGE_TRANSITIONS:
+        raise LaunchError(f"Unsupported task stage: {value}")
+    return cast(TaskStatusStage, value)
+
+
+def normalize_run_type(value: str) -> RunType:
+    if value not in {"planning", "implementation", "validation"}:
+        raise LaunchError(f"Unsupported run type: {value}")
+    return cast(RunType, value)
+
+
+def normalize_plan_status(value: str) -> PlanStatus:
+    if value not in {"draft", "proposed", "accepted", "superseded", "rejected"}:
+        raise LaunchError(f"Unsupported plan status: {value}")
+    return cast(PlanStatus, value)
+
+
+def normalize_question_status(value: str) -> QuestionStatus:
+    if value not in {"open", "answered", "dismissed"}:
+        raise LaunchError(f"Unsupported question status: {value}")
+    return cast(QuestionStatus, value)
+
+
+def normalize_run_status(value: str) -> RunStatus:
+    if value not in {"running", "finished", "passed", "failed", "blocked"}:
+        raise LaunchError(f"Unsupported run status: {value}")
+    return cast(RunStatus, value)
+
+
+def normalize_validation_result(value: str) -> ValidationResult:
+    if value not in {"passed", "failed", "blocked"}:
+        raise LaunchError(f"Unsupported validation result: {value}")
+    return cast(ValidationResult, value)
+
+
+def normalize_validation_check_status(value: str) -> ValidationCheckStatus:
+    normalized = "not_run" if value == "skip" else value
+    if normalized not in {"pass", "fail", "warn", "not_run"}:
+        raise LaunchError(f"Unsupported validation check status: {value}")
+    return cast(ValidationCheckStatus, normalized)
+
+
+def normalize_file_link_kind(value: str) -> FileLinkKind:
+    normalized = "dir" if value == "directory" else value
+    if normalized not in {"code", "test", "doc", "config", "dir", "other", "artifact"}:
+        raise LaunchError(f"Unsupported file link kind: {value}")
+    return cast(FileLinkKind, normalized)

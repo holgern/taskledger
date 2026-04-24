@@ -7,7 +7,10 @@ where = ["."]
 include = ["taskledger*"]
 
 [tool.setuptools.package-data]
-taskledger = ["py.typed", "prompts/*.md"]
+taskledger = [
+    "py.typed",
+    "prompts/*.md",
+]
 
 [tool.pytest.ini_options]
 addopts = "-p no:odoo"

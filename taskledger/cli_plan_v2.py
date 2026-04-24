@@ -8,6 +8,7 @@ import typer
 from taskledger.api.plans import (
     approve_plan,
     diff_plan,
+    list_plan_versions,
     propose_plan,
     reject_plan,
     revise_plan,
@@ -79,6 +80,27 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
             ctx,
             payload,
             human=f"plan v{plan['plan_version']} ({plan['status']})",
+        )
+
+    @app.command("list")
+    def list_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = list_plan_versions(state.cwd, task_ref)
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        plans = payload["plans"]
+        assert isinstance(plans, list)
+        lines = ["PLANS"]
+        for item in plans:
+            if isinstance(item, dict):
+                lines.append(f"v{item['plan_version']}  {item['status']}")
+        emit_payload(
+            ctx, payload, human="\n".join(lines) if plans else "PLANS\n(empty)"
         )
 
     @app.command("diff")

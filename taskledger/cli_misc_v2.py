@@ -12,16 +12,19 @@ from taskledger.api.introductions import (
     list_introductions,
     resolve_introduction,
 )
-from taskledger.api.locks import break_lock, show_lock
+from taskledger.api.locks import break_lock, list_locks, show_lock
 from taskledger.api.tasks import (
     add_file_link,
     add_requirement,
     add_todo,
     can_perform,
+    list_file_links,
     next_action,
     reindex,
     remove_file_link,
+    remove_requirement,
     set_todo_done,
+    show_todo,
 )
 from taskledger.cli_common import (
     cli_state_from_context,
@@ -31,7 +34,7 @@ from taskledger.cli_common import (
     read_text_input,
 )
 from taskledger.errors import LaunchError
-from taskledger.services.doctor_v2 import inspect_v2_project
+from taskledger.services.doctor_v2 import inspect_v2_locks, inspect_v2_project
 from taskledger.storage.v2 import resolve_task
 
 
@@ -87,6 +90,22 @@ def register_todo_v2_commands(app: typer.Typer) -> None:
         todo_id: Annotated[str, typer.Argument(...)],
     ) -> None:
         _emit_todo_update(ctx, task_ref, todo_id, done=False)
+
+    @app.command("show")
+    def show_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(...)],
+        todo_id: Annotated[str, typer.Argument(...)],
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = show_todo(state.cwd, task_ref, todo_id)
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        todo = payload["todo"]
+        assert isinstance(todo, dict)
+        emit_payload(ctx, payload, human=f"{todo['id']}  {todo['text']}")
 
 
 def register_intro_v2_commands(app: typer.Typer) -> None:
@@ -192,6 +211,27 @@ def register_file_v2_commands(app: typer.Typer) -> None:
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, task.to_dict(), human=f"unlinked file on {task.id}")
 
+    @app.command("list")
+    def list_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(...)],
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = list_file_links(state.cwd, task_ref)
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        file_links = payload["file_links"]
+        assert isinstance(file_links, list)
+        lines = ["FILES"]
+        for item in file_links:
+            if isinstance(item, dict):
+                lines.append(f"@{item.get('path')} [{item.get('kind')}]")
+        emit_payload(
+            ctx, payload, human="\n".join(lines) if file_links else "FILES\n(empty)"
+        )
+
 
 def register_require_v2_commands(app: typer.Typer) -> None:
     @app.command("add")
@@ -227,6 +267,20 @@ def register_require_v2_commands(app: typer.Typer) -> None:
             else "REQUIREMENTS\n(empty)",
         )
 
+    @app.command("remove")
+    def remove_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(...)],
+        required_task_ref: Annotated[str, typer.Argument(...)],
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = remove_requirement(state.cwd, task_ref, required_task_ref)
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, task.to_dict(), human=f"removed requirement on {task.id}")
+
 
 def register_lock_v2_commands(app: typer.Typer) -> None:
     @app.command("show")
@@ -255,6 +309,26 @@ def register_lock_v2_commands(app: typer.Typer) -> None:
             emit_error(ctx, str(exc))
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, payload, human=f"broke lock for {payload['task_id']}")
+
+    @app.command("list")
+    def list_command(ctx: typer.Context) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = list_locks(state.cwd)
+        except LaunchError as exc:
+            emit_error(ctx, str(exc))
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        locks = payload["locks"]
+        assert isinstance(locks, list)
+        lines = ["LOCKS"]
+        for item in locks:
+            if isinstance(item, dict):
+                lines.append(
+                    f"{item.get('task_id')}  {item.get('stage')}  {item.get('run_id')}"
+                )
+        emit_payload(
+            ctx, payload, human="\n".join(lines) if locks else "LOCKS\n(empty)"
+        )
 
 
 def register_handoff_v2_commands(app: typer.Typer) -> None:
@@ -343,10 +417,10 @@ def emit_doctor_command(ctx: typer.Context) -> None:
 
 def emit_doctor_locks_command(ctx: typer.Context) -> None:
     state = cli_state_from_context(ctx)
-    payload = inspect_v2_project(state.cwd)
+    payload = inspect_v2_locks(state.cwd)
     emit_payload(
         ctx,
-        payload["expired_locks"],
+        payload,
         human=_expired_locks_human(payload["expired_locks"]),
     )
 

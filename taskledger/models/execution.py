@@ -111,7 +111,6 @@ class ExecutionPreviewRecord:
         return json.dumps(self.to_dict(), indent=indent, sort_keys=sort_keys)
 
 
-
 @dataclass(slots=True, frozen=True)
 class ExecutionOutcomeRecord:
     harness: str | None

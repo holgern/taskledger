@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from taskledger.services.tasks import show_task
+from taskledger.errors import LaunchError
+from taskledger.storage.locks import lock_status, read_lock
 from taskledger.storage.v2 import (
     list_changes,
     list_plans,
@@ -11,6 +12,8 @@ from taskledger.storage.v2 import (
     resolve_introduction,
     resolve_plan,
     resolve_task,
+    resolve_v2_paths,
+    task_lock_path,
 )
 
 
@@ -19,156 +22,364 @@ def render_handoff(
     task_ref: str,
     *,
     mode: str,
-    format_name: str = "text",
+    format_name: str = "markdown",
 ) -> str | dict[str, object]:
+    payload = build_handoff_payload(workspace_root, task_ref, mode=mode)
+    if format_name == "json":
+        return payload
+    if format_name not in {"markdown", "text"}:
+        raise LaunchError(f"Unsupported handoff format: {format_name}")
+    return render_markdown_handoff(payload)
+
+
+def build_handoff_payload(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    mode: str,
+) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
-    payload = show_task(workspace_root, task.id)
     intro = (
         resolve_introduction(workspace_root, task.introduction_ref)
         if task.introduction_ref
         else None
     )
+    plans = list_plans(workspace_root, task.id)
     questions = list_questions(workspace_root, task.id)
     runs = list_runs(workspace_root, task.id)
     changes = list_changes(workspace_root, task.id)
-    accepted_plan = _accepted_plan(workspace_root, task.id, task.accepted_plan_version)
-    if format_name == "json":
-        return _json_handoff(
-            mode,
-            payload["task"],
-            intro=intro.to_dict() if intro is not None else None,
-            accepted_plan=accepted_plan.to_dict() if accepted_plan else None,
-            questions=[item.to_dict() for item in questions],
-            runs=[item.to_dict() for item in runs],
-            changes=[item.to_dict() for item in changes],
-        )
-    return _text_handoff(
-        workspace_root,
-        task,
-        mode=mode,
-        intro_body=intro.body.strip() if intro is not None else None,
-        questions=questions,
-        runs=runs,
-        changes=changes,
-        accepted_plan_body=accepted_plan.body.strip() if accepted_plan else None,
+    accepted_plan = (
+        resolve_plan(workspace_root, task.id, version=task.accepted_plan_version)
+        if task.accepted_plan_version is not None
+        else None
     )
+    latest_impl = _latest_run(runs, "implementation")
+    latest_validation = _latest_run(runs, "validation")
+    lock = read_lock(task_lock_path(resolve_v2_paths(workspace_root), task.id))
 
+    dependencies = []
+    for requirement in task.requirements:
+        dependency = resolve_task(workspace_root, requirement)
+        dependencies.append(
+            {
+                "task_id": dependency.id,
+                "title": dependency.title,
+                "status_stage": dependency.status_stage,
+            }
+        )
 
-def _accepted_plan(workspace_root: Path, task_id: str, version: int | None):
-    if version is None:
-        return None
-    return resolve_plan(workspace_root, task_id, version=version)
+    open_questions = [item.to_dict() for item in questions if item.status == "open"]
+    answered_questions = [
+        item.to_dict() for item in questions if item.status == "answered"
+    ]
+    dismissed_questions = [
+        item.to_dict() for item in questions if item.status == "dismissed"
+    ]
+    validation_history = [
+        run.to_dict()
+        for run in runs
+        if run.run_type == "validation" and run.status != "running"
+    ]
 
-
-def _json_handoff(
-    mode: str,
-    task: object,
-    *,
-    intro: object,
-    accepted_plan: object,
-    questions: list[dict[str, object]],
-    runs: list[dict[str, object]],
-    changes: list[dict[str, object]],
-) -> dict[str, object]:
     return {
         "kind": "task_handoff",
         "mode": mode,
-        "task": task,
-        "introduction": intro,
-        "accepted_plan": accepted_plan,
-        "questions": questions,
-        "runs": runs,
-        "changes": changes,
+        "task": task.to_dict(),
+        "introduction": intro.to_dict() if intro is not None else None,
+        "guardrails": _guardrails_for_mode(mode),
+        "accepted_plan": accepted_plan.to_dict() if accepted_plan is not None else None,
+        "plans": [plan.to_dict() for plan in plans],
+        "questions": {
+            "open": open_questions,
+            "answered": answered_questions,
+            "dismissed": dismissed_questions,
+        },
+        "todos": [todo.to_dict() for todo in task.todos],
+        "file_links": [item.to_dict() for item in task.file_links],
+        "dependencies": dependencies,
+        "runs": {
+            "latest_planning": _run_to_dict(_latest_run(runs, "planning")),
+            "latest_implementation": _run_to_dict(latest_impl),
+            "latest_validation": _run_to_dict(latest_validation),
+        },
+        "lock": lock.to_dict() if lock is not None else None,
+        "lock_status": lock_status(lock),
+        "changes": [change.to_dict() for change in changes],
+        "validation_history": validation_history,
     }
 
 
-def _text_handoff(
-    workspace_root: Path,
-    task,
-    *,
-    mode: str,
-    intro_body: str | None,
-    questions,
-    runs,
-    changes,
-    accepted_plan_body: str | None,
-) -> str:
-    lines = [f"# {task.title}", "", task.body]
-    if intro_body:
-        lines.extend(["", "## Introduction", "", intro_body])
-    _append_links(lines, task.file_links, task.requirements)
-    if mode in {"show", "plan-context"}:
-        _append_plan_context(lines, workspace_root, task.id, questions)
+def render_markdown_handoff(payload: dict[str, object]) -> str:
+    mode = str(payload["mode"])
+    task = payload["task"]
+    assert isinstance(task, dict)
+    title_prefix = {
+        "plan-context": "Planning Context",
+        "implementation-context": "Implementation Context",
+        "validation-context": "Validation Context",
+        "show": "Task Handoff",
+    }.get(mode, "Task Handoff")
+    lines = [f"# {title_prefix}: {task['title']}", ""]
+    _append_task_section(lines, task)
+    _append_description(lines, task)
+    _append_intro(lines, payload.get("introduction"))
+    _append_dependencies(lines, payload["dependencies"])
+    _append_file_links(lines, payload["file_links"])
+    _append_plans(lines, payload["plans"])
+    _append_questions(lines, payload["questions"])
+    _append_guardrails(lines, payload["guardrails"])
+    if mode in {"show", "implementation-context", "validation-context"}:
+        _append_accepted_plan(lines, payload.get("accepted_plan"))
     if mode in {"show", "implementation-context"}:
-        _append_implementation_context(lines, accepted_plan_body, questions, task.todos)
+        _append_todos(lines, payload["todos"])
+        _append_lock_and_runs(lines, payload)
     if mode in {"show", "validation-context"}:
-        _append_validation_context(lines, accepted_plan_body, runs, changes)
+        _append_implementation_summary(lines, payload["runs"])
+        _append_change_log(lines, payload["changes"])
+        _append_todos(lines, payload["todos"])
+        _append_validation_history(lines, payload["validation_history"])
+    _append_required_output(lines, mode)
     return "\n".join(lines).rstrip() + "\n"
 
 
-def _append_links(lines: list[str], file_links, requirements) -> None:
-    if file_links:
-        lines.extend(["", "## Linked Files", ""])
-        for link in file_links:
-            label = f" ({link.label})" if link.label else ""
-            lines.append(f"- `{link.path}` [{link.kind}]{label}")
-    if requirements:
-        lines.extend(["", "## Dependencies", ""])
-        for requirement in requirements:
-            lines.append(f"- {requirement}")
+def _append_task_section(lines: list[str], task: dict[str, object]) -> None:
+    lines.extend(
+        [
+            "## Task",
+            "",
+            f"- id: {task['id']}",
+            f"- slug: {task['slug']}",
+            f"- status_stage: {task['status_stage']}",
+            f"- priority: {task.get('priority') or 'unset'}",
+            f"- labels: {', '.join(task.get('labels') or []) or 'none'}",
+            f"- owner: {task.get('owner') or 'unassigned'}",
+            "",
+        ]
+    )
 
 
-def _append_plan_context(
-    lines: list[str],
-    workspace_root: Path,
-    task_id: str,
-    questions,
-) -> None:
-    plans = list_plans(workspace_root, task_id)
-    if plans:
-        lines.extend(["", "## Plan Versions", ""])
-        for plan in plans:
-            lines.append(f"- v{plan.plan_version}: {plan.status}")
-    open_questions = [question for question in questions if question.status == "open"]
-    if open_questions:
-        lines.extend(["", "## Open Questions", ""])
-        for question in open_questions:
-            lines.append(f"- {question.id}: {question.question}")
+def _append_description(lines: list[str], task: dict[str, object]) -> None:
+    lines.extend(["## Description", "", str(task.get("body") or ""), ""])
 
 
-def _append_implementation_context(
-    lines: list[str],
-    accepted_plan_body: str | None,
-    questions,
-    todos,
-) -> None:
-    if accepted_plan_body is not None:
-        lines.extend(["", "## Accepted Plan", "", accepted_plan_body])
-    if questions:
-        lines.extend(["", "## Question History", ""])
-        for question in questions:
-            answer = question.answer or "(unanswered)"
-            lines.append(f"- {question.question} -> {answer}")
-    if todos:
-        lines.extend(["", "## Todos", ""])
-        for todo in todos:
-            mark = "x" if todo.done else " "
-            lines.append(f"- [{mark}] {todo.text}")
+def _append_intro(lines: list[str], intro: object) -> None:
+    if not isinstance(intro, dict):
+        return
+    lines.extend(["## Introduction", "", str(intro.get("body") or ""), ""])
 
 
-def _append_validation_context(
-    lines: list[str],
-    accepted_plan_body: str | None,
-    runs,
-    changes,
-) -> None:
-    if accepted_plan_body is not None:
-        lines.extend(["", "## Accepted Plan", "", accepted_plan_body])
-    impl_runs = [item for item in runs if item.run_type == "implementation"]
-    if impl_runs:
-        latest_impl = impl_runs[-1]
-        lines.extend(["", "## Implementation Summary", "", latest_impl.summary or ""])
-    if changes:
-        lines.extend(["", "## Code Changes", ""])
-        for change in changes:
-            lines.append(f"- `{change.path}`: {change.summary}")
+def _append_dependencies(lines: list[str], dependencies: object) -> None:
+    if not isinstance(dependencies, list):
+        return
+    lines.extend(["## Requirements", ""])
+    for item in dependencies:
+        if isinstance(item, dict):
+            lines.append(
+                f"- {item['task_id']}: {item['title']} — {item['status_stage']}"
+            )
+    if not dependencies:
+        lines.append("- none")
+    lines.append("")
+
+
+def _append_file_links(lines: list[str], file_links: object) -> None:
+    if not isinstance(file_links, list):
+        return
+    lines.extend(["## Linked Files", ""])
+    for item in file_links:
+        if isinstance(item, dict):
+            lines.append(f"- @{item['path']} [{item['kind']}]")
+    if not file_links:
+        lines.append("- none")
+    lines.append("")
+
+
+def _append_plans(lines: list[str], plans: object) -> None:
+    if not isinstance(plans, list):
+        return
+    lines.extend(["## Existing Plans", ""])
+    for item in plans:
+        if isinstance(item, dict):
+            lines.append(f"- v{item['plan_version']} {item['status']}")
+    if not plans:
+        lines.append("- none")
+    lines.append("")
+
+
+def _append_questions(lines: list[str], payload: object) -> None:
+    if not isinstance(payload, dict):
+        return
+    lines.extend(["## Questions", "", "### Open", ""])
+    open_items = payload.get("open")
+    if isinstance(open_items, list) and open_items:
+        for item in open_items:
+            if isinstance(item, dict):
+                lines.append(f"- {item['id']}: {item['question']}")
+    else:
+        lines.append("- none")
+    lines.extend(["", "### Answered", ""])
+    answered_items = payload.get("answered")
+    if isinstance(answered_items, list) and answered_items:
+        for item in answered_items:
+            if isinstance(item, dict):
+                lines.append(
+                    f"- {item['question']} -> {item.get('answer') or '(none)'}"
+                )
+    else:
+        lines.append("- none")
+    lines.append("")
+
+
+def _append_guardrails(lines: list[str], guardrails: object) -> None:
+    if not isinstance(guardrails, list):
+        return
+    lines.extend(["## Guardrails", ""])
+    for item in guardrails:
+        lines.append(f"- {item}")
+    lines.append("")
+
+
+def _append_accepted_plan(lines: list[str], accepted_plan: object) -> None:
+    if not isinstance(accepted_plan, dict):
+        return
+    lines.extend(["## Accepted Plan", "", str(accepted_plan.get("body") or ""), ""])
+
+
+def _append_todos(lines: list[str], todos: object) -> None:
+    if not isinstance(todos, list):
+        return
+    lines.extend(["## Todo Checklist", ""])
+    for item in todos:
+        if isinstance(item, dict):
+            mark = "x" if item.get("done") else " "
+            lines.append(f"- [{mark}] {item['id']}: {item['text']}")
+    if not todos:
+        lines.append("- none")
+    lines.append("")
+
+
+def _append_lock_and_runs(lines: list[str], payload: dict[str, object]) -> None:
+    lines.extend(["## Current Run / Lock State", ""])
+    runs = payload["runs"]
+    assert isinstance(runs, dict)
+    latest_impl = runs.get("latest_implementation")
+    if isinstance(latest_impl, dict):
+        lines.append(
+            f"- implementation run: {latest_impl['run_id']} ({latest_impl['status']})"
+        )
+    else:
+        lines.append("- implementation run: none")
+    status = payload.get("lock_status")
+    if isinstance(status, dict) and status.get("active"):
+        lines.append(
+            
+                f"- lock: {status.get('stage')} / {status.get('run_id')} "
+                f"expired={status.get('expired')}"
+            
+        )
+    else:
+        lines.append("- lock: none")
+    lines.append("")
+
+
+def _append_implementation_summary(lines: list[str], runs: object) -> None:
+    if not isinstance(runs, dict):
+        return
+    latest_impl = runs.get("latest_implementation")
+    lines.extend(["## Implementation Summary", ""])
+    if isinstance(latest_impl, dict):
+        lines.append(str(latest_impl.get("summary") or "(no summary)"))
+    else:
+        lines.append("(no implementation run)")
+    lines.append("")
+
+
+def _append_change_log(lines: list[str], changes: object) -> None:
+    if not isinstance(changes, list):
+        return
+    lines.extend(["## Code Changes", ""])
+    for item in changes:
+        if isinstance(item, dict):
+            lines.append(f"- @{item['path']}: {item['summary']}")
+    if not changes:
+        lines.append("- none")
+    lines.append("")
+
+
+def _append_validation_history(lines: list[str], history: object) -> None:
+    if not isinstance(history, list):
+        return
+    lines.extend(["## Previous Validation History", ""])
+    for item in history:
+        if isinstance(item, dict):
+            lines.append(
+                
+                    f"- {item['run_id']}: "
+                    f"{item.get('result') or item['status']} — "
+                    f"{item.get('summary') or ''}"
+                
+            )
+    if not history:
+        lines.append("- none")
+    lines.append("")
+
+
+def _append_required_output(lines: list[str], mode: str) -> None:
+    section = {
+        "plan-context": [
+            "plan body",
+            "assumptions",
+            "risks",
+            "acceptance criteria",
+            "open questions",
+        ],
+        "implementation-context": [
+            "worklog entries",
+            "code change records",
+            "todo updates",
+            "implementation summary",
+        ],
+        "validation-context": [
+            "structured checks",
+            "evidence",
+            "summary",
+            "recommendation",
+        ],
+        "show": ["next action"],
+    }[mode]
+    lines.extend(["## Required Output", ""])
+    for item in section:
+        lines.append(f"- {item}")
+    lines.append("")
+
+
+def _guardrails_for_mode(mode: str) -> list[str]:
+    if mode == "plan-context":
+        return [
+            "Produce a reviewable plan body.",
+            "Call out assumptions and risks explicitly.",
+            "Do not start implementation in this context.",
+        ]
+    if mode == "implementation-context":
+        return [
+            "Implement only the accepted plan.",
+            "Log deviations explicitly.",
+            "Log every code change.",
+            "Do not validate in this context.",
+        ]
+    if mode == "validation-context":
+        return [
+            "Validate against the accepted plan and implementation log.",
+            "Store failed validation; do not hide it.",
+            "Report deviations from plan.",
+        ]
+    return ["Use this handoff as the source of truth for the next step."]
+
+
+def _latest_run(runs, run_type: str):
+    matches = [item for item in runs if item.run_type == run_type]
+    return matches[-1] if matches else None
+
+
+def _run_to_dict(run) -> dict[str, object] | None:
+    return run.to_dict() if run is not None else None

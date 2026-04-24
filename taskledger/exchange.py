@@ -15,79 +15,29 @@ from taskledger.domain.models import (
     TaskRunRecord,
 )
 from taskledger.errors import LaunchError
-from taskledger.models import (
-    ItemStageRecord,
-    ProjectContextEntry,
-    ProjectMemory,
-    ProjectRepo,
-    ProjectRunRecord,
-    ProjectWorkItem,
-    WorkflowDefinition,
-    utc_now_iso,
-)
-from taskledger.storage import (
-    ensure_project_exists,
-    load_project_state,
-    load_run_records,
-    load_stage_records,
-    load_validation_records,
-    load_workflow_definitions,
-    read_memory_body,
-    save_contexts,
-    save_memories,
-    save_repos,
-    save_run_record,
-    save_stage_records,
-    save_validation_records,
-    save_work_items,
-    save_workflow_definitions,
-    write_memory_body,
-)
+from taskledger.models import utc_now_iso
 from taskledger.storage.events import append_event, load_events
 from taskledger.storage.indexes import rebuild_v2_indexes
 from taskledger.storage.locks import write_lock
 from taskledger.storage.v2 import (
     ensure_v2_layout,
     load_active_locks,
+    overwrite_plan,
     resolve_v2_paths,
+    save_change,
+    save_introduction,
+    save_plan,
+    save_question,
+    save_run,
+    save_task,
     task_lock_path,
 )
-from taskledger.storage.v2 import (
-    list_changes as list_v2_changes,
-)
-from taskledger.storage.v2 import (
-    list_introductions as list_v2_introductions,
-)
-from taskledger.storage.v2 import (
-    list_plans as list_v2_plans,
-)
-from taskledger.storage.v2 import (
-    list_questions as list_v2_questions,
-)
-from taskledger.storage.v2 import (
-    list_runs as list_v2_runs,
-)
-from taskledger.storage.v2 import (
-    list_tasks as list_v2_tasks,
-)
-from taskledger.storage.v2 import (
-    save_change as save_v2_change,
-)
-from taskledger.storage.v2 import (
-    save_introduction as save_v2_introduction,
-)
-from taskledger.storage.v2 import (
-    save_plan as save_v2_plan,
-)
-from taskledger.storage.v2 import (
-    save_question as save_v2_question,
-)
-from taskledger.storage.v2 import (
-    save_run as save_v2_run,
-)
-from taskledger.storage.v2 import (
-    save_task as save_v2_task,
-)
+from taskledger.storage.v2 import list_changes as list_v2_changes
+from taskledger.storage.v2 import list_introductions as list_v2_introductions
+from taskledger.storage.v2 import list_plans as list_v2_plans
+from taskledger.storage.v2 import list_questions as list_v2_questions
+from taskledger.storage.v2 import list_runs as list_v2_runs
+from taskledger.storage.v2 import list_tasks as list_v2_tasks
 
 
 def export_project_payload(
@@ -96,57 +46,24 @@ def export_project_payload(
     include_bodies: bool = False,
     include_run_artifacts: bool = False,
 ) -> dict[str, object]:
-    state = load_project_state(workspace_root, recent_runs_limit=None)
-    runs = load_run_records(state.paths, limit=None)
-    payload: dict[str, object] = {
-        "kind": "project_export",
-        "version": 1,
-        "schema_version": 1,
+    v2_payload = _export_v2_payload(workspace_root)
+    return {
+        "kind": "taskledger_export",
+        "version": 2,
+        "schema_version": 2,
         "generated_at": utc_now_iso(),
-        "project_dir": str(state.paths.project_dir),
-        "config_overrides": dict(state.config_overrides),
-        "config_text": state.paths.config_path.read_text(encoding="utf-8"),
-        "repos": [item.to_dict() for item in state.repos],
-        "memories": [item.to_dict() for item in state.memories],
-        "contexts": [item.to_dict() for item in state.contexts],
-        "work_items": [item.to_dict() for item in state.work_items],
-        "workflows": [
-            item.to_dict() for item in load_workflow_definitions(state.paths)
-        ],
-        "stage_records": [item.to_dict() for item in load_stage_records(state.paths)],
-        "runs": [item.to_dict() for item in runs],
-        "validation_records": load_validation_records(state.paths),
+        "project_dir": str(resolve_v2_paths(workspace_root).project_dir),
         "options": {
             "include_bodies": include_bodies,
             "include_run_artifacts": include_run_artifacts,
         },
         "counts": {
-            "repos": len(state.repos),
-            "memories": len(state.memories),
-            "contexts": len(state.contexts),
-            "work_items": len(state.work_items),
-            "workflows": len(load_workflow_definitions(state.paths)),
-            "stage_records": len(load_stage_records(state.paths)),
-            "runs": len(runs),
-            "validation_records": len(load_validation_records(state.paths)),
+            key: len(_dict_list(value))
+            for key, value in v2_payload.items()
+            if isinstance(value, list)
         },
+        "v2": v2_payload,
     }
-    if include_bodies:
-        payload["memory_bodies"] = {
-            item.id: read_memory_body(state.paths, item)
-            for item in state.memories
-        }
-        payload["context_payloads"] = {
-            item.id: json.loads(
-                (state.paths.project_dir / item.path).read_text(encoding="utf-8")
-            )
-            for item in state.contexts
-            if (state.paths.project_dir / item.path).exists()
-        }
-    if include_run_artifacts:
-        payload["run_artifacts"] = _collect_run_artifacts(state.paths.runs_dir, runs)
-    payload["v2"] = _export_v2_payload(workspace_root)
-    return payload
 
 
 def parse_project_import_payload(text: str, *, format_name: str) -> dict[str, object]:
@@ -158,7 +75,7 @@ def parse_project_import_payload(text: str, *, format_name: str) -> dict[str, ob
         raise LaunchError(f"Invalid project import JSON: {exc}") from exc
     if not isinstance(payload, dict):
         raise LaunchError("Project import JSON must be an object.")
-    if payload.get("kind") not in {None, "project_export"}:
+    if payload.get("kind") not in {None, "taskledger_export", "project_export"}:
         raise LaunchError("Unsupported project import payload kind.")
     return payload
 
@@ -169,98 +86,15 @@ def import_project_payload(
     payload: dict[str, object],
     replace: bool,
 ) -> dict[str, object]:
-    paths = ensure_project_exists(workspace_root)
-    _write_project_config(paths, payload)
-
-    imported_repos = _objects_from_payload(payload, "repos", ProjectRepo.from_dict)
-    imported_memories = _objects_from_payload(
-        payload, "memories", ProjectMemory.from_dict
-    )
-    imported_contexts = _objects_from_payload(
-        payload, "contexts", ProjectContextEntry.from_dict
-    )
-    imported_work_items = _objects_from_payload(
-        payload,
-        "work_items",
-        ProjectWorkItem.from_dict,
-    )
-    imported_workflows = _objects_from_payload(
-        payload,
-        "workflows",
-        WorkflowDefinition.from_dict,
-    )
-    imported_stage_records = _objects_from_payload(
-        payload,
-        "stage_records",
-        ItemStageRecord.from_dict,
-    )
-    imported_runs = _objects_from_payload(payload, "runs", ProjectRunRecord.from_dict)
-    imported_validation_records = _dict_list(payload.get("validation_records"))
-
+    paths = ensure_v2_layout(workspace_root)
     if replace:
-        save_repos(paths, imported_repos)
-        save_memories(paths, imported_memories)
-        save_contexts(paths, imported_contexts)
-        save_work_items(paths, imported_work_items)
-        save_workflow_definitions(paths, imported_workflows)
-        save_stage_records(paths, imported_stage_records)
-        save_validation_records(paths, imported_validation_records)
-    else:
-        state = load_project_state(workspace_root, recent_runs_limit=None)
-        save_repos(paths, _merge_named(state.repos, imported_repos, key="slug"))
-        save_memories(paths, _merge_named(state.memories, imported_memories, key="id"))
-        save_contexts(
-            paths, _merge_named(state.contexts, imported_contexts, key="id")
-        )
-        save_work_items(
-            paths,
-            _merge_named(state.work_items, imported_work_items, key="id"),
-        )
-        save_workflow_definitions(
-            paths,
-            _merge_named(
-                load_workflow_definitions(paths),
-                imported_workflows,
-                key="workflow_id",
-            ),
-        )
-        save_stage_records(
-            paths,
-            _merge_named(
-                load_stage_records(paths),
-                imported_stage_records,
-                key="record_id",
-            ),
-        )
-        current_records = load_validation_records(paths)
-        merged_records = _merge_dict_items(
-            current_records,
-            imported_validation_records,
-            key="id",
-        )
-        save_validation_records(paths, merged_records)
-
-    _write_memory_bodies(paths, payload, imported_memories, replace=replace)
-    _materialize_runs(paths, payload, imported_runs, replace=replace)
-    _import_v2_payload(workspace_root, payload, replace=replace)
-
-    refreshed = load_project_state(workspace_root, recent_runs_limit=None)
-    v2_payload = _export_v2_payload(workspace_root)
+        _clear_v2_state(paths)
+    _import_v2_payload(workspace_root, payload)
+    counts = rebuild_v2_indexes(paths)
     return {
-        "kind": "project_import",
+        "kind": "taskledger_import",
         "replace": replace,
-        "counts": {
-            "repos": len(refreshed.repos),
-            "memories": len(refreshed.memories),
-            "contexts": len(refreshed.contexts),
-            "work_items": len(refreshed.work_items),
-            "workflows": len(load_workflow_definitions(refreshed.paths)),
-            "stage_records": len(load_stage_records(refreshed.paths)),
-            "runs": len(load_run_records(refreshed.paths, limit=None)),
-            "validation_records": len(load_validation_records(refreshed.paths)),
-            "v2_tasks": len(_dict_list(v2_payload.get("tasks"))),
-            "v2_runs": len(_dict_list(v2_payload.get("runs"))),
-        },
+        "counts": counts,
     }
 
 
@@ -277,14 +111,15 @@ def write_project_snapshot(
         include_run_artifacts=include_run_artifacts,
     )
     timestamp = utc_now_iso().replace(":", "-").replace("+00:00", "Z")
-    snapshot_dir = output_dir / f"project-snapshot-{timestamp}"
+    snapshot_dir = output_dir / f"taskledger-snapshot-{timestamp}"
     snapshot_dir.mkdir(parents=True, exist_ok=False)
-    export_path = snapshot_dir / "project-export.json"
+    export_path = snapshot_dir / "taskledger-export.json"
     export_path.write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
     )
     return {
-        "kind": "project_snapshot",
+        "kind": "taskledger_snapshot",
         "snapshot_dir": str(snapshot_dir),
         "export_path": str(export_path),
         "include_bodies": include_bodies,
@@ -292,139 +127,10 @@ def write_project_snapshot(
     }
 
 
-def _objects_from_payload(payload, key, parser):
-    items = _dict_list(payload.get(key))
-    return [parser(item) for item in items]
-
-
 def _dict_list(value: object) -> list[dict[str, object]]:
-    if value is None:
-        return []
     if not isinstance(value, list):
-        raise LaunchError("Expected list payload value.")
-    output: list[dict[str, object]] = []
-    for item in value:
-        if isinstance(item, dict):
-            output.append(item)
-    return output
-
-
-def _merge_named(existing, incoming, *, key: str):
-    merged = {getattr(item, key): item for item in existing}
-    for item in incoming:
-        merged[getattr(item, key)] = item
-    return sorted(merged.values(), key=lambda item: str(getattr(item, key)))
-
-
-def _merge_dict_items(existing, incoming, *, key: str):
-    merged = {str(item.get(key, "")): item for item in existing}
-    for item in incoming:
-        merged[str(item.get(key, ""))] = item
-    values: list[dict[str, object]] = []
-    for item_key, value in sorted(merged.items(), key=lambda pair: pair[0]):
-        if not item_key:
-            continue
-        values.append(value)
-    return values
-
-
-def _write_project_config(paths, payload: dict[str, object]) -> None:
-    config_text = payload.get("config_text")
-    if isinstance(config_text, str):
-        paths.config_path.write_text(config_text, encoding="utf-8")
-
-
-def _write_memory_bodies(
-    paths,
-    payload: dict[str, object],
-    imported_memories,
-    *,
-    replace: bool,
-):
-    body_map = payload.get("memory_bodies")
-    memory_bodies = body_map if isinstance(body_map, dict) else {}
-    for memory in imported_memories:
-        body = memory_bodies.get(memory.id)
-        if isinstance(body, str):
-            write_memory_body(
-                paths,
-                memory.id,
-                body,
-                source_run_id=memory.source_run_id,
-            )
-            continue
-        if replace:
-            write_memory_body(
-                paths,
-                memory.id,
-                "",
-                source_run_id=memory.source_run_id,
-            )
-
-
-def _materialize_runs(
-    paths,
-    payload: dict[str, object],
-    imported_runs,
-    *,
-    replace: bool,
-) -> None:
-    run_artifacts = payload.get("run_artifacts")
-    artifacts_map = run_artifacts if isinstance(run_artifacts, dict) else {}
-    if replace:
-        if paths.runs_dir.exists():
-            shutil.rmtree(paths.runs_dir)
-        paths.runs_dir.mkdir(parents=True, exist_ok=True)
-    for record in imported_runs:
-        _validate_run_id(record.run_id)
-        run_dir = paths.runs_dir / record.run_id
-        if run_dir.exists() and replace:
-            shutil.rmtree(run_dir)
-        run_dir.mkdir(parents=True, exist_ok=True)
-        save_run_record(run_dir, record)
-        files = artifacts_map.get(record.run_id)
-        if not isinstance(files, dict):
-            continue
-        for relative, content in files.items():
-            if not isinstance(relative, str) or not isinstance(content, str):
-                continue
-            target = (run_dir / relative).resolve()
-            try:
-                target.relative_to(run_dir.resolve())
-            except ValueError as exc:
-                raise LaunchError(f"Invalid run artifact path: {relative}") from exc
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(content, encoding="utf-8")
-
-
-def _collect_run_artifacts(
-    runs_dir: Path,
-    records: list[ProjectRunRecord],
-) -> dict[str, dict[str, str]]:
-    collected: dict[str, dict[str, str]] = {}
-    for record in records:
-        run_dir = runs_dir / record.run_id
-        if not run_dir.exists() or not run_dir.is_dir():
-            continue
-        files: dict[str, str] = {}
-        for path in run_dir.rglob("*"):
-            if not path.is_file():
-                continue
-            relative = str(path.relative_to(run_dir))
-            if relative == "record.json":
-                continue
-            try:
-                files[relative] = path.read_text(encoding="utf-8")
-            except UnicodeDecodeError:
-                continue
-        if files:
-            collected[record.run_id] = files
-    return collected
-
-
-def _validate_run_id(run_id: str) -> None:
-    if not run_id or "/" in run_id or ".." in run_id:
-        raise LaunchError(f"Invalid run id in import payload: {run_id}")
+        return []
+    return [item for item in value if isinstance(item, dict)]
 
 
 def _export_v2_payload(workspace_root: Path) -> dict[str, object]:
@@ -461,51 +167,35 @@ def _export_v2_payload(workspace_root: Path) -> dict[str, object]:
     }
 
 
-def _import_v2_payload(
-    workspace_root: Path,
-    payload: dict[str, object],
-    *,
-    replace: bool,
-) -> None:
+def _import_v2_payload(workspace_root: Path, payload: dict[str, object]) -> None:
     raw_v2 = payload.get("v2")
     if not isinstance(raw_v2, dict):
-        return
-    paths = ensure_v2_layout(workspace_root)
-    if replace:
-        _clear_v2_state(paths)
+        raise LaunchError("Import payload is missing v2 task state.")
+    paths = resolve_v2_paths(workspace_root)
     for item in _dict_list(raw_v2.get("tasks")):
-        save_v2_task(workspace_root, TaskRecord.from_dict(item))
+        save_task(workspace_root, TaskRecord.from_dict(item))
     for item in _dict_list(raw_v2.get("introductions")):
-        save_v2_introduction(workspace_root, IntroductionRecord.from_dict(item))
+        save_introduction(workspace_root, IntroductionRecord.from_dict(item))
     for item in _dict_list(raw_v2.get("plans")):
         plan = PlanRecord.from_dict(item)
-        _save_or_overwrite_plan(workspace_root, plan)
+        if (paths.plans_dir / plan.task_id / f"plan-v{plan.plan_version}.md").exists():
+            overwrite_plan(workspace_root, plan)
+        else:
+            save_plan(workspace_root, plan)
     for item in _dict_list(raw_v2.get("questions")):
-        save_v2_question(workspace_root, QuestionRecord.from_dict(item))
+        save_question(workspace_root, QuestionRecord.from_dict(item))
     for item in _dict_list(raw_v2.get("runs")):
-        save_v2_run(workspace_root, TaskRunRecord.from_dict(item))
+        save_run(workspace_root, TaskRunRecord.from_dict(item))
     for item in _dict_list(raw_v2.get("changes")):
-        save_v2_change(workspace_root, CodeChangeRecord.from_dict(item))
+        save_change(workspace_root, CodeChangeRecord.from_dict(item))
     for item in _dict_list(raw_v2.get("locks")):
         lock = TaskLock.from_dict(item)
         write_lock(task_lock_path(paths, lock.task_id), lock)
-    if replace:
+    if paths.events_dir.exists():
         for path in paths.events_dir.glob("*.ndjson"):
             path.unlink()
     for item in _dict_list(raw_v2.get("events")):
         append_event(paths.events_dir, TaskEvent.from_dict(item))
-    rebuild_v2_indexes(paths)
-
-
-def _save_or_overwrite_plan(workspace_root: Path, plan: PlanRecord) -> None:
-    path = resolve_v2_paths(workspace_root).plans_dir / plan.task_id
-    target = path / f"plan-v{plan.plan_version}.md"
-    if target.exists():
-        from taskledger.storage.v2 import overwrite_plan
-
-        overwrite_plan(workspace_root, plan)
-        return
-    save_v2_plan(workspace_root, plan)
 
 
 def _clear_v2_state(paths) -> None:
@@ -516,14 +206,10 @@ def _clear_v2_state(paths) -> None:
         paths.introductions_dir,
         paths.plans_dir,
         paths.questions_dir,
+        paths.runs_dir,
         paths.changes_dir,
+        paths.events_dir,
     ):
         if directory.exists():
             shutil.rmtree(directory)
-            directory.mkdir(parents=True, exist_ok=True)
-    if paths.events_dir.exists():
-        shutil.rmtree(paths.events_dir)
-        paths.events_dir.mkdir(parents=True, exist_ok=True)
-    for path in paths.runs_dir.glob("task-*"):
-        if path.is_dir():
-            shutil.rmtree(path)
+        directory.mkdir(parents=True, exist_ok=True)

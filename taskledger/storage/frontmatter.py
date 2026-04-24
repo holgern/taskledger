@@ -30,9 +30,7 @@ def read_markdown_front_matter(path: Path) -> tuple[dict[str, object], str]:
     elif isinstance(raw_metadata, dict):
         metadata = raw_metadata
     else:
-        raise LaunchError(
-            f"Invalid YAML front matter in {path}: expected a mapping."
-        )
+        raise LaunchError(f"Invalid YAML front matter in {path}: expected a mapping.")
     body = text[match.end() :]
     return metadata, body
 
@@ -52,9 +50,7 @@ def write_markdown_front_matter(
 def iter_markdown_files(directory: Path) -> list[Path]:
     if not directory.exists():
         return []
-    return sorted(
-        path for path in directory.glob("*.md") if path.is_file()
-    )
+    return sorted(path for path in directory.glob("*.md") if path.is_file())
 
 
 def normalize_front_matter_newlines(text: str) -> str:

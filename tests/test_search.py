@@ -60,9 +60,7 @@ def test_search_grep_and_symbols_basic(tmp_path: Path):
     # symbols_project should discover the python symbol
     sym = symbols_project(paths, query="searchfunc")
     assert any(
-        s.kind == "symbol"
-        and s.symbol
-        and s.symbol.lower().startswith("searchfunc")
+        s.kind == "symbol" and s.symbol and s.symbol.lower().startswith("searchfunc")
         for s in sym
     )
 

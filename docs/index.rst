@@ -1,9 +1,7 @@
 taskledger
 ==========
 
-`taskledger` provides durable project state for coding work: items, memories,
-contexts, repos, run records, validation records, import/export helpers, and a
-CLI for inspecting and updating that state.
+`taskledger` is a task-first durable state layer for staged coding work.
 
 Contents
 --------
@@ -14,7 +12,6 @@ Contents
 
    usage
    api
-   architecture_taskledger_split
 
 Indices and tables
 ------------------
@@ -22,4 +19,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-

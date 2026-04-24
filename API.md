@@ -1,59 +1,36 @@
-# taskledger API contract for runtildone
+# taskledger API contract
 
-This file defines the official boundary that `runtildone` should use.
-
-## 1. Import boundary
-
-### Allowed imports
+This repository exposes a task-first public API. The supported modules are:
 
 - `taskledger.errors`
-- `taskledger.api.contexts`
-- `taskledger.api.items`
-- `taskledger.api.memories`
-- `taskledger.api.repos`
-- `taskledger.api.runs`
-- `taskledger.api.validation`
-- `taskledger.api.composition`
-- `taskledger.api.execution_requests`
-- `taskledger.api.runtime_support`
-- `taskledger.api.types`
-- `taskledger.api.workflows`
+- `taskledger.api.project`
+- `taskledger.api.tasks`
+- `taskledger.api.plans`
+- `taskledger.api.questions`
+- `taskledger.api.task_runs`
+- `taskledger.api.introductions`
+- `taskledger.api.locks`
+- `taskledger.api.handoff`
+- `taskledger.api.search`
 
-### Forbidden imports from runtildone
+## Import boundary
+
+Consumers must not import from:
 
 - `taskledger.storage`
 - `taskledger.storage.*`
-- `taskledger.context`
-- `taskledger.compose`
-- `taskledger.models`
-- `taskledger.models.execution`
-- `taskledger.links`
+- `taskledger.services`
+- `taskledger.domain`
 - `taskledger.search`
 
-If a needed capability is missing, add it under `taskledger.api.*` instead of importing internals.
+If a capability is missing, add it under `taskledger.api.*`.
 
-### Taskledger-local APIs (not in runtildone boundary)
+## Global rule
 
-These APIs are stable for the `taskledger` package and CLI internals, but are not part
-of the runtildone import boundary above:
+All workspace-bound public entrypoints accept `workspace_root: Path` as the first
+argument.
 
-- `taskledger.api.project`
-- `taskledger.api.search`
-
-## 2. Global API rule
-
-All public workspace-bound CRUD/runtime-composition entrypoints use:
-
-- `workspace_root: Path` as the first argument
-
-Pure transformation helpers that operate on already-expanded inputs may omit
-`workspace_root` (for example `compose_bundle`, `describe_sources`,
-`repo_refs_for_sources`, and `build_compose_payload` in
-`taskledger.api.composition`).
-
-Do not pass internal `ProjectPaths` objects across the boundary.
-
-## 3. Canonical error imports
+## Canonical errors
 
 ```python
 from taskledger.errors import (
@@ -65,310 +42,93 @@ from taskledger.errors import (
 )
 ```
 
-## 4. Canonical DTO imports
+## Public modules
 
-Use only `taskledger.api.types`:
+### `taskledger.api.project`
 
-```python
-from taskledger.api.types import (
-    ContextEntry,
-    WorkItem,
-    Memory,
-    Repo,
-    RunRecord,
-    ValidationRecord,
-    ProjectConfig,
-    SourceBudget,
-    ExpandedSelection,
-    ContextSource,
-    ComposedBundle,
-    ItemDossier,
-    ItemDossierSection,
-    ExecutionOptions,
-    ExecutionPreviewRecord,
-    ExecutionOutcomeRecord,
-    ExecutionStatus,
-    WorkflowDefinition,
-    WorkflowStageDefinition,
-    WorkflowTransition,
-    ItemWorkflowState,
-    ItemStageRecord,
-    ExecutionRequest,
-    ExpandedExecutionRequest,
-)
-```
+- `init_project`
+- `project_status`
+- `project_status_summary`
+- `project_doctor`
+- `project_export`
+- `project_import`
+- `project_snapshot`
 
-## 5. Option B split contract
+### `taskledger.api.tasks`
 
-This repository intentionally uses **Option B — split contract**.
+- `create_task`
+- `list_task_summaries`
+- `show_task`
+- `edit_task`
+- `cancel_task`
+- `close_task`
+- `add_requirement`
+- `remove_requirement`
+- `add_file_link`
+- `remove_file_link`
+- `list_file_links`
+- `add_todo`
+- `set_todo_done`
+- `show_todo`
+- `next_action`
+- `can_perform`
+- `reindex`
 
-### CLI + Python
+### `taskledger.api.plans`
 
-- `taskledger.api.contexts`
-- `taskledger.api.items`
-- `taskledger.api.memories`
-- `taskledger.api.repos`
-- `taskledger.api.runs`
-- `taskledger.api.validation`
-- `taskledger.api.workflows`
+- `start_planning`
+- `propose_plan`
+- `list_plan_versions`
+- `show_plan`
+- `diff_plan`
+- `approve_plan`
+- `reject_plan`
+- `revise_plan`
 
-### Extended CLI + Python
+### `taskledger.api.questions`
 
-- `taskledger.api.execution_requests`
-- `taskledger.api.composition`
-- `taskledger.api.runtime_support`
+- `add_question`
+- `list_questions`
+- `list_open_questions`
+- `answer_question`
+- `dismiss_question`
 
-Notes:
+### `taskledger.api.task_runs`
 
-- These modules are stable public APIs.
-- They also have dedicated CLI groups: `exec-request`, `compose`, and `runtime-support`.
-
-## 6. Entity APIs
-
-### Contexts (`taskledger.api.contexts`)
-
-Canonical functions:
-
-- `save_context`
-- `list_contexts`
-- `resolve_context`
-- `rename_context`
-- `delete_context`
-- `build_context_for_item`
-
-### Items (`taskledger.api.items`)
-
-Canonical functions:
-
-- `create_item`
-- `list_items`
-- `show_item`
-- `update_item`
-- `approve_item`
-- `reopen_item`
-- `close_item`
-- `item_summary`
-- `build_item_work_prompt`
-- `start_item_work`
-- `complete_item_stage`
-- `refine_item`
-- `item_memory_refs`
-- `resolve_item_memory`
-- `read_item_memory_body`
-- `write_item_memory_body`
-- `rename_item_memory`
-- `retag_item_memory`
-- `delete_item_memory`
-- `item_dossier`
-- `render_item_dossier_markdown`
-- `next_action_payload`
-
-### Memories (`taskledger.api.memories`)
-
-Canonical functions:
-
-- `create_memory`
-- `list_memories`
-- `resolve_memory`
-- `read_memory_body`
-- `refresh_memory`
-- `rename_memory`
-- `write_memory_body`
-- `update_memory_body`
-- `update_memory_tags`
-- `delete_memory`
-
-### Repos (`taskledger.api.repos`)
-
-Canonical functions:
-
-- `add_repo`
-- `list_repos`
-- `resolve_repo`
-- `resolve_repo_root`
-- `set_repo_role`
-- `set_default_execution_repo`
-- `clear_default_execution_repo`
-- `remove_repo`
-
-### Runs (`taskledger.api.runs`)
-
-Canonical functions:
-
+- `start_implementation`
+- `log_implementation`
+- `add_implementation_deviation`
+- `add_implementation_artifact`
+- `add_change`
+- `finish_implementation`
+- `show_task_run`
+- `start_validation`
+- `add_validation_check`
+- `finish_validation`
 - `list_runs`
-- `show_run`
-- `delete_run`
-- `cleanup_runs`
-- `promote_run_output`
-- `promote_run_report`
-- `apply_run_result`
-- `summarize_run_inventory`
+- `list_changes`
 
-### Validation (`taskledger.api.validation`)
+### `taskledger.api.introductions`
 
-Canonical functions:
+- `create_introduction`
+- `list_introductions`
+- `resolve_introduction`
+- `link_introduction`
 
-- `list_validation_records`
-- `append_validation_record`
-- `remove_validation_records`
-- `summarize_validation_records`
+### `taskledger.api.locks`
 
-### Workflows (`taskledger.api.workflows`)
+- `show_lock`
+- `break_lock`
+- `list_locks`
+- `load_active_locks`
 
-Canonical functions:
+### `taskledger.api.handoff`
 
-- `list_workflows`
-- `resolve_workflow`
-- `save_workflow_definition`
-- `delete_workflow_definition`
-- `default_workflow_id`
-- `set_default_workflow`
-- `assign_item_workflow`
-- `item_workflow_state`
-- `item_stage_records`
-- `latest_stage_record`
-- `allowed_stage_transitions`
-- `can_enter_stage`
-- `enter_stage`
-- `mark_stage_running`
-- `mark_stage_succeeded`
-- `mark_stage_failed`
-- `mark_stage_needs_review`
-- `approve_stage`
+- `render_handoff`
 
-Notes:
+### `taskledger.api.search`
 
-- Workflow definitions are runner-agnostic durable semantics.
-- Stage history is durable and separate from generic run records.
-- Existing `.taskledger/project.toml` artifact rules remain readable as a
-  compatibility path for `taskledger next` / `report` / `doctor`, but new
-  workflow ownership lives in workflow APIs and stage records.
-
-### Execution requests (`taskledger.api.execution_requests`)
-
-Canonical functions:
-
-- `build_execution_request`
-- `expand_execution_request`
-- `record_execution_outcome`
-
-Notes:
-
-- These APIs build and expand workflow-owned execution contracts.
-- They must not launch a harness or encode provider-specific subprocess logic.
-- `record_execution_outcome(...)` updates durable workflow state after a runner
-  finishes.
-
-## 7. Composition API (`taskledger.api.composition`)
-
-```python
-from taskledger.api.composition import (
-    SelectionRequest,
-    expand_selection,
-    build_sources,
-    compose_bundle,
-    describe_sources,
-    repo_refs_for_sources,
-    build_compose_payload,
-)
-```
-
-Notes:
-
-- `taskledger.api.compose` is removed. Use `taskledger.api.composition`.
-- `SourceBudget`, `ExpandedSelection`, `ContextSource`, and `ComposedBundle` are available from `taskledger.api.types` and re-exported in this module.
-
-Minimal flow:
-
-```python
-request = SelectionRequest(
-    context_names=("my-context",),
-    memory_refs=("mem-1",),
-    directory_refs=("tests/",),
-    file_render_mode="reference",
-)
-expanded = expand_selection(workspace_root, request)
-sources = build_sources(
-    workspace_root,
-    expanded,
-    default_context_order=("memory", "file", "item", "inline", "loop_artifact"),
-    include_item_memories=True,
-    source_budget=SourceBudget(max_source_chars=12000, max_total_chars=48000),
-)
-bundle = compose_bundle(prompt=user_prompt, sources=sources)
-payload = build_compose_payload(
-    context_name="my-context",
-    prompt=user_prompt,
-    explicit_inputs={
-        "context_inputs": request.context_names,
-        "memory_inputs": request.memory_refs,
-        "file_inputs": request.file_refs,
-        "directory_inputs": request.directory_refs,
-        "item_inputs": request.item_refs,
-        "inline_inputs": request.inline_texts,
-        "loop_artifact_inputs": request.loop_latest_refs,
-    },
-    file_render_mode=request.file_render_mode,
-    selected_repo_refs=repo_refs_for_sources(sources),
-    run_in_repo=None,
-    source_budget=SourceBudget(max_source_chars=12000, max_total_chars=48000),
-    bundle=bundle,
-)
-```
-
-## 8. Execution-request flow (`taskledger.api.execution_requests`)
-
-```python
-from taskledger.api.execution_requests import (
-    build_execution_request,
-    expand_execution_request,
-    record_execution_outcome,
-)
-```
-
-Typical flow:
-
-```python
-request = build_execution_request(
-    workspace_root,
-    item_ref="it-1",
-    stage_id="plan",
-    inline_texts=("Focus on repository-safe changes.",),
-    file_render_mode="reference",
-    directory_refs=("tests/",),
-)
-expanded = expand_execution_request(workspace_root, request=request)
-# runner executes expanded.final_prompt elsewhere
-# runner then reports the durable outcome:
-# record_execution_outcome(workspace_root, request=request, outcome=outcome)
-```
-
-## 9. Runtime support API (`taskledger.api.runtime_support`)
-
-```python
-from taskledger.api.runtime_support import (
-    RunArtifactPaths,
-    get_effective_project_config,
-    create_run_artifact_layout,
-    save_run_record,
-    resolve_repo_root,
-)
-```
-
-Typical flow:
-
-```python
-config = get_effective_project_config(workspace_root)
-layout = create_run_artifact_layout(workspace_root, origin="runtime")
-# runtime writes outputs into layout.run_dir
-save_run_record(workspace_root, run_record)
-repo_root = resolve_repo_root(workspace_root, "main-repo")
-```
-
-## 10. Migration notes for runtildone
-
-- Replace all `taskledger.context` and `taskledger.compose` usage with `taskledger.api.composition`.
-- Replace hardcoded stage semantics with `taskledger.api.workflows` and `taskledger.api.execution_requests`.
-- Replace all `taskledger.storage*` usage with `taskledger.api.*` and `taskledger.api.runtime_support`.
-- Replace all `taskledger.models*` DTO imports with `taskledger.api.types`.
-- Keep compatibility wrappers thin and forwarding only; no new persistence logic in wrappers.
+- `search_workspace`
+- `grep_workspace`
+- `symbols_workspace`
+- `dependencies_for_module`
