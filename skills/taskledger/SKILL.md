@@ -53,9 +53,24 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 
 1. `taskledger context --for validation --format markdown`
 2. `taskledger validate start`
-3. Run checks outside taskledger.
-4. Record each criterion result: `taskledger validate check --criterion ac-0001 --status pass|fail|warn|not_run --evidence "..."`
-5. Finish with `taskledger validate finish --result passed|failed|blocked --summary "..."`
+3. Check `taskledger validate status` to see current validation state and blockers.
+4. Run verification checks outside taskledger.
+5. Record criterion results: `taskledger validate check --criterion ac-0001 --status pass|fail|warn|not_run --evidence "..."`
+6. Optionally waive criteria with user authority: `taskledger validate waive --criterion ac-0001 --reason "..."`.
+7. Check `taskledger validate status` again to confirm all mandatory gates pass.
+8. Finish with `taskledger validate finish --result passed|failed|blocked --summary "..."`
+
+### Recovery Rules
+
+- If validation fails, record the failure and do not hide it.
+- Run `taskledger validate status` to inspect all blocking issues before finishing.
+- Use `taskledger handoff validation-context` to prepare context for agent continuation after validation failure.
+
+### Waiver Rules
+
+- Only user actors can waive acceptance criteria.
+- Each waiver must include a reason and is permanently recorded in the validation history.
+- Waived criteria are marked as satisfied for gate checking but remain visible in status reports.
 
 ## Required logging
 

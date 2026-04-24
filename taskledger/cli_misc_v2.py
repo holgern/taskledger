@@ -50,6 +50,10 @@ def register_todo_v2_commands(app: typer.Typer) -> None:
     def add_command(
         ctx: typer.Context,
         text: Annotated[str, typer.Option("--text")],
+        mandatory: Annotated[
+            bool,
+            typer.Option("--mandatory", help="Mark todo as mandatory gate."),
+        ] = False,
         task_arg: Annotated[
             str | None,
             typer.Argument(help="Task ref. Defaults to the active task."),
@@ -62,7 +66,7 @@ def register_todo_v2_commands(app: typer.Typer) -> None:
         state = cli_state_from_context(ctx)
         try:
             task = resolve_cli_task(state.cwd, task_ref or task_arg)
-            task = add_todo(state.cwd, task.id, text=text)
+            task = add_todo(state.cwd, task.id, text=text, mandatory=mandatory)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc

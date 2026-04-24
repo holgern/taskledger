@@ -18,6 +18,7 @@ from taskledger.domain.models import (
     ActiveTaskState,
     ActorRef,
     CodeChangeRecord,
+    CriterionWaiver,
     DependencyRequirement,
     DependencyWaiver,
     FileLink,
@@ -1509,6 +1510,264 @@ def start_validation(workspace_root: Path, task_ref: str) -> dict[str, object]:
     )
 
 
+def _resolve_criterion_ref(plan: PlanRecord, criterion_ref: str) -> str:
+    """Canonicalize criterion reference to the exact ID in the plan.
+    
+    Accepts:
+    - exact ID: ac-0001
+    - different case: AC-0001
+    - short AC form: ac-1 (should match ac-0001)
+    - numeric form: 1 (should match ac-0001)
+    
+    Raises LaunchError if criterion not found in plan.
+    """
+    if not plan.criteria:
+        raise _cli_error(
+            "No acceptance criteria defined in plan.",
+            EXIT_CODE_BAD_INPUT,
+        )
+    
+    normalized_ref = criterion_ref.strip().lower()
+    
+    for c in plan.criteria:
+        c_id_lower = c.id.lower()
+        
+        if c_id_lower == normalized_ref:
+            return c.id
+        
+        parts = c_id_lower.split("-")
+        if len(parts) == 2:
+            prefix, number = parts
+            
+            if normalized_ref == f"{prefix}-{number}":
+                return c.id
+            
+            ref_parts = normalized_ref.split("-")
+            if len(ref_parts) == 2:
+                ref_prefix, ref_number = ref_parts
+                if ref_prefix == prefix:
+                    try:
+                        if int(ref_number) == int(number):
+                            return c.id
+                    except ValueError:
+                        pass
+            
+            if normalized_ref == number:
+                return c.id
+            
+            try:
+                if int(normalized_ref) == int(number):
+                    return c.id
+            except ValueError:
+                pass
+    
+    criterion_ids = ", ".join(sorted(c.id for c in plan.criteria))
+    raise _cli_error(
+        f"Unknown acceptance criterion: {criterion_ref}.\nKnown criteria: {criterion_ids}.",
+        EXIT_CODE_BAD_INPUT,
+    )
+
+
+def _build_validation_gate_report(
+    workspace_root: Path,
+    task: TaskRecord,
+    run: TaskRunRecord | None = None,
+) -> dict[str, object]:
+    """Build a comprehensive validation gate report.
+    
+    Returns a dict with:
+    - accepted_plan status
+    - implementation run status
+    - criteria satisfaction (latest-check-wins)
+    - open mandatory todos
+    - dependency blockers
+    - can_finish_passed flag
+    - blocker list with hints
+    """
+    run = run or _optional_run(workspace_root, task, task.latest_validation_run)
+    
+    report: dict[str, object] = {
+        "kind": "validation_status",
+        "task_id": task.id,
+        "task_slug": task.slug,
+        "status_stage": task.status_stage,
+        "active_stage": None,
+        "run_id": run.run_id if run else None,
+        "can_finish_passed": False,
+    }
+    
+    report["accepted_plan"] = {}
+    if task.accepted_plan_version is not None:
+        accepted_plan = resolve_plan(
+            workspace_root,
+            task.id,
+            version=task.accepted_plan_version,
+        )
+        report["accepted_plan"] = {
+            "version": task.accepted_plan_version,
+            "status": accepted_plan.status,
+        }
+    
+    report["implementation"] = {}
+    impl_run = _optional_run(workspace_root, task, task.latest_implementation_run)
+    if impl_run:
+        report["implementation"] = {
+            "run_id": impl_run.run_id,
+            "status": impl_run.status,
+            "satisfied": impl_run.status == "finished",
+        }
+    
+    report["criteria"] = []
+    missing_criteria = []
+    failing_criteria = []
+    
+    if task.accepted_plan_version is not None:
+        accepted_plan = resolve_plan(
+            workspace_root,
+            task.id,
+            version=task.accepted_plan_version,
+        )
+        
+        checks_by_criterion: dict[str, list[ValidationCheck]] = {}
+        if run:
+            for check in run.checks:
+                if check.criterion_id is not None:
+                    checks_by_criterion.setdefault(check.criterion_id, []).append(check)
+        
+        for criterion in accepted_plan.criteria:
+            checks = checks_by_criterion.get(criterion.id, [])
+            
+            latest_check = checks[-1] if checks else None
+            latest_status = latest_check.status if latest_check else "not_run"
+            satisfied = (
+                latest_status == "pass"
+                or (latest_check and _criterion_has_user_waiver(latest_check))
+            )
+            
+            has_waiver = latest_check and _criterion_has_user_waiver(latest_check)
+            
+            blocker = []
+            if criterion.mandatory:
+                if latest_status == "fail":
+                    blocker = [{"kind": "criterion_fail", "message": f"Latest check failed"}]
+                    failing_criteria.append(criterion.id)
+                elif latest_status == "not_run":
+                    blocker = [{"kind": "criterion_missing", "message": "No passing check recorded"}]
+                    missing_criteria.append(criterion.id)
+                elif not satisfied and latest_status != "pass":
+                    blocker = [{"kind": "criterion_unsatisfied", "message": f"Latest check status: {latest_status}"}]
+                    missing_criteria.append(criterion.id)
+            
+            criterion_report = {
+                "id": criterion.id,
+                "text": criterion.text,
+                "mandatory": criterion.mandatory,
+                "latest_check_id": latest_check.id if latest_check else None,
+                "latest_status": latest_status,
+                "satisfied": satisfied,
+                "has_waiver": has_waiver,
+                "evidence": list(latest_check.evidence) if latest_check else [],
+                "history": [
+                    {"check_id": c.id, "status": c.status}
+                    for c in checks
+                ],
+                "blockers": blocker,
+            }
+            report["criteria"].append(criterion_report)
+    
+    report["todos"] = {"open_mandatory": []}
+    todos = load_todos(workspace_root, task.id).todos
+    open_todos = [todo.id for todo in todos if todo.mandatory and not todo.done]
+    report["todos"]["open_mandatory"] = open_todos
+    
+    report["dependencies"] = {"blockers": _dependency_blockers(workspace_root, task)}
+    
+    report["blockers"] = []
+    blockers: list[dict[str, object]] = []
+    
+    if task.accepted_plan_version is None:
+        blockers.append({
+            "kind": "no_accepted_plan",
+            "message": "No accepted plan is recorded.",
+            "command_hint": "taskledger plan propose ... && taskledger plan approve ...",
+        })
+    elif task.accepted_plan_version is not None:
+        accepted_plan = resolve_plan(
+            workspace_root,
+            task.id,
+            version=task.accepted_plan_version,
+        )
+        if accepted_plan.status != "accepted":
+            blockers.append({
+                "kind": "plan_not_accepted",
+                "message": f"Accepted plan record status is {accepted_plan.status}, not accepted.",
+            })
+    
+    if not impl_run or impl_run.status != "finished":
+        blockers.append({
+            "kind": "no_finished_implementation",
+            "message": "No finished implementation run is recorded.",
+            "command_hint": "taskledger implement start ... && taskledger implement finish ...",
+        })
+    
+    for missing_id in missing_criteria:
+        blockers.append({
+            "kind": "criterion_missing",
+            "ref": missing_id,
+            "message": f"Mandatory criterion {missing_id} has no passing check.",
+            "command_hint": f"taskledger validate check --criterion {missing_id} --status pass --evidence \"...\"",
+        })
+    
+    for failing_id in failing_criteria:
+        blockers.append({
+            "kind": "criterion_fail",
+            "ref": failing_id,
+            "message": f"Mandatory criterion {failing_id} has a failing check.",
+            "command_hint": f"taskledger validate check --criterion {failing_id} --status pass --evidence \"...\"",
+        })
+    
+    for todo_id in open_todos:
+        blockers.append({
+            "kind": "todo_open",
+            "ref": todo_id,
+            "message": f"Mandatory todo {todo_id} is not done.",
+            "command_hint": f"taskledger todo toggle {todo_id}",
+        })
+    
+    for dep_blocker in cast(list[str], report["dependencies"]["blockers"]):
+        blockers.append({
+            "kind": "dependency_blocker",
+            "ref": dep_blocker,
+            "message": f"Dependency {dep_blocker} blocks this task.",
+        })
+    
+    report["blockers"] = blockers
+    report["can_finish_passed"] = len(blockers) == 0
+    
+    return report
+
+
+def validation_status(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    run_id: str | None = None,
+) -> dict[str, object]:
+    """Get validation status report for a task.
+    
+    Public API wrapper for _build_validation_gate_report.
+    Returns the report along with status metadata.
+    """
+    task = resolve_task(workspace_root, task_ref)
+    run = None
+    if run_id:
+        from taskledger.storage.v2 import load_run
+        run = load_run(workspace_root, task.id, run_id)
+    
+    report = _build_validation_gate_report(workspace_root, task, run)
+    return {"kind": "validation_status", "result": report}
+
+
 def add_validation_check(
     workspace_root: Path,
     task_ref: str,
@@ -1541,6 +1800,21 @@ def add_validation_check(
             "Validation checks must reference --criterion unless status is not_run.",
             EXIT_CODE_BAD_INPUT,
         )
+    
+    if resolved_criterion is not None:
+        if task.accepted_plan_version is None:
+            raise _cli_error(
+                "Cannot add criterion check without an accepted plan. "
+                "Accept a plan first with: task accept-plan",
+                EXIT_CODE_BAD_INPUT,
+            )
+        accepted_plan = resolve_plan(
+            workspace_root,
+            task.id,
+            version=task.accepted_plan_version,
+        )
+        resolved_criterion = _resolve_criterion_ref(accepted_plan, resolved_criterion)
+    
     check = ValidationCheck(
         name=(name or resolved_criterion or check_id).strip(),
         id=check_id,
@@ -1549,6 +1823,69 @@ def add_validation_check(
         details=details.strip() if details else None,
         evidence=tuple(item.strip() for item in evidence if item.strip()),
     )
+    updated = replace(run, checks=tuple([*run.checks, check]))
+    save_run(workspace_root, updated)
+    return updated
+
+
+def waive_criterion(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    criterion_id: str,
+    reason: str,
+    actor_name: str | None = None,
+) -> TaskRunRecord:
+    """Record a criterion waiver for a validation check."""
+    task = resolve_task(workspace_root, task_ref)
+    run = _require_running_run(
+        workspace_root,
+        task,
+        task.latest_validation_run,
+        expected_type="validation",
+    )
+    _enforce_decision(
+        validation_check_decision(
+            task,
+            _lock_for_mutation(workspace_root, task.id),
+            run=run,
+        )
+    )
+    
+    if task.accepted_plan_version is None:
+        raise _cli_error(
+            "Cannot waive criterion without an accepted plan.",
+            EXIT_CODE_BAD_INPUT,
+        )
+    
+    accepted_plan = resolve_plan(
+        workspace_root,
+        task.id,
+        version=task.accepted_plan_version,
+    )
+    resolved_criterion = _resolve_criterion_ref(accepted_plan, criterion_id)
+    
+    if not reason.strip():
+        raise _cli_error("Waiver reason is required.", EXIT_CODE_BAD_INPUT)
+    
+    waiver = CriterionWaiver(
+        actor=ActorRef(
+            actor_type="user",
+            actor_name=(actor_name or getpass.getuser() or "user").strip(),
+            tool="manual",
+        ),
+        reason=reason.strip(),
+    )
+    
+    check_id = f"check-{len(run.checks) + 1:04d}"
+    check = ValidationCheck(
+        name=resolved_criterion,
+        id=check_id,
+        criterion_id=resolved_criterion,
+        status="pass",
+        waiver=waiver,
+    )
+    
     updated = replace(run, checks=tuple([*run.checks, check]))
     save_run(workspace_root, updated)
     return updated
@@ -1575,9 +1912,15 @@ def finish_validation(
     target_stage: TaskStatusStage = (
         "done" if normalized_result == "passed" else "failed_validation"
     )
+    if normalized_result == "passed":
+        run_status = "finished"
+    elif normalized_result == "blocked":
+        run_status = "blocked"
+    else:
+        run_status = "failed"
     finished = replace(
         run,
-        status="finished" if normalized_result == "passed" else "failed",
+        status=run_status,
         finished_at=utc_now_iso(),
         summary=summary.strip(),
         recommendation=recommendation,
@@ -1737,6 +2080,13 @@ def next_action(workspace_root: Path, task_ref: str) -> dict[str, object]:
         action, reason = "implement-finish", "Implementation is in progress."
     elif active_stage == "validation":
         action, reason = "validate-finish", "Validation is in progress."
+        gate_report = _build_validation_gate_report(workspace_root, task)
+        report_blockers = cast(list[dict[str, object]], gate_report.get("blockers", []))
+        for blocker in report_blockers:
+            blockers.append({
+                "kind": blocker.get("kind", "validation"),
+                "message": str(blocker.get("message", "Validation gate not satisfied")),
+            })
     elif task.status_stage == "draft":
         action, reason = "plan", "Draft tasks need planning before work starts."
     elif task.status_stage == "plan_review":
@@ -2416,59 +2766,34 @@ def _ensure_validation_can_pass(
     task: TaskRecord,
     run: TaskRunRecord,
 ) -> None:
-    if task.accepted_plan_version is None:
-        raise _validation_incomplete(
-            "Cannot mark validation passed because no accepted plan is recorded.",
-            {"missing": ["accepted_plan"]},
-        )
-    accepted_plan = resolve_plan(
-        workspace_root,
-        task.id,
-        version=task.accepted_plan_version,
-    )
-    if accepted_plan.status != "accepted":
-        raise _validation_incomplete(
-            "Cannot mark validation passed because the accepted plan record is not accepted.",
-            {"accepted_plan_status": accepted_plan.status},
-        )
-    impl_run = _optional_run(workspace_root, task, task.latest_implementation_run)
-    if (
-        impl_run is None
-        or impl_run.run_type != "implementation"
-        or impl_run.status != "finished"
-    ):
-        raise _validation_incomplete(
-            "Cannot mark validation passed without a finished implementation run.",
-            {"latest_implementation_run": task.latest_implementation_run},
-        )
-    checks_by_criterion: dict[str, list[ValidationCheck]] = {}
-    for check in run.checks:
-        if check.criterion_id is not None:
-            checks_by_criterion.setdefault(check.criterion_id, []).append(check)
-    missing: list[str] = []
-    failing: list[str] = []
-    for criterion in accepted_plan.criteria:
-        if not criterion.mandatory:
-            continue
-        checks = checks_by_criterion.get(criterion.id, [])
-        if any(check.status == "fail" for check in checks):
-            failing.append(criterion.id)
-        if not any(check.status == "pass" or _criterion_has_user_waiver(check) for check in checks):
-            missing.append(criterion.id)
-    open_todos = [
-        todo.id
-        for todo in load_todos(workspace_root, task.id).todos
-        if todo.mandatory and not todo.done
-    ]
-    dependency_blockers = _dependency_blockers(workspace_root, task)
-    if missing or failing or open_todos or dependency_blockers:
+    report = _build_validation_gate_report(workspace_root, task, run)
+    
+    if not cast(bool, report["can_finish_passed"]):
+        blockers = cast(list[dict[str, object]], report["blockers"])
+        missing_criteria = []
+        failing_criteria = []
+        open_todos = []
+        dependency_blockers = []
+        
+        for blocker in blockers:
+            kind = blocker.get("kind")
+            if kind == "criterion_missing":
+                missing_criteria.append(blocker.get("ref"))
+            elif kind == "criterion_fail":
+                failing_criteria.append(blocker.get("ref"))
+            elif kind == "todo_open":
+                open_todos.append(blocker.get("ref"))
+            elif kind == "dependency_blocker":
+                dependency_blockers.append(blocker.get("ref"))
+        
         raise _validation_incomplete(
             "Cannot mark validation passed because mandatory validation gates are incomplete.",
             {
-                "missing_criteria": missing,
-                "failing_criteria": failing,
+                "missing_criteria": missing_criteria,
+                "failing_criteria": failing_criteria,
                 "open_mandatory_todos": open_todos,
                 "dependency_blockers": dependency_blockers,
+                "blockers": blockers,
             },
         )
 
@@ -2483,6 +2808,111 @@ def _validation_incomplete(message: str, details: dict[str, object]) -> LaunchEr
     error.taskledger_error_code = "VALIDATION_INCOMPLETE"
     error.taskledger_data = details
     return error
+
+
+def _render_validation_status(payload: dict[str, object]) -> str:
+    """Render the validation gate report in human-readable text."""
+    lines: list[str] = []
+    
+    task_slug = payload.get("task_slug", payload.get("task_id", "unknown"))
+    task_id = payload.get("task_id", "")
+    lines.append(f"# Validation Status: {task_slug}")
+    if task_id:
+        lines.append(f"Task ID: {task_id}")
+    lines.append("")
+    
+    status_stage = payload.get("status_stage", "unknown")
+    run_id = payload.get("run_id")
+    lines.append(f"**Status Stage:** {status_stage}")
+    if run_id:
+        lines.append(f"**Run ID:** {run_id}")
+    lines.append("")
+    
+    active_stage = payload.get("active_stage")
+    if active_stage:
+        lines.append(f"**Active Stage:** {active_stage}")
+        lines.append("")
+    
+    accepted_plan = payload.get("accepted_plan", {})
+    if isinstance(accepted_plan, dict):
+        if accepted_plan:
+            plan_version = accepted_plan.get("version")
+            plan_status = accepted_plan.get("status", "unknown")
+            lines.append(f"**Accepted Plan:** Version {plan_version}, Status: {plan_status}")
+        else:
+            lines.append("**Accepted Plan:** None")
+    lines.append("")
+    
+    implementation = payload.get("implementation", {})
+    if isinstance(implementation, dict):
+        if implementation:
+            impl_run_id = implementation.get("run_id")
+            impl_status = implementation.get("status", "unknown")
+            impl_satisfied = implementation.get("satisfied", False)
+            lines.append(f"**Implementation:** Run {impl_run_id}, Status: {impl_status}")
+            lines.append(f"  Satisfied: {'✓' if impl_satisfied else '✗'}")
+        else:
+            lines.append("**Implementation:** None")
+    lines.append("")
+    
+    criteria = payload.get("criteria", [])
+    if criteria:
+        lines.append("## Acceptance Criteria")
+        for criterion in criteria:
+            if isinstance(criterion, dict):
+                criterion_id = criterion.get("id", "unknown")
+                text = criterion.get("text", "")
+                mandatory = criterion.get("mandatory", False)
+                satisfied = criterion.get("satisfied", False)
+                has_waiver = criterion.get("has_waiver", False)
+                latest_status = criterion.get("latest_status", "unknown")
+                
+                checkbox = "☒" if satisfied else "☐"
+                mandatory_marker = " (mandatory)" if mandatory else ""
+                lines.append(f"  {checkbox} {criterion_id}{mandatory_marker}")
+                if text:
+                    lines.append(f"      {text[:80]}...")
+                lines.append(f"      Status: {latest_status}")
+                if has_waiver:
+                    lines.append(f"      ✓ Waived")
+        lines.append("")
+    
+    todos_obj = payload.get("todos", {})
+    if isinstance(todos_obj, dict):
+        open_todos = todos_obj.get("open_mandatory", [])
+        if open_todos:
+            lines.append("## Open Mandatory Todos")
+            for todo_id in open_todos:
+                lines.append(f"  - {todo_id}")
+            lines.append("")
+    
+    dependencies_obj = payload.get("dependencies", {})
+    if isinstance(dependencies_obj, dict):
+        dep_blockers = dependencies_obj.get("blockers", [])
+        if dep_blockers:
+            lines.append("## Dependency Blockers")
+            for blocker_id in dep_blockers:
+                lines.append(f"  - {blocker_id}")
+            lines.append("")
+    
+    can_finish_passed = payload.get("can_finish_passed", False)
+    lines.append(f"## Result")
+    lines.append(f"**Can Finish Passed:** {'✓ Yes' if can_finish_passed else '✗ No'}")
+    
+    blockers = payload.get("blockers", [])
+    if blockers and not can_finish_passed:
+        lines.append("")
+        lines.append("### Blocking Issues")
+        for blocker in blockers:
+            if isinstance(blocker, dict):
+                kind = blocker.get("kind", "unknown")
+                message = blocker.get("message", "")
+                lines.append(f"  - **{kind}**: {message}")
+                hint = blocker.get("command_hint")
+                if hint:
+                    lines.append(f"    Hint: `{hint}`")
+    
+    return "\n".join(lines)
 
 
 def _approval_actor(
@@ -2698,3 +3128,20 @@ def _write_broken_lock_audit(paths: V2Paths, task_id: str, lock: TaskLock) -> Pa
         yaml.safe_dump(lock.to_dict(), sort_keys=False, allow_unicode=True),
     )
     return path
+
+
+def validation_status(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    run_id: str | None = None,
+) -> dict[str, object]:
+    """Get validation status report for a task."""
+    task = resolve_task(workspace_root, task_ref)
+    run = None
+    if run_id:
+        from taskledger.storage.v2 import load_run
+        run = load_run(workspace_root, task.id, run_id)
+    
+    report = _build_validation_gate_report(workspace_root, task, run)
+    return {"kind": "validation_status", "result": report}

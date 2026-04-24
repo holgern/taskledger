@@ -58,6 +58,8 @@ COMMAND_METADATA: dict[str, tuple[str, str]] = {
     "validate check": (STABLE_FOR_AGENTS, "ledger_mutation"),
     "validate add-check": (STABLE_FOR_AGENTS, "ledger_mutation"),
     "validate finish": (STABLE_FOR_AGENTS, "ledger_mutation"),
+    "validate status": (STABLE_FOR_AGENTS, "safe_read_only"),
+    "validate waive": (STABLE_FOR_AGENTS, "ledger_mutation"),
     "validate show": (STABLE_FOR_AGENTS, "safe_read_only"),
     "todo add": (STABLE_FOR_AGENTS, "ledger_mutation"),
     "todo list": (STABLE_FOR_AGENTS, "safe_read_only"),

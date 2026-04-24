@@ -9,6 +9,8 @@ from taskledger.api.task_runs import (
     finish_validation,
     show_task_run,
     start_validation,
+    validation_status,
+    waive_criterion,
 )
 from taskledger.cli_common import (
     cli_state_from_context,
@@ -18,6 +20,84 @@ from taskledger.cli_common import (
     resolve_cli_task,
 )
 from taskledger.errors import LaunchError
+
+
+def _render_validation_status(payload: dict[str, object]) -> str:
+    """Render validation gate report to human-readable text."""
+    lines = []
+    
+    task_id = payload.get("task_id", "?")
+    task_slug = payload.get("task_slug", "?")
+    lines.append(f"Validation status for {task_slug} ({task_id})")
+    lines.append("")
+    
+    run_id = payload.get("run_id", "?")
+    lines.append(f"Run: {run_id}")
+    lines.append("")
+    
+    accepted_plan = payload.get("accepted_plan", {})
+    plan_version = accepted_plan.get("version", "none")
+    plan_status = accepted_plan.get("status", "none")
+    lines.append(f"Accepted plan: v{plan_version} {plan_status}")
+    
+    implementation = payload.get("implementation", {})
+    impl_run_id = implementation.get("run_id", "none")
+    impl_status = implementation.get("status", "none")
+    lines.append(f"Implementation: {impl_run_id} {impl_status}")
+    lines.append("")
+    
+    lines.append("Criteria:")
+    criteria = payload.get("criteria", [])
+    for crit in criteria:
+        crit_id = crit.get("id", "?")
+        mandatory = "[mandatory]" if crit.get("mandatory") else ""
+        latest_status = crit.get("latest_status", "not_run")
+        satisfied = crit.get("satisfied", False)
+        checkbox = "[x]" if satisfied else "[ ]"
+        text = crit.get("text", "")
+        lines.append(f"  {checkbox} {crit_id} {mandatory} {latest_status}")
+        if text:
+            lines.append(f"      {text}")
+        evidence = crit.get("evidence", [])
+        if evidence:
+            lines.append(f"      evidence: {', '.join(evidence)}")
+    lines.append("")
+    
+    todos = payload.get("todos", {})
+    open_todos = todos.get("open_mandatory", [])
+    if open_todos:
+        lines.append("Mandatory todos:")
+        for todo_id in open_todos:
+            lines.append(f"  [ ] {todo_id}")
+        lines.append("")
+    
+    dependencies = payload.get("dependencies", {})
+    dep_blockers = dependencies.get("blockers", [])
+    if dep_blockers:
+        lines.append("Dependencies:")
+        for blocker in dep_blockers:
+            lines.append(f"  - {blocker}")
+        lines.append("")
+    
+    can_finish = payload.get("can_finish_passed", False)
+    lines.append(f"Can finish passed: {'yes' if can_finish else 'no'}")
+    
+    blockers = payload.get("blockers", [])
+    if blockers:
+        lines.append("")
+        lines.append("Blockers:")
+        for blocker in blockers:
+            kind = blocker.get("kind", "?")
+            ref = blocker.get("ref", "")
+            message = blocker.get("message", "")
+            hint = blocker.get("command_hint", "")
+            ref_str = f" {ref}" if ref else ""
+            lines.append(f"  - {kind}{ref_str}: {message}")
+            if hint:
+                lines.append(f"    {hint}")
+    
+    return "\n".join(lines)
+
 
 
 def register_validate_v2_commands(app: typer.Typer) -> None:
@@ -155,9 +235,59 @@ def register_validate_v2_commands(app: typer.Typer) -> None:
                 run_id=run_id,
                 run_type="validation",
             )
+            status_payload = validation_status(state.cwd, task.id, run_id=run_id)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         run = payload["run"]
         assert isinstance(run, dict)
-        emit_payload(ctx, payload, human=f"{run['run_id']}  {run['status']}")
+        status_result = status_payload.get("result", {})
+        human_output = _render_validation_status(status_result)
+        emit_payload(ctx, payload, human=human_output)
+
+    @app.command("status")
+    def status_command(
+        ctx: typer.Context,
+        task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        run: Annotated[str | None, typer.Option("--run")] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = resolve_cli_task(state.cwd, task_ref)
+            payload = validation_status(state.cwd, task.id, run_id=run)
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        result = payload.get("result", {})
+        human_output = _render_validation_status(result)
+        emit_payload(ctx, payload, human=human_output)
+
+    @app.command("waive")
+    def waive_command(
+        ctx: typer.Context,
+        criterion: Annotated[str, typer.Option("--criterion")],
+        reason: Annotated[str, typer.Option("--reason")],
+        actor: Annotated[str, typer.Option("--actor")] = "user",
+        task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            if actor != "user":
+                raise LaunchError("Only user actors can waive criteria.")
+            task = resolve_cli_task(state.cwd, task_ref)
+            run = waive_criterion(
+                state.cwd,
+                task.id,
+                criterion_id=criterion,
+                reason=reason,
+            )
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, run.to_dict(), human=f"waived criterion {criterion}")

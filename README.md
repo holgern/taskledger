@@ -54,6 +54,7 @@ taskledger implement finish --summary "Implemented the approved plan."
 
 taskledger context --for validation --format markdown
 taskledger validate start
+taskledger validate status
 taskledger validate check --criterion ac-0001 --status pass --evidence "pytest -q tests/test_taskledger_v2_cli.py"
 taskledger validate finish --result passed --summary "Validated the rewrite."
 ```

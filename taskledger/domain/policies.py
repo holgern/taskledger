@@ -29,6 +29,9 @@ class Decision:
         return self.message
 
 
+PolicyDecision = Decision
+
+
 @dataclass(frozen=True)
 class PolicyContext:
     task: TaskRecord

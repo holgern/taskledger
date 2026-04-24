@@ -92,7 +92,8 @@ def emit_error(
             )
         )
     else:
-        typer.echo(message, err=True)
+        human_output = _format_human_error(error)
+        typer.echo(human_output, err=True)
 
 
 def launch_error_exit_code(exc: Exception, default: int = 1) -> int:
@@ -377,6 +378,72 @@ def _default_remediation(exit_code: int) -> list[str]:
         6: ["Run `taskledger doctor` and repair the ledger state before retrying."],
         7: ["Review the recorded validation results and resolve the failing checks."],
     }.get(exit_code, [])
+
+
+def _format_human_error(error: Exception | str) -> str:
+    """Format error for human-readable output with special handling for validation errors."""
+    message = str(error)
+    error_code = None
+    error_data = {}
+    
+    if isinstance(error, Exception):
+        error_code = getattr(error, "taskledger_error_code", None)
+        payload = getattr(error, "taskledger_data", None)
+        if isinstance(payload, dict):
+            error_data = payload
+    
+    if error_code == "VALIDATION_INCOMPLETE":
+        lines = [f"Error: {message}", ""]
+        
+        missing_criteria = error_data.get("missing_criteria", [])
+        if missing_criteria and isinstance(missing_criteria, list):
+            lines.append("Missing Mandatory Criteria:")
+            for criterion in missing_criteria:
+                lines.append(f"  • {criterion}")
+            lines.append("")
+        
+        failing_criteria = error_data.get("failing_criteria", [])
+        if failing_criteria and isinstance(failing_criteria, list):
+            lines.append("Failing Mandatory Criteria:")
+            for criterion in failing_criteria:
+                lines.append(f"  ✗ {criterion}")
+            lines.append("")
+        
+        open_mandatory_todos = error_data.get("open_mandatory_todos", [])
+        if open_mandatory_todos and isinstance(open_mandatory_todos, list):
+            lines.append("Open Mandatory Todos:")
+            for todo_id in open_mandatory_todos:
+                lines.append(f"  ☐ {todo_id}")
+            lines.append("")
+        
+        dependency_blockers = error_data.get("dependency_blockers", [])
+        if dependency_blockers and isinstance(dependency_blockers, list):
+            lines.append("Dependency Blockers:")
+            for blocker in dependency_blockers:
+                lines.append(f"  - {blocker}")
+            lines.append("")
+        
+        blockers = error_data.get("blockers", [])
+        if blockers and isinstance(blockers, list):
+            lines.append("Blocking Issues:")
+            for blocker in blockers:
+                if isinstance(blocker, dict):
+                    kind = blocker.get("kind", "unknown")
+                    msg = blocker.get("message", "")
+                    hint = blocker.get("command_hint", "")
+                    lines.append(f"  [{kind}] {msg}")
+                    if hint:
+                        lines.append(f"    Command: {hint}")
+            lines.append("")
+        
+        lines.append("Next Steps:")
+        lines.append("  1. Review the blocking issues above")
+        lines.append("  2. Address the validation gates")
+        lines.append("  3. Run 'taskledger validate status' to check progress")
+        
+        return "\n".join(lines)
+    
+    return message
 
 
 def _task_id_from_value(value: Any) -> str | None:

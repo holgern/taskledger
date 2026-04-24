@@ -113,6 +113,8 @@ from taskledger.errors import (
 - `show_task_run`
 - `start_validation`
 - `add_validation_check`
+- `validation_status`
+- `waive_criterion`
 - `finish_validation`
 - `list_runs`
 - `list_changes`
