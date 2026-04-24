@@ -22,7 +22,6 @@ from taskledger.domain.models import (
     TodoCollection,
 )
 from taskledger.errors import ActiveTaskNotFound, LaunchError, NoActiveTask
-from taskledger.storage import resolve_taskledger_root
 from taskledger.storage.atomic import atomic_write_text
 from taskledger.storage.frontmatter import (
     normalize_front_matter_newlines,
@@ -30,6 +29,7 @@ from taskledger.storage.frontmatter import (
     write_markdown_front_matter,
 )
 from taskledger.storage.locks import read_lock
+from taskledger.storage.paths import resolve_taskledger_root
 
 T = TypeVar("T")
 
@@ -185,9 +185,15 @@ def save_task(workspace_root: Path, task: TaskRecord) -> TaskRecord:
     metadata.pop("requirements", None)
     _write_markdown_record(path, metadata, task.body)
     if not task_todos_path(paths, task.id).exists():
-        _write_yaml(path=task_todos_path(paths, task.id), payload=_todo_collection(task))
+        _write_yaml(
+            path=task_todos_path(paths, task.id),
+            payload=_todo_collection(task),
+        )
     if not task_links_path(paths, task.id).exists():
-        _write_yaml(path=task_links_path(paths, task.id), payload=_link_collection(task))
+        _write_yaml(
+            path=task_links_path(paths, task.id),
+            payload=_link_collection(task),
+        )
     if not task_requirements_path(paths, task.id).exists():
         _write_yaml(
             path=task_requirements_path(paths, task.id),
@@ -533,7 +539,8 @@ def _requirement_collection(task: TaskRecord) -> dict[str, object]:
     return RequirementCollection(
         task_id=task.id,
         requirements=tuple(
-            DependencyRequirement(task_id=requirement) for requirement in task.requirements
+            DependencyRequirement(task_id=requirement)
+            for requirement in task.requirements
         ),
     ).to_dict()
 

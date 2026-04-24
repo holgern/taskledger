@@ -18,7 +18,7 @@ from taskledger.search import (
 from taskledger.search import (
     symbols_project as _symbols_project,
 )
-from taskledger.storage import ensure_project_exists
+from taskledger.storage.init import ensure_project_exists
 
 
 def search_workspace(

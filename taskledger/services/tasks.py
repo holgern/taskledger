@@ -35,7 +35,7 @@ from taskledger.domain.models import (
     ValidationCheck,
 )
 from taskledger.domain.policies import (
-    PolicyDecision,
+    Decision,
     derive_active_stage,
     implementation_mutation_decision,
     metadata_edit_decision,
@@ -2197,7 +2197,7 @@ def _lock_conflict_message(task_id: str, lock: TaskLock) -> str:
     return f"Task {task_id} is locked by {lock.run_id} for {lock.stage}."
 
 
-def _enforce_decision(decision: PolicyDecision) -> None:
+def _enforce_decision(decision: Decision) -> None:
     if decision.ok:
         return
     raise _cli_error(decision.reason, decision.exit_code)

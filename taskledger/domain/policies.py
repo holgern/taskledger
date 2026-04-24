@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from taskledger.domain.models import TaskLock, TaskRecord, TaskRunRecord
 from taskledger.domain.states import (
@@ -27,13 +27,6 @@ class Decision:
     @property
     def reason(self) -> str:
         return self.message
-
-
-@dataclass(frozen=True)
-class PolicyDecision:
-    ok: bool
-    reason: str
-    exit_code: int
 
 
 @dataclass(frozen=True)
@@ -72,13 +65,19 @@ def build_policy_context(
     return PolicyContext(task=task, lock=lock, run=run, active_stage=active_stage)
 
 
-def _modern(decision: PolicyDecision, code: str) -> Decision:
+def _policy_decision(ok: bool, reason: str, exit_code: int) -> Decision:
     return Decision(
-        allowed=decision.ok,
-        code="OK" if decision.ok else code,
-        message=decision.reason,
-        exit_code=decision.exit_code,
+        allowed=ok,
+        code="OK" if ok else "POLICY_DENIED",
+        message=reason,
+        exit_code=exit_code,
     )
+
+
+def _with_denial_code(decision: Decision, code: str) -> Decision:
+    if decision.allowed:
+        return decision
+    return replace(decision, code=code)
 
 
 def can_start_planning(task: TaskRecord, ledger: object) -> Decision:
@@ -97,14 +96,17 @@ def can_start_planning(task: TaskRecord, ledger: object) -> Decision:
 
 
 def can_propose_plan(task: TaskRecord, run: TaskRunRecord, ledger: object) -> Decision:
-    return _modern(
+    return _with_denial_code(
         plan_propose_decision(task, getattr(ledger, "lock", None), run=run),
         "RUN_LOCK_MISMATCH",
     )
 
 
 def can_approve_plan(task: TaskRecord, plan: object, ledger: object) -> Decision:
-    return _modern(plan_approve_decision(task, getattr(ledger, "lock", None)), "TASK_NOT_IN_REVIEW")
+    return _with_denial_code(
+        plan_approve_decision(task, getattr(ledger, "lock", None)),
+        "TASK_NOT_IN_REVIEW",
+    )
 
 
 def can_start_implementation(task: TaskRecord, ledger: object) -> Decision:
@@ -121,14 +123,21 @@ def can_start_implementation(task: TaskRecord, ledger: object) -> Decision:
         message=(
             "Implementation can start."
             if allowed
-            else "Implementation requires approved state, an accepted plan, and no active lock."
+            else (
+                "Implementation requires approved state, an accepted plan, "
+                "and no active lock."
+            )
         ),
         exit_code=0 if allowed else EXIT_CODE_APPROVAL_REQUIRED,
     )
 
 
-def can_finish_implementation(task: TaskRecord, run: TaskRunRecord, ledger: object) -> Decision:
-    return _modern(
+def can_finish_implementation(
+    task: TaskRecord,
+    run: TaskRunRecord,
+    ledger: object,
+) -> Decision:
+    return _with_denial_code(
         implementation_mutation_decision(
             task,
             getattr(ledger, "lock", None),
@@ -154,16 +163,25 @@ def can_start_validation(task: TaskRecord, ledger: object) -> Decision:
     )
 
 
-def can_finish_validation(task: TaskRecord, run: TaskRunRecord, ledger: object) -> Decision:
-    return _modern(
+def can_finish_validation(
+    task: TaskRecord,
+    run: TaskRunRecord,
+    ledger: object,
+) -> Decision:
+    return _with_denial_code(
         validation_check_decision(task, getattr(ledger, "lock", None), run=run),
         "RUN_LOCK_MISMATCH",
     )
 
 
-def can_mark_todo_done(task: TaskRecord, todo: object, actor: object, ledger: object) -> Decision:
+def can_mark_todo_done(
+    task: TaskRecord,
+    todo: object,
+    actor: object,
+    ledger: object,
+) -> Decision:
     actor_role = getattr(actor, "actor_type", "user")
-    return _modern(
+    return _with_denial_code(
         todo_toggle_decision(
             task,
             getattr(ledger, "lock", None),
@@ -173,16 +191,16 @@ def can_mark_todo_done(task: TaskRecord, todo: object, actor: object, ledger: ob
     )
 
 
-def metadata_edit_decision(task: TaskRecord, lock: TaskLock | None) -> PolicyDecision:
+def metadata_edit_decision(task: TaskRecord, lock: TaskLock | None) -> Decision:
     ctx = build_policy_context(task, lock)
     if ctx.task.status_stage not in {"draft", "plan_review", "approved"}:
-        return PolicyDecision(
+        return _policy_decision(
             False,
             "Task metadata can only be edited in draft, plan_review, or approved.",
             EXIT_CODE_INVALID_TRANSITION,
         )
     if ctx.active_stage is not None:
-        return PolicyDecision(
+        return _policy_decision(
             False,
             (
                 f"Task {ctx.task.id} is locked for {ctx.active_stage}. "
@@ -190,7 +208,7 @@ def metadata_edit_decision(task: TaskRecord, lock: TaskLock | None) -> PolicyDec
             ),
             EXIT_CODE_LOCK_CONFLICT,
         )
-    return PolicyDecision(True, "Task metadata can be edited.", 0)
+    return _policy_decision(True, "Task metadata can be edited.", 0)
 
 
 def todo_add_decision(
@@ -198,7 +216,7 @@ def todo_add_decision(
     lock: TaskLock | None,
     *,
     actor_role: str,
-) -> PolicyDecision:
+) -> Decision:
     ctx = build_policy_context(task, lock)
     if ctx.active_stage == "planning":
         return _active_stage_lock_decision(
@@ -211,12 +229,12 @@ def todo_add_decision(
         "plan_review",
         "approved",
     }:
-        return PolicyDecision(
+        return _policy_decision(
             False,
             "Todos can only be added before implementation starts.",
             EXIT_CODE_INVALID_TRANSITION,
         )
-    return PolicyDecision(True, f"{actor_role} can add a todo.", 0)
+    return _policy_decision(True, f"{actor_role} can add a todo.", 0)
 
 
 def todo_toggle_decision(
@@ -224,7 +242,7 @@ def todo_toggle_decision(
     lock: TaskLock | None,
     *,
     actor_role: str,
-) -> PolicyDecision:
+) -> Decision:
     ctx = build_policy_context(task, lock)
     if ctx.active_stage == "implementation":
         return _active_stage_lock_decision(
@@ -232,19 +250,22 @@ def todo_toggle_decision(
             expected_stage="implementing",
             action="toggle todos during implementation",
         )
-    if ctx.active_stage == "validation" or ctx.task.status_stage in {"cancelled", "done"}:
-        return PolicyDecision(
+    if ctx.active_stage == "validation" or ctx.task.status_stage in {
+        "cancelled",
+        "done",
+    }:
+        return _policy_decision(
             False,
             f"Todos cannot be toggled while the task is {ctx.task.status_stage}.",
             EXIT_CODE_INVALID_TRANSITION,
         )
     if actor_role != "user":
-        return PolicyDecision(
+        return _policy_decision(
             False,
             "Only the user may toggle todos outside implementation.",
             EXIT_CODE_INVALID_TRANSITION,
         )
-    return PolicyDecision(True, f"{actor_role} can toggle todos.", 0)
+    return _policy_decision(True, f"{actor_role} can toggle todos.", 0)
 
 
 def question_add_decision(
@@ -252,13 +273,13 @@ def question_add_decision(
     lock: TaskLock | None,
     *,
     actor_role: str,
-) -> PolicyDecision:
+) -> Decision:
     ctx = build_policy_context(task, lock)
     if ctx.active_stage not in {None, "planning"} or ctx.task.status_stage not in {
         "draft",
         "plan_review",
     }:
-        return PolicyDecision(
+        return _policy_decision(
             False,
             "Questions can only be added during planning or plan review.",
             EXIT_CODE_INVALID_TRANSITION,
@@ -269,7 +290,7 @@ def question_add_decision(
             expected_stage="planning",
             action="add questions during planning",
         )
-    return PolicyDecision(True, f"{actor_role} can add a question.", 0)
+    return _policy_decision(True, f"{actor_role} can add a question.", 0)
 
 
 def question_mutation_decision(
@@ -277,13 +298,13 @@ def question_mutation_decision(
     lock: TaskLock | None,
     *,
     actor_role: str,
-) -> PolicyDecision:
+) -> Decision:
     ctx = build_policy_context(task, lock)
     if ctx.active_stage not in {None, "planning"} or ctx.task.status_stage not in {
         "draft",
         "plan_review",
     }:
-        return PolicyDecision(
+        return _policy_decision(
             False,
             "Questions can only be updated during planning or plan review.",
             EXIT_CODE_INVALID_TRANSITION,
@@ -294,7 +315,7 @@ def question_mutation_decision(
             expected_stage="planning",
             action="update questions during planning",
         )
-    return PolicyDecision(True, f"{actor_role} can update the question.", 0)
+    return _policy_decision(True, f"{actor_role} can update the question.", 0)
 
 
 def plan_propose_decision(
@@ -302,16 +323,19 @@ def plan_propose_decision(
     lock: TaskLock | None,
     *,
     run: TaskRunRecord | None,
-) -> PolicyDecision:
+) -> Decision:
     ctx = build_policy_context(task, lock, run=run)
-    if ctx.task.status_stage not in {"draft", "plan_review"} or ctx.active_stage != "planning":
-        return PolicyDecision(
+    if (
+        ctx.task.status_stage not in {"draft", "plan_review"}
+        or ctx.active_stage != "planning"
+    ):
+        return _policy_decision(
             False,
             "Plan proposals require active planning.",
             EXIT_CODE_INVALID_TRANSITION,
         )
     if ctx.run is None or ctx.run.run_type != "planning" or ctx.run.status != "running":
-        return PolicyDecision(
+        return _policy_decision(
             False,
             "Plan proposals require an active planning run.",
             EXIT_CODE_INVALID_TRANSITION,
@@ -324,16 +348,16 @@ def plan_propose_decision(
     )
 
 
-def plan_approve_decision(task: TaskRecord, lock: TaskLock | None) -> PolicyDecision:
+def plan_approve_decision(task: TaskRecord, lock: TaskLock | None) -> Decision:
     ctx = build_policy_context(task, lock)
     if ctx.task.status_stage != "plan_review":
-        return PolicyDecision(
+        return _policy_decision(
             False,
             "Plan approval requires plan_review state.",
             EXIT_CODE_APPROVAL_REQUIRED,
         )
     if ctx.active_stage is not None:
-        return PolicyDecision(
+        return _policy_decision(
             False,
             (
                 f"Task {ctx.task.id} still has a {ctx.active_stage} lock. "
@@ -341,19 +365,19 @@ def plan_approve_decision(task: TaskRecord, lock: TaskLock | None) -> PolicyDeci
             ),
             EXIT_CODE_LOCK_CONFLICT,
         )
-    return PolicyDecision(True, "Plan can be approved.", 0)
+    return _policy_decision(True, "Plan can be approved.", 0)
 
 
-def plan_revise_decision(task: TaskRecord, lock: TaskLock | None) -> PolicyDecision:
+def plan_revise_decision(task: TaskRecord, lock: TaskLock | None) -> Decision:
     ctx = build_policy_context(task, lock)
     if ctx.task.status_stage != "plan_review":
-        return PolicyDecision(
+        return _policy_decision(
             False,
             "Plan revision requires plan_review state.",
             EXIT_CODE_INVALID_TRANSITION,
         )
     if ctx.active_stage is not None:
-        return PolicyDecision(
+        return _policy_decision(
             False,
             (
                 f"Task {ctx.task.id} still has a {ctx.active_stage} lock. "
@@ -361,7 +385,7 @@ def plan_revise_decision(task: TaskRecord, lock: TaskLock | None) -> PolicyDecis
             ),
             EXIT_CODE_LOCK_CONFLICT,
         )
-    return PolicyDecision(True, "Plan can be revised.", 0)
+    return _policy_decision(True, "Plan can be revised.", 0)
 
 
 def implementation_mutation_decision(
@@ -370,19 +394,23 @@ def implementation_mutation_decision(
     *,
     run: TaskRunRecord | None,
     action: str,
-) -> PolicyDecision:
+) -> Decision:
     ctx = build_policy_context(task, lock, run=run)
     if (
         ctx.task.status_stage not in {"approved", "failed_validation"}
         or ctx.active_stage != "implementation"
     ):
-        return PolicyDecision(
+        return _policy_decision(
             False,
             f"{action} requires active implementation.",
             EXIT_CODE_INVALID_TRANSITION,
         )
-    if ctx.run is None or ctx.run.run_type != "implementation" or ctx.run.status != "running":
-        return PolicyDecision(
+    if (
+        ctx.run is None
+        or ctx.run.run_type != "implementation"
+        or ctx.run.status != "running"
+    ):
+        return _policy_decision(
             False,
             f"{action} requires an active implementation run.",
             EXIT_CODE_INVALID_TRANSITION,
@@ -400,16 +428,20 @@ def validation_check_decision(
     lock: TaskLock | None,
     *,
     run: TaskRunRecord | None,
-) -> PolicyDecision:
+) -> Decision:
     ctx = build_policy_context(task, lock, run=run)
     if ctx.task.status_stage != "implemented" or ctx.active_stage != "validation":
-        return PolicyDecision(
+        return _policy_decision(
             False,
             "Validation checks require active validation.",
             EXIT_CODE_INVALID_TRANSITION,
         )
-    if ctx.run is None or ctx.run.run_type != "validation" or ctx.run.status != "running":
-        return PolicyDecision(
+    if (
+        ctx.run is None
+        or ctx.run.run_type != "validation"
+        or ctx.run.status != "running"
+    ):
+        return _policy_decision(
             False,
             "Validation checks require an active validation run.",
             EXIT_CODE_INVALID_TRANSITION,
@@ -428,9 +460,9 @@ def _active_stage_lock_decision(
     expected_stage: str,
     action: str,
     expected_run_id: str | None = None,
-) -> PolicyDecision:
+) -> Decision:
     if ctx.lock is None:
-        return PolicyDecision(
+        return _policy_decision(
             False,
             f"Task {ctx.task.id} needs an active {expected_stage} lock to {action}.",
             EXIT_CODE_LOCK_CONFLICT,
@@ -441,21 +473,22 @@ def _active_stage_lock_decision(
         "validating": "validation",
     }[expected_stage]
     if ctx.lock.run_type != expected_run_type:
-        return PolicyDecision(
+        return _policy_decision(
             False,
             f"Task {ctx.task.id} is locked for {ctx.lock.stage}, not {expected_stage}.",
             EXIT_CODE_LOCK_CONFLICT,
         )
     if expected_run_id is not None and ctx.lock.run_id != expected_run_id:
-        return PolicyDecision(
+        return _policy_decision(
             False,
             (
-                f"Task {ctx.task.id} has a {expected_stage} lock for {ctx.lock.run_id}, "
+                f"Task {ctx.task.id} has a {expected_stage} lock for "
+                f"{ctx.lock.run_id}, "
                 f"not {expected_run_id}."
             ),
             EXIT_CODE_LOCK_CONFLICT,
         )
-    return PolicyDecision(True, f"Task can {action}.", 0)
+    return _policy_decision(True, f"Task can {action}.", 0)
 
 
 def require_known_actor_role(actor_role: str) -> str:

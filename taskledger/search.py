@@ -10,7 +10,7 @@ from typing import Literal
 
 from taskledger.errors import LaunchError
 from taskledger.models import ProjectPaths, ProjectRepo
-from taskledger.storage import load_repos, resolve_repo, resolve_repo_root
+from taskledger.storage.repos import load_repos, resolve_repo, resolve_repo_root
 
 SearchMatchKind = Literal["path", "content", "symbol"]
 

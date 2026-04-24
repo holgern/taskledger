@@ -24,3 +24,46 @@ def test_inventory_marks_core_and_repair_commands() -> None:
     assert COMMAND_METADATA["plan approve"][0] == STABLE_FOR_AGENTS
     assert COMMAND_METADATA["lock break"][0] == REPAIR
     assert COMMAND_METADATA["doctor"][0] == REPAIR
+
+
+def test_mutating_commands_are_not_marked_safe_read_only() -> None:
+    mutating_suffixes = {
+        "activate",
+        "add",
+        "add-change",
+        "answer",
+        "approve",
+        "artifact",
+        "break",
+        "cancel",
+        "change",
+        "check",
+        "clear-active",
+        "close",
+        "command",
+        "create",
+        "deactivate",
+        "deviation",
+        "dismiss",
+        "done",
+        "edit",
+        "finish",
+        "index",
+        "link",
+        "log",
+        "propose",
+        "reject",
+        "remove",
+        "revise",
+        "scan-changes",
+        "start",
+        "task",
+        "undone",
+        "unlink",
+        "waive",
+    }
+
+    for command, (_, effect) in COMMAND_METADATA.items():
+        assert not (
+            command.split()[-1] in mutating_suffixes and effect == "safe_read_only"
+        ), command

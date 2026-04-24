@@ -13,7 +13,8 @@ from taskledger.search import (
     search_project,
     symbols_project,
 )
-from taskledger.storage import add_repo, init_project_state
+from taskledger.storage.init import init_project_state
+from taskledger.storage.repos import add_repo
 
 
 def setup_repo_with_files(

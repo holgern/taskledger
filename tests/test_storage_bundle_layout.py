@@ -31,6 +31,14 @@ def test_task_create_uses_task_bundle_layout(tmp_path: Path) -> None:
     assert (project_dir / "tasks").is_dir()
     assert (project_dir / "events").is_dir()
     assert (project_dir / "indexes").is_dir()
+    for legacy_name in (
+        "items",
+        "memories",
+        "contexts",
+        "stages",
+        "workflows",
+    ):
+        assert not (project_dir / legacy_name).exists()
 
     result = runner.invoke(
         app,

@@ -11,8 +11,9 @@ from taskledger.exchange import (
     write_project_snapshot,
 )
 from taskledger.services.doctor_v2 import inspect_v2_project
-from taskledger.storage import init_project_state, resolve_taskledger_root
+from taskledger.storage.init import init_project_state
 from taskledger.storage.locks import lock_is_expired
+from taskledger.storage.paths import resolve_taskledger_root
 from taskledger.storage.v2 import (
     list_changes,
     list_introductions,

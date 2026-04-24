@@ -124,3 +124,15 @@ def test_task_first_subcommands_are_registered(tmp_path: Path) -> None:
         assert result.exit_code == 0
         for subcommand in subcommands:
             assert subcommand in result.stdout
+
+
+def test_file_and_link_help_describe_distinct_surfaces(tmp_path: Path) -> None:
+    runner.invoke(app, ["--cwd", str(tmp_path), "init"])
+
+    file_help = runner.invoke(app, ["--cwd", str(tmp_path), "file", "--help"])
+    link_help = runner.invoke(app, ["--cwd", str(tmp_path), "link", "--help"])
+
+    assert file_help.exit_code == 0
+    assert link_help.exit_code == 0
+    assert "Manage task file links." in file_help.stdout
+    assert "Manage external and typed task links." in link_help.stdout

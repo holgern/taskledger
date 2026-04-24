@@ -49,9 +49,9 @@ from taskledger.cli_misc_v2 import (
 from taskledger.cli_plan_v2 import register_plan_v2_commands
 from taskledger.cli_question_v2 import register_question_v2_commands
 from taskledger.cli_task_v2 import register_task_v2_commands
-from taskledger.services.dashboard import dashboard, render_dashboard_text
 from taskledger.cli_validate_v2 import register_validate_v2_commands
 from taskledger.errors import LaunchError
+from taskledger.services.dashboard import dashboard, render_dashboard_text
 
 app = typer.Typer(add_completion=False, help="Manage staged taskledger coding work.")
 task_app = typer.Typer(add_completion=False, help="Manage coding tasks.")
@@ -61,8 +61,11 @@ implement_app = typer.Typer(add_completion=False, help="Manage implementation ru
 validate_app = typer.Typer(add_completion=False, help="Manage validation runs.")
 todo_app = typer.Typer(add_completion=False, help="Manage task todos.")
 intro_app = typer.Typer(add_completion=False, help="Manage shared introductions.")
-file_app = typer.Typer(add_completion=False, help="Manage linked files.")
-link_app = typer.Typer(add_completion=False, help="Manage linked files.")
+file_app = typer.Typer(add_completion=False, help="Manage task file links.")
+link_app = typer.Typer(
+    add_completion=False,
+    help="Manage external and typed task links.",
+)
 require_app = typer.Typer(add_completion=False, help="Manage task requirements.")
 lock_app = typer.Typer(add_completion=False, help="Inspect and repair locks.")
 handoff_app = typer.Typer(add_completion=False, help="Render fresh-context handoffs.")

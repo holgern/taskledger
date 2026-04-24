@@ -13,8 +13,8 @@ task -> plan -> approval -> implement -> validate -> done
 The supported surface is:
 
 - `task`, `plan`, `question`, `implement`, `validate`, `todo`
-- `intro`, `file`, `require`, `lock`, `handoff`
-- `doctor`, `next-action`, `can`, `reindex`
+- `intro`, `file`, `link`, `require`, `lock`, `handoff`
+- `doctor`, `repair`, `next-action`, `can`, `reindex`
 - `init`, `status`, `export`, `import`, `snapshot`
 
 ## Storage rules

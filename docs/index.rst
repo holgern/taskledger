@@ -12,6 +12,7 @@ Contents
 
    usage
    api
+   public_surface
 
 Indices and tables
 ------------------
