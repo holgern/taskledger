@@ -202,7 +202,7 @@ def activate_task(
     task = resolve_task(workspace_root, ref)
     previous = load_active_task_state(workspace_root)
     previous_task_id = previous.task_id if previous is not None else None
-    if previous_task_id == task.id:
+    if previous_task_id == task.id and previous is not None:
         return _active_task_payload(
             workspace_root,
             task,

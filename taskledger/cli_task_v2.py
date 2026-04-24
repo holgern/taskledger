@@ -151,8 +151,8 @@ def register_task_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            task = resolve_cli_task(state.cwd, ref)
-            payload = show_task(state.cwd, task.id)
+            resolved = resolve_cli_task(state.cwd, ref)
+            payload = show_task(state.cwd, resolved.id)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc

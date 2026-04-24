@@ -8,7 +8,7 @@ from typing import Any
 import typer
 
 from taskledger.errors import LaunchError, TaskledgerError
-from taskledger.storage.v2 import resolve_task_or_active
+from taskledger.storage.v2 import TaskRecord, resolve_task_or_active
 
 
 @dataclass(slots=True, frozen=True)
@@ -28,7 +28,7 @@ def cli_state_from_context(ctx: typer.Context) -> CLIState:
     return state
 
 
-def resolve_cli_task(workspace_root: Path, task_ref: str | None):
+def resolve_cli_task(workspace_root: Path, task_ref: str | None) -> TaskRecord:
     return resolve_task_or_active(workspace_root, task_ref)
 
 
