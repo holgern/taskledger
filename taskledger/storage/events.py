@@ -22,6 +22,7 @@ def load_events(events_dir: Path) -> list[TaskEvent]:
     if not events_dir.exists():
         return []
     events: list[TaskEvent] = []
+    seen_ids: set[str] = set()
     for path in sorted(events_dir.glob("*.ndjson")):
         try:
             for line in path.read_text(encoding="utf-8").splitlines():
@@ -29,10 +30,25 @@ def load_events(events_dir: Path) -> list[TaskEvent]:
                     continue
                 payload = json.loads(line)
                 if isinstance(payload, dict):
-                    events.append(TaskEvent.from_dict(payload))
+                    event = TaskEvent.from_dict(payload)
+                    if event.event_id in seen_ids:
+                        raise LaunchError(f"Duplicate event id detected: {event.event_id}")
+                    seen_ids.add(event.event_id)
+                    events.append(event)
         except (OSError, json.JSONDecodeError) as exc:
             raise LaunchError(f"Failed to read event log {path}: {exc}") from exc
-    return events
+    return sorted(events, key=lambda item: (item.ts, item.event_id))
+
+
+def next_event_id(events_dir: Path, timestamp: str) -> str:
+    sequence = len(load_events(events_dir)) + 1
+    normalized = (
+        timestamp.replace(":", "")
+        .replace("-", "")
+        .replace("+00:00", "Z")
+        .replace(".", "")
+    )
+    return f"evt-{normalized}-{sequence:06d}"
 
 
 def event_log_path(events_dir: Path, timestamp: str) -> Path:

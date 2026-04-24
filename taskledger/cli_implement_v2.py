@@ -10,6 +10,8 @@ from taskledger.api.task_runs import (
     add_implementation_deviation,
     finish_implementation,
     log_implementation,
+    run_implementation_command,
+    scan_changes,
     show_task_run,
     start_implementation,
 )
@@ -54,8 +56,7 @@ def register_implement_v2_commands(app: typer.Typer) -> None:
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, run.to_dict(), human=f"logged implementation {run.run_id}")
 
-    @app.command("add-change")
-    def add_change_command(
+    def _emit_change_command(
         ctx: typer.Context,
         task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
         path: Annotated[str, typer.Option("--path")],
@@ -79,6 +80,75 @@ def register_implement_v2_commands(app: typer.Typer) -> None:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, change.to_dict(), human=f"logged change {change.change_id}")
+
+    @app.command("change")
+    def change_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        path: Annotated[str, typer.Option("--path")],
+        kind: Annotated[str, typer.Option("--kind")] = "edit",
+        summary: Annotated[str, typer.Option("--summary")] = "",
+        command: Annotated[str | None, typer.Option("--command")] = None,
+        git_diff_stat: Annotated[str | None, typer.Option("--git-diff-stat")] = None,
+    ) -> None:
+        _emit_change_command(ctx, task_ref, path, kind, summary, command, git_diff_stat)
+
+    @app.command("add-change")
+    def add_change_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        path: Annotated[str, typer.Option("--path")],
+        kind: Annotated[str, typer.Option("--kind")] = "edit",
+        summary: Annotated[str, typer.Option("--summary")] = "",
+        command: Annotated[str | None, typer.Option("--command")] = None,
+        git_diff_stat: Annotated[str | None, typer.Option("--git-diff-stat")] = None,
+    ) -> None:
+        _emit_change_command(ctx, task_ref, path, kind, summary, command, git_diff_stat)
+
+    @app.command("scan-changes")
+    def scan_changes_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        from_git: Annotated[bool, typer.Option("--from-git")] = False,
+        summary: Annotated[str, typer.Option("--summary")] = "",
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            change = scan_changes(
+                state.cwd,
+                task_ref,
+                from_git=from_git,
+                summary=summary,
+            )
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, change.to_dict(), human=f"logged change {change.change_id}")
+
+    @app.command(
+        "command",
+        context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+    )
+    def command_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        argv = tuple(ctx.args)
+        try:
+            payload = run_implementation_command(
+                state.cwd,
+                task_ref,
+                argv=argv,
+            )
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(
+            ctx,
+            payload,
+            human=f"ran implementation command exit={payload['exit_code']}",
+        )
 
     @app.command("deviation")
     def deviation_command(

@@ -3,26 +3,36 @@ from __future__ import annotations
 import difflib
 import getpass
 import os
+import shlex
 import socket
+import subprocess
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import yaml
+
 from taskledger.domain.models import (
     ActorRef,
+    AcceptanceCriterion,
     CodeChangeRecord,
+    DependencyRequirement,
     FileLink,
     IntroductionRecord,
+    LinkCollection,
     PlanRecord,
     QuestionRecord,
+    RequirementCollection,
     TaskEvent,
     TaskLock,
     TaskRecord,
     TaskRunRecord,
     TaskTodo,
+    TodoCollection,
     ValidationCheck,
 )
 from taskledger.domain.policies import (
+    derive_active_stage,
     implementation_mutation_decision,
     metadata_edit_decision,
     plan_approve_decision,
@@ -40,6 +50,7 @@ from taskledger.domain.states import (
     EXIT_CODE_APPROVAL_REQUIRED,
     EXIT_CODE_BAD_INPUT,
     EXIT_CODE_DEPENDENCY_BLOCKED,
+    EXIT_CODE_GENERIC_FAILURE,
     EXIT_CODE_INVALID_TRANSITION,
     EXIT_CODE_LOCK_CONFLICT,
     EXIT_CODE_MISSING,
@@ -49,12 +60,12 @@ from taskledger.domain.states import (
     normalize_file_link_kind,
     normalize_validation_check_status,
     normalize_validation_result,
-    require_transition,
 )
 from taskledger.errors import LaunchError
 from taskledger.ids import next_project_id, slugify_project_ref
 from taskledger.models import utc_now_iso
 from taskledger.storage.events import append_event, load_events
+from taskledger.storage.events import next_event_id
 from taskledger.storage.indexes import rebuild_v2_indexes
 from taskledger.storage.locks import (
     lock_is_expired,
@@ -63,8 +74,12 @@ from taskledger.storage.locks import (
     remove_lock,
     write_lock,
 )
+from taskledger.storage.atomic import atomic_write_text
 from taskledger.storage.v2 import (
     ensure_v2_layout,
+    load_links,
+    load_requirements,
+    load_todos,
     list_changes,
     list_introductions,
     list_plans,
@@ -81,10 +96,15 @@ from taskledger.storage.v2 import (
     resolve_v2_paths,
     save_change,
     save_introduction,
+    save_links,
     save_plan,
     save_question,
+    save_requirements,
     save_run,
     save_task,
+    save_todos,
+    task_artifacts_dir,
+    task_audit_dir,
     task_lock_path,
 )
 
@@ -130,7 +150,9 @@ def list_task_summaries(workspace_root: Path) -> list[dict[str, object]]:
             "id": task.id,
             "slug": task.slug,
             "title": task.title,
+            "status": task.status_stage,
             "status_stage": task.status_stage,
+            "active_stage": _task_active_stage(workspace_root, task),
             "accepted_plan_version": task.accepted_plan_version,
         }
         for task in tasks
@@ -138,15 +160,21 @@ def list_task_summaries(workspace_root: Path) -> list[dict[str, object]]:
 
 
 def show_task(workspace_root: Path, ref: str) -> dict[str, object]:
-    task = resolve_task(workspace_root, ref)
+    task = _task_with_sidecars(workspace_root, resolve_task(workspace_root, ref))
     lock = read_lock(task_lock_path(resolve_v2_paths(workspace_root), task.id))
     plans = list_plans(workspace_root, task.id)
     questions = list_questions(workspace_root, task.id)
     runs = list_runs(workspace_root, task.id)
     changes = list_changes(workspace_root, task.id)
+    active_stage = _task_active_stage(
+        workspace_root,
+        task,
+        lock=lock,
+        runs=runs,
+    )
     return {
         "kind": "task",
-        "task": task.to_dict(),
+        "task": _task_payload(task, active_stage=active_stage),
         "lock": lock.to_dict() if lock is not None else None,
         "plans": [plan.to_dict() for plan in plans],
         "questions": [question.to_dict() for question in questions],
@@ -295,7 +323,7 @@ def link_introduction(
 def add_requirement(
     workspace_root: Path, task_ref: str, required_task_ref: str
 ) -> TaskRecord:
-    task = resolve_task(workspace_root, task_ref)
+    task = _task_with_sidecars(workspace_root, resolve_task(workspace_root, task_ref))
     required = resolve_task(workspace_root, required_task_ref)
     requirements = list(task.requirements)
     if required.id not in requirements:
@@ -305,6 +333,15 @@ def add_requirement(
         requirements=tuple(requirements),
         updated_at=utc_now_iso(),
     )
+    save_requirements(
+        workspace_root,
+        RequirementCollection(
+            task_id=updated.id,
+            requirements=tuple(
+                DependencyRequirement(task_id=item) for item in requirements
+            ),
+        ),
+    )
     save_task(workspace_root, updated)
     rebuild_v2_indexes(resolve_v2_paths(workspace_root))
     return updated
@@ -313,12 +350,22 @@ def add_requirement(
 def remove_requirement(
     workspace_root: Path, task_ref: str, required_task_ref: str
 ) -> TaskRecord:
-    task = resolve_task(workspace_root, task_ref)
+    task = _task_with_sidecars(workspace_root, resolve_task(workspace_root, task_ref))
     required = resolve_task(workspace_root, required_task_ref)
+    remaining = tuple(item for item in task.requirements if item != required.id)
     updated = replace(
         task,
-        requirements=tuple(item for item in task.requirements if item != required.id),
+        requirements=remaining,
         updated_at=utc_now_iso(),
+    )
+    save_requirements(
+        workspace_root,
+        RequirementCollection(
+            task_id=updated.id,
+            requirements=tuple(
+                DependencyRequirement(task_id=item) for item in remaining
+            ),
+        ),
     )
     save_task(workspace_root, updated)
     rebuild_v2_indexes(resolve_v2_paths(workspace_root))
@@ -334,7 +381,7 @@ def add_file_link(
     label: str | None = None,
     required_for_validation: bool = False,
 ) -> TaskRecord:
-    task = resolve_task(workspace_root, task_ref)
+    task = _task_with_sidecars(workspace_root, resolve_task(workspace_root, task_ref))
     links = list(task.file_links)
     existing = next((item for item in links if item.path == path), None)
     new_link = FileLink(
@@ -351,25 +398,28 @@ def add_file_link(
         file_links=tuple(links),
         updated_at=utc_now_iso(),
     )
+    save_links(workspace_root, LinkCollection(task_id=updated.id, links=updated.file_links))
     save_task(workspace_root, updated)
     rebuild_v2_indexes(resolve_v2_paths(workspace_root))
     return updated
 
 
 def remove_file_link(workspace_root: Path, task_ref: str, *, path: str) -> TaskRecord:
-    task = resolve_task(workspace_root, task_ref)
+    task = _task_with_sidecars(workspace_root, resolve_task(workspace_root, task_ref))
+    remaining = tuple(item for item in task.file_links if item.path != path)
     updated = replace(
         task,
-        file_links=tuple(item for item in task.file_links if item.path != path),
+        file_links=remaining,
         updated_at=utc_now_iso(),
     )
+    save_links(workspace_root, LinkCollection(task_id=updated.id, links=remaining))
     save_task(workspace_root, updated)
     rebuild_v2_indexes(resolve_v2_paths(workspace_root))
     return updated
 
 
 def list_file_links(workspace_root: Path, task_ref: str) -> dict[str, object]:
-    task = resolve_task(workspace_root, task_ref)
+    task = _task_with_sidecars(workspace_root, resolve_task(workspace_root, task_ref))
     return {
         "kind": "task_file_links",
         "task_id": task.id,
@@ -385,7 +435,7 @@ def add_todo(
     source: str = "user",
     mandatory: bool = False,
 ) -> TaskRecord:
-    task = resolve_task(workspace_root, task_ref)
+    task = _task_with_sidecars(workspace_root, resolve_task(workspace_root, task_ref))
     actor_role = require_known_actor_role(source)
     _enforce_decision(
         todo_add_decision(
@@ -405,6 +455,7 @@ def add_todo(
         todos=tuple([*task.todos, todo]),
         updated_at=utc_now_iso(),
     )
+    save_todos(workspace_root, TodoCollection(task_id=updated.id, todos=updated.todos))
     save_task(workspace_root, updated)
     _append_event(
         resolve_v2_paths(workspace_root).project_dir,
@@ -418,7 +469,7 @@ def add_todo(
 def set_todo_done(
     workspace_root: Path, task_ref: str, todo_id: str, *, done: bool
 ) -> TaskRecord:
-    task = resolve_task(workspace_root, task_ref)
+    task = _task_with_sidecars(workspace_root, resolve_task(workspace_root, task_ref))
     _enforce_decision(
         todo_toggle_decision(
             task,
@@ -434,6 +485,7 @@ def set_todo_done(
     if not any(todo.id == todo_id for todo in task.todos):
         raise _cli_error(f"Todo not found: {todo_id}", EXIT_CODE_MISSING)
     updated = replace(task, todos=tuple(todos), updated_at=now)
+    save_todos(workspace_root, TodoCollection(task_id=updated.id, todos=updated.todos))
     save_task(workspace_root, updated)
     _append_event(
         resolve_v2_paths(workspace_root).project_dir,
@@ -445,7 +497,7 @@ def set_todo_done(
 
 
 def show_todo(workspace_root: Path, task_ref: str, todo_id: str) -> dict[str, object]:
-    task = resolve_task(workspace_root, task_ref)
+    task = _task_with_sidecars(workspace_root, resolve_task(workspace_root, task_ref))
     for todo in task.todos:
         if todo.id == todo_id:
             return {"kind": "task_todo", "task_id": task.id, "todo": todo.to_dict()}
@@ -488,6 +540,7 @@ def propose_plan(
     task_ref: str,
     *,
     body: str,
+    criteria: tuple[str, ...] = (),
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
     run = _require_run(workspace_root, task, task.latest_planning_run)
@@ -495,10 +548,11 @@ def propose_plan(
     _enforce_decision(plan_propose_decision(task, lock, run=run))
     plans = list_plans(workspace_root, task.id)
     version = plans[-1].plan_version + 1 if plans else 1
+    front_matter, plan_body = _parse_plan_front_matter(body)
     plan = PlanRecord(
         task_id=task.id,
         plan_version=version,
-        body=body.strip(),
+        body=plan_body.strip(),
         status="proposed",
         created_by=_default_actor(),
         supersedes=plans[-1].plan_version if plans else None,
@@ -507,13 +561,14 @@ def propose_plan(
             for item in list_questions(workspace_root, task.id)
             if item.status == "open"
         ),
+        criteria=_criteria_from_plan_input(front_matter, criteria),
     )
     save_plan(workspace_root, plan)
     finished_run = replace(
         run,
         status="finished",
         finished_at=utc_now_iso(),
-        summary=_summary_line(body),
+        summary=_summary_line(plan_body),
     )
     save_run(workspace_root, finished_run)
     updated = replace(
@@ -600,7 +655,16 @@ def diff_plan(
 
 
 def approve_plan(
-    workspace_root: Path, task_ref: str, *, version: int
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    version: int,
+    actor_type: str = "user",
+    actor_name: str | None = None,
+    note: str | None = None,
+    allow_agent_approval: bool = False,
+    reason: str | None = None,
+    allow_empty_criteria: bool = False,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
     _enforce_decision(
@@ -624,14 +688,33 @@ def approve_plan(
             f"v{target.plan_version} is {target.status}.",
             EXIT_CODE_INVALID_TRANSITION,
         )
+    if not target.criteria and not allow_empty_criteria:
+        raise _cli_error(
+            "Plan approval requires at least one acceptance criterion.",
+            EXIT_CODE_APPROVAL_REQUIRED,
+        )
+    approved_by = _approval_actor(
+        actor_type=actor_type,
+        actor_name=actor_name,
+        note=note,
+        allow_agent_approval=allow_agent_approval,
+        reason=reason,
+    )
+    approval_note = (note or reason or "").strip()
     for plan in list_plans(workspace_root, task.id):
         if plan.plan_version == target.plan_version:
-            new_status = "accepted"
+            updated_plan = replace(
+                plan,
+                status="accepted",
+                approved_at=utc_now_iso(),
+                approved_by=approved_by,
+                approval_note=approval_note,
+            )
         elif plan.status == "rejected":
-            new_status = plan.status
+            updated_plan = plan
         else:
-            new_status = "superseded"
-        overwrite_plan(workspace_root, replace(plan, status=new_status))
+            updated_plan = replace(plan, status="superseded")
+        overwrite_plan(workspace_root, updated_plan)
     updated = replace(
         task,
         accepted_plan_version=target.plan_version,
@@ -643,7 +726,11 @@ def approve_plan(
         resolve_v2_paths(workspace_root).project_dir,
         updated.id,
         "plan.approved",
-        {"plan_version": target.plan_version},
+        {
+            "plan_version": target.plan_version,
+            "approved_by": approved_by.to_dict(),
+            "approval_note": approval_note,
+        },
     )
     rebuild_v2_indexes(resolve_v2_paths(workspace_root))
     return _lifecycle_payload(
@@ -968,6 +1055,7 @@ def add_change(
     before_hash: str | None = None,
     after_hash: str | None = None,
     exit_code: int | None = None,
+    artifact_refs: tuple[str, ...] = (),
 ) -> CodeChangeRecord:
     task = resolve_task(workspace_root, task_ref)
     run = _require_running_run(
@@ -1005,7 +1093,11 @@ def add_change(
     save_change(workspace_root, change)
     save_run(
         workspace_root,
-        replace(run, change_refs=tuple([*run.change_refs, change.change_id])),
+        replace(
+            run,
+            change_refs=tuple([*run.change_refs, change.change_id]),
+            artifact_refs=tuple([*run.artifact_refs, *artifact_refs]),
+        ),
     )
     save_task(
         workspace_root,
@@ -1022,6 +1114,99 @@ def add_change(
         {"change_id": change.change_id, "path": path},
     )
     return change
+
+
+def scan_changes(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    from_git: bool,
+    summary: str,
+) -> CodeChangeRecord:
+    if not from_git:
+        raise _cli_error(
+            "scan-changes currently requires --from-git.",
+            EXIT_CODE_BAD_INPUT,
+        )
+    git_state = _git_change_state(workspace_root)
+    diff_stat = "\n".join(
+        [
+            f"branch: {git_state['branch']}",
+            "status:",
+            git_state["status"] or "(clean)",
+            "diff_stat:",
+            git_state["diff_stat"] or "(no diff)",
+        ]
+    )
+    return add_change(
+        workspace_root,
+        task_ref,
+        path=".",
+        kind="scan",
+        summary=summary.strip() or "Scanned Git changes.",
+        command="git branch --show-current && git status --short && git diff --stat",
+        git_diff_stat=diff_stat,
+    )
+
+
+def run_implementation_command(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    argv: tuple[str, ...],
+) -> dict[str, object]:
+    if not argv:
+        raise _cli_error("implement command requires a command to run.", EXIT_CODE_BAD_INPUT)
+    task = resolve_task(workspace_root, task_ref)
+    run = _require_running_run(
+        workspace_root,
+        task,
+        task.latest_implementation_run,
+        expected_type="implementation",
+    )
+    _enforce_decision(
+        implementation_mutation_decision(
+            task,
+            _lock_for_mutation(workspace_root, task.id),
+            run=run,
+            action="record implementation commands",
+        )
+    )
+    completed = subprocess.run(
+        list(argv),
+        cwd=workspace_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    output = _command_output(argv, completed.stdout, completed.stderr)
+    artifact_ref: str | None = None
+    if len(output) > 4000 or output.count("\n") > 50:
+        artifact_ref = _write_command_artifact(
+            workspace_root,
+            task.id,
+            run.run_id,
+            output,
+        )
+    change = add_change(
+        workspace_root,
+        task_ref,
+        path=".",
+        kind="command",
+        summary=_command_summary(argv, completed.returncode, artifact_ref),
+        command=" ".join(shlex.quote(item) for item in argv),
+        exit_code=completed.returncode,
+        artifact_refs=((artifact_ref,) if artifact_ref else ()),
+    )
+    return {
+        "kind": "implementation_command",
+        "task_id": change.task_id,
+        "change": change.to_dict(),
+        "exit_code": completed.returncode,
+        "artifact_path": artifact_ref,
+        "stdout": completed.stdout,
+        "stderr": completed.stderr,
+    }
 
 
 def finish_implementation(
@@ -1139,6 +1324,8 @@ def add_validation_check(
     )
     check = ValidationCheck(
         name=name.strip(),
+        id=f"check-{len(run.checks) + 1}",
+        criterion_id=f"check-{len(run.checks) + 1}",
         status=normalize_validation_check_status(status),
         details=details.strip() if details else None,
         evidence=tuple(item.strip() for item in evidence if item.strip()),
@@ -1254,11 +1441,32 @@ def break_lock(
     lock = read_lock(lock_path)
     if lock is None:
         raise _cli_error("No active lock exists for the task.", EXIT_CODE_MISSING)
+    broken_lock = replace(
+        lock,
+        broken_at=utc_now_iso(),
+        broken_by=_default_actor(),
+        broken_reason=reason.strip(),
+    )
+    audit_path = _write_broken_lock_audit(paths, task.id, broken_lock)
     _append_event(
         paths.project_dir,
         task.id,
         "lock.broken",
-        {"lock_id": lock.lock_id, "reason": reason},
+        {
+            "lock_id": lock.lock_id,
+            "reason": reason,
+            "audit_path": str(audit_path.relative_to(paths.project_dir)),
+        },
+    )
+    _append_event(
+        paths.project_dir,
+        task.id,
+        "repair.lock_broken",
+        {
+            "lock_id": lock.lock_id,
+            "reason": reason,
+            "audit_path": str(audit_path.relative_to(paths.project_dir)),
+        },
     )
     remove_lock(lock_path)
     rebuild_v2_indexes(paths)
@@ -1269,8 +1477,9 @@ def break_lock(
         "status_stage": task.status_stage,
         "changed": True,
         "warnings": [],
-        "lock": lock.to_dict(),
+        "lock": broken_lock.to_dict(),
         "reason": reason,
+        "audit_path": str(audit_path.relative_to(paths.project_dir)),
     }
 
 
@@ -1291,20 +1500,24 @@ def list_locks(workspace_root: Path) -> dict[str, object]:
 def next_action(workspace_root: Path, task_ref: str) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
     lock = _current_lock(workspace_root, task.id)
+    runs = list_runs(workspace_root, task.id)
+    active_stage = _task_active_stage(
+        workspace_root,
+        task,
+        lock=lock,
+        runs=runs,
+    )
     action: str
     reason: str
     blockers: list[dict[str, str]] = []
-    if task.status_stage == "draft":
-        action, reason = "plan", "Draft tasks need planning before work starts."
-    elif task.status_stage == "planning":
+    if active_stage == "planning":
         action, reason = "plan-propose", "Planning is active; propose the next plan."
-        if lock is None:
-            blockers.append(
-                {
-                    "kind": "lock",
-                    "message": "Planning is active without a planning lock.",
-                }
-            )
+    elif active_stage == "implementation":
+        action, reason = "implement-finish", "Implementation is in progress."
+    elif active_stage == "validation":
+        action, reason = "validate-finish", "Validation is in progress."
+    elif task.status_stage == "draft":
+        action, reason = "plan", "Draft tasks need planning before work starts."
     elif task.status_stage == "plan_review":
         action, reason = "plan-approve", "A proposed plan is waiting for review."
     elif task.status_stage == "approved":
@@ -1314,18 +1527,6 @@ def next_action(workspace_root: Path, task_ref: str) -> dict[str, object]:
                 {"kind": "approval", "message": "No accepted plan version is recorded."}
             )
         blockers.extend(_dependency_blockers(workspace_root, task))
-    elif task.status_stage == "implementing":
-        action, reason = "implement-finish", "Implementation is in progress."
-        if lock is None:
-            blockers.append(
-                {
-                    "kind": "lock",
-                    "message": (
-                        "Implementation is active without an "
-                        "implementation lock."
-                    ),
-                }
-            )
     elif task.status_stage == "implemented":
         action, reason = "validate", "Implementation is complete and ready to validate."
         impl_run = _optional_run(workspace_root, task, task.latest_implementation_run)
@@ -1340,15 +1541,6 @@ def next_action(workspace_root: Path, task_ref: str) -> dict[str, object]:
                     "message": "Validation requires a finished implementation run.",
                 }
             )
-    elif task.status_stage == "validating":
-        action, reason = "validate-finish", "Validation is in progress."
-        if lock is None:
-            blockers.append(
-                {
-                    "kind": "lock",
-                    "message": "Validation is active without a validation lock.",
-                }
-            )
     elif task.status_stage == "failed_validation":
         action, reason = "implement", "Validation failed; return to implementation."
         blockers.extend(_dependency_blockers(workspace_root, task))
@@ -1356,10 +1548,21 @@ def next_action(workspace_root: Path, task_ref: str) -> dict[str, object]:
         action, reason = "none", "The task is complete."
     else:
         action, reason = "none", "The task is cancelled."
+    if lock is not None and active_stage is None:
+        blockers.append(
+            {
+                "kind": "lock",
+                "message": (
+                    f"Task has a {lock.stage} lock from {lock.run_id} "
+                    "without a matching running run."
+                ),
+            }
+        )
     return {
         "kind": "task_next_action",
         "task_id": task.id,
         "status_stage": task.status_stage,
+        "active_stage": active_stage,
         "action": action,
         "reason": reason,
         "blocking": blockers,
@@ -1369,6 +1572,7 @@ def next_action(workspace_root: Path, task_ref: str) -> dict[str, object]:
 def can_perform(workspace_root: Path, task_ref: str, action: str) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
     lock = _current_lock(workspace_root, task.id)
+    active_stage = _task_active_stage(workspace_root, task, lock=lock)
     ok = False
     reason = ""
     blocking: list[dict[str, str]] = []
@@ -1398,6 +1602,7 @@ def can_perform(workspace_root: Path, task_ref: str, action: str) -> dict[str, o
             and task.accepted_plan_version is not None
             and not _dependency_blockers(workspace_root, task)
             and lock is None
+            and active_stage is None
         )
         reason = (
             "Implementation is ready."
@@ -1427,6 +1632,7 @@ def can_perform(workspace_root: Path, task_ref: str, action: str) -> dict[str, o
         ok = (
             task.status_stage == "implemented"
             and lock is None
+            and active_stage is None
             and impl_run is not None
             and impl_run.run_type == "implementation"
             and impl_run.status == "finished"
@@ -1468,6 +1674,7 @@ def can_perform(workspace_root: Path, task_ref: str, action: str) -> dict[str, o
         "action": action,
         "ok": ok,
         "reason": reason,
+        "active_stage": active_stage,
         "blocking": blocking,
     }
 
@@ -1491,6 +1698,22 @@ def _start_run(
     run_type: str,
     stage: str,
 ) -> TaskRunRecord:
+    existing_lock = _current_lock(workspace_root, task.id)
+    if existing_lock is not None:
+        if lock_is_expired(existing_lock):
+            raise _stale_lock_error(task.id, existing_lock)
+        raise _cli_error(
+            _lock_conflict_message(task.id, existing_lock),
+            EXIT_CODE_LOCK_CONFLICT,
+        )
+    running_runs = [
+        item for item in list_runs(workspace_root, task.id) if item.status == "running"
+    ]
+    if running_runs:
+        raise _cli_error(
+            f"Task {task.id} already has a running {running_runs[0].run_type} run.",
+            EXIT_CODE_LOCK_CONFLICT,
+        )
     run_prefix = {
         "planning": "plan-run",
         "implementation": "impl-run",
@@ -1531,12 +1754,6 @@ def _acquire_lock(
 ) -> TaskLock:
     if stage not in ACTIVE_TASK_STAGES:
         raise _cli_error("Only active stages can acquire locks.", EXIT_CODE_BAD_INPUT)
-    if stage == "planning":
-        require_transition(task.status_stage, "planning")
-    elif stage == "implementing":
-        require_transition(task.status_stage, "implementing")
-    elif stage == "validating":
-        require_transition(task.status_stage, "validating")
     paths = resolve_v2_paths(workspace_root)
     lock_path = task_lock_path(paths, task.id)
     existing = read_lock(lock_path)
@@ -1559,6 +1776,8 @@ def _acquire_lock(
         run_id=run.run_id,
         created_at=now.isoformat(),
         expires_at=(now + timedelta(hours=2)).isoformat(),
+        lease_seconds=7200,
+        last_heartbeat_at=now.isoformat(),
         reason=reason,
         holder=_default_actor(),
     )
@@ -1569,8 +1788,6 @@ def _acquire_lock(
             _lock_conflict_message(task.id, read_lock(lock_path) or lock),
             EXIT_CODE_LOCK_CONFLICT,
         ) from exc
-    updated = replace(task, status_stage=stage, updated_at=utc_now_iso())
-    save_task(workspace_root, updated)
     _append_event(paths.project_dir, task.id, "lock.acquired", lock.to_dict())
     _append_event(
         paths.project_dir,
@@ -1624,7 +1841,7 @@ def _release_lock(
 
 def _ensure_dependencies_done(workspace_root: Path, task: TaskRecord) -> None:
     blocked = []
-    for requirement in task.requirements:
+    for requirement in _task_requirements(workspace_root, task):
         required = resolve_task(workspace_root, requirement)
         if required.status_stage != "done":
             blocked.append(required.id)
@@ -1699,7 +1916,7 @@ def _dependency_blockers(
     workspace_root: Path, task: TaskRecord
 ) -> list[dict[str, str]]:
     blockers: list[dict[str, str]] = []
-    for requirement in task.requirements:
+    for requirement in _task_requirements(workspace_root, task):
         required = resolve_task(workspace_root, requirement)
         if required.status_stage != "done":
             blockers.append(
@@ -1744,13 +1961,15 @@ def _append_event(
     event_name: str,
     data: dict[str, object],
 ) -> None:
+    timestamp = utc_now_iso()
     append_event(
         project_dir / "events",
         TaskEvent(
-            ts=utc_now_iso(),
+            ts=timestamp,
             event=event_name,
             task_id=task_id,
             actor=_default_actor(),
+            event_id=next_event_id(project_dir / "events", timestamp),
             data=data,
         ),
     )
@@ -1761,6 +1980,191 @@ def _summary_line(text: str | None) -> str | None:
         return None
     stripped = " ".join(text.split())
     return stripped[:117] + "..." if len(stripped) > 120 else stripped
+
+
+def _git_change_state(workspace_root: Path) -> dict[str, str]:
+    inside = _run_command(
+        workspace_root,
+        ("git", "rev-parse", "--is-inside-work-tree"),
+        not_git_message="Git change scan requires a Git work tree.",
+    )
+    if inside.strip() != "true":
+        raise _cli_error("Git change scan requires a Git work tree.", EXIT_CODE_BAD_INPUT)
+    branch = _run_command(workspace_root, ("git", "branch", "--show-current")).strip()
+    status = _run_command(workspace_root, ("git", "status", "--short")).strip()
+    diff_stat = _run_command(workspace_root, ("git", "diff", "--stat")).strip()
+    return {
+        "branch": branch or "(detached)",
+        "status": status,
+        "diff_stat": diff_stat,
+    }
+
+
+def _run_command(
+    workspace_root: Path,
+    argv: tuple[str, ...],
+    *,
+    not_git_message: str | None = None,
+) -> str:
+    completed = subprocess.run(
+        list(argv),
+        cwd=workspace_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode == 0:
+        return completed.stdout
+    if not_git_message and "not a git repository" in completed.stderr.lower():
+        raise _cli_error(not_git_message, EXIT_CODE_BAD_INPUT)
+    raise _cli_error(
+        completed.stderr.strip() or f"Command failed: {' '.join(argv)}",
+        EXIT_CODE_GENERIC_FAILURE,
+    )
+
+
+def _command_output(
+    argv: tuple[str, ...],
+    stdout: str,
+    stderr: str,
+) -> str:
+    return (
+        f"$ {' '.join(shlex.quote(item) for item in argv)}\n\n"
+        f"stdout:\n{stdout or '(empty)'}\n\n"
+        f"stderr:\n{stderr or '(empty)'}\n"
+    )
+
+
+def _command_summary(
+    argv: tuple[str, ...],
+    exit_code: int,
+    artifact_ref: str | None,
+) -> str:
+    summary = f"Ran {' '.join(shlex.quote(item) for item in argv)} (exit {exit_code})"
+    if artifact_ref is not None:
+        summary += f" output: @{artifact_ref}"
+    return summary
+
+
+def _write_command_artifact(
+    workspace_root: Path,
+    task_id: str,
+    run_id: str,
+    output: str,
+) -> str:
+    paths = resolve_v2_paths(workspace_root)
+    artifact_dir = task_artifacts_dir(paths, task_id)
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    index = len(list(artifact_dir.glob(f"{run_id}-command-*.log"))) + 1
+    artifact_path = artifact_dir / f"{run_id}-command-{index:04d}.log"
+    atomic_write_text(artifact_path, output)
+    return str(artifact_path.relative_to(paths.project_dir))
+
+
+def _parse_plan_front_matter(body: str) -> tuple[dict[str, object], str]:
+    lines = body.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return {}, body
+    for index in range(1, len(lines)):
+        if lines[index].strip() != "---":
+            continue
+        front_matter = yaml.safe_load("\n".join(lines[1:index])) or {}
+        if not isinstance(front_matter, dict):
+            raise _cli_error(
+                "Plan front matter must be a YAML mapping.",
+                EXIT_CODE_BAD_INPUT,
+            )
+        return front_matter, "\n".join(lines[index + 1 :])
+    raise _cli_error("Unterminated plan front matter.", EXIT_CODE_BAD_INPUT)
+
+
+def _criteria_from_plan_input(
+    front_matter: dict[str, object],
+    criteria: tuple[str, ...],
+) -> tuple[AcceptanceCriterion, ...]:
+    raw_criteria = front_matter.get("criteria")
+    items: list[AcceptanceCriterion] = []
+    if raw_criteria is not None:
+        if not isinstance(raw_criteria, list):
+            raise _cli_error(
+                "Plan criteria front matter must be a list.",
+                EXIT_CODE_BAD_INPUT,
+            )
+        for index, item in enumerate(raw_criteria, start=1):
+            if isinstance(item, str):
+                text = item.strip()
+                if not text:
+                    continue
+                items.append(AcceptanceCriterion(id=_criterion_id(index), text=text))
+                continue
+            if not isinstance(item, dict):
+                raise _cli_error(
+                    "Plan criteria must be strings or mappings.",
+                    EXIT_CODE_BAD_INPUT,
+                )
+            text = str(item.get("text") or "").strip()
+            if not text:
+                raise _cli_error(
+                    "Plan criteria mappings must include text.",
+                    EXIT_CODE_BAD_INPUT,
+                )
+            criterion_id = str(item.get("id") or _criterion_id(index)).strip()
+            items.append(
+                AcceptanceCriterion(
+                    id=criterion_id,
+                    text=text,
+                    mandatory=bool(item.get("mandatory", True)),
+                )
+            )
+    else:
+        for index, item in enumerate(criteria, start=1):
+            text = item.strip()
+            if text:
+                items.append(AcceptanceCriterion(id=_criterion_id(index), text=text))
+    ids = [item.id for item in items]
+    if len(ids) != len(set(ids)):
+        raise _cli_error("Plan criteria ids must be unique.", EXIT_CODE_BAD_INPUT)
+    return tuple(items)
+
+
+def _criterion_id(index: int) -> str:
+    return f"ac-{index:04d}"
+
+
+def _approval_actor(
+    *,
+    actor_type: str,
+    actor_name: str | None,
+    note: str | None,
+    allow_agent_approval: bool,
+    reason: str | None,
+) -> ActorRef:
+    normalized_actor = actor_type.strip()
+    if normalized_actor == "user":
+        if not (note or "").strip():
+            raise _cli_error("Plan approval requires --note.", EXIT_CODE_BAD_INPUT)
+        return ActorRef(
+            actor_type="user",
+            actor_name=(actor_name or getpass.getuser() or "user").strip(),
+            tool="manual",
+        )
+    if normalized_actor == "agent":
+        if not allow_agent_approval or not (reason or "").strip():
+            raise _cli_error(
+                "Agent approval requires --allow-agent-approval and --reason.",
+                EXIT_CODE_APPROVAL_REQUIRED,
+            )
+        return ActorRef(
+            actor_type="agent",
+            actor_name=(actor_name or getpass.getuser() or "taskledger").strip(),
+            tool="taskledger",
+            host=socket.gethostname(),
+            pid=os.getpid(),
+        )
+    raise _cli_error(
+        f"Unsupported approval actor: {actor_type}",
+        EXIT_CODE_BAD_INPUT,
+    )
 
 
 def _unique_slug(existing: list, value: str) -> str:
@@ -1785,11 +2189,18 @@ def _lifecycle_payload(
     lock: TaskLock | None = None,
     result: str | None = None,
 ) -> dict[str, object]:
+    active_stage = (
+        derive_active_stage(lock, (run,))
+        if lock is not None and run is not None
+        else None
+    )
     payload: dict[str, object] = {
         "ok": True,
         "command": command,
         "task_id": task.id,
+        "status": task.status_stage,
         "status_stage": task.status_stage,
+        "active_stage": active_stage,
         "changed": changed,
         "warnings": warnings,
         "lock": lock.to_dict() if lock is not None else None,
@@ -1824,3 +2235,49 @@ def _stale_lock_error(task_id: str, lock: TaskLock) -> LaunchError:
         "lock": lock.to_dict(),
     }
     return error
+
+
+def _task_with_sidecars(workspace_root: Path, task: TaskRecord) -> TaskRecord:
+    return replace(
+        task,
+        requirements=_task_requirements(workspace_root, task),
+        file_links=load_links(workspace_root, task.id).links,
+        todos=load_todos(workspace_root, task.id).todos,
+    )
+
+
+def _task_payload(task: TaskRecord, *, active_stage: str | None) -> dict[str, object]:
+    payload = task.to_dict()
+    payload["active_stage"] = active_stage
+    return payload
+
+
+def _task_active_stage(
+    workspace_root: Path,
+    task: TaskRecord,
+    *,
+    lock: TaskLock | None = None,
+    runs: list[TaskRunRecord] | None = None,
+) -> str | None:
+    current_lock = lock or _current_lock(workspace_root, task.id)
+    if current_lock is None or lock_is_expired(current_lock):
+        return None
+    task_runs = runs if runs is not None else list_runs(workspace_root, task.id)
+    return derive_active_stage(current_lock, task_runs)
+
+
+def _task_requirements(workspace_root: Path, task: TaskRecord) -> tuple[str, ...]:
+    return tuple(
+        item.task_id for item in load_requirements(workspace_root, task.id).requirements
+    )
+
+
+def _write_broken_lock_audit(paths, task_id: str, lock: TaskLock) -> Path:
+    timestamp = lock.broken_at or utc_now_iso()
+    filename = timestamp.replace(":", "").replace("-", "").replace("+00:00", "Z")
+    path = task_audit_dir(paths, task_id) / f"broken-lock-{filename}.yaml"
+    atomic_write_text(
+        path,
+        yaml.safe_dump(lock.to_dict(), sort_keys=False, allow_unicode=True),
+    )
+    return path

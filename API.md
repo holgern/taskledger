@@ -167,5 +167,5 @@ Top-level commands that are part of the supported surface are:
 
 All CLI commands support `--cwd`; task-first workflows also support `--root` as
 the preferred workspace alias. JSON mode returns a stable envelope with
-`success`, `operation`, `result_type`, `data`, `warnings`, `errors`,
-`remediation`, and `generated_at`.
+`ok`, `command`, `task_id` when applicable, `result`, `events`, and a
+structured `error` object on failure.

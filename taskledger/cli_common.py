@@ -7,8 +7,7 @@ from typing import Any
 
 import typer
 
-from taskledger.errors import LaunchError
-from taskledger.models import utc_now_iso
+from taskledger.errors import LaunchError, TaskledgerError
 
 
 @dataclass(slots=True, frozen=True)
@@ -77,19 +76,14 @@ def emit_error(
     if state.json_output:
         typer.echo(
             render_json(
-                {
-                    "success": False,
-                    "operation": _operation_name(ctx),
-                    "result_type": "error",
-                    "data": data or _error_data(error),
-                    "warnings": [],
-                    "errors": [message],
-                    "error": message,
-                    "error_type": error_type or _error_type(error),
-                    "exit_code": exit_code or _error_exit_code(error),
-                    "remediation": remediation or _error_remediation(error),
-                    "generated_at": utc_now_iso(),
-                }
+                _error_envelope(
+                    ctx,
+                    error,
+                    data=data,
+                    remediation=remediation,
+                    exit_code=exit_code,
+                    error_type=error_type,
+                )
             )
         )
     else:
@@ -117,16 +111,20 @@ def _success_envelope(
         raw_warnings = payload.get("warnings")
         if isinstance(raw_warnings, list):
             extracted_warnings = [str(item) for item in raw_warnings]
-    return {
-        "success": True,
-        "operation": _operation_name(ctx),
-        "result_type": result_type or _infer_result_type(payload),
-        "data": payload,
-        "warnings": extracted_warnings or [],
-        "errors": [],
-        "remediation": [],
-        "generated_at": utc_now_iso(),
+    envelope: dict[str, object] = {
+        "ok": True,
+        "command": _operation_name(ctx),
+        "result": payload,
+        "events": _event_refs(payload),
     }
+    task_id = _task_id_from_value(payload)
+    if task_id is not None:
+        envelope["task_id"] = task_id
+    if extracted_warnings:
+        envelope["warnings"] = extracted_warnings
+    if result_type is not None:
+        envelope["result_type"] = result_type
+    return envelope
 
 
 def _operation_name(ctx: typer.Context) -> str:
@@ -169,23 +167,37 @@ def _infer_result_type(payload: Any) -> str:
     return str(kind) if kind else "object"
 
 
+def _error_envelope(
+    ctx: typer.Context,
+    error: Exception | str,
+    *,
+    data: dict[str, object] | None,
+    remediation: list[str] | None,
+    exit_code: int | None,
+    error_type: str | None,
+) -> dict[str, object]:
+    resolved_error = _error_payload(
+        error,
+        data=data,
+        remediation=remediation,
+        exit_code=exit_code,
+        error_type=error_type,
+    )
+    envelope: dict[str, object] = {
+        "ok": False,
+        "command": _operation_name(ctx),
+        "error": resolved_error,
+    }
+    task_id = resolved_error.get("task_id")
+    if isinstance(task_id, str):
+        envelope["task_id"] = task_id
+    return envelope
+
+
 def _error_exit_code(error: Exception | str) -> int:
     if isinstance(error, Exception):
         return launch_error_exit_code(error)
     return _exit_code_from_message(str(error), 1)
-
-
-def _error_type(error: Exception | str) -> str:
-    if isinstance(error, Exception):
-        explicit = getattr(error, "__dict__", {}).get("taskledger_error_type")
-        if isinstance(explicit, str):
-            return explicit
-        by_exit_code = _error_type_from_exit_code(_error_exit_code(error))
-        if by_exit_code:
-            return by_exit_code
-        return error.__class__.__name__
-    by_exit_code = _error_type_from_exit_code(_exit_code_from_message(str(error), 1))
-    return by_exit_code or "TaskledgerError"
 
 
 def _error_data(error: Exception | str) -> dict[str, object]:
@@ -204,46 +216,187 @@ def _error_remediation(error: Exception | str) -> list[str]:
     return _default_remediation(_error_exit_code(error))
 
 
+def _error_payload(
+    error: Exception | str,
+    *,
+    data: dict[str, object] | None,
+    remediation: list[str] | None,
+    exit_code: int | None,
+    error_type: str | None,
+) -> dict[str, object]:
+    if isinstance(error, TaskledgerError):
+        payload = error.to_error_payload()
+    else:
+        payload = {
+            "code": _error_code(error, explicit_error_type=error_type, explicit_exit_code=exit_code),
+            "message": str(error),
+        }
+    payload["code"] = _error_code(
+        error,
+        explicit_error_type=error_type,
+        explicit_exit_code=exit_code,
+    )
+    details = data or _error_details(error)
+    if details:
+        existing = payload.get("details")
+        merged = dict(existing) if isinstance(existing, dict) else {}
+        merged.update(details)
+        payload["details"] = merged
+    blocking_refs = _error_blocking_refs(error)
+    if blocking_refs:
+        payload["blocking_refs"] = blocking_refs
+    task_id = _error_task_id(error)
+    if task_id is not None:
+        payload["task_id"] = task_id
+    resolved_remediation = remediation or _error_remediation(error)
+    if resolved_remediation:
+        payload["remediation"] = resolved_remediation
+    resolved_exit_code = exit_code or _error_exit_code(error)
+    if resolved_exit_code:
+        payload["exit_code"] = resolved_exit_code
+    return payload
+
+
+def _error_code(
+    error: Exception | str,
+    *,
+    explicit_error_type: str | None = None,
+    explicit_exit_code: int | None = None,
+) -> str:
+    if isinstance(error, TaskledgerError):
+        explicit = getattr(error, "__dict__", {}).get("taskledger_error_code")
+        if isinstance(explicit, str) and explicit not in {"TASKLEDGER_ERROR", "LAUNCH_ERROR"}:
+            return explicit
+        legacy_type = explicit_error_type or getattr(error, "__dict__", {}).get(
+            "taskledger_error_type"
+        )
+        if isinstance(legacy_type, str):
+            mapped = _error_code_from_error_type(legacy_type)
+            if mapped is not None and error.code in {"TASKLEDGER_ERROR", "LAUNCH_ERROR"}:
+                return mapped
+        by_exit_code = _error_code_from_exit_code(
+            explicit_exit_code if explicit_exit_code is not None else _error_exit_code(error)
+        )
+        if by_exit_code is not None and error.code in {"TASKLEDGER_ERROR", "LAUNCH_ERROR"}:
+            return by_exit_code
+        return error.code
+    if isinstance(error, Exception):
+        explicit = getattr(error, "__dict__", {}).get("taskledger_error_code")
+        if isinstance(explicit, str):
+            return explicit
+        legacy_type = explicit_error_type or getattr(error, "__dict__", {}).get(
+            "taskledger_error_type"
+        )
+        if isinstance(legacy_type, str):
+            mapped = _error_code_from_error_type(legacy_type)
+            if mapped is not None:
+                return mapped
+    by_exit_code = _error_code_from_exit_code(
+        explicit_exit_code if explicit_exit_code is not None else _error_exit_code(error)
+    )
+    if by_exit_code is not None:
+        return by_exit_code
+    return "TASKLEDGER_ERROR"
+
+
+def _error_details(error: Exception | str) -> dict[str, object]:
+    payload = _error_data(error)
+    return {
+        key: value
+        for key, value in payload.items()
+        if key not in {"code", "message", "task_id", "blocking_refs"}
+    }
+
+
+def _error_task_id(error: Exception | str) -> str | None:
+    if isinstance(error, TaskledgerError) and error.task_id is not None:
+        return error.task_id
+    payload = _error_data(error)
+    task_id = payload.get("task_id")
+    if isinstance(task_id, str):
+        return task_id
+    return None
+
+
+def _error_blocking_refs(error: Exception | str) -> list[str]:
+    if isinstance(error, TaskledgerError) and error.blocking_refs:
+        return [str(item) for item in error.blocking_refs]
+    payload = _error_data(error)
+    blocking_refs = payload.get("blocking_refs")
+    if isinstance(blocking_refs, list):
+        return [str(item) for item in blocking_refs]
+    return []
+
+
 def _exit_code_from_message(message: str, default: int) -> int:
     lowered = message.lower()
     if "not found" in lowered or lowered.startswith("no plans found"):
-        return 10
+        return 5
     if "lock already exists" in lowered:
-        return 30
+        return 4
     if "invalid yaml" in lowered or "invalid lock file" in lowered:
-        return 40
+        return 6
     return default
 
 
-def _error_type_from_exit_code(exit_code: int) -> str | None:
+def _error_code_from_error_type(error_type: str) -> str | None:
     return {
-        10: "NotFound",
-        11: "ValidationError",
-        20: "InvalidStageTransition",
-        21: "ApprovalRequired",
-        22: "DependencyIncomplete",
-        30: "LockConflict",
-        31: "StaleLockRequiresBreak",
-        40: "StorageCorruption",
-        41: "IndexRebuildFailed",
+        "ApprovalRequired": "APPROVAL_REQUIRED",
+        "DependencyIncomplete": "DEPENDENCY_INCOMPLETE",
+        "InvalidStageTransition": "INVALID_STAGE_TRANSITION",
+        "LockConflict": "LOCK_CONFLICT",
+        "NotFound": "NOT_FOUND",
+        "StaleLockRequiresBreak": "STALE_LOCK_REQUIRES_BREAK",
+        "StorageCorruption": "STORAGE_CORRUPTION",
+        "ValidationError": "VALIDATION_FAILED",
+    }.get(error_type)
+
+
+def _error_code_from_exit_code(exit_code: int) -> str | None:
+    return {
+        2: "INVALID_INPUT",
+        3: "WORKFLOW_REJECTION",
+        4: "LOCK_CONFLICT",
+        5: "NOT_FOUND",
+        6: "STORAGE_ERROR",
+        7: "VALIDATION_FAILED",
     }.get(exit_code)
 
 
 def _default_remediation(exit_code: int) -> list[str]:
     return {
-        10: ["Check the task or record reference and retry."],
-        11: ["Review the invalid input or record data and retry."],
-        20: ["Move the task through the required staged workflow before retrying."],
-        21: ["Approve or revise the plan before retrying the requested operation."],
-        22: ["Complete or remove the blocking requirements before retrying."],
-        30: ["Inspect the active lock or break it explicitly if it is stale."],
-        31: [
-            'Break the stale lock explicitly with '
-            '`taskledger lock break <task> --reason "..."`.'
-        ],
-        40: ["Run `taskledger doctor` and repair the ledger state before retrying."],
-        41: ["Run `taskledger reindex` and inspect `taskledger doctor` output."],
+        2: ["Review the invalid input or command usage and retry."],
+        3: ["Move the task through the required workflow gate before retrying."],
+        4: ["Inspect the active lock or break it explicitly if it is stale."],
+        5: ["Check the task or record reference and retry."],
+        6: ["Run `taskledger doctor` and repair the ledger state before retrying."],
+        7: ["Review the recorded validation results and resolve the failing checks."],
     }.get(exit_code, [])
+
+
+def _task_id_from_value(value: Any) -> str | None:
+    if isinstance(value, dict):
+        direct = value.get("task_id")
+        if isinstance(direct, str):
+            return direct
+        candidate = value.get("id")
+        if isinstance(candidate, str) and candidate.startswith("task-"):
+            return candidate
+        nested_task = value.get("task")
+        if isinstance(nested_task, dict):
+            nested_id = nested_task.get("id")
+            if isinstance(nested_id, str):
+                return nested_id
+    return None
+
+
+def _event_refs(payload: Any) -> list[str]:
+    if not isinstance(payload, dict):
+        return []
+    events = payload.get("events")
+    if isinstance(events, list):
+        return [str(item) for item in events]
+    return []
 
 
 def read_text_input(

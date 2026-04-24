@@ -26,7 +26,7 @@ def _init_project(tmp_path: Path) -> None:
 def _json(result) -> dict[str, object]:
     assert result.exit_code == 0, result.stdout
     payload = json.loads(result.stdout)
-    assert payload["success"] is True
+    assert payload["ok"] is True
     return payload
 
 
@@ -81,7 +81,7 @@ def test_export_and_import_include_v2_state(tmp_path: Path) -> None:
         ["--cwd", str(source_root), "--json", "export"],
     )
     export_payload = _json(export_result)
-    assert export_payload["data"]["v2"]["tasks"][0]["slug"] == "migrate-v2"
+    assert export_payload["result"]["v2"]["tasks"][0]["slug"] == "migrate-v2"
     export_file = tmp_path / "export.json"
     export_file.write_text(export_result.stdout, encoding="utf-8")
 
@@ -102,4 +102,4 @@ def test_export_and_import_include_v2_state(tmp_path: Path) -> None:
         ["--cwd", str(dest_root), "--json", "task", "show", "migrate-v2"],
     )
     task_payload = _json(show_result)
-    assert task_payload["data"]["task"]["latest_plan_version"] == 1
+    assert task_payload["result"]["task"]["latest_plan_version"] == 1

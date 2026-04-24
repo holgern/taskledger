@@ -4,7 +4,24 @@ from typing import Literal, cast
 
 from taskledger.errors import LaunchError
 
+TASKLEDGER_SCHEMA_VERSION = 1
 TASKLEDGER_V2_FILE_VERSION = "v2"
+OBJECT_TYPES = frozenset(
+    {
+        "task",
+        "plan",
+        "question",
+        "run",
+        "validation",
+        "change",
+        "intro",
+        "lock",
+        "event",
+        "todos",
+        "links",
+        "requirements",
+    }
+)
 
 TaskStatusStage = Literal[
     "draft",
@@ -55,6 +72,20 @@ EventName = Literal[
 ]
 
 ACTIVE_TASK_STAGES = frozenset({"planning", "implementing", "validating"})
+DURABLE_TASK_STATUSES = frozenset(
+    {
+        "draft",
+        "plan_review",
+        "approved",
+        "implemented",
+        "failed_validation",
+        "done",
+        "cancelled",
+    }
+)
+RUN_TYPES = frozenset({"planning", "implementation", "validation"})
+RUN_STATUSES = frozenset({"running", "finished", "failed", "aborted"})
+VALIDATION_CHECK_STATUSES = frozenset({"pass", "fail", "warn", "not_run"})
 IMPLEMENTABLE_TASK_STAGES = frozenset({"approved", "failed_validation"})
 CANCELLABLE_TASK_STAGES = frozenset(ACTIVE_TASK_STAGES) | {
     "draft",
@@ -65,30 +96,32 @@ CANCELLABLE_TASK_STAGES = frozenset(ACTIVE_TASK_STAGES) | {
 }
 
 ALLOWED_STAGE_TRANSITIONS: dict[TaskStatusStage, frozenset[TaskStatusStage]] = {
-    "draft": frozenset({"planning", "cancelled"}),
+    "draft": frozenset({"plan_review", "cancelled"}),
     "planning": frozenset({"plan_review", "cancelled"}),
-    "plan_review": frozenset({"planning", "approved", "cancelled"}),
-    "approved": frozenset({"implementing", "cancelled"}),
+    "plan_review": frozenset({"draft", "approved", "cancelled"}),
+    "approved": frozenset({"implemented", "cancelled"}),
     "implementing": frozenset({"implemented", "cancelled"}),
-    "implemented": frozenset({"validating", "cancelled"}),
+    "implemented": frozenset({"done", "failed_validation", "cancelled"}),
     "validating": frozenset({"done", "failed_validation", "cancelled"}),
-    "failed_validation": frozenset({"approved", "implementing", "cancelled"}),
+    "failed_validation": frozenset({"approved", "plan_review", "cancelled"}),
     "done": frozenset(),
     "cancelled": frozenset(),
 }
 
 EXIT_CODE_SUCCESS = 0
+EXIT_CODE_GENERIC_FAILURE = 1
 EXIT_CODE_BAD_INPUT = 2
-EXIT_CODE_MISSING = 10
-EXIT_CODE_VALIDATION_FAILED = 11
-EXIT_CODE_INVALID_TRANSITION = 20
-EXIT_CODE_APPROVAL_REQUIRED = 21
-EXIT_CODE_DEPENDENCY_BLOCKED = 22
-EXIT_CODE_LOCK_CONFLICT = 30
-EXIT_CODE_STALE_LOCK_REQUIRES_BREAK = 31
-EXIT_CODE_DATA_INTEGRITY = 40
-EXIT_CODE_STORAGE_ERROR = 40
-EXIT_CODE_INDEX_REBUILD_FAILED = 41
+EXIT_CODE_WORKFLOW_REJECTION = 3
+EXIT_CODE_LOCK_CONFLICT = 4
+EXIT_CODE_MISSING = 5
+EXIT_CODE_DATA_INTEGRITY = 6
+EXIT_CODE_STORAGE_ERROR = 6
+EXIT_CODE_VALIDATION_FAILED = 7
+EXIT_CODE_INVALID_TRANSITION = EXIT_CODE_WORKFLOW_REJECTION
+EXIT_CODE_APPROVAL_REQUIRED = EXIT_CODE_WORKFLOW_REJECTION
+EXIT_CODE_DEPENDENCY_BLOCKED = EXIT_CODE_WORKFLOW_REJECTION
+EXIT_CODE_STALE_LOCK_REQUIRES_BREAK = EXIT_CODE_LOCK_CONFLICT
+EXIT_CODE_INDEX_REBUILD_FAILED = EXIT_CODE_STORAGE_ERROR
 
 
 def is_active_stage(stage: TaskStatusStage) -> bool:

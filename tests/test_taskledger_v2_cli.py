@@ -27,7 +27,7 @@ def _init_project(tmp_path: Path) -> None:
 def _json(result) -> dict[str, object]:
     assert result.exit_code == 0, result.stdout
     payload = json.loads(result.stdout)
-    assert payload["success"] is True
+    assert payload["ok"] is True
     return payload
 
 
@@ -55,13 +55,14 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
         app,
         ["--cwd", str(tmp_path), "--json", "can", "rewrite-v2", "plan"],
     ).stdout
-    assert (
+    start_plan = _json(
         runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "plan", "start", "rewrite-v2"],
-        ).exit_code
-        == 0
+            ["--cwd", str(tmp_path), "--json", "plan", "start", "rewrite-v2"],
+        )
     )
+    assert start_plan["result"]["status_stage"] == "draft"
+    assert start_plan["result"]["active_stage"] == "planning"
     assert (
         runner.invoke(
             app,
@@ -93,21 +94,25 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
         ).exit_code
         == 0
     )
-    assert (
+    propose_plan = _json(
         runner.invoke(
             app,
             [
                 "--cwd",
                 str(tmp_path),
+                "--json",
                 "plan",
                 "propose",
                 "rewrite-v2",
+                "--criterion",
+                "Ship the rewrite safely.",
                 "--text",
                 "## Goal\n\nShip the v2 rewrite.",
             ],
-        ).exit_code
-        == 0
+        )
     )
+    assert propose_plan["result"]["status_stage"] == "plan_review"
+    assert propose_plan["result"]["active_stage"] is None
     assert (
         runner.invoke(
             app,
@@ -119,17 +124,22 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
                 "rewrite-v2",
                 "--version",
                 "1",
+                "--actor",
+                "user",
+                "--note",
+                "Ready to implement.",
             ],
         ).exit_code
         == 0
     )
-    assert (
+    start_impl = _json(
         runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "implement", "start", "rewrite-v2"],
-        ).exit_code
-        == 0
+            ["--cwd", str(tmp_path), "--json", "implement", "start", "rewrite-v2"],
+        )
     )
+    assert start_impl["result"]["status_stage"] == "approved"
+    assert start_impl["result"]["active_stage"] == "implementation"
     assert (
         runner.invoke(
             app,
@@ -164,28 +174,31 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
         ).exit_code
         == 0
     )
-    assert (
+    finish_impl = _json(
         runner.invoke(
             app,
             [
                 "--cwd",
                 str(tmp_path),
+                "--json",
                 "implement",
                 "finish",
                 "rewrite-v2",
                 "--summary",
                 "Implemented v2",
             ],
-        ).exit_code
-        == 0
+        )
     )
-    assert (
+    assert finish_impl["result"]["status_stage"] == "implemented"
+    assert finish_impl["result"]["active_stage"] is None
+    start_validation = _json(
         runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "validate", "start", "rewrite-v2"],
-        ).exit_code
-        == 0
+            ["--cwd", str(tmp_path), "--json", "validate", "start", "rewrite-v2"],
+        )
     )
+    assert start_validation["result"]["status_stage"] == "implemented"
+    assert start_validation["result"]["active_stage"] == "validation"
     assert (
         runner.invoke(
             app,
@@ -203,12 +216,13 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
         ).exit_code
         == 0
     )
-    assert (
+    finish_validation = _json(
         runner.invoke(
             app,
             [
                 "--cwd",
                 str(tmp_path),
+                "--json",
                 "validate",
                 "finish",
                 "rewrite-v2",
@@ -217,19 +231,21 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
                 "--summary",
                 "Validated v2",
             ],
-        ).exit_code
-        == 0
+        )
     )
+    assert finish_validation["result"]["status_stage"] == "done"
+    assert finish_validation["result"]["active_stage"] is None
 
     show_result = runner.invoke(
         app,
         ["--cwd", str(tmp_path), "--json", "task", "show", "rewrite-v2"],
     )
     payload = _json(show_result)
-    assert payload["operation"] == "task.show"
-    assert payload["data"]["task"]["status_stage"] == "done"
-    assert payload["data"]["task"]["accepted_plan_version"] == 1
-    assert payload["data"]["changes"][0]["path"] == "taskledger/storage/v2.py"
+    assert payload["command"] == "task.show"
+    assert payload["result"]["task"]["status_stage"] == "done"
+    assert payload["result"]["task"]["active_stage"] is None
+    assert payload["result"]["task"]["accepted_plan_version"] == 1
+    assert payload["result"]["changes"][0]["path"] == "taskledger/storage/v2.py"
 
     handoff_result = runner.invoke(
         app,
@@ -250,14 +266,14 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
         ["--cwd", str(tmp_path), "--json", "doctor"],
     )
     doctor_payload = _json(doctor_result)
-    assert doctor_payload["data"]["healthy"] is True
+    assert doctor_payload["result"]["healthy"] is True
 
     reindex_result = runner.invoke(
         app,
         ["--cwd", str(tmp_path), "--json", "reindex"],
     )
     reindex_payload = _json(reindex_result)
-    assert reindex_payload["data"]["counts"]["tasks"] == 1
+    assert reindex_payload["result"]["counts"]["tasks"] == 1
 
 
 def test_v2_lock_break_and_expired_lock_report(tmp_path: Path) -> None:
@@ -276,7 +292,7 @@ def test_v2_lock_break_and_expired_lock_report(tmp_path: Path) -> None:
     )
     runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start", "lock-task"])
 
-    lock_path = tmp_path / ".taskledger" / "tasks" / "task-1.lock.yaml"
+    lock_path = tmp_path / ".taskledger" / "tasks" / "task-1" / "lock.yaml"
     payload = yaml.safe_load(lock_path.read_text(encoding="utf-8"))
     payload["expires_at"] = "2000-01-01T00:00:00+00:00"
     lock_path.write_text(
@@ -305,7 +321,7 @@ def test_v2_lock_break_and_expired_lock_report(tmp_path: Path) -> None:
         ],
     )
     assert break_result.exit_code == 0
-    assert _json(break_result)["data"]["command"] == "lock break"
+    assert _json(break_result)["result"]["command"] == "lock break"
     assert not lock_path.exists()
 
 
@@ -363,7 +379,7 @@ def test_task_first_support_commands_are_available(tmp_path: Path) -> None:
         app,
         ["--cwd", str(tmp_path), "--json", "todo", "show", "support-task", "todo-1"],
     )
-    assert _json(todo_show)["data"]["todo"]["id"] == "todo-1"
+    assert _json(todo_show)["result"]["todo"]["id"] == "todo-1"
 
     file_list = runner.invoke(
         app,
@@ -391,9 +407,8 @@ def test_root_alias_uses_stable_json_envelope(tmp_path: Path) -> None:
         ],
     )
     payload = _json(create_result)
-    assert payload["operation"] == "task.create"
-    assert payload["result_type"] == "task"
-    assert payload["data"]["slug"] == "root-alias-task"
+    assert payload["command"] == "task.create"
+    assert payload["result"]["slug"] == "root-alias-task"
 
 
 def test_plan_approval_blocks_open_questions_with_json_error(tmp_path: Path) -> None:
@@ -449,11 +464,11 @@ def test_plan_approval_blocks_open_questions_with_json_error(tmp_path: Path) -> 
             "1",
         ],
     )
-    assert result.exit_code == 21
+    assert result.exit_code == 3
     payload = json.loads(result.stdout)
-    assert payload["success"] is False
-    assert payload["operation"] == "plan.approve"
-    assert payload["error_type"] == "ApprovalRequired"
+    assert payload["ok"] is False
+    assert payload["command"] == "plan.approve"
+    assert payload["error"]["code"] == "WORKFLOW_REJECTION"
 
 
 def test_expired_lock_requires_explicit_break_json_error(tmp_path: Path) -> None:
@@ -472,7 +487,7 @@ def test_expired_lock_requires_explicit_break_json_error(tmp_path: Path) -> None
     )
     runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start", "stale-lock-task"])
 
-    lock_path = tmp_path / ".taskledger" / "tasks" / "task-1.lock.yaml"
+    lock_path = tmp_path / ".taskledger" / "tasks" / "task-1" / "lock.yaml"
     payload = yaml.safe_load(lock_path.read_text(encoding="utf-8"))
     payload["expires_at"] = "2000-01-01T00:00:00+00:00"
     lock_path.write_text(
@@ -493,7 +508,7 @@ def test_expired_lock_requires_explicit_break_json_error(tmp_path: Path) -> None
             "## Goal\n\nDo not silently replace stale locks.\n",
         ],
     )
-    assert result.exit_code == 31
+    assert result.exit_code == 4
     payload = json.loads(result.stdout)
-    assert payload["success"] is False
-    assert payload["error_type"] == "StaleLockRequiresBreak"
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "STALE_LOCK_REQUIRES_BREAK"

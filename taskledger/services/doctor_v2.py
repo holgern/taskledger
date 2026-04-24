@@ -2,15 +2,18 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from taskledger.domain.policies import derive_active_stage
 from taskledger.storage.locks import lock_is_expired
 from taskledger.storage.v2 import (
     ensure_v2_layout,
+    load_active_locks,
+    load_requirements,
+    load_todos,
     list_changes,
     list_plans,
     list_questions,
     list_runs,
     list_tasks,
-    load_active_locks,
     resolve_introduction,
     resolve_run,
 )
@@ -48,7 +51,9 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
                         "ref": task.introduction_ref,
                     }
                 )
-        for requirement in task.requirements:
+        for requirement in (
+            item.task_id for item in load_requirements(workspace_root, task.id).requirements
+        ):
             if requirement not in task_map:
                 broken_links.append(
                     {"task_id": task.id, "kind": "requirement", "ref": requirement}
@@ -57,71 +62,64 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
             plan.plan_version == task.accepted_plan_version for plan in plans
         ):
             errors.append(
-                
-                    f"Task {task.id} points to missing accepted plan "
-                    f"v{task.accepted_plan_version}."
-                
+                f"Task {task.id} points to missing accepted plan "
+                f"v{task.accepted_plan_version}."
             )
         if len(accepted) > 1:
             errors.append(f"Task {task.id} has multiple accepted plans.")
         if task.accepted_plan_version is not None and len(accepted) != 1:
             errors.append(
-                
-                    f"Task {task.id} must have exactly one accepted plan "
-                    "for accepted_plan_version."
-                
+                f"Task {task.id} must have exactly one accepted plan "
+                "for accepted_plan_version."
             )
-        if len({todo.id for todo in task.todos}) != len(task.todos):
+        todos = load_todos(workspace_root, task.id).todos
+        if len({todo.id for todo in todos}) != len(todos):
             errors.append(f"Task {task.id} contains duplicate todo ids.")
 
-        active_lock = next((lock for lock in locks if lock.task_id == task.id), None)
+        active_lock = next(
+            (
+                lock
+                for lock in locks
+                if lock.task_id == task.id and not lock_is_expired(lock)
+            ),
+            None,
+        )
+        running_runs = [run for run in task_runs[task.id] if run.status == "running"]
         if task.status_stage in {"planning", "implementing", "validating"}:
-            if active_lock is None:
-                errors.append(
-                    f"Task {task.id} is in {task.status_stage} without an active lock."
-                )
-                repair_hints.append(
-                    
-                        f"Inspect task {task.id} and either repair the stage "
-                        "or restart the active run."
-                    
-                )
-            elif active_lock.stage != task.status_stage:
-                errors.append(
-                    
-                        f"Task {task.id} is in {task.status_stage} "
-                        f"but lock stage is {active_lock.stage}."
-                    
-                )
-        elif active_lock is not None:
             errors.append(
-                
-                    f"Task {task.id} has a {active_lock.stage} lock "
-                    f"while in {task.status_stage}."
-                
+                f"Task {task.id} persists transient stage {task.status_stage} as status."
+            )
+        if len(running_runs) > 1:
+            errors.append(f"Task {task.id} has multiple running runs.")
+        active_stage = derive_active_stage(active_lock, running_runs)
+        if running_runs and active_stage is None:
+            errors.append(
+                f"Task {task.id} has a running run without a matching active lock."
             )
             repair_hints.append(
-                
-                    "Break the stale lock with "
-                    f"`taskledger lock break {task.id} --reason \"...\"`."
-                
+                "Inspect the run/lock pair and either repair it or break the lock "
+                f"for task {task.id} explicitly."
+            )
+        if active_lock is not None and active_stage is None and not running_runs:
+            errors.append(
+                f"Task {task.id} has a {active_lock.stage} lock without a running run."
+            )
+            repair_hints.append(
+                "Break the stale lock with "
+                f"`taskledger lock break {task.id} --reason \"...\"`."
             )
 
         for change in list_changes(workspace_root, task.id):
             run = run_map.get((task.id, change.implementation_run))
             if run is None:
                 errors.append(
-                    
-                        f"Change {change.change_id} references missing "
-                        f"implementation run {change.implementation_run}."
-                    
+                    f"Change {change.change_id} references missing "
+                    f"implementation run {change.implementation_run}."
                 )
             elif run.run_type != "implementation":
                 errors.append(
-                    
-                        f"Change {change.change_id} references "
-                        f"non-implementation run {change.implementation_run}."
-                    
+                    f"Change {change.change_id} references "
+                    f"non-implementation run {change.implementation_run}."
                 )
 
         for run in task_runs[task.id]:
@@ -129,19 +127,15 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
                 linked = run_map.get((task.id, run.based_on_implementation_run))
                 if linked is None:
                     errors.append(
-                        
-                            f"Validation run {run.run_id} references missing "
-                            "implementation run "
-                            f"{run.based_on_implementation_run}."
-                        
+                        f"Validation run {run.run_id} references missing "
+                        "implementation run "
+                        f"{run.based_on_implementation_run}."
                     )
                 elif linked.run_type != "implementation":
                     errors.append(
-                        
-                            f"Validation run {run.run_id} references "
-                            "non-implementation run "
-                            f"{run.based_on_implementation_run}."
-                        
+                        f"Validation run {run.run_id} references "
+                        "non-implementation run "
+                        f"{run.based_on_implementation_run}."
                     )
 
     for lock in locks:
@@ -160,12 +154,12 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
             run = resolve_run(workspace_root, lock.task_id, lock.run_id)
         except Exception:
             errors.append(
-                
-                    f"Lock {lock.lock_id} references missing run {lock.run_id} "
-                    f"for task {lock.task_id}."
-                
+                f"Lock {lock.lock_id} references missing run {lock.run_id} "
+                f"for task {lock.task_id}."
             )
             continue
+        if run.status != "running":
+            errors.append(f"Lock {lock.lock_id} references non-running run {run.run_id}.")
         expected_stage = {
             "planning": "planning",
             "implementation": "implementing",
@@ -173,10 +167,8 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
         }[run.run_type]
         if lock.stage != expected_stage:
             errors.append(
-                
-                    f"Lock {lock.lock_id} stage {lock.stage} does not match "
-                    f"run {run.run_id} type {run.run_type}."
-                
+                f"Lock {lock.lock_id} stage {lock.stage} does not match "
+                f"run {run.run_id} type {run.run_type}."
             )
 
     if broken_links:
@@ -184,10 +176,8 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
     if expired_locks:
         warnings.append("Expired task locks require explicit resolution.")
         repair_hints.append(
-            
-                "Break stale locks explicitly with "
-                "`taskledger lock break <task> --reason \"...\"`."
-            
+            "Break stale locks explicitly with "
+            "`taskledger lock break <task> --reason \"...\"`."
         )
 
     return {
@@ -214,16 +204,10 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
 
 
 def inspect_v2_locks(workspace_root: Path) -> dict[str, object]:
-    ensure_v2_layout(workspace_root)
-    locks = load_active_locks(workspace_root)
-    expired: list[dict[str, object]] = []
-    active: list[dict[str, object]] = []
-    for lock in locks:
-        target = expired if lock_is_expired(lock) else active
-        target.append(lock.to_dict())
+    payload = inspect_v2_project(workspace_root)
+    expired_locks = list(payload["expired_locks"])
     return {
-        "kind": "taskledger_locks",
-        "healthy": not expired,
-        "locks": active,
-        "expired_locks": expired,
+        "kind": "taskledger_lock_inspection",
+        "healthy": not expired_locks,
+        "expired_locks": expired_locks,
     }

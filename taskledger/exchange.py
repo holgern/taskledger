@@ -23,6 +23,7 @@ from taskledger.storage.v2 import (
     ensure_v2_layout,
     load_active_locks,
     overwrite_plan,
+    plan_markdown_path,
     resolve_v2_paths,
     save_change,
     save_introduction,
@@ -30,6 +31,7 @@ from taskledger.storage.v2 import (
     save_question,
     save_run,
     save_task,
+    task_dir,
     task_lock_path,
 )
 from taskledger.storage.v2 import list_changes as list_v2_changes
@@ -77,6 +79,10 @@ def parse_project_import_payload(text: str, *, format_name: str) -> dict[str, ob
         raise LaunchError("Project import JSON must be an object.")
     if payload.get("success") is True and isinstance(payload.get("data"), dict):
         candidate = payload["data"]
+        if candidate.get("kind") in {"taskledger_export", "project_export"}:
+            payload = candidate
+    if payload.get("ok") is True and isinstance(payload.get("result"), dict):
+        candidate = payload["result"]
         if candidate.get("kind") in {"taskledger_export", "project_export"}:
             payload = candidate
     if payload.get("kind") not in {None, "taskledger_export", "project_export"}:
@@ -182,7 +188,7 @@ def _import_v2_payload(workspace_root: Path, payload: dict[str, object]) -> None
         save_introduction(workspace_root, IntroductionRecord.from_dict(item))
     for item in _dict_list(raw_v2.get("plans")):
         plan = PlanRecord.from_dict(item)
-        if (paths.plans_dir / plan.task_id / f"plan-v{plan.plan_version}.md").exists():
+        if plan_markdown_path(paths, plan.task_id, plan.plan_version).exists():
             overwrite_plan(workspace_root, plan)
         else:
             save_plan(workspace_root, plan)
@@ -203,15 +209,11 @@ def _import_v2_payload(workspace_root: Path, payload: dict[str, object]) -> None
 
 
 def _clear_v2_state(paths) -> None:
-    for pattern in ("task-*.md", "task-*.lock.yaml"):
-        for path in paths.tasks_dir.glob(pattern):
-            path.unlink()
+    for directory in paths.tasks_dir.glob("task-*"):
+        if directory.is_dir():
+            shutil.rmtree(directory)
     for directory in (
         paths.introductions_dir,
-        paths.plans_dir,
-        paths.questions_dir,
-        paths.runs_dir,
-        paths.changes_dir,
         paths.events_dir,
     ):
         if directory.exists():

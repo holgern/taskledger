@@ -45,6 +45,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
         task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
         text: Annotated[str | None, typer.Option("--text")] = None,
         from_file: Annotated[Path | None, typer.Option("--file")] = None,
+        criterion: Annotated[list[str] | None, typer.Option("--criterion")] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
@@ -52,6 +53,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
                 state.cwd,
                 task_ref,
                 body=read_text_input(text=text, from_file=from_file),
+                criteria=tuple(criterion or ()),
             )
         except LaunchError as exc:
             emit_error(ctx, exc)
@@ -128,10 +130,30 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
         ctx: typer.Context,
         task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
         version: Annotated[int, typer.Option("--version")],
+        actor: Annotated[str, typer.Option("--actor")] = "user",
+        actor_name: Annotated[str | None, typer.Option("--actor-name")] = None,
+        note: Annotated[str | None, typer.Option("--note")] = None,
+        allow_agent_approval: Annotated[
+            bool, typer.Option("--allow-agent-approval")
+        ] = False,
+        reason: Annotated[str | None, typer.Option("--reason")] = None,
+        allow_empty_criteria: Annotated[
+            bool, typer.Option("--allow-empty-criteria")
+        ] = False,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            payload = approve_plan(state.cwd, task_ref, version=version)
+            payload = approve_plan(
+                state.cwd,
+                task_ref,
+                version=version,
+                actor_type=actor,
+                actor_name=actor_name,
+                note=note,
+                allow_agent_approval=allow_agent_approval,
+                reason=reason,
+                allow_empty_criteria=allow_empty_criteria,
+            )
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc

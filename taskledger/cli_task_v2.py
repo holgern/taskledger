@@ -66,8 +66,14 @@ def register_task_v2_commands(app: typer.Typer) -> None:
             human_lines.append("(empty)")
         else:
             for task in payload["tasks"]:
+                active = task.get("active_stage")
+                stage = (
+                    f"{task['status_stage']} [{active}]"
+                    if active
+                    else str(task["status_stage"])
+                )
                 human_lines.append(
-                    f"{task['slug']}  {task['id']}  {task['status_stage']}"
+                    f"{task['slug']}  {task['id']}  {stage}"
                 )
         emit_payload(ctx, payload, human="\n".join(human_lines))
 
@@ -89,7 +95,9 @@ def register_task_v2_commands(app: typer.Typer) -> None:
             payload,
             human=(
                 f"{task['title']} ({task['id']})\n"
-                f"stage: {task['status_stage']}\nslug: {task['slug']}"
+                f"status: {task['status_stage']}\n"
+                f"active_stage: {task.get('active_stage') or 'none'}\n"
+                f"slug: {task['slug']}"
             ),
         )
 

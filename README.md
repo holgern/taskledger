@@ -89,10 +89,9 @@ Example status payload:
 
 ```json
 {
-  "success": true,
-  "operation": "status",
-  "result_type": "taskledger_status",
-  "data": {
+  "ok": true,
+  "command": "status",
+  "result": {
     "kind": "taskledger_status",
     "counts": {
       "tasks": 1,
@@ -105,10 +104,7 @@ Example status payload:
     },
     "healthy": true
   },
-  "warnings": [],
-  "errors": [],
-  "remediation": [],
-  "generated_at": "2026-04-24T08:00:00Z"
+  "events": []
 }
 ```
 

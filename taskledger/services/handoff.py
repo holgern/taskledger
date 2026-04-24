@@ -2,9 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from taskledger.domain.policies import derive_active_stage
 from taskledger.errors import LaunchError
-from taskledger.storage.locks import lock_status, read_lock
+from taskledger.storage.locks import lock_is_expired, lock_status, read_lock
 from taskledger.storage.v2 import (
+    load_links,
+    load_requirements,
+    load_todos,
     list_changes,
     list_plans,
     list_questions,
@@ -56,9 +60,16 @@ def build_handoff_payload(
     latest_impl = _latest_run(runs, "implementation")
     latest_validation = _latest_run(runs, "validation")
     lock = read_lock(task_lock_path(resolve_v2_paths(workspace_root), task.id))
+    active_stage = (
+        None
+        if lock is None or lock_is_expired(lock)
+        else derive_active_stage(lock, runs)
+    )
 
     dependencies = []
-    for requirement in task.requirements:
+    for requirement in (
+        item.task_id for item in load_requirements(workspace_root, task.id).requirements
+    ):
         dependency = resolve_task(workspace_root, requirement)
         dependencies.append(
             {
@@ -84,7 +95,7 @@ def build_handoff_payload(
     return {
         "kind": "task_handoff",
         "mode": mode,
-        "task": task.to_dict(),
+        "task": {**task.to_dict(), "active_stage": active_stage},
         "introduction": intro.to_dict() if intro is not None else None,
         "guardrails": _guardrails_for_mode(mode),
         "accepted_plan": accepted_plan.to_dict() if accepted_plan is not None else None,
@@ -94,8 +105,10 @@ def build_handoff_payload(
             "answered": answered_questions,
             "dismissed": dismissed_questions,
         },
-        "todos": [todo.to_dict() for todo in task.todos],
-        "file_links": [item.to_dict() for item in task.file_links],
+        "todos": [todo.to_dict() for todo in load_todos(workspace_root, task.id).todos],
+        "file_links": [
+            item.to_dict() for item in load_links(workspace_root, task.id).links
+        ],
         "dependencies": dependencies,
         "runs": {
             "latest_planning": _run_to_dict(_latest_run(runs, "planning")),
@@ -150,6 +163,7 @@ def _append_task_section(lines: list[str], task: dict[str, object]) -> None:
             f"- id: {task['id']}",
             f"- slug: {task['slug']}",
             f"- status_stage: {task['status_stage']}",
+            f"- active_stage: {task.get('active_stage') or 'none'}",
             f"- priority: {task.get('priority') or 'unset'}",
             f"- labels: {', '.join(task.get('labels') or []) or 'none'}",
             f"- owner: {task.get('owner') or 'unassigned'}",

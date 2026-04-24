@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from taskledger.domain.policies import derive_active_stage
 from taskledger.exchange import (
     export_project_payload,
     import_project_payload,
     parse_project_import_payload,
     write_project_snapshot,
 )
+from taskledger.storage.locks import lock_is_expired
 from taskledger.services.doctor_v2 import inspect_v2_project
 from taskledger.storage import init_project_state, resolve_taskledger_root
 from taskledger.storage.v2 import (
@@ -43,6 +45,7 @@ def project_status_summary(workspace_root: Path) -> dict[str, object]:
 def project_status(workspace_root: Path) -> dict[str, object]:
     doctor = inspect_v2_project(workspace_root)
     tasks = list_tasks(workspace_root)
+    locks = load_active_locks(workspace_root)
     return {
         "kind": "taskledger_status",
         "project_dir": str(resolve_taskledger_root(workspace_root)),
@@ -56,7 +59,19 @@ def project_status(workspace_root: Path) -> dict[str, object]:
                 "id": task.id,
                 "slug": task.slug,
                 "title": task.title,
+                "status": task.status_stage,
                 "status_stage": task.status_stage,
+                "active_stage": derive_active_stage(
+                    next(
+                        (
+                            lock
+                            for lock in locks
+                            if lock.task_id == task.id and not lock_is_expired(lock)
+                        ),
+                        None,
+                    ),
+                    list_runs(workspace_root, task.id),
+                ),
                 "accepted_plan_version": task.accepted_plan_version,
                 "latest_plan_version": task.latest_plan_version,
             }

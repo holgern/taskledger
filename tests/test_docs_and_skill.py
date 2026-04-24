@@ -35,5 +35,5 @@ def test_api_docs_mentions_all_task_first_command_groups() -> None:
 def test_readme_mentions_root_alias_and_json_envelope() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "--root" in readme
-    assert '"success": true' in readme
-    assert '"operation": "status"' in readme
+    assert '"ok": true' in readme
+    assert '"command": "status"' in readme

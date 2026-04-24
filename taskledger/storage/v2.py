@@ -5,14 +5,20 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TypeVar
 
+import yaml
+
 from taskledger.domain.models import (
     CodeChangeRecord,
     IntroductionRecord,
+    LinkCollection,
     PlanRecord,
     QuestionRecord,
+    RequirementCollection,
+    DependencyRequirement,
     TaskLock,
     TaskRecord,
     TaskRunRecord,
+    TodoCollection,
 )
 from taskledger.errors import LaunchError
 from taskledger.storage import resolve_taskledger_root
@@ -53,7 +59,7 @@ def resolve_v2_paths(workspace_root: Path) -> V2Paths:
     return V2Paths(
         workspace_root=workspace_root,
         project_dir=project_dir,
-        introductions_dir=project_dir / "introductions",
+        introductions_dir=project_dir / "intros",
         tasks_dir=project_dir / "tasks",
         plans_dir=project_dir / "plans",
         questions_dir=project_dir / "questions",
@@ -76,10 +82,6 @@ def ensure_v2_layout(workspace_root: Path) -> V2Paths:
         paths.project_dir,
         paths.introductions_dir,
         paths.tasks_dir,
-        paths.plans_dir,
-        paths.questions_dir,
-        paths.runs_dir,
-        paths.changes_dir,
         paths.events_dir,
         paths.indexes_dir,
     ):
@@ -101,7 +103,7 @@ def ensure_v2_layout(workspace_root: Path) -> V2Paths:
 def list_tasks(workspace_root: Path) -> list[TaskRecord]:
     paths = ensure_v2_layout(workspace_root)
     return sorted(
-        [_load_task(path) for path in paths.tasks_dir.glob("task-*.md")],
+        [_load_task(path) for path in paths.tasks_dir.glob("task-*/task.md")],
         key=lambda item: item.id,
     )
 
@@ -116,10 +118,24 @@ def resolve_task(workspace_root: Path, ref: str) -> TaskRecord:
 
 def save_task(workspace_root: Path, task: TaskRecord) -> TaskRecord:
     paths = ensure_v2_layout(workspace_root)
+    _ensure_task_bundle(paths, task.id)
     path = task_markdown_path(paths, task.id)
-    if path.stem != task.id:
+    if path.parent.name != task.id:
         raise LaunchError(f"Task id/path mismatch for {task.id}")
-    _write_markdown_record(path, task.to_dict(), task.body)
+    metadata = task.to_dict()
+    metadata.pop("todos", None)
+    metadata.pop("file_links", None)
+    metadata.pop("requirements", None)
+    _write_markdown_record(path, metadata, task.body)
+    if not task_todos_path(paths, task.id).exists():
+        _write_yaml(path=task_todos_path(paths, task.id), payload=_todo_collection(task))
+    if not task_links_path(paths, task.id).exists():
+        _write_yaml(path=task_links_path(paths, task.id), payload=_link_collection(task))
+    if not task_requirements_path(paths, task.id).exists():
+        _write_yaml(
+            path=task_requirements_path(paths, task.id),
+            payload=_requirement_collection(task),
+        )
     return task
 
 
@@ -150,7 +166,7 @@ def save_introduction(
 
 def list_plans(workspace_root: Path, task_id: str) -> list[PlanRecord]:
     paths = ensure_v2_layout(workspace_root)
-    directory = paths.plans_dir / task_id
+    directory = task_plans_dir(paths, task_id)
     return sorted(
         [_load_plan(path) for path in directory.glob("plan-v*.md")],
         key=lambda item: item.plan_version,
@@ -194,7 +210,7 @@ def resolve_plan(
 
 def list_questions(workspace_root: Path, task_id: str) -> list[QuestionRecord]:
     paths = ensure_v2_layout(workspace_root)
-    directory = paths.questions_dir / task_id
+    directory = task_questions_dir(paths, task_id)
     return sorted(
         [_load_question(path) for path in directory.glob("q-*.md")],
         key=lambda item: item.id,
@@ -219,7 +235,7 @@ def save_question(workspace_root: Path, question: QuestionRecord) -> QuestionRec
 
 def list_runs(workspace_root: Path, task_id: str) -> list[TaskRunRecord]:
     paths = ensure_v2_layout(workspace_root)
-    directory = paths.runs_dir / task_id
+    directory = task_runs_dir(paths, task_id)
     return sorted(
         [_load_run(path) for path in directory.glob("*.md")],
         key=lambda item: item.run_id,
@@ -242,7 +258,7 @@ def save_run(workspace_root: Path, run: TaskRunRecord) -> TaskRunRecord:
 
 def list_changes(workspace_root: Path, task_id: str) -> list[CodeChangeRecord]:
     paths = ensure_v2_layout(workspace_root)
-    directory = paths.changes_dir / task_id
+    directory = task_changes_dir(paths, task_id)
     return sorted(
         [_load_change(path) for path in directory.glob("change-*.md")],
         key=lambda item: item.change_id,
@@ -268,35 +284,131 @@ def resolve_change(
 def load_active_locks(workspace_root: Path) -> list[TaskLock]:
     paths = ensure_v2_layout(workspace_root)
     locks: list[TaskLock] = []
-    for path in sorted(paths.tasks_dir.glob("task-*.lock.yaml")):
+    for path in sorted(paths.tasks_dir.glob("task-*/lock.yaml")):
         lock = read_lock(path)
         if lock is not None:
             locks.append(lock)
     return locks
 
 
+def load_todos(workspace_root: Path, task_id: str) -> TodoCollection:
+    paths = ensure_v2_layout(workspace_root)
+    path = task_todos_path(paths, task_id)
+    if not path.exists():
+        return TodoCollection(task_id=task_id)
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise LaunchError(f"Invalid todo sidecar for {task_id}.")
+    return TodoCollection.from_dict(payload)
+
+
+def save_todos(workspace_root: Path, collection: TodoCollection) -> TodoCollection:
+    paths = ensure_v2_layout(workspace_root)
+    _ensure_task_bundle(paths, collection.task_id)
+    _write_yaml(task_todos_path(paths, collection.task_id), collection.to_dict())
+    return collection
+
+
+def load_links(workspace_root: Path, task_id: str) -> LinkCollection:
+    paths = ensure_v2_layout(workspace_root)
+    path = task_links_path(paths, task_id)
+    if not path.exists():
+        return LinkCollection(task_id=task_id)
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise LaunchError(f"Invalid link sidecar for {task_id}.")
+    return LinkCollection.from_dict(payload)
+
+
+def save_links(workspace_root: Path, collection: LinkCollection) -> LinkCollection:
+    paths = ensure_v2_layout(workspace_root)
+    _ensure_task_bundle(paths, collection.task_id)
+    _write_yaml(task_links_path(paths, collection.task_id), collection.to_dict())
+    return collection
+
+
+def load_requirements(workspace_root: Path, task_id: str) -> RequirementCollection:
+    paths = ensure_v2_layout(workspace_root)
+    path = task_requirements_path(paths, task_id)
+    if not path.exists():
+        return RequirementCollection(task_id=task_id)
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise LaunchError(f"Invalid requirement sidecar for {task_id}.")
+    return RequirementCollection.from_dict(payload)
+
+
+def save_requirements(
+    workspace_root: Path, collection: RequirementCollection
+) -> RequirementCollection:
+    paths = ensure_v2_layout(workspace_root)
+    _ensure_task_bundle(paths, collection.task_id)
+    _write_yaml(task_requirements_path(paths, collection.task_id), collection.to_dict())
+    return collection
+
+
+def task_dir(paths: V2Paths, task_id: str) -> Path:
+    return paths.tasks_dir / task_id
+
+
 def task_markdown_path(paths: V2Paths, task_id: str) -> Path:
-    return paths.tasks_dir / f"{task_id}.md"
+    return task_dir(paths, task_id) / "task.md"
 
 
 def task_lock_path(paths: V2Paths, task_id: str) -> Path:
-    return paths.tasks_dir / f"{task_id}.lock.yaml"
+    return task_dir(paths, task_id) / "lock.yaml"
+
+
+def task_todos_path(paths: V2Paths, task_id: str) -> Path:
+    return task_dir(paths, task_id) / "todos.yaml"
+
+
+def task_links_path(paths: V2Paths, task_id: str) -> Path:
+    return task_dir(paths, task_id) / "links.yaml"
+
+
+def task_requirements_path(paths: V2Paths, task_id: str) -> Path:
+    return task_dir(paths, task_id) / "requirements.yaml"
+
+
+def task_plans_dir(paths: V2Paths, task_id: str) -> Path:
+    return task_dir(paths, task_id) / "plans"
+
+
+def task_questions_dir(paths: V2Paths, task_id: str) -> Path:
+    return task_dir(paths, task_id) / "questions"
+
+
+def task_runs_dir(paths: V2Paths, task_id: str) -> Path:
+    return task_dir(paths, task_id) / "runs"
+
+
+def task_changes_dir(paths: V2Paths, task_id: str) -> Path:
+    return task_dir(paths, task_id) / "changes"
+
+
+def task_artifacts_dir(paths: V2Paths, task_id: str) -> Path:
+    return task_dir(paths, task_id) / "artifacts"
+
+
+def task_audit_dir(paths: V2Paths, task_id: str) -> Path:
+    return task_dir(paths, task_id) / "audit"
 
 
 def plan_markdown_path(paths: V2Paths, task_id: str, version: int) -> Path:
-    return paths.plans_dir / task_id / f"plan-v{version}.md"
+    return task_plans_dir(paths, task_id) / f"plan-v{version:04d}.md"
 
 
 def question_markdown_path(paths: V2Paths, task_id: str, question_id: str) -> Path:
-    return paths.questions_dir / task_id / f"{question_id}.md"
+    return task_questions_dir(paths, task_id) / f"{question_id}.md"
 
 
 def run_markdown_path(paths: V2Paths, task_id: str, run_id: str) -> Path:
-    return paths.runs_dir / task_id / f"{run_id}.md"
+    return task_runs_dir(paths, task_id) / f"{run_id}.md"
 
 
 def change_markdown_path(paths: V2Paths, task_id: str, change_id: str) -> Path:
-    return paths.changes_dir / task_id / f"{change_id}.md"
+    return task_changes_dir(paths, task_id) / f"{change_id}.md"
 
 
 def _load_task(path: Path) -> TaskRecord:
@@ -334,6 +446,41 @@ def _write_markdown_record(path: Path, metadata: dict[str, object], body: str) -
     metadata.pop("body", None)
     path.parent.mkdir(parents=True, exist_ok=True)
     write_markdown_front_matter(path, metadata, body.rstrip() + "\n")
+
+
+def _ensure_task_bundle(paths: V2Paths, task_id: str) -> None:
+    for directory in (
+        task_dir(paths, task_id),
+        task_plans_dir(paths, task_id),
+        task_questions_dir(paths, task_id),
+        task_runs_dir(paths, task_id),
+        task_changes_dir(paths, task_id),
+        task_artifacts_dir(paths, task_id),
+        task_audit_dir(paths, task_id),
+    ):
+        directory.mkdir(parents=True, exist_ok=True)
+
+
+def _todo_collection(task: TaskRecord) -> dict[str, object]:
+    return TodoCollection(task_id=task.id, todos=task.todos).to_dict()
+
+
+def _link_collection(task: TaskRecord) -> dict[str, object]:
+    return LinkCollection(task_id=task.id, links=task.file_links).to_dict()
+
+
+def _requirement_collection(task: TaskRecord) -> dict[str, object]:
+    return RequirementCollection(
+        task_id=task.id,
+        requirements=tuple(
+            DependencyRequirement(task_id=requirement) for requirement in task.requirements
+        ),
+    ).to_dict()
+
+
+def _write_yaml(path: Path, payload: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_text(path, yaml.safe_dump(payload, sort_keys=False))
 
 
 def _render_question_body(question: QuestionRecord) -> str:

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from taskledger.domain.policies import derive_active_stage
+from taskledger.storage.locks import lock_is_expired
 from taskledger.storage.common import write_json
 from taskledger.storage.v2 import (
     V2Paths,
+    load_requirements,
     list_introductions,
     list_plans,
     list_runs,
@@ -15,18 +18,28 @@ def rebuild_v2_indexes(paths: V2Paths) -> dict[str, int]:
     tasks = list_tasks(paths.workspace_root)
     introductions = list_introductions(paths.workspace_root)
     locks = load_active_locks(paths.workspace_root)
+    locks_by_task = {
+        lock.task_id: lock for lock in locks if not lock_is_expired(lock)
+    }
     plan_versions = []
     latest_runs = []
+    runs_by_task = {
+        task.id: list_runs(paths.workspace_root, task.id)
+        for task in tasks
+    }
     dependencies = [
         {
             "task_id": task.id,
-            "requirements": list(task.requirements),
+            "requirements": [
+                item.task_id
+                for item in load_requirements(paths.workspace_root, task.id).requirements
+            ],
         }
         for task in tasks
     ]
     for task in tasks:
         plans = list_plans(paths.workspace_root, task.id)
-        runs = list_runs(paths.workspace_root, task.id)
+        runs = runs_by_task[task.id]
         plan_versions.append(
             {
                 "task_id": task.id,
@@ -66,7 +79,12 @@ def rebuild_v2_indexes(paths: V2Paths) -> dict[str, int]:
                 "id": task.id,
                 "slug": task.slug,
                 "title": task.title,
+                "status": task.status_stage,
                 "status_stage": task.status_stage,
+                "active_stage": derive_active_stage(
+                    locks_by_task.get(task.id),
+                    runs_by_task[task.id],
+                ),
                 "accepted_plan_version": task.accepted_plan_version,
                 "latest_plan_version": task.latest_plan_version,
             }
