@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Literal, cast
 from pathlib import Path
 
 from taskledger.api.composition import (
@@ -12,6 +13,7 @@ from taskledger.api.composition import (
 )
 from taskledger.api.runtime_support import get_effective_project_config
 from taskledger.api.types import (
+    ExpandedSelection,
     ExecutionOptions,
     ExecutionOutcomeRecord,
     ExecutionRequest,
@@ -53,7 +55,7 @@ def build_execution_request(
     item = resolve_work_item(state.paths, item_ref)
     config = get_effective_project_config(workspace_root)
     effective_file_render_mode = (
-        file_render_mode or config.default_file_render_mode or "content"
+        file_render_mode or config.default_file_render_mode
     )
     selection = expand_selection(
         workspace_root,
@@ -82,7 +84,7 @@ def build_execution_request(
         run_in_repo=run_in_repo
         or item.target_repo_ref
         or (repo_refs[0] if repo_refs else None),
-        save_mode=save_mode,
+        save_mode=cast(Literal["replace", "append", "prepend"] | None, save_mode),
         file_render_mode=effective_file_render_mode,
     )
     if save_target is not None:
@@ -190,9 +192,7 @@ def record_execution_outcome(
     )
 
 
-def _selection_from_request(request: ExecutionRequest):
-    from taskledger.api.types import ExpandedSelection
-
+def _selection_from_request(request: ExecutionRequest) -> ExpandedSelection:
     return ExpandedSelection(
         context_inputs=request.context_inputs,
         memory_inputs=request.memory_inputs,

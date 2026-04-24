@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from typing import cast
 from pathlib import Path
 
 from taskledger.api.items import build_item_work_prompt, item_memory_refs, item_summary
-from taskledger.api.types import ContextEntry
+from taskledger.api.types import ContextEntry, WorkItem
 from taskledger.context import describe_context_sources as _describe_context_sources
 from taskledger.storage import delete_context as _delete_context
 from taskledger.storage import load_contexts as _load_contexts
@@ -131,22 +132,24 @@ def build_context_for_item(
         include_item_memories=True,
     )
     sources = described.get("sources")
-    sources = sources if isinstance(sources, tuple) else tuple(sources or ())
+    sources = sources if isinstance(sources, tuple) else tuple(cast(tuple[object, ...] | list[object], sources) or ())
     source_summary = _source_summary(sources)
+    item_payload = summary["item"]
+    assert isinstance(item_payload, dict)
     return {
         "context": {"id": entry.id, "name": entry.name},
         "item_ref": item.slug,
         "sources": {
             "item_refs": [item.id],
             "memory_refs": list(memory_refs),
-            "repo_refs": list(summary["item"]["repo_refs"]),
-            "run_refs": [str(run["id"]) for run in recent_runs],
-            "validation_refs": [str(record["id"]) for record in validation_records],
-            "context_refs": list(summary.get("context_refs", [])),
+            "repo_refs": list(cast(list[str], item_payload["repo_refs"])),
+            "run_refs": [str(run["id"]) for run in recent_runs],  # type: ignore[attr-defined]
+            "validation_refs": [str(record["id"]) for record in validation_records],  # type: ignore[attr-defined]
+            "context_refs": list(cast(list[str], summary.get("context_refs", []))),
         },
         "bundle_summary": {
             "source_count": len(sources),
-            "duplicates_removed": list(described.get("duplicates_removed", ())),
+            "duplicates_removed": list(cast(tuple[object, ...], described.get("duplicates_removed", ()))),
             "has_prompt_seed": bool(work_prompt["prompt"]),
             "by_kind": source_summary,
         },
@@ -154,7 +157,7 @@ def build_context_for_item(
 
 
 def _context_memory_refs(
-    item,
+    item: WorkItem,
     memory_ref_payload: dict[str, str | None],
 ) -> tuple[str, ...]:
     refs: list[str] = []
@@ -189,7 +192,7 @@ def _context_inline_texts(
     ]
     if include_runs:
         run_lines = ["Recent runs:"]
-        for run in summary["recent_runs"]:
+        for run in cast(list[object], summary["recent_runs"]):
             assert isinstance(run, dict)
             run_lines.append(
                 f"- {run.get('id')}  {run.get('status')}  "
@@ -199,7 +202,7 @@ def _context_inline_texts(
             inline_texts.append("\n".join(run_lines))
     if include_validation:
         validation_lines = ["Validation records:"]
-        for record in summary["validation_records"]:
+        for record in cast(list[object], summary["validation_records"]):
             assert isinstance(record, dict)
             validation_lines.append(
                 f"- {record.get('id')}  {record.get('status')}  "
@@ -217,7 +220,7 @@ def _context_inline_texts(
     )
 
 
-def _source_summary(sources) -> dict[str, int]:
+def _source_summary(sources: tuple[object, ...]) -> dict[str, int]:
     by_kind: dict[str, int] = {}
     for source in sources:
         kind = getattr(source, "kind", None)

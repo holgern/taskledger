@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Literal, cast
 import difflib
 import getpass
 import os
@@ -33,6 +34,7 @@ from taskledger.domain.models import (
     ValidationCheck,
 )
 from taskledger.domain.policies import (
+    PolicyDecision,
     derive_active_stage,
     implementation_mutation_decision,
     metadata_edit_decision,
@@ -78,6 +80,7 @@ from taskledger.storage.locks import (
     write_lock,
 )
 from taskledger.storage.v2 import (
+    V2Paths,
     ensure_v2_layout,
     list_changes,
     list_introductions,
@@ -1782,7 +1785,7 @@ def task_dossier(
 def reindex(workspace_root: Path) -> dict[str, object]:
     paths = ensure_v2_layout(workspace_root)
     counts = rebuild_v2_indexes(paths)
-    _append_event(paths.project_dir, "*", "repair.index", counts)
+    _append_event(paths.project_dir, "*", "repair.index", dict(cast(dict[str, object], counts)))
     return {"kind": "taskledger_reindex", "counts": counts}
 
 
@@ -1888,7 +1891,7 @@ def _acquire_lock(
     lock = TaskLock(
         lock_id=_next_lock_id(workspace_root, now),
         task_id=task.id,
-        stage=stage,
+        stage=cast(Literal["planning", "implementing", "validating"], stage),
         run_id=run.run_id,
         created_at=now.isoformat(),
         expires_at=(now + timedelta(hours=2)).isoformat(),
@@ -2060,7 +2063,7 @@ def _lock_conflict_message(task_id: str, lock: TaskLock) -> str:
     return f"Task {task_id} is locked by {lock.run_id} for {lock.stage}."
 
 
-def _enforce_decision(decision) -> None:
+def _enforce_decision(decision: PolicyDecision) -> None:
     if decision.ok:
         return
     raise _cli_error(decision.reason, decision.exit_code)
@@ -2489,7 +2492,7 @@ def _task_requirements(workspace_root: Path, task: TaskRecord) -> tuple[str, ...
     )
 
 
-def _write_broken_lock_audit(paths, task_id: str, lock: TaskLock) -> Path:
+def _write_broken_lock_audit(paths: V2Paths, task_id: str, lock: TaskLock) -> Path:
     timestamp = lock.broken_at or utc_now_iso()
     filename = timestamp.replace(":", "").replace("-", "").replace("+00:00", "Z")
     path = task_audit_dir(paths, task_id) / f"broken-lock-{filename}.yaml"

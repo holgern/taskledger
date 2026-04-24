@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from typing import Literal, cast
 
 from taskledger.context import default_item_plan_prompt
 from taskledger.errors import LaunchError
@@ -159,7 +160,7 @@ def validate_workflow_definition(workflow: WorkflowDefinition) -> None:
             )
 
 
-def list_available_workflows(paths) -> tuple[WorkflowDefinition, ...]:
+def list_available_workflows(paths: ProjectPaths) -> tuple[WorkflowDefinition, ...]:
     builtins = {
         workflow.workflow_id: workflow for workflow in builtin_workflow_definitions()
     }
@@ -172,14 +173,14 @@ def list_available_workflows(paths) -> tuple[WorkflowDefinition, ...]:
     return tuple(sorted(merged.values(), key=lambda workflow: workflow.workflow_id))
 
 
-def resolve_available_workflow(paths, workflow_id: str) -> WorkflowDefinition:
+def resolve_available_workflow(paths: ProjectPaths, workflow_id: str) -> WorkflowDefinition:
     for workflow in list_available_workflows(paths):
         if workflow.workflow_id == workflow_id:
             return workflow
     raise LaunchError(f"Unknown workflow definition: {workflow_id}")
 
 
-def default_workflow_id_for_paths(paths) -> str:
+def default_workflow_id_for_paths(paths: ProjectPaths) -> str:
     saved = load_workflow_definitions(paths)
     for workflow in saved:
         if workflow.default_for_items:
@@ -191,7 +192,7 @@ def default_workflow_id_for_paths(paths) -> str:
 
 
 def save_custom_workflow_definition(
-    paths, workflow: WorkflowDefinition
+    paths: ProjectPaths, workflow: WorkflowDefinition
 ) -> WorkflowDefinition:
     validate_workflow_definition(workflow)
     builtins = {item.workflow_id for item in builtin_workflow_definitions()}
@@ -220,7 +221,7 @@ def save_custom_workflow_definition(
     return workflow
 
 
-def delete_custom_workflow_definition(paths, workflow_id: str) -> None:
+def delete_custom_workflow_definition(paths: ProjectPaths, workflow_id: str) -> None:
     builtins = {item.workflow_id for item in builtin_workflow_definitions()}
     if workflow_id in builtins:
         raise LaunchError(f"Workflow {workflow_id} is built in and cannot be deleted.")
@@ -234,7 +235,7 @@ def delete_custom_workflow_definition(paths, workflow_id: str) -> None:
     save_workflow_definitions(paths, remaining)
 
 
-def set_default_workflow_for_paths(paths, workflow_id: str) -> WorkflowDefinition:
+def set_default_workflow_for_paths(paths: ProjectPaths, workflow_id: str) -> WorkflowDefinition:
     workflow = resolve_available_workflow(paths, workflow_id)
     existing = load_workflow_definitions(paths)
     updated: list[WorkflowDefinition] = []
@@ -258,7 +259,7 @@ def set_default_workflow_for_paths(paths, workflow_id: str) -> WorkflowDefinitio
 
 
 def item_stage_records_for_paths(
-    paths,
+    paths: ProjectPaths,
     item_ref: str,
     *,
     workflow_id: str | None = None,
@@ -270,7 +271,7 @@ def item_stage_records_for_paths(
 
 
 def latest_stage_record_for_paths(
-    paths,
+    paths: ProjectPaths,
     item_ref: str,
     stage_id: str,
     *,
@@ -303,7 +304,7 @@ def item_workflow_state_for_item(
         item.workflow_id or default_workflow_id_for_paths(state.paths),
     )
     analysis = _analyze_item_workflow(state, item, workflow)
-    return analysis["workflow_state"]
+    return cast(ItemWorkflowState, analysis["workflow_state"])
 
 
 def item_workflow_state_payload(
@@ -316,7 +317,7 @@ def item_workflow_state_payload(
     analysis = _analyze_item_workflow(state, item, workflow)
     return {
         "workflow": workflow.to_dict(),
-        "state": analysis["workflow_state"].to_dict(),
+        "state": cast(ItemWorkflowState, analysis["workflow_state"]).to_dict(),
         "stages": analysis["stages"],
     }
 
@@ -339,18 +340,18 @@ def can_enter_stage_for_item(
     )
     analysis = _analyze_item_workflow(state, item, workflow)
     stage_detail = next(
-        (detail for detail in analysis["stages"] if detail["stage_id"] == stage_id),
+        (detail for detail in cast(list[dict[str, object]], analysis["stages"]) if detail["stage_id"] == stage_id),
         None,
     )
     if stage_detail is None:
         raise LaunchError(
             f"Workflow {workflow.workflow_id} does not define stage {stage_id}."
         )
-    return bool(stage_detail["allowed"]), tuple(stage_detail["blocked_by"])
+    return bool(stage_detail["allowed"]), tuple(cast(tuple[str, ...], stage_detail["blocked_by"]))
 
 
 def append_item_stage_record(
-    paths,
+    paths: ProjectPaths,
     item: ProjectWorkItem,
     *,
     stage_id: str,
@@ -394,7 +395,7 @@ def sync_item_workflow_fields(
         item.workflow_id or default_workflow_id_for_paths(state.paths),
     )
     analysis = _analyze_item_workflow(state, item, workflow)
-    workflow_state = analysis["workflow_state"]
+    workflow_state = cast(ItemWorkflowState, analysis["workflow_state"])
     status, stage = _legacy_status_and_stage(item, workflow_state)
     updated = replace(
         item,
@@ -402,8 +403,8 @@ def sync_item_workflow_fields(
         current_stage_id=workflow_state.current_stage_id,
         workflow_status=workflow_state.workflow_status,
         stage_status=workflow_state.stage_status,
-        status=status,
-        stage=stage,
+        status=status,  # type: ignore[arg-type]
+        stage=stage,  # type: ignore[arg-type]
     )
     return update_work_item(state.paths, item.id, updated)
 
@@ -683,8 +684,8 @@ def _workflow_item_summary(
     item_lookup: dict[str, ProjectWorkItem],
 ) -> dict[str, object]:
     analysis = _analyze_item_workflow(state, item, workflow, item_lookup=item_lookup)
-    workflow_state = analysis["workflow_state"]
-    stages = analysis["stages"]
+    workflow_state = cast(ItemWorkflowState, analysis["workflow_state"])
+    stages = cast(list[dict[str, object]], analysis["stages"])
     next_stage = next(
         (
             stage
@@ -695,7 +696,7 @@ def _workflow_item_summary(
     )
     blocked_by = list(workflow_state.blocking_reasons)
     if next_stage is not None:
-        blocked_by = list(next_stage["blocked_by"])
+        blocked_by = list(cast(tuple[str, ...], next_stage["blocked_by"]))
     return {
         "item_ref": item.id,
         "item_slug": item.slug,
@@ -830,7 +831,7 @@ def _workflow_state_from_stage_summaries(
             pending_approvals=(),
         )
     allowed = tuple(
-        stage["stage_id"]
+        str(stage["stage_id"])
         for stage in stage_summaries
         if stage["allowed"] and not stage["complete"]
     )
@@ -839,13 +840,13 @@ def _workflow_state_from_stage_summaries(
             reason
             for stage in stage_summaries
             if not stage["complete"]
-            for reason in stage["blocked_by"]
+            for reason in cast(tuple[str, ...], stage["blocked_by"])
         )
     )
     pending_approvals = tuple(
-        stage["stage_id"]
+        str(stage["stage_id"])
         for stage in stage_summaries
-        if not stage["complete"] and "approval:item" in stage["blocked_by"]
+        if not stage["complete"] and "approval:item" in cast(tuple[str, ...], stage["blocked_by"])
     )
     current_stage = next(
         (
@@ -867,7 +868,7 @@ def _workflow_state_from_stage_summaries(
         stage_status = "running"
     elif current_stage["stage_status"] in {"failed", "needs_review"}:
         workflow_status = "blocked"
-        stage_status = current_stage["stage_status"]
+        stage_status = cast(WorkflowStageStatus, str(current_stage["stage_status"]))
     elif pending_approvals:
         workflow_status = "waiting_approval"
         stage_status = "not_started"
@@ -886,7 +887,7 @@ def _workflow_state_from_stage_summaries(
     return ItemWorkflowState(
         item_ref=item.id,
         workflow_id=workflow.workflow_id,
-        current_stage_id=current_stage["stage_id"]
+        current_stage_id=str(current_stage["stage_id"])
         if current_stage is not None
         else None,
         workflow_status=workflow_status,
@@ -983,7 +984,7 @@ def _stage_status_for_summary(
     blocked_by: list[str],
 ) -> WorkflowStageStatus:
     if latest is not None and latest.status in {"running", "failed", "needs_review"}:
-        return latest.status
+        return cast(WorkflowStageStatus, latest.status)
     if complete:
         return "succeeded"
     if blocked_by:
@@ -1178,7 +1179,7 @@ def _legacy_item_workflow_state(
         next_artifact = None
         next_artifact_status = None
         blocked_by: list[str] = []
-        artifact_states = [
+        artifact_states: list[dict[str, object]] = [
             {
                 "name": rule.name,
                 "label": rule.label,
@@ -1240,7 +1241,7 @@ def _legacy_artifact_states_for_item(
     next_blocked_by: list[str] = []
     for rule in rules:
         memory_ref = _memory_ref_for_rule(item, rule)
-        complete = bool(memory_ref) and memory_state.get(memory_ref, False)
+        complete = bool(memory_ref) and memory_state.get(memory_ref or "", False)
         blocked_by = [f"item:{ref}" for ref in unresolved_dependencies]
         blocked_by.extend(
             f"artifact:{dependency}"

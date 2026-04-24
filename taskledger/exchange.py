@@ -20,6 +20,7 @@ from taskledger.storage.events import append_event, load_events
 from taskledger.storage.indexes import rebuild_v2_indexes
 from taskledger.storage.locks import write_lock
 from taskledger.storage.v2 import (
+    V2Paths,
     ensure_v2_layout,
     load_active_locks,
     overwrite_plan,
@@ -76,17 +77,18 @@ def parse_project_import_payload(text: str, *, format_name: str) -> dict[str, ob
         raise LaunchError(f"Invalid project import JSON: {exc}") from exc
     if not isinstance(payload, dict):
         raise LaunchError("Project import JSON must be an object.")
+    result: dict[str, object] = payload
     if payload.get("success") is True and isinstance(payload.get("data"), dict):
         candidate = payload["data"]
         if candidate.get("kind") in {"taskledger_export", "project_export"}:
-            payload = candidate
+            result = candidate
     if payload.get("ok") is True and isinstance(payload.get("result"), dict):
         candidate = payload["result"]
         if candidate.get("kind") in {"taskledger_export", "project_export"}:
-            payload = candidate
-    if payload.get("kind") not in {None, "taskledger_export", "project_export"}:
+            result = candidate
+    if result.get("kind") not in {None, "taskledger_export", "project_export"}:
         raise LaunchError("Unsupported project import payload kind.")
-    return payload
+    return result
 
 
 def import_project_payload(
@@ -207,7 +209,7 @@ def _import_v2_payload(workspace_root: Path, payload: dict[str, object]) -> None
         append_event(paths.events_dir, TaskEvent.from_dict(item))
 
 
-def _clear_v2_state(paths) -> None:
+def _clear_v2_state(paths: V2Paths) -> None:
     for directory in paths.tasks_dir.glob("task-*"):
         if directory.is_dir():
             shutil.rmtree(directory)

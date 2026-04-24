@@ -407,8 +407,8 @@ def merge_project_config(
         default_source_head_lines=cast(int | None, default_source_head_lines),
         default_source_tail_lines=cast(int | None, default_source_tail_lines),
         default_context_order=tuple(default_context_order),
-        workflow_schema=cast(str | None, workflow_schema),
-        project_context=cast(str | None, project_context),
+        workflow_schema=workflow_schema,
+        project_context=project_context,
         artifact_rules=artifact_rules,
         default_artifact_order=tuple(default_artifact_order),
     )
@@ -650,9 +650,9 @@ def _artifact_rules_from_mapping(
             ProjectArtifactRule(
                 name=name,
                 depends_on=tuple(depends_on),
-                memory_ref_field=cast(str | None, memory_ref_field),
-                label=cast(str | None, label),
-                description=cast(str | None, description),
+                memory_ref_field=memory_ref_field,
+                label=label,
+                description=description,
             )
         )
     return tuple(rules)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any, Callable
 
 import typer
 
@@ -60,7 +60,7 @@ def register_runs_commands(app: typer.Typer) -> None:
         emit_payload(
             ctx,
             payload,
-            human=f"applied run {payload['run']['id']} as {payload['applied']['mode']}",
+            human=f"applied run {payload['run']['id']} as {payload['applied']['mode']}",  # type: ignore[index]
         )
 
     @app.command("list")
@@ -198,7 +198,7 @@ def _emit_promoted_run_memory(
     run_id: str,
     *,
     name: str,
-    promote_func,
+    promote_func: Callable[..., tuple[Any, Any]],
     label: str,
 ) -> None:
     state = cli_state_from_context(ctx)

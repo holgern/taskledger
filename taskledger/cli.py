@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any, Callable, cast
 
 import typer
 
@@ -164,7 +164,7 @@ def init_command(ctx: typer.Context) -> None:
         human="\n".join(
             [
                 f"initialized taskledger: {payload['root']}",
-                *[f"- {item}" for item in payload["created"]],
+                *[f"- {item}" for item in cast(list[str], payload["created"])],
             ]
         ),
     )
@@ -434,7 +434,7 @@ def deps_command(
     emit_payload(ctx, payload)
 
 
-def _emit_search_results(ctx: typer.Context, factory, *, title: str) -> None:
+def _emit_search_results(ctx: typer.Context, factory: Callable[..., Any], *, title: str) -> None:
     state = ctx.obj
     assert isinstance(state, CLIState)
     try:

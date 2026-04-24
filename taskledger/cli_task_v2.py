@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, cast
 
 import typer
 
@@ -66,7 +66,7 @@ def register_task_v2_commands(app: typer.Typer) -> None:
         if not payload["tasks"]:
             human_lines.append("(empty)")
         else:
-            for task in payload["tasks"]:
+            for task in cast(list[dict[str, object]], payload["tasks"]):
                 active = task.get("active_stage")
                 stage = (
                     f"{task['status_stage']} [{active}]"

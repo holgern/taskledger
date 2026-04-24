@@ -185,7 +185,7 @@ def metadata_edit_decision(task: TaskRecord, lock: TaskLock | None) -> PolicyDec
         return PolicyDecision(
             False,
             (
-                f"Task {ctx.task.id} is locked for {ctx.lock.stage}. "
+                f"Task {ctx.task.id} is locked for {ctx.active_stage}. "
                 "Break the lock explicitly before editing metadata."
             ),
             EXIT_CODE_LOCK_CONFLICT,
@@ -336,7 +336,7 @@ def plan_approve_decision(task: TaskRecord, lock: TaskLock | None) -> PolicyDeci
         return PolicyDecision(
             False,
             (
-                f"Task {ctx.task.id} still has a {ctx.lock.stage} lock. "
+                f"Task {ctx.task.id} still has a {ctx.active_stage} lock. "
                 "Break it before plan review actions."
             ),
             EXIT_CODE_LOCK_CONFLICT,
@@ -356,7 +356,7 @@ def plan_revise_decision(task: TaskRecord, lock: TaskLock | None) -> PolicyDecis
         return PolicyDecision(
             False,
             (
-                f"Task {ctx.task.id} still has a {ctx.lock.stage} lock. "
+                f"Task {ctx.task.id} still has a {ctx.active_stage} lock. "
                 "Break it before revising the plan."
             ),
             EXIT_CODE_LOCK_CONFLICT,

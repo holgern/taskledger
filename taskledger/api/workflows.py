@@ -168,7 +168,7 @@ def mark_stage_running(
 ) -> ItemStageRecord:
     state = load_project_state(workspace_root, recent_runs_limit=0)
     item = resolve_work_item(state.paths, item_ref)
-    metadata = {"request_id": request_id} if request_id is not None else None
+    metadata: dict[str, object] | None = {"request_id": request_id} if request_id is not None else None
     return record_stage_transition(
         state,
         item,
@@ -234,7 +234,7 @@ def mark_stage_needs_review(
 ) -> ItemStageRecord:
     state = load_project_state(workspace_root, recent_runs_limit=0)
     item = resolve_work_item(state.paths, item_ref)
-    metadata = {"reason": reason} if reason is not None else None
+    metadata: dict[str, object] | None = {"reason": reason} if reason is not None else None
     return record_stage_transition(
         state,
         item,

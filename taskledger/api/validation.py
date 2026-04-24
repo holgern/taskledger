@@ -13,8 +13,8 @@ def list_validation_records(workspace_root: Path) -> list[ValidationRecord]:
     return _load_validation_records(load_project_state(workspace_root).paths)
 
 
-def append_validation_record(workspace_root: Path, **kwargs) -> ValidationRecord:
-    return _append_validation_record(load_project_state(workspace_root).paths, **kwargs)
+def append_validation_record(workspace_root: Path, **kwargs: object) -> ValidationRecord:
+    return _append_validation_record(load_project_state(workspace_root).paths, **kwargs)  # type: ignore[arg-type]
 
 
 def remove_validation_records(
@@ -25,7 +25,7 @@ def remove_validation_records(
     return _remove_validation_records(load_project_state(workspace_root).paths, ids=ids)
 
 
-def append_validation_entry(workspace_root: Path, **kwargs) -> ValidationRecord:
+def append_validation_entry(workspace_root: Path, **kwargs: object) -> ValidationRecord:
     return append_validation_record(workspace_root, **kwargs)
 
 

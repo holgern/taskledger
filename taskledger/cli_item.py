@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any, Callable
 
 import typer
 
@@ -934,7 +934,7 @@ def _emit_lifecycle_result(
     ctx: typer.Context,
     ref: str,
     *,
-    transform,
+    transform: Callable[..., Any],
     verb: str,
 ) -> None:
     state = cli_state_from_context(ctx)

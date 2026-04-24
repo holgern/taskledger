@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import cast
 from pathlib import Path
 
 from taskledger.domain.policies import derive_active_stage
@@ -140,8 +141,8 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
                     )
 
     for lock in locks:
-        task = task_map.get(lock.task_id)
-        if task is None:
+        lock_task = task_map.get(lock.task_id)
+        if lock_task is None:
             errors.append(
                 f"Lock {lock.lock_id} references missing task {lock.task_id}."
             )
@@ -206,7 +207,7 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
 
 def inspect_v2_locks(workspace_root: Path) -> dict[str, object]:
     payload = inspect_v2_project(workspace_root)
-    expired_locks = list(payload["expired_locks"])
+    expired_locks = list(cast(list[object], payload["expired_locks"]))
     return {
         "kind": "taskledger_lock_inspection",
         "healthy": not expired_locks,
@@ -217,7 +218,7 @@ def inspect_v2_locks(workspace_root: Path) -> dict[str, object]:
 def inspect_v2_schema(workspace_root: Path) -> dict[str, object]:
     payload = inspect_v2_project(workspace_root)
     schema_errors = [
-        item for item in payload["errors"] if "schema" in item.lower() or "version" in item.lower()
+        item for item in cast(list[str], payload["errors"]) if "schema" in item.lower() or "version" in item.lower()
     ]
     return {
         "kind": "taskledger_schema_inspection",

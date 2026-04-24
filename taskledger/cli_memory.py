@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Callable
 from typing import Annotated
 
 import typer
@@ -16,6 +17,7 @@ from taskledger.api.memories import (
     retag_memory,
     show_memory_with_body,
 )
+from taskledger.api.types import Memory
 from taskledger.cli_common import (
     cli_state_from_context,
     emit_error,
@@ -239,7 +241,7 @@ def _emit_memory_update(
     *,
     text: str | None,
     from_file: Path | None,
-    update_func,
+    update_func: Callable[..., tuple[Memory, str]],
     verb: str,
 ) -> None:
     state = cli_state_from_context(ctx)

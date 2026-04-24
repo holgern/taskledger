@@ -150,7 +150,7 @@ def build_compose_payload(
 ) -> dict[str, object]:
     normalized_inputs = _normalize_explicit_inputs(explicit_inputs)
     warnings = _compose_warnings(bundle.sources)
-    payload = {
+    payload: dict[str, object] = {
         "kind": "project_compose",
         "project": {
             "context_name": context_name,

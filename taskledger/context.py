@@ -466,7 +466,7 @@ def _resolve_path_source(
         except ValueError as exc:
             raise LaunchError(f"Invalid project repo file ref: {ref}") from exc
         _validate_source_path(candidate, ref, require_kind=require_kind)
-        metadata = {
+        metadata: dict[str, object] = {
             "path": str(candidate),
             "repo": repo.name,
             "repo_slug": repo.slug,
@@ -492,13 +492,13 @@ def _resolve_path_source(
     if not candidate.is_absolute():
         candidate = workspace_root / candidate
     candidate = candidate.resolve()
-    metadata: dict[str, object] = {"path": str(candidate)}
+    file_metadata: dict[str, object] = {"path": str(candidate)}
     if candidate.is_relative_to(workspace_root):
-        metadata["workspace_relative_path"] = str(candidate.relative_to(workspace_root))
+        file_metadata["workspace_relative_path"] = str(candidate.relative_to(workspace_root))
     repo_metadata = _repo_metadata_for_path(state, candidate)
     if repo_metadata is not None:
-        metadata.update(repo_metadata)
-    metadata.setdefault("repo_ref_explicit", False)
+        file_metadata.update(repo_metadata)
+    file_metadata.setdefault("repo_ref_explicit", False)
     if not _is_allowed_source_path(state, candidate):
         raise LaunchError(
             f"Project source path is outside workspace and registered repos: {ref}"
@@ -507,11 +507,11 @@ def _resolve_path_source(
     title = _display_title_for_source(
         workspace_root=workspace_root,
         candidate=candidate,
-        metadata=metadata,
+        metadata=file_metadata,
         is_dir=require_kind == "dir",
         prefer_repo_qualified=False,
     )
-    return candidate, title, metadata
+    return candidate, title, file_metadata
 
 
 def _resolve_external_artifact_file(state: ProjectState, ref: str) -> Path:

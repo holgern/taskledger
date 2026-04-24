@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
+from typing import cast
 
 from taskledger.api.items import item_summary
 from taskledger.api.types import Memory, RunRecord
 from taskledger.api.workflows import mark_stage_succeeded as _mark_stage_succeeded
 from taskledger.errors import LaunchError
+from taskledger.models.core import ProjectPaths, ProjectState, ProjectWorkItem
 from taskledger.storage import cleanup_runs as _cleanup_runs
 from taskledger.storage import delete_run as _delete_run
 from taskledger.storage import (
@@ -163,7 +165,7 @@ def apply_run_result(
     }
 
 
-def _resolve_related_item(state, record: RunRecord):
+def _resolve_related_item(state: ProjectState, record: RunRecord) -> ProjectWorkItem | None:
     if record.project_item_ref:
         return resolve_work_item(state.paths, record.project_item_ref)
     if record.item_inputs:
@@ -175,13 +177,13 @@ def _promoted_memory_name(
     record: RunRecord,
     *,
     mode: str,
-    item,
+    item: ProjectWorkItem | None,
 ) -> str:
     prefix = item.slug if item is not None else record.run_id
     return f"{prefix} {record.run_id} {mode}"
 
 
-def _existing_promoted_memory(paths, record: RunRecord, *, mode: str) -> Memory | None:
+def _existing_promoted_memory(paths: ProjectPaths, record: RunRecord, *, mode: str) -> Memory | None:
     expected_suffix = f"{record.run_id} {mode}"
     for memory in load_memories(paths):
         if memory.source_run_id != record.run_id:
@@ -191,7 +193,7 @@ def _existing_promoted_memory(paths, record: RunRecord, *, mode: str) -> Memory 
     return None
 
 
-def _workflow_stage_id_for_run(paths, record: RunRecord) -> str | None:
+def _workflow_stage_id_for_run(paths: ProjectPaths, record: RunRecord) -> str | None:
     from taskledger.workflow import item_stage_records_for_paths
 
     if record.project_item_ref:
@@ -219,17 +221,17 @@ def _workflow_stage_id_for_run(paths, record: RunRecord) -> str | None:
         "plan": "plan",
         "implementation": "implement",
         "validation": "validate",
-    }.get(record.stage)
+    }.get(record.stage or "")
 
 
 def _attach_run_memory(
-    paths,
-    item,
+    paths: ProjectPaths,
+    item: ProjectWorkItem,
     record: RunRecord,
     memory: Memory,
     *,
     stage_id: str | None,
-):
+) -> tuple[ProjectWorkItem, str | None]:
     linked_memories = list(item.linked_memories)
     if memory.id not in linked_memories:
         linked_memories.append(memory.id)
@@ -251,7 +253,7 @@ def _attach_run_memory(
         if role == "implementation" and item.save_target_ref is None:
             updates["save_target_ref"] = memory.id
 
-    updated = replace(item, **updates)
+    updated = replace(item, **updates)  # type: ignore[arg-type]
     return update_work_item(paths, item.id, updated), attached_to_role
 
 
@@ -263,7 +265,7 @@ def _memory_role_for_stage(stage_id: str | None) -> str | None:
         "implement": "implementation",
         "validate": "validation",
         "validate_summary": "validation",
-    }.get(stage_id)
+    }.get(stage_id or "")
 
 
 def _memory_field_for_role(role: str) -> str:
@@ -276,7 +278,7 @@ def _memory_field_for_role(role: str) -> str:
     }[role]
 
 
-def _save_target_ref(item, attached_to_role: str | None) -> str | None:
+def _save_target_ref(item: ProjectWorkItem, attached_to_role: str | None) -> str | None:
     if attached_to_role is not None:
-        return getattr(item, _memory_field_for_role(attached_to_role))
+        return str(getattr(item, _memory_field_for_role(attached_to_role)))
     return item.save_target_ref

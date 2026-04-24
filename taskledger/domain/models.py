@@ -239,7 +239,7 @@ class ValidationCheck:
     waiver: CriterionWaiver | None = None
 
     def to_dict(self) -> dict[str, object]:
-        payload = {
+        payload: dict[str, object] = {
             "id": self.id,
             "criterion_id": self.criterion_id,
             "name": self.name,
@@ -1018,7 +1018,7 @@ def _lock_stage_from_data(data: dict[str, object]) -> TaskStatusStage:
             "planning": "planning",
             "implementation": "implementing",
             "validation": "validating",
-        }.get(run_type)
+        }.get(run_type or "")
     if stage is None:
         raise LaunchError("Missing or invalid 'stage' value.")
     return normalize_task_status_stage(stage)

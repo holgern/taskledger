@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import cast
 from pathlib import Path
 
 from taskledger.domain.policies import derive_active_stage
@@ -51,9 +52,9 @@ def project_status(workspace_root: Path) -> dict[str, object]:
         "project_dir": str(resolve_taskledger_root(workspace_root)),
         "counts": _project_counts(workspace_root),
         "healthy": bool(doctor["healthy"]),
-        "errors": list(doctor["errors"]),
-        "warnings": list(doctor["warnings"]),
-        "repair_hints": list(doctor["repair_hints"]),
+        "errors": list(cast(list[object], doctor["errors"])),
+        "warnings": list(cast(list[object], doctor["warnings"])),
+        "repair_hints": list(cast(list[object], doctor["repair_hints"])),
         "tasks": [
             {
                 "id": task.id,

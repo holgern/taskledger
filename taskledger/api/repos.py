@@ -16,8 +16,8 @@ from taskledger.storage import set_default_execution_repo as _set_default_execut
 from taskledger.storage import set_repo_role as _set_repo_role
 
 
-def add_repo(workspace_root: Path, **kwargs) -> Repo:
-    return _add_repo(load_project_state(workspace_root).paths, **kwargs)
+def add_repo(workspace_root: Path, **kwargs: object) -> Repo:
+    return _add_repo(load_project_state(workspace_root).paths, **kwargs)  # type: ignore[arg-type]
 
 
 def list_repos(workspace_root: Path) -> list[Repo]:
@@ -48,7 +48,7 @@ def clear_default_execution_repo(workspace_root: Path) -> None:
     _clear_default_execution_repo(load_project_state(workspace_root).paths)
 
 
-def register_repo(workspace_root: Path, **kwargs) -> Repo:
+def register_repo(workspace_root: Path, **kwargs: object) -> Repo:
     return add_repo(workspace_root, **kwargs)
 
 

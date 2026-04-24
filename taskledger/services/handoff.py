@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from typing import cast
 from pathlib import Path
 
+from taskledger.domain.models import TaskRunRecord
 from taskledger.domain.policies import derive_active_stage
 from taskledger.errors import LaunchError
 from taskledger.storage.locks import lock_is_expired, lock_status, read_lock
@@ -168,7 +170,7 @@ def _append_task_section(lines: list[str], task: dict[str, object]) -> None:
             f"- status_stage: {task['status_stage']}",
             f"- active_stage: {task.get('active_stage') or 'none'}",
             f"- priority: {task.get('priority') or 'unset'}",
-            f"- labels: {', '.join(task.get('labels') or []) or 'none'}",
+            f"- labels: {', '.join(cast(list[str], task.get('labels') or [])) or 'none'}",
             f"- owner: {task.get('owner') or 'unassigned'}",
             "",
         ]
@@ -394,12 +396,12 @@ def _guardrails_for_mode(mode: str) -> list[str]:
     return ["Use this handoff as the source of truth for the next step."]
 
 
-def _latest_run(runs, run_type: str):
+def _latest_run(runs: list[TaskRunRecord], run_type: str) -> TaskRunRecord | None:
     matches = [item for item in runs if item.run_type == run_type]
     return matches[-1] if matches else None
 
 
-def _run_to_dict(run) -> dict[str, object] | None:
+def _run_to_dict(run: TaskRunRecord | None) -> dict[str, object] | None:
     return run.to_dict() if run is not None else None
 
 

@@ -141,7 +141,7 @@ def require_transition(current: TaskStatusStage, target: TaskStatusStage) -> Non
 def normalize_task_status_stage(value: str) -> TaskStatusStage:
     if value not in ALLOWED_STAGE_TRANSITIONS:
         raise LaunchError(f"Unsupported task stage: {value}")
-    return cast(TaskStatusStage, value)
+    return value
 
 
 def normalize_run_type(value: str) -> RunType:

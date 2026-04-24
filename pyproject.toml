@@ -9,7 +9,6 @@ include = ["taskledger*"]
 [tool.setuptools.package-data]
 taskledger = [
     "py.typed",
-    "prompts/*.md",
 ]
 
 [tool.pytest.ini_options]
@@ -27,8 +26,8 @@ license = "Apache-2.0"
 keywords = ["cli", "durable-state", "project-state", "developer-tools", "workflows"]
 dependencies = [
     "typer",
-    "tiktoken",
     "PyYAML",
+    "types-PyYAML",
     'tomli; python_version < "3.11"',
 ]
 classifiers = [

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, cast
 
 import typer
 
@@ -562,7 +562,7 @@ def emit_doctor_command(ctx: typer.Context) -> None:
     emit_payload(
         ctx,
         payload,
-        human=f"healthy: {payload['healthy']} errors: {len(payload['errors'])}",
+        human=f"healthy: {payload['healthy']} errors: {len(cast(list[object], payload['errors']))}",
     )
 
 

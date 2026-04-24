@@ -15,7 +15,7 @@ from taskledger.api.execution_requests import (
 from taskledger.api.types import FileRenderMode
 from taskledger.cli_common import cli_state_from_context, emit_error, emit_payload
 from taskledger.errors import LaunchError
-from taskledger.models import ExecutionRequest
+from taskledger.models import ExecutionOutcomeRecord, ExecutionRequest
 
 
 @dataclass(slots=True, frozen=True)
@@ -163,7 +163,7 @@ def register_execution_request_commands(app: typer.Typer) -> None:
             result = record_execution_outcome(
                 state.cwd,
                 request=request,
-                outcome=_OutcomeSummary(ok=ok, best_text=text),
+                outcome=cast(ExecutionOutcomeRecord, _OutcomeSummary(ok=ok, best_text=text)),
             )
         except (LaunchError, ValueError) as exc:
             emit_error(ctx, str(exc))

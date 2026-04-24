@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
 
-from taskledger.api.types import ItemDossier, ItemDossierSection, Memory, WorkItem
+from taskledger.api.types import ItemDossier, ItemDossierSection, ItemStageRecord, Memory, WorkItem
 from taskledger.api.workflows import mark_stage_running, mark_stage_succeeded
 from taskledger.errors import LaunchError
-from taskledger.models import ProjectPaths, utc_now_iso
+from taskledger.models import ProjectPaths, ProjectRunRecord, ProjectState, utc_now_iso
 from taskledger.storage import (
     create_memory,
     create_work_item,
@@ -493,6 +494,7 @@ def start_item_work(
             workflow_payload,
             stage_id=str(prompt_payload["stage"]),
         )
+        assert stage_detail is not None
         stage_status = str(stage_detail.get("stage_status") or "not_started")
         if stage_status == "running":
             marked_running = False
@@ -546,10 +548,11 @@ def complete_item_stage(
     item = resolve_work_item(state.paths, item_ref)
     workflow_payload = item_workflow_state_payload(state, item)
     stage_detail = _resolve_summary_stage(workflow_payload, stage_id=stage_id)
+    assert stage_detail is not None
     _ensure_stage_can_complete(stage_detail)
 
     normalized_run_refs = tuple(
-        show["id"] for show in _resolved_run_payloads(workspace_root, run_refs)
+        str(show["id"]) for show in _resolved_run_payloads(workspace_root, run_refs)
     )
     normalized_validation_refs = _resolved_validation_refs(
         workspace_root,
@@ -922,7 +925,7 @@ def _memory_overview_section(
 
 
 def _memory_body_section(
-    paths,
+    paths: ProjectPaths,
     item: WorkItem,
     *,
     role: str,
@@ -1060,16 +1063,16 @@ def _workflow_sections(
     )
 
 
-def _runs_section(paths, item: WorkItem, *, stage_records: list) -> ItemDossierSection:
+def _runs_section(paths: ProjectPaths, item: WorkItem, *, stage_records: Sequence[ItemStageRecord]) -> ItemDossierSection:
     run_records = load_run_records(paths, limit=None)
     run_by_id = {record.run_id: record for record in run_records}
     ordered_run_ids: list[str] = []
     for run_id in item.linked_runs:
         if run_id not in ordered_run_ids:
             ordered_run_ids.append(run_id)
-    for record in stage_records:
-        if record.run_id and record.run_id not in ordered_run_ids:
-            ordered_run_ids.append(record.run_id)
+    for stage_rec in stage_records:
+        if stage_rec.run_id and stage_rec.run_id not in ordered_run_ids:
+            ordered_run_ids.append(stage_rec.run_id)
     for record in run_records:
         if record.project_item_ref == item.id and record.run_id not in ordered_run_ids:
             ordered_run_ids.append(record.run_id)
@@ -1098,10 +1101,10 @@ def _runs_section(paths, item: WorkItem, *, stage_records: list) -> ItemDossierS
 
 
 def _validation_section(
-    paths,
+    paths: ProjectPaths,
     item: WorkItem,
     *,
-    stage_records: list,
+    stage_records: Sequence[ItemStageRecord],
 ) -> ItemDossierSection:
     validation_records = load_validation_records(paths)
     stage_validation_refs = {
@@ -1143,7 +1146,7 @@ def _validation_section(
     )
 
 
-def _referencing_contexts_section(paths, item: WorkItem) -> ItemDossierSection:
+def _referencing_contexts_section(paths: ProjectPaths, item: WorkItem) -> ItemDossierSection:
     contexts = load_contexts(paths)
     references = [
         context
@@ -1184,7 +1187,7 @@ def _kv_block(rows: list[tuple[str, object]]) -> str:
     return "\n".join(f"{key}: {value}" for key, value in rows if value is not None)
 
 
-def _approve_item(paths, item: WorkItem) -> WorkItem:
+def _approve_item(paths: ProjectPaths, item: WorkItem) -> WorkItem:
     if item.status == "closed":
         raise LaunchError(f"Project work item {item.id} is closed.")
     if not _has_planning_evidence(paths, item):
@@ -1203,7 +1206,7 @@ def _approve_item(paths, item: WorkItem) -> WorkItem:
     )
 
 
-def _reopen_item(paths, item: WorkItem) -> WorkItem:
+def _reopen_item(paths: ProjectPaths, item: WorkItem) -> WorkItem:
     if item.status != "closed":
         raise LaunchError(f"Project work item {item.id} is not closed.")
     if _has_planning_evidence(paths, item):
@@ -1214,8 +1217,8 @@ def _reopen_item(paths, item: WorkItem) -> WorkItem:
         stage = "intake"
     return replace(
         item,
-        status=status,
-        stage=stage,
+        status=status,  # type: ignore[arg-type]
+        stage=stage,  # type: ignore[arg-type]
         closed_at=None,
         workflow_status="draft" if status == "draft" else "waiting_approval",
         stage_status="not_started",
@@ -1264,7 +1267,7 @@ def _drop_memory_refs(item: WorkItem, memory_id: str) -> WorkItem:
         if getattr(item, field_name) == memory_id
     }
     linked_memories = tuple(ref for ref in item.linked_memories if ref != memory_id)
-    return replace(item, linked_memories=linked_memories, **updates)
+    return replace(item, linked_memories=linked_memories, **updates)  # type: ignore[arg-type]
 
 
 def _create_item_memory(
@@ -1278,12 +1281,12 @@ def _create_item_memory(
     save_target_ref = item.save_target_ref
     if role == "implementation" and save_target_ref is None:
         save_target_ref = memory.id
-    updated_item = replace(
-        item,
-        linked_memories=linked_memories,
-        save_target_ref=save_target_ref,
-        **{field_name: memory.id},
-    )
+    updates = {
+        "linked_memories": linked_memories,
+        "save_target_ref": save_target_ref,
+        field_name: memory.id,
+    }
+    updated_item = replace(item, **updates)  # type: ignore[arg-type]
     update_work_item(paths, item.id, updated_item)
     return memory
 
@@ -1300,7 +1303,7 @@ def _item_memory_name(item: WorkItem, role: str) -> str:
     return f"{item.slug} {role_label}"
 
 
-def _memory_ref_has_content(paths, ref: str | None) -> bool:
+def _memory_ref_has_content(paths: ProjectPaths, ref: str | None) -> bool:
     if not ref:
         return False
     try:
@@ -1310,7 +1313,7 @@ def _memory_ref_has_content(paths, ref: str | None) -> bool:
     return bool(read_memory_body(paths, memory).strip())
 
 
-def _has_planning_evidence(paths, item: WorkItem) -> bool:
+def _has_planning_evidence(paths: ProjectPaths, item: WorkItem) -> bool:
     if _memory_ref_has_content(paths, item.plan_memory_ref):
         return True
     if any(entry.strip() for entry in item.acceptance_criteria):
@@ -1368,7 +1371,7 @@ def _title_from_slug(slug: str) -> str:
     return slug.replace("-", " ").strip().title() or "Project Work Item"
 
 
-def _item_summary_payload(state, item: WorkItem) -> dict[str, object]:
+def _item_summary_payload(state: ProjectState, item: WorkItem) -> dict[str, object]:
     workflow_payload = item_workflow_state_payload(state, item)
     stage_records = item_stage_records_for_paths(
         state.paths,
@@ -1424,7 +1427,7 @@ def _item_summary_payload(state, item: WorkItem) -> dict[str, object]:
     }
 
 
-def _memory_summary_payload(paths, memory_ref: str | None) -> dict[str, object] | None:
+def _memory_summary_payload(paths: ProjectPaths, memory_ref: str | None) -> dict[str, object] | None:
     if memory_ref is None:
         return None
     try:
@@ -1437,7 +1440,7 @@ def _memory_summary_payload(paths, memory_ref: str | None) -> dict[str, object] 
 
 
 def _plan_memory_knowledge_payload(
-    paths,
+    paths: ProjectPaths,
     item: WorkItem,
     memory_ref: str | None,
 ) -> dict[str, object]:
@@ -1595,7 +1598,7 @@ def _next_action_summary(
     }
 
 
-def _related_run_records(paths, item: WorkItem, *, stage_records: list) -> list[object]:
+def _related_run_records(paths: ProjectPaths, item: WorkItem, *, stage_records: Sequence[ItemStageRecord]) -> list[ProjectRunRecord]:
     all_runs = load_run_records(paths, limit=None)
     selected = [
         record
@@ -1615,7 +1618,7 @@ def _related_run_records(paths, item: WorkItem, *, stage_records: list) -> list[
     )
 
 
-def _run_summary_payload(record, *, stage_records: list) -> dict[str, object]:
+def _run_summary_payload(record: ProjectRunRecord, *, stage_records: Sequence[ItemStageRecord]) -> dict[str, object]:
     stage = _stage_id_from_run(record, stage_records=stage_records)
     return {
         "id": record.run_id,
@@ -1627,7 +1630,7 @@ def _run_summary_payload(record, *, stage_records: list) -> dict[str, object]:
     }
 
 
-def _stage_id_from_run(record, *, stage_records: list) -> str | None:
+def _stage_id_from_run(record: ProjectRunRecord, *, stage_records: Sequence[ItemStageRecord]) -> str | None:
     stage_record = next(
         (
             current
@@ -1657,10 +1660,10 @@ def _stage_id_from_run(record, *, stage_records: list) -> str | None:
 
 
 def _related_validation_records(
-    paths,
+    paths: ProjectPaths,
     item: WorkItem,
     *,
-    stage_records: list,
+    stage_records: Sequence[ItemStageRecord],
 ) -> list[dict[str, object]]:
     stage_validation_refs = {
         ref for record in stage_records for ref in record.validation_record_refs
@@ -1753,7 +1756,7 @@ def _build_work_prompt_text(
     return "\n\n".join(line for line in lines if line)
 
 
-def _referencing_context_refs(paths, item: WorkItem) -> list[str]:
+def _referencing_context_refs(paths: ProjectPaths, item: WorkItem) -> list[str]:
     return [
         context.id
         for context in load_contexts(paths)
@@ -1820,7 +1823,7 @@ def _resolved_validation_refs(
 
 
 def _attach_run_refs_to_item(
-    paths,
+    paths: ProjectPaths,
     item: WorkItem,
     run_refs: tuple[str, ...],
 ) -> WorkItem:
