@@ -25,6 +25,7 @@ from taskledger.api.tasks import (
     remove_requirement,
     set_todo_done,
     show_todo,
+    waive_requirement,
 )
 from taskledger.cli_common import (
     cli_state_from_context,
@@ -34,8 +35,13 @@ from taskledger.cli_common import (
     read_text_input,
 )
 from taskledger.errors import LaunchError
-from taskledger.services.doctor_v2 import inspect_v2_locks, inspect_v2_project
-from taskledger.storage.v2 import resolve_task
+from taskledger.services.doctor_v2 import (
+    inspect_v2_indexes,
+    inspect_v2_locks,
+    inspect_v2_project,
+    inspect_v2_schema,
+)
+from taskledger.storage.v2 import load_requirements, load_todos, resolve_task
 
 
 def register_todo_v2_commands(app: typer.Typer) -> None:
@@ -61,12 +67,13 @@ def register_todo_v2_commands(app: typer.Typer) -> None:
         state = cli_state_from_context(ctx)
         try:
             task = resolve_task(state.cwd, task_ref)
+            todos = load_todos(state.cwd, task.id).todos
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-        payload = [todo.to_dict() for todo in task.todos]
+        payload = [todo.to_dict() for todo in todos]
         lines = ["TODOS"]
-        for todo in task.todos:
+        for todo in todos:
             status = "done" if todo.done else "open"
             lines.append(f"{todo.id}  {status}  {todo.text}")
         emit_payload(
@@ -233,6 +240,73 @@ def register_file_v2_commands(app: typer.Typer) -> None:
         )
 
 
+def register_link_v2_commands(app: typer.Typer) -> None:
+    @app.command("add")
+    def add_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(...)],
+        path: Annotated[str, typer.Option("--path")],
+        kind: Annotated[str, typer.Option("--kind")] = "code",
+        label: Annotated[str | None, typer.Option("--label")] = None,
+        required_for_validation: Annotated[
+            bool,
+            typer.Option("--required-for-validation"),
+        ] = False,
+    ) -> None:
+        _emit_link_add(
+            ctx,
+            task_ref,
+            path=path,
+            kind=kind,
+            label=label,
+            required_for_validation=required_for_validation,
+        )
+
+    @app.command("link")
+    def link_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(...)],
+        path: Annotated[str, typer.Option("--path")],
+        kind: Annotated[str, typer.Option("--kind")] = "code",
+        label: Annotated[str | None, typer.Option("--label")] = None,
+        required_for_validation: Annotated[
+            bool,
+            typer.Option("--required-for-validation"),
+        ] = False,
+    ) -> None:
+        _emit_link_add(
+            ctx,
+            task_ref,
+            path=path,
+            kind=kind,
+            label=label,
+            required_for_validation=required_for_validation,
+        )
+
+    @app.command("remove")
+    def remove_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(...)],
+        path: Annotated[str, typer.Option("--path")],
+    ) -> None:
+        _emit_link_remove(ctx, task_ref, path=path)
+
+    @app.command("unlink")
+    def unlink_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(...)],
+        path: Annotated[str, typer.Option("--path")],
+    ) -> None:
+        _emit_link_remove(ctx, task_ref, path=path)
+
+    @app.command("list")
+    def list_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(...)],
+    ) -> None:
+        _emit_link_list(ctx, task_ref)
+
+
 def register_require_v2_commands(app: typer.Typer) -> None:
     @app.command("add")
     def add_command(
@@ -256,14 +330,16 @@ def register_require_v2_commands(app: typer.Typer) -> None:
         state = cli_state_from_context(ctx)
         try:
             task = resolve_task(state.cwd, task_ref)
+            requirements = load_requirements(state.cwd, task.id).requirements
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        refs = [item.task_id for item in requirements]
         emit_payload(
             ctx,
-            list(task.requirements),
-            human="\n".join(["REQUIREMENTS", *task.requirements])
-            if task.requirements
+            [item.to_dict() for item in requirements],
+            human="\n".join(["REQUIREMENTS", *refs])
+            if refs
             else "REQUIREMENTS\n(empty)",
         )
 
@@ -280,6 +356,81 @@ def register_require_v2_commands(app: typer.Typer) -> None:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, task.to_dict(), human=f"removed requirement on {task.id}")
+
+    @app.command("waive")
+    def waive_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(...)],
+        required_task_ref: Annotated[str, typer.Argument(...)],
+        actor: Annotated[str, typer.Option("--actor")] = "user",
+        reason: Annotated[str, typer.Option("--reason")] = "",
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = waive_requirement(
+                state.cwd,
+                task_ref,
+                required_task_ref,
+                actor_type=actor,
+                reason=reason,
+            )
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, task.to_dict(), human=f"waived requirement on {task.id}")
+
+
+def _emit_link_add(
+    ctx: typer.Context,
+    task_ref: str,
+    *,
+    path: str,
+    kind: str,
+    label: str | None,
+    required_for_validation: bool,
+) -> None:
+    state = cli_state_from_context(ctx)
+    try:
+        task = add_file_link(
+            state.cwd,
+            task_ref,
+            path=path,
+            kind=kind,
+            label=label,
+            required_for_validation=required_for_validation,
+        )
+    except LaunchError as exc:
+        emit_error(ctx, exc)
+        raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+    emit_payload(ctx, task.to_dict(), human=f"linked file on {task.id}")
+
+
+def _emit_link_remove(ctx: typer.Context, task_ref: str, *, path: str) -> None:
+    state = cli_state_from_context(ctx)
+    try:
+        task = remove_file_link(state.cwd, task_ref, path=path)
+    except LaunchError as exc:
+        emit_error(ctx, exc)
+        raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+    emit_payload(ctx, task.to_dict(), human=f"unlinked file on {task.id}")
+
+
+def _emit_link_list(ctx: typer.Context, task_ref: str) -> None:
+    state = cli_state_from_context(ctx)
+    try:
+        payload = list_file_links(state.cwd, task_ref)
+    except LaunchError as exc:
+        emit_error(ctx, exc)
+        raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+    file_links = payload["file_links"]
+    assert isinstance(file_links, list)
+    lines = ["FILES"]
+    for item in file_links:
+        if isinstance(item, dict):
+            lines.append(f"@{item.get('path')} [{item.get('kind')}]")
+    emit_payload(
+        ctx, payload, human="\n".join(lines) if file_links else "FILES\n(empty)"
+    )
 
 
 def register_lock_v2_commands(app: typer.Typer) -> None:
@@ -422,6 +573,26 @@ def emit_doctor_locks_command(ctx: typer.Context) -> None:
         ctx,
         payload,
         human=_expired_locks_human(payload["expired_locks"]),
+    )
+
+
+def emit_doctor_schema_command(ctx: typer.Context) -> None:
+    state = cli_state_from_context(ctx)
+    payload = inspect_v2_schema(state.cwd)
+    emit_payload(
+        ctx,
+        payload,
+        human=f"schema healthy: {payload['healthy']}",
+    )
+
+
+def emit_doctor_indexes_command(ctx: typer.Context) -> None:
+    state = cli_state_from_context(ctx)
+    payload = inspect_v2_indexes(state.cwd)
+    emit_payload(
+        ctx,
+        payload,
+        human=f"indexes healthy: {payload['healthy']}",
     )
 
 

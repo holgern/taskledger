@@ -15,9 +15,12 @@ from taskledger.services.tasks import (
     reindex,
     remove_file_link,
     remove_requirement,
+    repair_task_record,
     set_todo_done,
     show_task,
     show_todo,
+    task_dossier,
+    waive_requirement,
 )
 
 __all__ = [
@@ -29,13 +32,16 @@ __all__ = [
     "close_task",
     "add_requirement",
     "remove_requirement",
+    "waive_requirement",
     "add_file_link",
     "remove_file_link",
     "list_file_links",
     "add_todo",
     "set_todo_done",
     "show_todo",
+    "task_dossier",
     "next_action",
     "can_perform",
     "reindex",
+    "repair_task_record",
 ]

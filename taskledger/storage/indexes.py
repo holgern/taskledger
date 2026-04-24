@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 from taskledger.domain.policies import derive_active_stage
-from taskledger.storage.locks import lock_is_expired
 from taskledger.storage.common import write_json
+from taskledger.storage.locks import lock_is_expired
 from taskledger.storage.v2 import (
     V2Paths,
-    load_requirements,
     list_introductions,
     list_plans,
     list_runs,
     list_tasks,
     load_active_locks,
+    load_requirements,
 )
 
 

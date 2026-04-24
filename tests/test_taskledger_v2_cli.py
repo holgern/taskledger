@@ -87,7 +87,7 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
                 "question",
                 "answer",
                 "rewrite-v2",
-                "q-1",
+                "q-0001",
                 "--text",
                 "Yes.",
             ],
@@ -206,12 +206,14 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
                 "--cwd",
                 str(tmp_path),
                 "validate",
-                "add-check",
+                "check",
                 "rewrite-v2",
-                "--name",
-                "tests pass",
+                "--criterion",
+                "ac-0001",
                 "--status",
                 "pass",
+                "--evidence",
+                "pytest -q",
             ],
         ).exit_code
         == 0
@@ -292,7 +294,7 @@ def test_v2_lock_break_and_expired_lock_report(tmp_path: Path) -> None:
     )
     runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start", "lock-task"])
 
-    lock_path = tmp_path / ".taskledger" / "tasks" / "task-1" / "lock.yaml"
+    lock_path = tmp_path / ".taskledger" / "tasks" / "task-0001" / "lock.yaml"
     payload = yaml.safe_load(lock_path.read_text(encoding="utf-8"))
     payload["expires_at"] = "2000-01-01T00:00:00+00:00"
     lock_path.write_text(
@@ -305,7 +307,7 @@ def test_v2_lock_break_and_expired_lock_report(tmp_path: Path) -> None:
         ["--cwd", str(tmp_path), "doctor", "locks"],
     )
     assert doctor_result.exit_code == 0
-    assert "task-1" in doctor_result.stdout
+    assert "task-0001" in doctor_result.stdout
 
     break_result = runner.invoke(
         app,
@@ -377,9 +379,9 @@ def test_task_first_support_commands_are_available(tmp_path: Path) -> None:
 
     todo_show = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "--json", "todo", "show", "support-task", "todo-1"],
+        ["--cwd", str(tmp_path), "--json", "todo", "show", "support-task", "todo-0001"],
     )
-    assert _json(todo_show)["result"]["todo"]["id"] == "todo-1"
+    assert _json(todo_show)["result"]["todo"]["id"] == "todo-0001"
 
     file_list = runner.invoke(
         app,
@@ -487,7 +489,7 @@ def test_expired_lock_requires_explicit_break_json_error(tmp_path: Path) -> None
     )
     runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start", "stale-lock-task"])
 
-    lock_path = tmp_path / ".taskledger" / "tasks" / "task-1" / "lock.yaml"
+    lock_path = tmp_path / ".taskledger" / "tasks" / "task-0001" / "lock.yaml"
     payload = yaml.safe_load(lock_path.read_text(encoding="utf-8"))
     payload["expires_at"] = "2000-01-01T00:00:00+00:00"
     lock_path.write_text(

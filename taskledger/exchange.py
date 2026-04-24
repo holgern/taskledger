@@ -31,7 +31,6 @@ from taskledger.storage.v2 import (
     save_question,
     save_run,
     save_task,
-    task_dir,
     task_lock_path,
 )
 from taskledger.storage.v2 import list_changes as list_v2_changes

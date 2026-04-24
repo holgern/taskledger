@@ -46,7 +46,7 @@ def test_task_create_uses_task_bundle_layout(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0, result.stdout
 
-    task_dir = project_dir / "tasks" / "task-1"
+    task_dir = project_dir / "tasks" / "task-0001"
     assert (task_dir / "task.md").is_file()
     assert (task_dir / "todos.yaml").is_file()
     assert (task_dir / "links.yaml").is_file()

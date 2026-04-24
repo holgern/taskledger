@@ -23,10 +23,13 @@ def test_api_docs_mentions_all_task_first_command_groups() -> None:
         "validate",
         "todo",
         "intro",
+        "link",
         "file",
         "require",
         "lock",
+        "context",
         "handoff",
+        "repair",
         "doctor",
     ):
         assert f"`{name}`" in api_text
@@ -37,3 +40,21 @@ def test_readme_mentions_root_alias_and_json_envelope() -> None:
     assert "--root" in readme
     assert '"ok": true' in readme
     assert '"command": "status"' in readme
+
+
+def test_skill_contains_strict_agent_protocol() -> None:
+    skill = (ROOT / "skills" / "taskledger" / "SKILL.md").read_text(encoding="utf-8")
+    for heading in (
+        "When to use this skill",
+        "Never do these things",
+        "Fresh context entry protocol",
+        "Planning protocol",
+        "Implementation protocol",
+        "Validation protocol",
+        "Required logging",
+        "Failure handling",
+        "Command examples",
+    ):
+        assert f"## {heading}" in skill
+    assert "Do not implement before" in skill
+    assert "taskledger context" in skill

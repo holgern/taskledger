@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Iterable
+from collections.abc import Iterable
+from dataclasses import dataclass, field
 
 from taskledger.domain.models import TaskLock, TaskRecord, TaskRunRecord
 from taskledger.domain.states import (
@@ -9,6 +9,24 @@ from taskledger.domain.states import (
     EXIT_CODE_INVALID_TRANSITION,
     EXIT_CODE_LOCK_CONFLICT,
 )
+
+
+@dataclass(frozen=True)
+class Decision:
+    allowed: bool
+    code: str
+    message: str
+    blocking_refs: tuple[str, ...] = ()
+    details: dict[str, object] = field(default_factory=dict)
+    exit_code: int = 0
+
+    @property
+    def ok(self) -> bool:
+        return self.allowed
+
+    @property
+    def reason(self) -> str:
+        return self.message
 
 
 @dataclass(frozen=True)
@@ -52,6 +70,107 @@ def build_policy_context(
         derive_active_stage(lock, (run,)) if run is not None else lock.run_type
     ) if lock is not None else None
     return PolicyContext(task=task, lock=lock, run=run, active_stage=active_stage)
+
+
+def _modern(decision: PolicyDecision, code: str) -> Decision:
+    return Decision(
+        allowed=decision.ok,
+        code="OK" if decision.ok else code,
+        message=decision.reason,
+        exit_code=decision.exit_code,
+    )
+
+
+def can_start_planning(task: TaskRecord, ledger: object) -> Decision:
+    lock = getattr(ledger, "lock", None)
+    allowed = task.status_stage in {"draft", "plan_review"} and lock is None
+    return Decision(
+        allowed=allowed,
+        code="OK" if allowed else "TASK_NOT_PLANNABLE",
+        message=(
+            "Planning can start."
+            if allowed
+            else "Planning requires draft or plan_review state without an active lock."
+        ),
+        exit_code=0 if allowed else EXIT_CODE_INVALID_TRANSITION,
+    )
+
+
+def can_propose_plan(task: TaskRecord, run: TaskRunRecord, ledger: object) -> Decision:
+    return _modern(
+        plan_propose_decision(task, getattr(ledger, "lock", None), run=run),
+        "RUN_LOCK_MISMATCH",
+    )
+
+
+def can_approve_plan(task: TaskRecord, plan: object, ledger: object) -> Decision:
+    return _modern(plan_approve_decision(task, getattr(ledger, "lock", None)), "TASK_NOT_IN_REVIEW")
+
+
+def can_start_implementation(task: TaskRecord, ledger: object) -> Decision:
+    lock = getattr(ledger, "lock", None)
+    accepted_plan = getattr(ledger, "accepted_plan", None)
+    allowed = (
+        task.status_stage in {"approved", "failed_validation"}
+        and accepted_plan is not None
+        and lock is None
+    )
+    return Decision(
+        allowed=allowed,
+        code="OK" if allowed else "TASK_NOT_APPROVED",
+        message=(
+            "Implementation can start."
+            if allowed
+            else "Implementation requires approved state, an accepted plan, and no active lock."
+        ),
+        exit_code=0 if allowed else EXIT_CODE_APPROVAL_REQUIRED,
+    )
+
+
+def can_finish_implementation(task: TaskRecord, run: TaskRunRecord, ledger: object) -> Decision:
+    return _modern(
+        implementation_mutation_decision(
+            task,
+            getattr(ledger, "lock", None),
+            run=run,
+            action="finish implementation",
+        ),
+        "RUN_LOCK_MISMATCH",
+    )
+
+
+def can_start_validation(task: TaskRecord, ledger: object) -> Decision:
+    lock = getattr(ledger, "lock", None)
+    allowed = task.status_stage == "implemented" and lock is None
+    return Decision(
+        allowed=allowed,
+        code="OK" if allowed else "TASK_NOT_IMPLEMENTED",
+        message=(
+            "Validation can start."
+            if allowed
+            else "Validation requires implemented state and no active lock."
+        ),
+        exit_code=0 if allowed else EXIT_CODE_INVALID_TRANSITION,
+    )
+
+
+def can_finish_validation(task: TaskRecord, run: TaskRunRecord, ledger: object) -> Decision:
+    return _modern(
+        validation_check_decision(task, getattr(ledger, "lock", None), run=run),
+        "RUN_LOCK_MISMATCH",
+    )
+
+
+def can_mark_todo_done(task: TaskRecord, todo: object, actor: object, ledger: object) -> Decision:
+    actor_role = getattr(actor, "actor_type", "user")
+    return _modern(
+        todo_toggle_decision(
+            task,
+            getattr(ledger, "lock", None),
+            actor_role="user" if actor_role == "user" else "implementer",
+        ),
+        "TODO_NOT_MUTABLE",
+    )
 
 
 def metadata_edit_decision(task: TaskRecord, lock: TaskLock | None) -> PolicyDecision:

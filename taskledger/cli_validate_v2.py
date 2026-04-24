@@ -33,14 +33,15 @@ def register_validate_v2_commands(app: typer.Typer) -> None:
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, payload, human=f"started validation {payload['run_id']}")
 
-    @app.command("add-check")
-    def add_check_command(
+    def _emit_check(
         ctx: typer.Context,
-        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
-        name: Annotated[str, typer.Option("--name")],
-        status: Annotated[str, typer.Option("--status")] = "pass",
-        details: Annotated[str | None, typer.Option("--details")] = None,
-        evidence: Annotated[list[str] | None, typer.Option("--evidence")] = None,
+        task_ref: str,
+        *,
+        name: str | None,
+        criterion: str | None,
+        status: str,
+        details: str | None,
+        evidence: list[str] | None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
@@ -48,6 +49,7 @@ def register_validate_v2_commands(app: typer.Typer) -> None:
                 state.cwd,
                 task_ref,
                 name=name,
+                criterion_id=criterion,
                 status=status,
                 details=details,
                 evidence=tuple(evidence or ()),
@@ -56,6 +58,46 @@ def register_validate_v2_commands(app: typer.Typer) -> None:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, run.to_dict(), human=f"added check to {run.run_id}")
+
+    @app.command("check")
+    def check_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        criterion: Annotated[str, typer.Option("--criterion")],
+        status: Annotated[str, typer.Option("--status")] = "pass",
+        evidence: Annotated[list[str] | None, typer.Option("--evidence")] = None,
+        name: Annotated[str | None, typer.Option("--name")] = None,
+        details: Annotated[str | None, typer.Option("--details")] = None,
+    ) -> None:
+        _emit_check(
+            ctx,
+            task_ref,
+            name=name,
+            criterion=criterion,
+            status=status,
+            details=details,
+            evidence=evidence,
+        )
+
+    @app.command("add-check")
+    def add_check_command(
+        ctx: typer.Context,
+        task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        name: Annotated[str | None, typer.Option("--name")] = None,
+        criterion: Annotated[str | None, typer.Option("--criterion")] = None,
+        status: Annotated[str, typer.Option("--status")] = "pass",
+        details: Annotated[str | None, typer.Option("--details")] = None,
+        evidence: Annotated[list[str] | None, typer.Option("--evidence")] = None,
+    ) -> None:
+        _emit_check(
+            ctx,
+            task_ref,
+            name=name,
+            criterion=criterion,
+            status=status,
+            details=details,
+            evidence=evidence,
+        )
 
     @app.command("finish")
     def finish_command(

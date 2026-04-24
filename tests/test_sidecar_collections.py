@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import yaml
 from pathlib import Path
 
+import yaml
 from typer.testing import CliRunner
 
 from taskledger.cli import app
@@ -89,7 +89,7 @@ def test_todos_links_and_requirements_live_in_sidecars(tmp_path: Path) -> None:
         ],
     )
 
-    task_dir = tmp_path / ".taskledger" / "tasks" / "task-2"
+    task_dir = tmp_path / ".taskledger" / "tasks" / "task-0002"
     task_markdown = (task_dir / "task.md").read_text(encoding="utf-8")
     assert "todos:" not in task_markdown
     assert "file_links:" not in task_markdown
@@ -102,7 +102,7 @@ def test_todos_links_and_requirements_live_in_sidecars(tmp_path: Path) -> None:
     )
     assert todos["todos"][0]["text"] == "Write sidecar test."
     assert links["links"][0]["path"] == "README.md"
-    assert requirements["requirements"][0]["task_id"] == "task-1"
+    assert requirements["requirements"][0]["task_id"] == "task-0001"
 
     result = runner.invoke(app, ["--cwd", str(tmp_path), "task", "show", "sidecar-task"])
     assert result.exit_code == 0, result.stdout

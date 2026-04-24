@@ -13,10 +13,11 @@ from pathlib import Path
 import yaml
 
 from taskledger.domain.models import (
-    ActorRef,
     AcceptanceCriterion,
+    ActorRef,
     CodeChangeRecord,
     DependencyRequirement,
+    DependencyWaiver,
     FileLink,
     IntroductionRecord,
     LinkCollection,
@@ -55,17 +56,19 @@ from taskledger.domain.states import (
     EXIT_CODE_LOCK_CONFLICT,
     EXIT_CODE_MISSING,
     EXIT_CODE_STALE_LOCK_REQUIRES_BREAK,
+    EXIT_CODE_VALIDATION_FAILED,
     IMPLEMENTABLE_TASK_STAGES,
     TaskStatusStage,
     normalize_file_link_kind,
+    require_transition,
     normalize_validation_check_status,
     normalize_validation_result,
 )
 from taskledger.errors import LaunchError
 from taskledger.ids import next_project_id, slugify_project_ref
 from taskledger.models import utc_now_iso
-from taskledger.storage.events import append_event, load_events
-from taskledger.storage.events import next_event_id
+from taskledger.storage.atomic import atomic_write_text
+from taskledger.storage.events import append_event, load_events, next_event_id
 from taskledger.storage.indexes import rebuild_v2_indexes
 from taskledger.storage.locks import (
     lock_is_expired,
@@ -74,12 +77,8 @@ from taskledger.storage.locks import (
     remove_lock,
     write_lock,
 )
-from taskledger.storage.atomic import atomic_write_text
 from taskledger.storage.v2 import (
     ensure_v2_layout,
-    load_links,
-    load_requirements,
-    load_todos,
     list_changes,
     list_introductions,
     list_plans,
@@ -87,6 +86,9 @@ from taskledger.storage.v2 import (
     list_runs,
     list_tasks,
     load_active_locks,
+    load_links,
+    load_requirements,
+    load_todos,
     overwrite_plan,
     resolve_introduction,
     resolve_plan,
@@ -372,6 +374,73 @@ def remove_requirement(
     return updated
 
 
+def waive_requirement(
+    workspace_root: Path,
+    task_ref: str,
+    required_task_ref: str,
+    *,
+    actor_type: str,
+    reason: str,
+) -> TaskRecord:
+    if actor_type != "user":
+        raise _cli_error(
+            "Only user dependency waivers can unblock implementation.",
+            EXIT_CODE_APPROVAL_REQUIRED,
+        )
+    if not reason.strip():
+        raise _cli_error("Dependency waiver requires --reason.", EXIT_CODE_BAD_INPUT)
+    task = _task_with_sidecars(workspace_root, resolve_task(workspace_root, task_ref))
+    required = resolve_task(workspace_root, required_task_ref)
+    sidecar = load_requirements(workspace_root, task.id)
+    requirements = list(sidecar.requirements)
+    for index, item in enumerate(requirements):
+        if item.task_id == required.id:
+            requirements[index] = replace(
+                item,
+                waiver=DependencyWaiver(
+                    actor=ActorRef(
+                        actor_type="user",
+                        actor_name=getpass.getuser() or "user",
+                        tool="manual",
+                    ),
+                    reason=reason.strip(),
+                ),
+            )
+            break
+    else:
+        requirements.append(
+            DependencyRequirement(
+                task_id=required.id,
+                waiver=DependencyWaiver(
+                    actor=ActorRef(
+                        actor_type="user",
+                        actor_name=getpass.getuser() or "user",
+                        tool="manual",
+                    ),
+                    reason=reason.strip(),
+                ),
+            )
+        )
+    save_requirements(
+        workspace_root,
+        RequirementCollection(task_id=task.id, requirements=tuple(requirements)),
+    )
+    updated = replace(
+        task,
+        requirements=tuple(item.task_id for item in requirements),
+        updated_at=utc_now_iso(),
+    )
+    save_task(workspace_root, updated)
+    _append_event(
+        resolve_v2_paths(workspace_root).project_dir,
+        updated.id,
+        "requirement.waived",
+        {"required_task_id": required.id, "reason": reason.strip()},
+    )
+    rebuild_v2_indexes(resolve_v2_paths(workspace_root))
+    return updated
+
+
 def add_file_link(
     workspace_root: Path,
     task_ref: str,
@@ -470,6 +539,7 @@ def set_todo_done(
     workspace_root: Path, task_ref: str, todo_id: str, *, done: bool
 ) -> TaskRecord:
     task = _task_with_sidecars(workspace_root, resolve_task(workspace_root, task_ref))
+    normalized_todo_id = _normalize_local_id(todo_id, "todo")
     _enforce_decision(
         todo_toggle_decision(
             task,
@@ -479,10 +549,12 @@ def set_todo_done(
     )
     now = utc_now_iso()
     todos = [
-        replace(todo, done=done, updated_at=now) if todo.id == todo_id else todo
+        replace(todo, done=done, updated_at=now)
+        if todo.id in {todo_id, normalized_todo_id}
+        else todo
         for todo in task.todos
     ]
-    if not any(todo.id == todo_id for todo in task.todos):
+    if not any(todo.id in {todo_id, normalized_todo_id} for todo in task.todos):
         raise _cli_error(f"Todo not found: {todo_id}", EXIT_CODE_MISSING)
     updated = replace(task, todos=tuple(todos), updated_at=now)
     save_todos(workspace_root, TodoCollection(task_id=updated.id, todos=updated.todos))
@@ -498,8 +570,9 @@ def set_todo_done(
 
 def show_todo(workspace_root: Path, task_ref: str, todo_id: str) -> dict[str, object]:
     task = _task_with_sidecars(workspace_root, resolve_task(workspace_root, task_ref))
+    normalized_todo_id = _normalize_local_id(todo_id, "todo")
     for todo in task.todos:
-        if todo.id == todo_id:
+        if todo.id == todo_id or todo.id == normalized_todo_id:
             return {"kind": "task_todo", "task_id": task.id, "todo": todo.to_dict()}
     raise _cli_error(f"Todo not found: {todo_id}", EXIT_CODE_MISSING)
 
@@ -1303,7 +1376,8 @@ def add_validation_check(
     workspace_root: Path,
     task_ref: str,
     *,
-    name: str,
+    name: str | None = None,
+    criterion_id: str | None = None,
     status: str,
     details: str | None = None,
     evidence: tuple[str, ...] = (),
@@ -1322,11 +1396,19 @@ def add_validation_check(
             run=run,
         )
     )
+    normalized_status = normalize_validation_check_status(status)
+    check_id = f"check-{len(run.checks) + 1:04d}"
+    resolved_criterion = criterion_id.strip() if criterion_id else None
+    if normalized_status != "not_run" and resolved_criterion is None:
+        raise _cli_error(
+            "Validation checks must reference --criterion unless status is not_run.",
+            EXIT_CODE_BAD_INPUT,
+        )
     check = ValidationCheck(
-        name=name.strip(),
-        id=f"check-{len(run.checks) + 1}",
-        criterion_id=f"check-{len(run.checks) + 1}",
-        status=normalize_validation_check_status(status),
+        name=(name or resolved_criterion or check_id).strip(),
+        id=check_id,
+        criterion_id=resolved_criterion,
+        status=normalized_status,
         details=details.strip() if details else None,
         evidence=tuple(item.strip() for item in evidence if item.strip()),
     )
@@ -1351,12 +1433,14 @@ def finish_validation(
         expected_type="validation",
     )
     normalized_result = normalize_validation_result(result)
+    if normalized_result == "passed":
+        _ensure_validation_can_pass(workspace_root, task, run)
     target_stage: TaskStatusStage = (
         "done" if normalized_result == "passed" else "failed_validation"
     )
     finished = replace(
         run,
-        status=normalized_result,
+        status="finished" if normalized_result == "passed" else "failed",
         finished_at=utc_now_iso(),
         summary=summary.strip(),
         recommendation=recommendation,
@@ -1679,11 +1763,51 @@ def can_perform(workspace_root: Path, task_ref: str, action: str) -> dict[str, o
     }
 
 
+def task_dossier(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    format_name: str = "markdown",
+) -> str | dict[str, object]:
+    from taskledger.services.handoff import render_handoff
+
+    return render_handoff(
+        workspace_root,
+        task_ref,
+        mode="full",
+        format_name=format_name,
+    )
+
+
 def reindex(workspace_root: Path) -> dict[str, object]:
     paths = ensure_v2_layout(workspace_root)
     counts = rebuild_v2_indexes(paths)
-    _append_event(paths.project_dir, "*", "doctor.reindexed", counts)
+    _append_event(paths.project_dir, "*", "repair.index", counts)
     return {"kind": "taskledger_reindex", "counts": counts}
+
+
+def repair_task_record(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    reason: str,
+) -> dict[str, object]:
+    if not reason.strip():
+        raise _cli_error("Task repair requires --reason.", EXIT_CODE_BAD_INPUT)
+    task = resolve_task(workspace_root, task_ref)
+    paths = resolve_v2_paths(workspace_root)
+    _append_event(
+        paths.project_dir,
+        task.id,
+        "repair.task",
+        {"reason": reason.strip()},
+    )
+    return {
+        "kind": "task_repair",
+        "task_id": task.id,
+        "changed": False,
+        "reason": reason.strip(),
+    }
 
 
 def list_events(workspace_root: Path) -> list[dict[str, object]]:
@@ -1714,14 +1838,9 @@ def _start_run(
             f"Task {task.id} already has a running {running_runs[0].run_type} run.",
             EXIT_CODE_LOCK_CONFLICT,
         )
-    run_prefix = {
-        "planning": "plan-run",
-        "implementation": "impl-run",
-        "validation": "val-run",
-    }[run_type]
     run = TaskRunRecord(
         run_id=next_project_id(
-            run_prefix,
+            "run",
             [item.run_id for item in list_runs(workspace_root, task.id)],
         ),
         task_id=task.id,
@@ -1767,10 +1886,7 @@ def _acquire_lock(
         )
     now = datetime.now(timezone.utc)
     lock = TaskLock(
-        lock_id=next_project_id(
-            "lock",
-            [item.lock_id for item in load_active_locks(workspace_root)],
-        ),
+        lock_id=_next_lock_id(workspace_root, now),
         task_id=task.id,
         stage=stage,
         run_id=run.run_id,
@@ -1841,8 +1957,10 @@ def _release_lock(
 
 def _ensure_dependencies_done(workspace_root: Path, task: TaskRecord) -> None:
     blocked = []
-    for requirement in _task_requirements(workspace_root, task):
-        required = resolve_task(workspace_root, requirement)
+    for requirement in load_requirements(workspace_root, task.id).requirements:
+        if _has_user_waiver(requirement.waiver):
+            continue
+        required = resolve_task(workspace_root, requirement.task_id)
         if required.status_stage != "done":
             blocked.append(required.id)
     if blocked:
@@ -1916,8 +2034,10 @@ def _dependency_blockers(
     workspace_root: Path, task: TaskRecord
 ) -> list[dict[str, str]]:
     blockers: list[dict[str, str]] = []
-    for requirement in _task_requirements(workspace_root, task):
-        required = resolve_task(workspace_root, requirement)
+    for requirement in load_requirements(workspace_root, task.id).requirements:
+        if _has_user_waiver(requirement.waiver):
+            continue
+        required = resolve_task(workspace_root, requirement.task_id)
         if required.status_stage != "done":
             blockers.append(
                 {
@@ -2129,6 +2249,103 @@ def _criteria_from_plan_input(
 
 def _criterion_id(index: int) -> str:
     return f"ac-{index:04d}"
+
+
+def _normalize_local_id(ref: str, prefix: str) -> str:
+    raw_prefix = f"{prefix}-"
+    if not ref.startswith(raw_prefix):
+        return ref
+    suffix = ref.removeprefix(raw_prefix)
+    if not suffix.isdigit():
+        return ref
+    return f"{prefix}-{int(suffix):04d}"
+
+
+def _next_lock_id(workspace_root: Path, now: datetime) -> str:
+    paths = resolve_v2_paths(workspace_root)
+    prefix = now.strftime("lock-%Y%m%dT%H%M%SZ")
+    existing = [item.lock_id for item in load_active_locks(workspace_root)]
+    existing.extend(path.stem.removeprefix("broken-") for path in paths.tasks_dir.glob("task-*/audit/broken-lock-*.yaml"))
+    sequence = sum(1 for item in existing if item.startswith(prefix)) + 1
+    return f"{prefix}-{sequence:04d}"
+
+
+def _has_user_waiver(waiver: DependencyWaiver | None) -> bool:
+    return waiver is not None and waiver.actor.actor_type == "user"
+
+
+def _ensure_validation_can_pass(
+    workspace_root: Path,
+    task: TaskRecord,
+    run: TaskRunRecord,
+) -> None:
+    if task.accepted_plan_version is None:
+        raise _validation_incomplete(
+            "Cannot mark validation passed because no accepted plan is recorded.",
+            {"missing": ["accepted_plan"]},
+        )
+    accepted_plan = resolve_plan(
+        workspace_root,
+        task.id,
+        version=task.accepted_plan_version,
+    )
+    if accepted_plan.status != "accepted":
+        raise _validation_incomplete(
+            "Cannot mark validation passed because the accepted plan record is not accepted.",
+            {"accepted_plan_status": accepted_plan.status},
+        )
+    impl_run = _optional_run(workspace_root, task, task.latest_implementation_run)
+    if (
+        impl_run is None
+        or impl_run.run_type != "implementation"
+        or impl_run.status != "finished"
+    ):
+        raise _validation_incomplete(
+            "Cannot mark validation passed without a finished implementation run.",
+            {"latest_implementation_run": task.latest_implementation_run},
+        )
+    checks_by_criterion: dict[str, list[ValidationCheck]] = {}
+    for check in run.checks:
+        if check.criterion_id is not None:
+            checks_by_criterion.setdefault(check.criterion_id, []).append(check)
+    missing: list[str] = []
+    failing: list[str] = []
+    for criterion in accepted_plan.criteria:
+        if not criterion.mandatory:
+            continue
+        checks = checks_by_criterion.get(criterion.id, [])
+        if any(check.status == "fail" for check in checks):
+            failing.append(criterion.id)
+        if not any(check.status == "pass" or _criterion_has_user_waiver(check) for check in checks):
+            missing.append(criterion.id)
+    open_todos = [
+        todo.id
+        for todo in load_todos(workspace_root, task.id).todos
+        if todo.mandatory and not todo.done
+    ]
+    dependency_blockers = _dependency_blockers(workspace_root, task)
+    if missing or failing or open_todos or dependency_blockers:
+        raise _validation_incomplete(
+            "Cannot mark validation passed because mandatory validation gates are incomplete.",
+            {
+                "missing_criteria": missing,
+                "failing_criteria": failing,
+                "open_mandatory_todos": open_todos,
+                "dependency_blockers": dependency_blockers,
+            },
+        )
+
+
+def _criterion_has_user_waiver(check: ValidationCheck) -> bool:
+    return check.waiver is not None and check.waiver.actor.actor_type == "user"
+
+
+def _validation_incomplete(message: str, details: dict[str, object]) -> LaunchError:
+    error = LaunchError(message)
+    error.taskledger_exit_code = EXIT_CODE_VALIDATION_FAILED
+    error.taskledger_error_code = "VALIDATION_INCOMPLETE"
+    error.taskledger_data = details
+    return error
 
 
 def _approval_actor(

@@ -3,17 +3,18 @@ from __future__ import annotations
 from pathlib import Path
 
 from taskledger.domain.policies import derive_active_stage
+from taskledger.storage.events import load_events
 from taskledger.storage.locks import lock_is_expired
 from taskledger.storage.v2 import (
     ensure_v2_layout,
-    load_active_locks,
-    load_requirements,
-    load_todos,
     list_changes,
     list_plans,
     list_questions,
     list_runs,
     list_tasks,
+    load_active_locks,
+    load_requirements,
+    load_todos,
     resolve_introduction,
     resolve_run,
 )
@@ -210,4 +211,43 @@ def inspect_v2_locks(workspace_root: Path) -> dict[str, object]:
         "kind": "taskledger_lock_inspection",
         "healthy": not expired_locks,
         "expired_locks": expired_locks,
+    }
+
+
+def inspect_v2_schema(workspace_root: Path) -> dict[str, object]:
+    payload = inspect_v2_project(workspace_root)
+    schema_errors = [
+        item for item in payload["errors"] if "schema" in item.lower() or "version" in item.lower()
+    ]
+    return {
+        "kind": "taskledger_schema_inspection",
+        "healthy": not schema_errors,
+        "errors": schema_errors,
+    }
+
+
+def inspect_v2_indexes(workspace_root: Path) -> dict[str, object]:
+    paths = ensure_v2_layout(workspace_root)
+    missing = [
+        str(path.relative_to(paths.project_dir))
+        for path in (
+            paths.tasks_index_path,
+            paths.active_locks_index_path,
+            paths.dependencies_index_path,
+            paths.introductions_index_path,
+            paths.latest_runs_index_path,
+            paths.plan_versions_index_path,
+        )
+        if not path.exists()
+    ]
+    event_errors: list[str] = []
+    try:
+        load_events(paths.events_dir)
+    except Exception as exc:
+        event_errors.append(str(exc))
+    return {
+        "kind": "taskledger_index_inspection",
+        "healthy": not missing and not event_errors,
+        "missing_indexes": missing,
+        "event_errors": event_errors,
     }

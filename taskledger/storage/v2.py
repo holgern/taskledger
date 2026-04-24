@@ -9,12 +9,12 @@ import yaml
 
 from taskledger.domain.models import (
     CodeChangeRecord,
+    DependencyRequirement,
     IntroductionRecord,
     LinkCollection,
     PlanRecord,
     QuestionRecord,
     RequirementCollection,
-    DependencyRequirement,
     TaskLock,
     TaskRecord,
     TaskRunRecord,
@@ -110,8 +110,9 @@ def list_tasks(workspace_root: Path) -> list[TaskRecord]:
 
 def resolve_task(workspace_root: Path, ref: str) -> TaskRecord:
     normalized_ref = ref.strip().lower()
+    normalized_id = _normalize_numeric_ref(normalized_ref, "task")
     for task in list_tasks(workspace_root):
-        if task.id == ref or task.slug == normalized_ref:
+        if task.id == ref or task.id == normalized_id or task.slug == normalized_ref:
             return task
     raise LaunchError(f"Task not found: {ref}")
 
@@ -220,8 +221,9 @@ def list_questions(workspace_root: Path, task_id: str) -> list[QuestionRecord]:
 def resolve_question(
     workspace_root: Path, task_id: str, question_id: str
 ) -> QuestionRecord:
+    normalized_id = _normalize_numeric_ref(question_id, "q")
     for question in list_questions(workspace_root, task_id):
-        if question.id == question_id:
+        if question.id == question_id or question.id == normalized_id:
             return question
     raise LaunchError(f"Question not found: {question_id}")
 
@@ -243,8 +245,9 @@ def list_runs(workspace_root: Path, task_id: str) -> list[TaskRunRecord]:
 
 
 def resolve_run(workspace_root: Path, task_id: str, run_id: str) -> TaskRunRecord:
+    normalized_id = _normalize_numeric_ref(run_id, "run")
     for run in list_runs(workspace_root, task_id):
-        if run.run_id == run_id:
+        if run.run_id == run_id or run.run_id == normalized_id:
             return run
     raise LaunchError(f"Run not found: {run_id}")
 
@@ -275,8 +278,9 @@ def save_change(workspace_root: Path, change: CodeChangeRecord) -> CodeChangeRec
 def resolve_change(
     workspace_root: Path, task_id: str, change_id: str
 ) -> CodeChangeRecord:
+    normalized_id = _normalize_numeric_ref(change_id, "change")
     for change in list_changes(workspace_root, task_id):
-        if change.change_id == change_id:
+        if change.change_id == change_id or change.change_id == normalized_id:
             return change
     raise LaunchError(f"Change not found: {change_id}")
 
@@ -481,6 +485,16 @@ def _requirement_collection(task: TaskRecord) -> dict[str, object]:
 def _write_yaml(path: Path, payload: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     atomic_write_text(path, yaml.safe_dump(payload, sort_keys=False))
+
+
+def _normalize_numeric_ref(ref: str, prefix: str) -> str:
+    raw_prefix = f"{prefix}-"
+    if not ref.startswith(raw_prefix):
+        return ref
+    suffix = ref.removeprefix(raw_prefix)
+    if not suffix.isdigit():
+        return ref
+    return f"{prefix}-{int(suffix):04d}"
 
 
 def _render_question_body(question: QuestionRecord) -> str:

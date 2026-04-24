@@ -12,6 +12,7 @@ from taskledger.api.tasks import (
     edit_task,
     list_task_summaries,
     show_task,
+    task_dossier,
 )
 from taskledger.cli_common import (
     cli_state_from_context,
@@ -165,3 +166,17 @@ def register_task_v2_commands(app: typer.Typer) -> None:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, payload, human=f"closed task {payload['task_id']}")
+
+    @app.command("dossier")
+    def dossier_command(
+        ctx: typer.Context,
+        ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+        format_name: Annotated[str, typer.Option("--format")] = "markdown",
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = task_dossier(state.cwd, ref, format_name=format_name)
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, payload, human=payload if isinstance(payload, str) else None)

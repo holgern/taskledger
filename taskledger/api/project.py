@@ -9,9 +9,9 @@ from taskledger.exchange import (
     parse_project_import_payload,
     write_project_snapshot,
 )
-from taskledger.storage.locks import lock_is_expired
 from taskledger.services.doctor_v2 import inspect_v2_project
 from taskledger.storage import init_project_state, resolve_taskledger_root
+from taskledger.storage.locks import lock_is_expired
 from taskledger.storage.v2 import (
     list_changes,
     list_introductions,

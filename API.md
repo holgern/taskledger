@@ -64,12 +64,14 @@ from taskledger.errors import (
 - `close_task`
 - `add_requirement`
 - `remove_requirement`
+- `waive_requirement`
 - `add_file_link`
 - `remove_file_link`
 - `list_file_links`
 - `add_todo`
 - `set_todo_done`
 - `show_todo`
+- `task_dossier`
 - `next_action`
 - `can_perform`
 - `reindex`
@@ -100,6 +102,8 @@ from taskledger.errors import (
 - `add_implementation_deviation`
 - `add_implementation_artifact`
 - `add_change`
+- `scan_changes`
+- `run_implementation_command`
 - `finish_implementation`
 - `show_task_run`
 - `start_validation`
@@ -145,9 +149,12 @@ The public task-first CLI surface is organized around these command groups:
 - `todo`
 - `intro`
 - `file`
+- `link`
 - `require`
 - `lock`
+- `context`
 - `handoff`
+- `repair`
 - `doctor`
 
 Top-level commands that are part of the supported surface are:

@@ -14,13 +14,13 @@ def _actor() -> ActorRef:
 
 def test_plan_proposal_uses_durable_status_plus_active_planning() -> None:
     task = TaskRecord(
-        id="task-1",
-        slug="task-1",
+        id="task-0001",
+        slug="task-0001",
         title="Task 1",
         body="desc",
         status_stage="draft",
     )
-    run = TaskRunRecord(run_id="plan-run-1", task_id=task.id, run_type="planning")
+    run = TaskRunRecord(run_id="run-0001", task_id=task.id, run_type="planning")
     lock = TaskLock(
         lock_id="lock-1",
         task_id=task.id,
@@ -39,14 +39,14 @@ def test_plan_proposal_uses_durable_status_plus_active_planning() -> None:
 
 def test_active_stage_requires_matching_running_run() -> None:
     run = TaskRunRecord(
-        run_id="impl-run-1",
-        task_id="task-1",
+        run_id="run-0001",
+        task_id="task-0001",
         run_type="implementation",
         status="finished",
     )
     lock = TaskLock(
         lock_id="lock-1",
-        task_id="task-1",
+        task_id="task-0001",
         stage="implementing",
         run_id=run.run_id,
         created_at="2026-04-24T08:00:00+00:00",
@@ -60,14 +60,14 @@ def test_active_stage_requires_matching_running_run() -> None:
 
 def test_implementation_mutation_allows_active_implementation_without_status_flip() -> None:
     task = TaskRecord(
-        id="task-1",
-        slug="task-1",
+        id="task-0001",
+        slug="task-0001",
         title="Task 1",
         body="desc",
         status_stage="approved",
     )
     run = TaskRunRecord(
-        run_id="impl-run-1",
+        run_id="run-0001",
         task_id=task.id,
         run_type="implementation",
     )

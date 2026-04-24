@@ -11,7 +11,7 @@ def next_project_id(prefix: str, existing_ids: list[str]) -> str:
         if match is None:
             continue
         max_value = max(max_value, int(match.group(1)))
-    return f"{prefix}-{max_value + 1}"
+    return f"{prefix}-{max_value + 1:04d}"
 
 
 def slugify_project_ref(value: str, *, empty: str = "item") -> str:

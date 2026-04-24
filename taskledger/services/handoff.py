@@ -6,13 +6,13 @@ from taskledger.domain.policies import derive_active_stage
 from taskledger.errors import LaunchError
 from taskledger.storage.locks import lock_is_expired, lock_status, read_lock
 from taskledger.storage.v2 import (
-    load_links,
-    load_requirements,
-    load_todos,
     list_changes,
     list_plans,
     list_questions,
     list_runs,
+    load_links,
+    load_requirements,
+    load_todos,
     resolve_introduction,
     resolve_plan,
     resolve_task,
@@ -28,6 +28,7 @@ def render_handoff(
     mode: str,
     format_name: str = "markdown",
 ) -> str | dict[str, object]:
+    mode = _canonical_mode(mode)
     payload = build_handoff_payload(workspace_root, task_ref, mode=mode)
     if format_name == "json":
         return payload
@@ -42,6 +43,7 @@ def build_handoff_payload(
     *,
     mode: str,
 ) -> dict[str, object]:
+    mode = _canonical_mode(mode)
     task = resolve_task(workspace_root, task_ref)
     intro = (
         resolve_introduction(workspace_root, task.introduction_ref)
@@ -127,11 +129,12 @@ def render_markdown_handoff(payload: dict[str, object]) -> str:
     task = payload["task"]
     assert isinstance(task, dict)
     title_prefix = {
-        "plan-context": "Planning Context",
-        "implementation-context": "Implementation Context",
-        "validation-context": "Validation Context",
-        "show": "Task Handoff",
-    }.get(mode, "Task Handoff")
+        "planning": "Planning Context",
+        "implementation": "Implementation Context",
+        "validation": "Validation Context",
+        "review": "Review Context",
+        "full": "Task Dossier",
+    }.get(mode, "Task Context")
     lines = [f"# {title_prefix}: {task['title']}", ""]
     _append_task_section(lines, task)
     _append_description(lines, task)
@@ -141,12 +144,12 @@ def render_markdown_handoff(payload: dict[str, object]) -> str:
     _append_plans(lines, payload["plans"])
     _append_questions(lines, payload["questions"])
     _append_guardrails(lines, payload["guardrails"])
-    if mode in {"show", "implementation-context", "validation-context"}:
+    if mode in {"full", "implementation", "validation", "review"}:
         _append_accepted_plan(lines, payload.get("accepted_plan"))
-    if mode in {"show", "implementation-context"}:
+    if mode in {"full", "implementation"}:
         _append_todos(lines, payload["todos"])
         _append_lock_and_runs(lines, payload)
-    if mode in {"show", "validation-context"}:
+    if mode in {"full", "validation"}:
         _append_implementation_summary(lines, payload["runs"])
         _append_change_log(lines, payload["changes"])
         _append_todos(lines, payload["todos"])
@@ -340,26 +343,27 @@ def _append_validation_history(lines: list[str], history: object) -> None:
 
 def _append_required_output(lines: list[str], mode: str) -> None:
     section = {
-        "plan-context": [
+        "planning": [
             "plan body",
             "assumptions",
             "risks",
             "acceptance criteria",
             "open questions",
         ],
-        "implementation-context": [
+        "implementation": [
             "worklog entries",
             "code change records",
             "todo updates",
             "implementation summary",
         ],
-        "validation-context": [
+        "validation": [
             "structured checks",
             "evidence",
             "summary",
             "recommendation",
         ],
-        "show": ["next action"],
+        "review": ["approval decision"],
+        "full": ["next action"],
     }[mode]
     lines.extend(["## Required Output", ""])
     for item in section:
@@ -368,20 +372,20 @@ def _append_required_output(lines: list[str], mode: str) -> None:
 
 
 def _guardrails_for_mode(mode: str) -> list[str]:
-    if mode == "plan-context":
+    if mode == "planning":
         return [
             "Produce a reviewable plan body.",
             "Call out assumptions and risks explicitly.",
             "Do not start implementation in this context.",
         ]
-    if mode == "implementation-context":
+    if mode == "implementation":
         return [
             "Implement only the accepted plan.",
             "Log deviations explicitly.",
             "Log every code change.",
             "Do not validate in this context.",
         ]
-    if mode == "validation-context":
+    if mode == "validation":
         return [
             "Validate against the accepted plan and implementation log.",
             "Store failed validation; do not hide it.",
@@ -397,3 +401,12 @@ def _latest_run(runs, run_type: str):
 
 def _run_to_dict(run) -> dict[str, object] | None:
     return run.to_dict() if run is not None else None
+
+
+def _canonical_mode(mode: str) -> str:
+    return {
+        "plan-context": "planning",
+        "implementation-context": "implementation",
+        "validation-context": "validation",
+        "show": "full",
+    }.get(mode, mode)

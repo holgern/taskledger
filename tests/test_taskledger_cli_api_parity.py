@@ -41,9 +41,12 @@ def test_cli_command_tree_matches_task_first_contract(tmp_path: Path) -> None:
         "todo",
         "intro",
         "file",
+        "link",
         "require",
         "lock",
+        "context",
         "handoff",
+        "repair",
         "next-action",
         "can",
         "reindex",
@@ -60,7 +63,6 @@ def test_legacy_cli_groups_are_removed(tmp_path: Path) -> None:
         "report",
         "item",
         "memory",
-        "context",
         "repo",
         "runs",
         "run",
@@ -78,7 +80,7 @@ def test_task_first_subcommands_are_registered(tmp_path: Path) -> None:
     runner.invoke(app, ["--cwd", str(tmp_path), "init"])
 
     expected = {
-        "task": ("create", "list", "show", "edit", "cancel", "close"),
+        "task": ("create", "list", "show", "edit", "cancel", "close", "dossier"),
         "plan": (
             "start",
             "propose",
@@ -102,10 +104,11 @@ def test_task_first_subcommands_are_registered(tmp_path: Path) -> None:
             "show",
             "finish",
         ),
-        "validate": ("start", "add-check", "show", "finish"),
+        "validate": ("start", "check", "add-check", "show", "finish"),
         "todo": ("add", "list", "show", "done", "undone"),
         "file": ("link", "unlink", "list"),
-        "require": ("add", "list", "remove"),
+        "link": ("add", "link", "remove", "unlink", "list"),
+        "require": ("add", "list", "remove", "waive"),
         "lock": ("show", "break", "list"),
         "handoff": (
             "show",
@@ -113,6 +116,7 @@ def test_task_first_subcommands_are_registered(tmp_path: Path) -> None:
             "implementation-context",
             "validation-context",
         ),
+        "repair": ("index", "lock", "task"),
     }
 
     for command, subcommands in expected.items():

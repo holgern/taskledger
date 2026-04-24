@@ -5,6 +5,7 @@ from typing import Annotated
 
 import typer
 
+from taskledger.api.handoff import render_handoff
 from taskledger.api.project import (
     init_project,
     project_export,
@@ -30,12 +31,15 @@ from taskledger.cli_implement_v2 import register_implement_v2_commands
 from taskledger.cli_misc_v2 import (
     emit_can_command,
     emit_doctor_command,
+    emit_doctor_indexes_command,
     emit_doctor_locks_command,
+    emit_doctor_schema_command,
     emit_next_action_command,
     emit_reindex_command,
     register_file_v2_commands,
     register_handoff_v2_commands,
     register_intro_v2_commands,
+    register_link_v2_commands,
     register_lock_v2_commands,
     register_require_v2_commands,
     register_todo_v2_commands,
@@ -55,9 +59,11 @@ validate_app = typer.Typer(add_completion=False, help="Manage validation runs.")
 todo_app = typer.Typer(add_completion=False, help="Manage task todos.")
 intro_app = typer.Typer(add_completion=False, help="Manage shared introductions.")
 file_app = typer.Typer(add_completion=False, help="Manage linked files.")
+link_app = typer.Typer(add_completion=False, help="Manage linked files.")
 require_app = typer.Typer(add_completion=False, help="Manage task requirements.")
 lock_app = typer.Typer(add_completion=False, help="Inspect and repair locks.")
 handoff_app = typer.Typer(add_completion=False, help="Render fresh-context handoffs.")
+repair_app = typer.Typer(add_completion=False, help="Repair taskledger state.")
 doctor_app = typer.Typer(
     add_completion=False,
     help="Inspect taskledger integrity.",
@@ -72,10 +78,12 @@ app.add_typer(validate_app, name="validate")
 app.add_typer(todo_app, name="todo")
 app.add_typer(intro_app, name="intro")
 app.add_typer(file_app, name="file")
+app.add_typer(link_app, name="link")
 app.add_typer(require_app, name="require")
 app.add_typer(lock_app, name="lock")
 app.add_typer(handoff_app, name="handoff")
 app.add_typer(doctor_app, name="doctor")
+app.add_typer(repair_app, name="repair")
 
 register_task_v2_commands(task_app)
 register_plan_v2_commands(plan_app)
@@ -85,9 +93,35 @@ register_validate_v2_commands(validate_app)
 register_todo_v2_commands(todo_app)
 register_intro_v2_commands(intro_app)
 register_file_v2_commands(file_app)
+register_link_v2_commands(link_app)
 register_require_v2_commands(require_app)
 register_lock_v2_commands(lock_app)
 register_handoff_v2_commands(handoff_app)
+
+
+@app.command("context")
+def context_command(
+    ctx: typer.Context,
+    task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+    context_for: Annotated[
+        str,
+        typer.Option("--for", help="Context mode: planning, implementation, validation, review, full."),
+    ] = "full",
+    format_name: Annotated[str, typer.Option("--format")] = "markdown",
+) -> None:
+    state = ctx.obj
+    assert isinstance(state, CLIState)
+    try:
+        payload = render_handoff(
+            state.cwd,
+            task_ref,
+            mode=context_for,
+            format_name=format_name,
+        )
+    except LaunchError as exc:
+        emit_error(ctx, exc)
+        raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+    emit_payload(ctx, payload, human=payload if isinstance(payload, str) else None)
 
 
 @app.callback()
@@ -171,6 +205,16 @@ def doctor_locks_command(ctx: typer.Context) -> None:
     emit_doctor_locks_command(ctx)
 
 
+@doctor_app.command("schema")
+def doctor_schema_command(ctx: typer.Context) -> None:
+    emit_doctor_schema_command(ctx)
+
+
+@doctor_app.command("indexes")
+def doctor_indexes_command(ctx: typer.Context) -> None:
+    emit_doctor_indexes_command(ctx)
+
+
 @app.command("next-action")
 def next_action_command(
     ctx: typer.Context,
@@ -191,6 +235,47 @@ def can_command(
 @app.command("reindex")
 def reindex_command(ctx: typer.Context) -> None:
     emit_reindex_command(ctx)
+
+
+@repair_app.command("index")
+def repair_index_command(ctx: typer.Context) -> None:
+    emit_reindex_command(ctx)
+
+
+@repair_app.command("lock")
+def repair_lock_command(
+    ctx: typer.Context,
+    task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+    reason: Annotated[str, typer.Option("--reason")],
+) -> None:
+    from taskledger.api.locks import break_lock
+
+    state = ctx.obj
+    assert isinstance(state, CLIState)
+    try:
+        payload = break_lock(state.cwd, task_ref, reason=reason)
+    except LaunchError as exc:
+        emit_error(ctx, exc)
+        raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+    emit_payload(ctx, payload, human=f"repaired lock for {payload['task_id']}")
+
+
+@repair_app.command("task")
+def repair_task_command(
+    ctx: typer.Context,
+    task_ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+    reason: Annotated[str, typer.Option("--reason")],
+) -> None:
+    from taskledger.api.tasks import repair_task_record
+
+    state = ctx.obj
+    assert isinstance(state, CLIState)
+    try:
+        payload = repair_task_record(state.cwd, task_ref, reason=reason)
+    except LaunchError as exc:
+        emit_error(ctx, exc)
+        raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+    emit_payload(ctx, payload, human=f"inspected repair for {payload['task_id']}")
 
 
 @app.command("export")
