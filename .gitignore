@@ -215,3 +215,5 @@ context_taskledger.index.json
 *.unpack.py
 workspace/
 .taskledger/
+todo.md
+uv.lock
