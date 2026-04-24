@@ -515,3 +515,38 @@ def human_list(title: str, rows: list[str]) -> str:
     if not rows:
         return f"{title}\n(empty)"
     return "\n".join([title, *rows])
+
+
+def actor_options() -> dict[str, Any]:
+    """
+    Returns option descriptors for actor/harness identity.
+    Used by commands to capture who is performing work and via what tool.
+    """
+    return {
+        "actor": typer.Option(
+            None,
+            "--actor",
+            help="Actor type: user (human), agent (coding tool), or system.",
+        ),
+        "actor_name": typer.Option(
+            None,
+            "--actor-name",
+            help='Actor name (e.g., "codex", "nahrstaedt").',
+        ),
+        "actor_role": typer.Option(
+            None,
+            "--actor-role",
+            help="Current role in task lifecycle (planner, implementer, validator, reviewer, operator).",
+        ),
+        "harness": typer.Option(
+            None,
+            "--harness",
+            help='Harness name (e.g., "codex", "opencode", "manual", "ci").',
+        ),
+        "session_id": typer.Option(
+            None,
+            "--session-id",
+            help="External session identifier.",
+        ),
+    }
+

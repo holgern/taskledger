@@ -16,11 +16,13 @@ from taskledger.domain.models import (
     PlanRecord,
     QuestionRecord,
     RequirementCollection,
+    TaskHandoffRecord,
     TaskLock,
     TaskRecord,
     TaskRunRecord,
     TodoCollection,
 )
+from taskledger.domain.states import TASKLEDGER_SCHEMA_VERSION
 from taskledger.errors import ActiveTaskNotFound, LaunchError, NoActiveTask
 from taskledger.storage.atomic import atomic_write_text
 from taskledger.storage.frontmatter import (
@@ -28,7 +30,7 @@ from taskledger.storage.frontmatter import (
     read_markdown_front_matter,
     write_markdown_front_matter,
 )
-from taskledger.storage.locks import read_lock
+from taskledger.storage.locks import read_lock, write_lock, update_lock
 from taskledger.storage.paths import resolve_taskledger_root
 
 T = TypeVar("T")
@@ -461,6 +463,14 @@ def task_audit_dir(paths: V2Paths, task_id: str) -> Path:
     return task_dir(paths, task_id) / "audit"
 
 
+def task_handoffs_dir(paths: V2Paths, task_id: str) -> Path:
+    return task_dir(paths, task_id) / "handoffs"
+
+
+def handoff_markdown_path(paths: V2Paths, task_id: str, handoff_id: str) -> Path:
+    return task_handoffs_dir(paths, task_id) / f"{handoff_id}.md"
+
+
 def plan_markdown_path(paths: V2Paths, task_id: str, version: int) -> Path:
     return task_plans_dir(paths, task_id) / f"plan-v{version:04d}.md"
 
@@ -504,7 +514,19 @@ def _load_change(path: Path) -> CodeChangeRecord:
 def _load_record(path: Path, parser: Callable[[dict[str, object]], T]) -> T:
     metadata, body = read_markdown_front_matter(path)
     metadata["body"] = normalize_front_matter_newlines(body).rstrip("\n")
+    metadata = _ensure_schema_compat(metadata)
     return parser(metadata)
+
+
+def _ensure_schema_compat(record: dict) -> dict:
+    """Ensure record schema is compatible."""
+    version = record.get("schema_version", 1)
+    if version > TASKLEDGER_SCHEMA_VERSION:
+        raise LaunchError(
+            f"Record schema too new: {version} (current max: {TASKLEDGER_SCHEMA_VERSION}). "
+            "Please upgrade taskledger."
+        )
+    return record
 
 
 def _write_markdown_record(path: Path, metadata: dict[str, object], body: str) -> None:
@@ -523,8 +545,10 @@ def _ensure_task_bundle(paths: V2Paths, task_id: str) -> None:
         task_changes_dir(paths, task_id),
         task_artifacts_dir(paths, task_id),
         task_audit_dir(paths, task_id),
+        task_handoffs_dir(paths, task_id),
     ):
         directory.mkdir(parents=True, exist_ok=True)
+
 
 
 def _todo_collection(task: TaskRecord) -> dict[str, object]:
@@ -577,11 +601,58 @@ def _render_run_body(run: TaskRunRecord) -> str:
         for entry in run.evidence:
             lines.append(f"- {entry}")
         lines.extend(["", "## Recommendation", "", (run.recommendation or "").strip()])
-        return "\n".join(lines).rstrip() + "\n"
-    lines.extend(["", "## Worklog", ""])
-    for entry in run.worklog:
-        lines.append(f"- {entry}")
-    lines.extend(["", "## Deviations From Plan", ""])
-    for entry in run.deviations_from_plan:
-        lines.append(f"- {entry}")
     return "\n".join(lines).rstrip() + "\n"
+
+
+def list_handoffs(workspace_root: Path, task_id: str) -> list[TaskHandoffRecord]:
+    paths = resolve_v2_paths(workspace_root)
+    handoffs_dir = task_handoffs_dir(paths, task_id)
+    if not handoffs_dir.exists():
+        return []
+    result = []
+    for md_file in handoffs_dir.glob("*.md"):
+        try:
+            metadata, _ = read_markdown_front_matter(md_file)
+            handoff = TaskHandoffRecord.from_dict(metadata)
+            result.append(handoff)
+        except Exception:
+            pass
+    return sorted(result, key=lambda h: h.created_at)
+
+
+def resolve_handoff(workspace_root: Path, task_id: str, handoff_ref: str) -> TaskHandoffRecord:
+    paths = resolve_v2_paths(workspace_root)
+    path = handoff_markdown_path(paths, task_id, handoff_ref)
+    if not path.exists():
+        raise LaunchError(f"Handoff not found: {handoff_ref}")
+    metadata, _ = read_markdown_front_matter(path)
+    return TaskHandoffRecord.from_dict(metadata)
+
+
+def save_handoff(workspace_root: Path, handoff: TaskHandoffRecord) -> Path:
+    paths = resolve_v2_paths(workspace_root)
+    handoffs_dir = task_handoffs_dir(paths, handoff.task_id)
+    handoffs_dir.mkdir(parents=True, exist_ok=True)
+    path = handoff_markdown_path(paths, handoff.task_id, handoff.handoff_id)
+    metadata = handoff.to_dict()
+    content = handoff.context_body or ""
+    _write_markdown_record(path, metadata, content)
+    return path
+
+
+def resolve_lock(workspace_root: Path, task_id: str) -> TaskLock | None:
+    """Resolve a lock by task ID."""
+    paths = resolve_v2_paths(workspace_root)
+    lock_path = task_lock_path(paths, task_id)
+    return read_lock(lock_path)
+
+
+def save_lock(workspace_root: Path, task_id: str, lock: TaskLock) -> Path:
+    """Save a lock record (creates if new, updates if exists)."""
+    paths = resolve_v2_paths(workspace_root)
+    lock_path = task_lock_path(paths, task_id)
+    if lock_path.exists():
+        update_lock(lock_path, lock)
+    else:
+        write_lock(lock_path, lock)
+    return lock_path

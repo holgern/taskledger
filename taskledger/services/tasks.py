@@ -22,6 +22,7 @@ from taskledger.domain.models import (
     DependencyRequirement,
     DependencyWaiver,
     FileLink,
+    HarnessRef,
     IntroductionRecord,
     LinkCollection,
     PlanRecord,
@@ -715,14 +716,27 @@ def show_todo(workspace_root: Path, task_ref: str, todo_id: str) -> dict[str, ob
     raise _cli_error(f"Todo not found: {todo_id}", EXIT_CODE_MISSING)
 
 
-def start_planning(workspace_root: Path, task_ref: str) -> dict[str, object]:
+def start_planning(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    actor: ActorRef | None = None,
+    harness: HarnessRef | None = None,
+) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
     if task.status_stage not in {"draft", "plan_review"}:
         raise _cli_error(
             "Planning can only start from draft or plan_review.",
             EXIT_CODE_INVALID_TRANSITION,
         )
-    run = _start_run(workspace_root, task, run_type="planning", stage="planning")
+    run = _start_run(
+        workspace_root,
+        task,
+        run_type="planning",
+        stage="planning",
+        actor=actor,
+        harness=harness,
+    )
     updated = replace(
         resolve_task(workspace_root, task.id),
         latest_planning_run=run.run_id,
@@ -1092,7 +1106,13 @@ def list_open_questions(workspace_root: Path, task_ref: str) -> dict[str, object
     return {"kind": "task_questions", "task_id": task.id, "questions": questions}
 
 
-def start_implementation(workspace_root: Path, task_ref: str) -> dict[str, object]:
+def start_implementation(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    actor: ActorRef | None = None,
+    harness: HarnessRef | None = None,
+) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
     if task.status_stage not in IMPLEMENTABLE_TASK_STAGES:
         raise _cli_error(
@@ -1126,6 +1146,8 @@ def start_implementation(workspace_root: Path, task_ref: str) -> dict[str, objec
         task,
         run_type="implementation",
         stage="implementing",
+        actor=actor,
+        harness=harness,
     )
     updated = replace(
         resolve_task(workspace_root, task.id),
@@ -1547,7 +1569,13 @@ def finish_implementation(
     )
 
 
-def start_validation(workspace_root: Path, task_ref: str) -> dict[str, object]:
+def start_validation(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    actor: ActorRef | None = None,
+    harness: HarnessRef | None = None,
+) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
     if task.status_stage != "implemented":
         raise _cli_error(
@@ -1565,6 +1593,8 @@ def start_validation(workspace_root: Path, task_ref: str) -> dict[str, object]:
         task,
         run_type="validation",
         stage="validating",
+        actor=actor,
+        harness=harness,
     )
     updated_run = replace(run, based_on_implementation_run=impl_run.run_id)
     save_run(workspace_root, updated_run)
@@ -2395,6 +2425,8 @@ def _start_run(
     *,
     run_type: str,
     stage: str,
+    actor: ActorRef | None = None,
+    harness: HarnessRef | None = None,
 ) -> TaskRunRecord:
     existing_lock = _current_lock(workspace_root, task.id)
     if existing_lock is not None:
@@ -2412,6 +2444,7 @@ def _start_run(
             f"Task {task.id} already has a running {running_runs[0].run_type} run.",
             EXIT_CODE_LOCK_CONFLICT,
         )
+    resolved_actor = actor or _default_actor()
     run = TaskRunRecord(
         run_id=next_project_id(
             "run",
@@ -2419,7 +2452,8 @@ def _start_run(
         ),
         task_id=task.id,
         run_type=run_type,  # type: ignore[arg-type]
-        actor=_default_actor(),
+        actor=resolved_actor,
+        harness=harness,
         based_on_plan_version=task.accepted_plan_version or task.latest_plan_version,
     )
     save_run(workspace_root, run)
@@ -2433,6 +2467,8 @@ def _start_run(
             "implementation": "implement approved plan",
             "validation": "validate implementation",
         }[run_type],
+        actor=resolved_actor,
+        harness=harness,
     )
     return run
 
@@ -2444,6 +2480,8 @@ def _acquire_lock(
     stage: str,
     run: TaskRunRecord,
     reason: str,
+    actor: ActorRef | None = None,
+    harness: HarnessRef | None = None,
 ) -> TaskLock:
     if stage not in ACTIVE_TASK_STAGES:
         raise _cli_error("Only active stages can acquire locks.", EXIT_CODE_BAD_INPUT)
@@ -2459,6 +2497,7 @@ def _acquire_lock(
             _lock_conflict_message(task.id, existing), EXIT_CODE_LOCK_CONFLICT
         )
     now = datetime.now(timezone.utc)
+    resolved_actor = actor or _default_actor()
     lock = TaskLock(
         lock_id=_next_lock_id(workspace_root, now),
         task_id=task.id,
@@ -2469,7 +2508,9 @@ def _acquire_lock(
         lease_seconds=7200,
         last_heartbeat_at=now.isoformat(),
         reason=reason,
-        holder=_default_actor(),
+        holder=resolved_actor,
+        actor=resolved_actor,
+        harness=harness,
     )
     try:
         write_lock(lock_path, lock)

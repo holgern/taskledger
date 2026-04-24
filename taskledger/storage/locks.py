@@ -7,12 +7,20 @@ import yaml
 
 from taskledger.domain.models import TaskLock
 from taskledger.errors import LaunchError
-from taskledger.storage.atomic import atomic_create_text
+from taskledger.storage.atomic import atomic_create_text, atomic_write_text
 from taskledger.storage.common import read_text
 
 
 def write_lock(path: Path, lock: TaskLock) -> None:
     atomic_create_text(
+        path,
+        yaml.safe_dump(lock.to_dict(), sort_keys=False, allow_unicode=True),
+    )
+
+
+def update_lock(path: Path, lock: TaskLock) -> None:
+    """Update an existing lock, or create if it doesn't exist."""
+    atomic_write_text(
         path,
         yaml.safe_dump(lock.to_dict(), sort_keys=False, allow_unicode=True),
     )

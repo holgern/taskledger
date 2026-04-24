@@ -4,7 +4,7 @@ from typing import Literal, cast
 
 from taskledger.errors import LaunchError
 
-TASKLEDGER_SCHEMA_VERSION = 1
+TASKLEDGER_SCHEMA_VERSION = 3
 TASKLEDGER_V2_FILE_VERSION = "v2"
 OBJECT_TYPES = frozenset(
     {
@@ -20,6 +20,7 @@ OBJECT_TYPES = frozenset(
         "todos",
         "links",
         "requirements",
+        "handoff",
     }
 )
 
@@ -39,7 +40,9 @@ ActiveTaskStatusStage = Literal["planning", "implementing", "validating"]
 RunType = Literal["planning", "implementation", "validation"]
 PlanStatus = Literal["draft", "proposed", "accepted", "superseded", "rejected"]
 QuestionStatus = Literal["open", "answered", "dismissed"]
-RunStatus = Literal["running", "finished", "passed", "failed", "blocked"]
+RunStatus = Literal[
+    "running", "paused", "finished", "passed", "failed", "blocked", "aborted"
+]
 ValidationResult = Literal["passed", "failed", "blocked"]
 ValidationCheckStatus = Literal["pass", "fail", "warn", "not_run"]
 FileLinkKind = Literal["code", "test", "doc", "config", "dir", "other", "artifact"]
@@ -73,6 +76,14 @@ EventName = Literal[
     "lock.acquired",
     "lock.released",
     "lock.broken",
+    "lock.transferred",
+    "handoff.created",
+    "handoff.claimed",
+    "handoff.closed",
+    "handoff.cancelled",
+    "run.paused",
+    "run.resumed",
+    "actor.resolved",
     "doctor.reindexed",
 ]
 
@@ -89,7 +100,9 @@ DURABLE_TASK_STATUSES = frozenset(
     }
 )
 RUN_TYPES = frozenset({"planning", "implementation", "validation"})
-RUN_STATUSES = frozenset({"running", "finished", "failed", "aborted"})
+RUN_STATUSES = frozenset(
+    {"running", "paused", "finished", "passed", "failed", "blocked", "aborted"}
+)
 VALIDATION_CHECK_STATUSES = frozenset({"pass", "fail", "warn", "not_run"})
 IMPLEMENTABLE_TASK_STAGES = frozenset({"approved", "failed_validation"})
 CANCELLABLE_TASK_STAGES = frozenset(ACTIVE_TASK_STAGES) | {
@@ -168,7 +181,7 @@ def normalize_question_status(value: str) -> QuestionStatus:
 
 
 def normalize_run_status(value: str) -> RunStatus:
-    if value not in {"running", "finished", "passed", "failed", "blocked"}:
+    if value not in {"running", "paused", "finished", "passed", "failed", "blocked", "aborted"}:
         raise LaunchError(f"Unsupported run status: {value}")
     return cast(RunStatus, value)
 

@@ -119,6 +119,40 @@ taskledger context --for validation --format json
 taskledger task dossier --format markdown
 ```
 
+## Multi-Actor Handoff Protocol
+
+The handoff protocol enables safe work transitions between human and agent actors across different harnesses:
+
+### Features
+- **Actor Identity**: Track WHO performs each stage (human, agent, system)
+- **Harness Tracking**: Record FROM WHERE each stage ran (manual, Codex, OpenCode, etc.)
+- **Handoff Records**: Explicitly hand off work with context and intent
+- **Claim Protocol**: New actors claim handoffs before starting work
+- **Lock Management**: Transfer or release locks during handoffs  
+- **Event Trail**: Full audit trail recording all state changes
+- **Durable Records**: Markdown-first storage with YAML metadata
+
+### Quick Start
+
+```bash
+# See your current identity
+$ taskledger actor whoami
+
+# Create a handoff
+$ taskledger handoff-protocol create task-0001 --mode=implementation
+
+# Claim it
+$ taskledger handoff-protocol claim task-0001 handoff-0001
+
+# Show details
+$ taskledger handoff-protocol show task-0001 handoff-0001
+
+# Close when done
+$ taskledger handoff-protocol close task-0001 handoff-0001
+```
+
+See [docs/HANDOFF.md](docs/HANDOFF.md) for detailed protocol specification.
+
 ## Export, import, and snapshots
 
 ```bash

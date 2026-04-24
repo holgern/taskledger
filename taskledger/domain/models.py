@@ -36,6 +36,9 @@ class ActorRef:
     session_id: str | None = None
     host: str | None = None
     pid: int | None = None
+    actor_id: str | None = None
+    role: Literal["planner", "implementer", "validator", "reviewer", "operator"] | None = None
+    harness_id: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -45,6 +48,9 @@ class ActorRef:
             "session_id": self.session_id,
             "host": self.host,
             "pid": self.pid,
+            "actor_id": self.actor_id,
+            "role": self.role,
+            "harness_id": self.harness_id,
         }
 
     @classmethod
@@ -55,6 +61,9 @@ class ActorRef:
         if actor_type not in {"agent", "user", "system"}:
             raise LaunchError(f"Unsupported actor type: {actor_type}")
         pid = data.get("pid")
+        role = _optional_string(data.get("role"))
+        if role and role not in {"planner", "implementer", "validator", "reviewer", "operator"}:
+            role = None
         return cls(
             actor_type=cast(Literal["agent", "user", "system"], actor_type),
             actor_name=_optional_string(data.get("actor_name")) or "taskledger",
@@ -62,11 +71,157 @@ class ActorRef:
             session_id=_optional_string(data.get("session_id")),
             host=_optional_string(data.get("host")),
             pid=pid if isinstance(pid, int) else None,
+            actor_id=_optional_string(data.get("actor_id")),
+            role=cast(Literal["planner", "implementer", "validator", "reviewer", "operator"] | None, role),
+            harness_id=_optional_string(data.get("harness_id")),
+        )
+
+
+@dataclass(slots=True, frozen=True)
+class HarnessRef:
+    harness_id: str
+    name: str
+    kind: Literal["agent_harness", "manual", "ci", "unknown"] = "unknown"
+    session_id: str | None = None
+    working_directory: str | None = None
+    command: str | None = None
+    version: str | None = None
+    capabilities: tuple[str, ...] = ()
+    created_at: str = field(default_factory=utc_now_iso)
+    schema_version: int = TASKLEDGER_SCHEMA_VERSION
+    object_type: str = "harness"
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "harness_id": self.harness_id,
+            "name": self.name,
+            "kind": self.kind,
+            "session_id": self.session_id,
+            "working_directory": self.working_directory,
+            "command": self.command,
+            "version": self.version,
+            "capabilities": self.capabilities,
+            "created_at": self.created_at,
+            "schema_version": self.schema_version,
+            "object_type": self.object_type,
+        }
+
+    @classmethod
+    def from_dict(cls, data: object) -> HarnessRef:
+        if not isinstance(data, dict):
+            raise LaunchError("Invalid harness data: expected mapping")
+        _require_contract(data, expected_object_type="harness")
+        return cls(
+            harness_id=_string_value(data, "harness_id"),
+            name=_string_value(data, "name"),
+            kind=cast(Literal["agent_harness", "manual", "ci", "unknown"], 
+                     _optional_string(data.get("kind")) or "unknown"),
+            session_id=_optional_string(data.get("session_id")),
+            working_directory=_optional_string(data.get("working_directory")),
+            command=_optional_string(data.get("command")),
+            version=_optional_string(data.get("version")),
+            capabilities=tuple(_optional_list_string(data.get("capabilities")) or []),
+            created_at=_optional_string(data.get("created_at")) or utc_now_iso(),
+            schema_version=_int_value(data, "schema_version"),
+        )
+
+
+@dataclass(slots=True, frozen=True)
+class TaskHandoffRecord:
+    handoff_id: str
+    task_id: str
+    mode: Literal["planning", "implementation", "validation", "review", "full"]
+    
+    status: Literal["open", "claimed", "closed", "cancelled"] = field(default="open")
+    lock_policy: Literal["none", "retain", "release", "transfer"] = field(default="none")
+    context_body: str = field(default="")
+    file_version: str = field(default=TASKLEDGER_V2_FILE_VERSION)
+    schema_version: int = field(default=TASKLEDGER_SCHEMA_VERSION)
+    object_type: str = field(default="handoff")
+    
+    created_from_harness: HarnessRef | None = field(default=None)
+    intended_actor_type: Literal["agent", "user", "system"] | None = field(default=None)
+    intended_actor_name: str | None = field(default=None)
+    intended_harness: str | None = field(default=None)
+    source_run_id: str | None = field(default=None)
+    resumes_run_id: str | None = field(default=None)
+    claim_run_id: str | None = field(default=None)
+    released_lock_id: str | None = field(default=None)
+    claimed_at: str | None = field(default=None)
+    claimed_by: ActorRef | None = field(default=None)
+    claimed_in_harness: HarnessRef | None = field(default=None)
+    summary: str | None = field(default=None)
+    next_action: str | None = field(default=None)
+
+    created_at: str = field(default_factory=utc_now_iso)
+    created_by: ActorRef = field(default_factory=ActorRef)
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "handoff_id": self.handoff_id,
+            "task_id": self.task_id,
+            "mode": self.mode,
+            "status": self.status,
+            "created_at": self.created_at,
+            "created_by": self.created_by.to_dict(),
+            "created_from_harness": self.created_from_harness.to_dict() if self.created_from_harness else None,
+            "intended_actor_type": self.intended_actor_type,
+            "intended_actor_name": self.intended_actor_name,
+            "intended_harness": self.intended_harness,
+            "source_run_id": self.source_run_id,
+            "resumes_run_id": self.resumes_run_id,
+            "claim_run_id": self.claim_run_id,
+            "lock_policy": self.lock_policy,
+            "released_lock_id": self.released_lock_id,
+            "claimed_at": self.claimed_at,
+            "claimed_by": self.claimed_by.to_dict() if self.claimed_by else None,
+            "claimed_in_harness": self.claimed_in_harness.to_dict() if self.claimed_in_harness else None,
+            "summary": self.summary,
+            "next_action": self.next_action,
+            "context_body": self.context_body,
+            "file_version": self.file_version,
+            "schema_version": self.schema_version,
+            "object_type": self.object_type,
+        }
+
+    @classmethod
+    def from_dict(cls, data: object) -> TaskHandoffRecord:
+        if not isinstance(data, dict):
+            raise LaunchError("Invalid handoff record: expected mapping")
+        _require_contract(data, expected_object_type="handoff")
+        return cls(
+            handoff_id=_string_value(data, "handoff_id"),
+            task_id=_string_value(data, "task_id"),
+            mode=cast(Literal["planning", "implementation", "validation", "review", "full"],
+                     _string_value(data, "mode")),
+            status=cast(Literal["open", "claimed", "closed", "cancelled"],
+                       _optional_string(data.get("status")) or "open"),
+            created_at=_optional_string(data.get("created_at")) or utc_now_iso(),
+            created_by=ActorRef.from_dict(data.get("created_by")),
+            created_from_harness=HarnessRef.from_dict(data.get("created_from_harness")) if data.get("created_from_harness") else None,
+            intended_actor_type=_optional_string(data.get("intended_actor_type")),
+            intended_actor_name=_optional_string(data.get("intended_actor_name")),
+            intended_harness=_optional_string(data.get("intended_harness")),
+            source_run_id=_optional_string(data.get("source_run_id")),
+            resumes_run_id=_optional_string(data.get("resumes_run_id")),
+            claim_run_id=_optional_string(data.get("claim_run_id")),
+            lock_policy=cast(Literal["none", "retain", "release", "transfer"],
+                            _optional_string(data.get("lock_policy")) or "none"),
+            released_lock_id=_optional_string(data.get("released_lock_id")),
+            claimed_at=_optional_string(data.get("claimed_at")),
+            claimed_by=ActorRef.from_dict(data.get("claimed_by")) if data.get("claimed_by") else None,
+            claimed_in_harness=HarnessRef.from_dict(data.get("claimed_in_harness")) if data.get("claimed_in_harness") else None,
+            summary=_optional_string(data.get("summary")),
+            next_action=_optional_string(data.get("next_action")),
+            context_body=_optional_string(data.get("context_body")) or "",
+            file_version=_optional_string(data.get("file_version")) or TASKLEDGER_V2_FILE_VERSION,
+            schema_version=_int_value(data, "schema_version"),
         )
 
 
 @dataclass(slots=True, frozen=True)
 class ActiveTaskState:
+
     task_id: str
     activated_at: str = field(default_factory=utc_now_iso)
     activated_by: ActorRef = field(default_factory=ActorRef)
@@ -756,8 +911,10 @@ class TaskRunRecord:
     started_at: str = field(default_factory=utc_now_iso)
     finished_at: str | None = None
     actor: ActorRef = field(default_factory=ActorRef)
+    harness: HarnessRef | None = None
     based_on_plan_version: int | None = None
     based_on_implementation_run: str | None = None
+    resumes_run_id: str | None = None
     summary: str | None = None
     worklog: tuple[str, ...] = ()
     deviations_from_plan: tuple[str, ...] = ()
@@ -768,6 +925,8 @@ class TaskRunRecord:
     evidence: tuple[str, ...] = ()
     recommendation: str | None = None
     result: ValidationResult | None = None
+    handoff_refs: tuple[str, ...] = ()
+    actor_history: tuple[ActorRef, ...] = ()
     file_version: str = TASKLEDGER_V2_FILE_VERSION
     based_on_plan: str | None = None
     schema_version: int = TASKLEDGER_SCHEMA_VERSION
@@ -785,9 +944,11 @@ class TaskRunRecord:
             "started_at": self.started_at,
             "finished_at": self.finished_at,
             "actor": self.actor.to_dict(),
+            "harness": self.harness.to_dict() if self.harness is not None else None,
             "based_on_plan": self.based_on_plan or self.plan_ref,
             "based_on_plan_version": self.based_on_plan_version,
             "based_on_implementation_run": self.based_on_implementation_run,
+            "resumes_run_id": self.resumes_run_id,
             "summary": self.summary,
             "worklog": list(self.worklog),
             "deviations_from_plan": list(self.deviations_from_plan),
@@ -798,6 +959,8 @@ class TaskRunRecord:
             "evidence": list(self.evidence),
             "recommendation": self.recommendation,
             "result": self.result,
+            "handoff_refs": list(self.handoff_refs),
+            "actor_history": [item.to_dict() for item in self.actor_history],
         }
 
     @classmethod
@@ -812,11 +975,15 @@ class TaskRunRecord:
             started_at=_optional_string(data.get("started_at")) or utc_now_iso(),
             finished_at=_optional_string(data.get("finished_at")),
             actor=ActorRef.from_dict(data.get("actor")),
+            harness=HarnessRef.from_dict(data.get("harness"))
+            if data.get("harness") is not None
+            else None,
             based_on_plan_version=_optional_int(data.get("based_on_plan_version"))
             or _plan_version_value(data.get("based_on_plan")),
             based_on_implementation_run=_optional_string(
                 data.get("based_on_implementation_run")
             ),
+            resumes_run_id=_optional_string(data.get("resumes_run_id")),
             summary=_optional_string(data.get("summary")),
             worklog=_string_tuple(data.get("worklog")),
             deviations_from_plan=_string_tuple(data.get("deviations_from_plan")),
@@ -830,6 +997,11 @@ class TaskRunRecord:
             evidence=_string_tuple(data.get("evidence")),
             recommendation=_optional_string(data.get("recommendation")),
             result=normalize_validation_result(result) if result is not None else None,
+            handoff_refs=_string_tuple(data.get("handoff_refs")),
+            actor_history=tuple(
+                ActorRef.from_dict(item)
+                for item in _dict_list(data.get("actor_history"))
+            ),
             file_version=_optional_string(data.get("file_version"))
             or TASKLEDGER_V2_FILE_VERSION,
             based_on_plan=_optional_string(data.get("based_on_plan")),
@@ -922,6 +1094,10 @@ class TaskLock:
     broken_at: str | None = None
     broken_by: ActorRef | None = None
     broken_reason: str | None = None
+    actor: ActorRef | None = None
+    harness: HarnessRef | None = None
+    transfer_history: tuple[tuple[str, str, str], ...] = ()
+    transfer_date: str | None = None
     file_version: str = TASKLEDGER_V2_FILE_VERSION
     schema_version: int = TASKLEDGER_SCHEMA_VERSION
     object_type: str = "lock"
@@ -947,6 +1123,10 @@ class TaskLock:
                 self.broken_by.to_dict() if self.broken_by is not None else None
             ),
             "broken_reason": self.broken_reason,
+            "actor": self.actor.to_dict() if self.actor is not None else None,
+            "harness": self.harness.to_dict() if self.harness is not None else None,
+            "transfer_history": [list(entry) for entry in self.transfer_history],
+            "transfer_date": self.transfer_date,
         }
 
     @classmethod
@@ -955,6 +1135,15 @@ class TaskLock:
         stage = _lock_stage_from_data(data)
         if stage not in {"planning", "implementing", "validating"}:
             raise LaunchError(f"Unsupported lock stage: {stage}")
+        
+        # Deserialize transfer_history
+        transfer_history_data = data.get("transfer_history", [])
+        transfer_history: tuple[tuple[str, str, str], ...] = ()
+        if isinstance(transfer_history_data, list):
+            for entry in transfer_history_data:
+                if isinstance(entry, (list, tuple)) and len(entry) == 3:
+                    transfer_history = transfer_history + (tuple(entry),)  # type: ignore
+        
         return cls(
             lock_id=_string_value(data, "lock_id"),
             task_id=_string_value(data, "task_id"),
@@ -971,6 +1160,14 @@ class TaskLock:
             if data.get("broken_by") is not None
             else None,
             broken_reason=_optional_string(data.get("broken_reason")),
+            actor=ActorRef.from_dict(data.get("actor"))
+            if data.get("actor") is not None
+            else None,
+            harness=HarnessRef.from_dict(data.get("harness"))
+            if data.get("harness") is not None
+            else None,
+            transfer_history=transfer_history,
+            transfer_date=_optional_string(data.get("transfer_date")),
             file_version=_optional_string(data.get("file_version"))
             or TASKLEDGER_V2_FILE_VERSION,
             schema_version=_int_value(data, "schema_version"),
@@ -987,6 +1184,7 @@ class TaskLock:
                 "validating": "validation",
             }[self.stage],
         )
+
 
 
 @dataclass(slots=True, frozen=True)
@@ -1050,7 +1248,14 @@ def _optional_string(value: object) -> str | None:
     return value if isinstance(value, str) else None
 
 
+def _optional_list_string(value: object) -> list[str] | None:
+    if not isinstance(value, list):
+        return None
+    return [item for item in value if isinstance(item, str)] or None
+
+
 def _string_tuple(value: object) -> tuple[str, ...]:
+
     if not isinstance(value, list):
         return ()
     return tuple(item for item in value if isinstance(item, str))

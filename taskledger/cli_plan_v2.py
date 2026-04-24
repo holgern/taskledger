@@ -24,6 +24,7 @@ from taskledger.cli_common import (
     resolve_cli_task,
 )
 from taskledger.errors import LaunchError
+from taskledger.services.actors import resolve_actor, resolve_harness
 
 
 def register_plan_v2_commands(app: typer.Typer) -> None:
@@ -38,11 +39,43 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
             str | None,
             typer.Option("--task", help="Task ref. Defaults to the active task."),
         ] = None,
+        actor: Annotated[
+            str | None,
+            typer.Option("--actor", help="Actor type: user, agent, or system."),
+        ] = None,
+        actor_name: Annotated[
+            str | None,
+            typer.Option("--actor-name", help="Actor name."),
+        ] = None,
+        actor_role: Annotated[
+            str | None,
+            typer.Option("--actor-role", help="Actor role in task lifecycle."),
+        ] = None,
+        harness: Annotated[
+            str | None,
+            typer.Option("--harness", help="Harness name."),
+        ] = None,
+        session_id: Annotated[
+            str | None,
+            typer.Option("--session-id", help="Session identifier."),
+        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
             task = resolve_cli_task(state.cwd, task_option or task_ref)
-            payload = start_planning(state.cwd, task.id)
+            resolved_actor = resolve_actor(
+                actor_type=actor,
+                actor_name=actor_name,
+                role=actor_role,
+                session_id=session_id,
+            )
+            resolved_harness = resolve_harness(name=harness, session_id=session_id)
+            payload = start_planning(
+                state.cwd,
+                task.id,
+                actor=resolved_actor,
+                harness=resolved_harness,
+            )
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
