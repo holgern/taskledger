@@ -23,6 +23,7 @@ from taskledger.cli_common import (
     CLIState,
     emit_error,
     emit_payload,
+    launch_error_exit_code,
     resolve_workspace_root,
 )
 from taskledger.cli_implement_v2 import register_implement_v2_commands
@@ -99,12 +100,23 @@ def main(
             help="Workspace root. Defaults to the current directory.",
         ),
     ] = None,
+    root: Annotated[
+        Path | None,
+        typer.Option(
+            "--root",
+            help="Workspace root. Preferred alias for --cwd.",
+        ),
+    ] = None,
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Render machine-readable JSON."),
     ] = False,
 ) -> None:
-    ctx.obj = CLIState(cwd=resolve_workspace_root(cwd), json_output=json_output)
+    if cwd is not None and root is not None and cwd != root:
+        raise typer.BadParameter(
+            "Use either --cwd or --root, not both with different values."
+        )
+    ctx.obj = CLIState(cwd=resolve_workspace_root(root or cwd), json_output=json_output)
 
 
 @app.command("init")
@@ -142,8 +154,8 @@ def status_command(
             project_status(state.cwd) if full else project_status_summary(state.cwd)
         )
     except LaunchError as exc:
-        emit_error(ctx, str(exc))
-        raise typer.Exit(code=1) from exc
+        emit_error(ctx, exc)
+        raise typer.Exit(code=launch_error_exit_code(exc)) from exc
     emit_payload(ctx, payload)
 
 
@@ -221,8 +233,8 @@ def import_command(
     try:
         payload = project_import(state.cwd, text=text, replace=replace)
     except LaunchError as exc:
-        emit_error(ctx, str(exc))
-        raise typer.Exit(code=1) from exc
+        emit_error(ctx, exc)
+        raise typer.Exit(code=launch_error_exit_code(exc)) from exc
     emit_payload(ctx, payload, human="imported taskledger state")
 
 
@@ -255,8 +267,8 @@ def snapshot_command(
             include_run_artifacts=include_run_artifacts,
         )
     except LaunchError as exc:
-        emit_error(ctx, str(exc))
-        raise typer.Exit(code=1) from exc
+        emit_error(ctx, exc)
+        raise typer.Exit(code=launch_error_exit_code(exc)) from exc
     emit_payload(ctx, payload, human=f"wrote snapshot to {payload['snapshot_dir']}")
 
 

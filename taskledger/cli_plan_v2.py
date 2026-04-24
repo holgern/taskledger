@@ -35,7 +35,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
         try:
             payload = start_planning(state.cwd, task_ref)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, payload, human=f"started planning {payload['task_id']}")
 
@@ -54,7 +54,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
                 body=read_text_input(text=text, from_file=from_file),
             )
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(
             ctx,
@@ -72,7 +72,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
         try:
             payload = show_plan(state.cwd, task_ref, version=version)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         plan = payload["plan"]
         assert isinstance(plan, dict)
@@ -91,7 +91,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
         try:
             payload = list_plan_versions(state.cwd, task_ref)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         plans = payload["plans"]
         assert isinstance(plans, list)
@@ -119,7 +119,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
                 to_version=to_version,
             )
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, payload, human=str(payload["diff"]))
 
@@ -133,7 +133,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
         try:
             payload = approve_plan(state.cwd, task_ref, version=version)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(
             ctx,
@@ -151,7 +151,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
         try:
             payload = reject_plan(state.cwd, task_ref, reason=reason)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, payload, human=f"rejected plan for {payload['task_id']}")
 
@@ -164,6 +164,6 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
         try:
             payload = revise_plan(state.cwd, task_ref)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, payload, human=f"restarted planning {payload['task_id']}")

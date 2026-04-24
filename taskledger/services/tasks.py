@@ -43,6 +43,7 @@ from taskledger.domain.states import (
     EXIT_CODE_INVALID_TRANSITION,
     EXIT_CODE_LOCK_CONFLICT,
     EXIT_CODE_MISSING,
+    EXIT_CODE_STALE_LOCK_REQUIRES_BREAK,
     IMPLEMENTABLE_TASK_STAGES,
     TaskStatusStage,
     normalize_file_link_kind,
@@ -605,10 +606,22 @@ def approve_plan(
     _enforce_decision(
         plan_approve_decision(task, _current_lock(workspace_root, task.id))
     )
-    target = resolve_plan(workspace_root, task.id, version=version)
-    if target.status == "rejected":
+    open_questions = [
+        item.id
+        for item in list_questions(workspace_root, task.id)
+        if item.status == "open"
+    ]
+    if open_questions:
         raise _cli_error(
-            f"Rejected plan v{target.plan_version} cannot be approved.",
+            "Plan approval is blocked by open planning questions: "
+            + ", ".join(open_questions),
+            EXIT_CODE_APPROVAL_REQUIRED,
+        )
+    target = resolve_plan(workspace_root, task.id, version=version)
+    if target.status != "proposed":
+        raise _cli_error(
+            "Only proposed plan versions can be approved. "
+            f"v{target.plan_version} is {target.status}.",
             EXIT_CODE_INVALID_TRANSITION,
         )
     for plan in list_plans(workspace_root, task.id):
@@ -791,6 +804,22 @@ def start_implementation(workspace_root: Path, task_ref: str) -> dict[str, objec
     if task.accepted_plan_version is None:
         raise _cli_error(
             "Implementation requires an accepted plan version.",
+            EXIT_CODE_APPROVAL_REQUIRED,
+        )
+    try:
+        accepted_plan = resolve_plan(
+            workspace_root,
+            task.id,
+            version=task.accepted_plan_version,
+        )
+    except LaunchError as exc:
+        raise _cli_error(
+            "Implementation requires a stored accepted plan record.",
+            EXIT_CODE_APPROVAL_REQUIRED,
+        ) from exc
+    if accepted_plan.status != "accepted":
+        raise _cli_error(
+            "Implementation requires an accepted plan record.",
             EXIT_CODE_APPROVAL_REQUIRED,
         )
     _ensure_dependencies_done(workspace_root, task)
@@ -1512,6 +1541,8 @@ def _acquire_lock(
     lock_path = task_lock_path(paths, task.id)
     existing = read_lock(lock_path)
     if existing is not None:
+        if lock_is_expired(existing):
+            raise _stale_lock_error(task.id, existing)
         if existing.run_id == run.run_id:
             return existing
         raise _cli_error(
@@ -1610,7 +1641,7 @@ def _require_lock(workspace_root: Path, task_id: str) -> TaskLock:
     if lock is None:
         raise _cli_error("No active lock found.", EXIT_CODE_LOCK_CONFLICT)
     if lock_is_expired(lock):
-        raise _cli_error(_lock_conflict_message(task_id, lock), EXIT_CODE_LOCK_CONFLICT)
+        raise _stale_lock_error(task_id, lock)
     return lock
 
 
@@ -1660,7 +1691,7 @@ def _current_lock(workspace_root: Path, task_id: str) -> TaskLock | None:
 def _lock_for_mutation(workspace_root: Path, task_id: str) -> TaskLock | None:
     lock = _current_lock(workspace_root, task_id)
     if lock is not None and lock_is_expired(lock):
-        raise _cli_error(_lock_conflict_message(task_id, lock), EXIT_CODE_LOCK_CONFLICT)
+        raise _stale_lock_error(task_id, lock)
     return lock
 
 
@@ -1775,4 +1806,21 @@ def _lifecycle_payload(
 def _cli_error(message: str, exit_code: int) -> LaunchError:
     error = LaunchError(message)
     error.taskledger_exit_code = exit_code
+    return error
+
+
+def _stale_lock_error(task_id: str, lock: TaskLock) -> LaunchError:
+    error = LaunchError(
+        f"Task {task_id} has an expired {lock.stage} lock from {lock.run_id}. "
+        "Break it explicitly before continuing."
+    )
+    error.taskledger_exit_code = EXIT_CODE_STALE_LOCK_REQUIRES_BREAK
+    error.taskledger_error_type = "StaleLockRequiresBreak"
+    error.taskledger_remediation = [
+        f'taskledger lock break {task_id} --reason "recover stale {lock.stage} lock"'
+    ]
+    error.taskledger_data = {
+        "task_id": task_id,
+        "lock": lock.to_dict(),
+    }
     return error

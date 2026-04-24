@@ -132,3 +132,40 @@ from taskledger.errors import (
 - `grep_workspace`
 - `symbols_workspace`
 - `dependencies_for_module`
+
+## CLI command groups
+
+The public task-first CLI surface is organized around these command groups:
+
+- `task`
+- `plan`
+- `question`
+- `implement`
+- `validate`
+- `todo`
+- `intro`
+- `file`
+- `require`
+- `lock`
+- `handoff`
+- `doctor`
+
+Top-level commands that are part of the supported surface are:
+
+- `init`
+- `status`
+- `next-action`
+- `can`
+- `reindex`
+- `export`
+- `import`
+- `snapshot`
+- `search`
+- `grep`
+- `symbols`
+- `deps`
+
+All CLI commands support `--cwd`; task-first workflows also support `--root` as
+the preferred workspace alias. JSON mode returns a stable envelope with
+`success`, `operation`, `result_type`, `data`, `warnings`, `errors`,
+`remediation`, and `generated_at`.

@@ -31,6 +31,8 @@ Initialize durable state in the current workspace:
 
 ```bash
 taskledger init
+# or point at another workspace explicitly
+taskledger --root /path/to/repo init
 ```
 
 Create a task, propose a plan, approve it, implement it, and validate it:
@@ -87,17 +89,26 @@ Example status payload:
 
 ```json
 {
-  "kind": "taskledger_status",
-  "counts": {
-    "tasks": 1,
-    "introductions": 0,
-    "plans": 1,
-    "questions": 1,
-    "runs": 2,
-    "changes": 1,
-    "locks": 0
+  "success": true,
+  "operation": "status",
+  "result_type": "taskledger_status",
+  "data": {
+    "kind": "taskledger_status",
+    "counts": {
+      "tasks": 1,
+      "introductions": 0,
+      "plans": 1,
+      "questions": 1,
+      "runs": 2,
+      "changes": 1,
+      "locks": 0
+    },
+    "healthy": true
   },
-  "healthy": true
+  "warnings": [],
+  "errors": [],
+  "remediation": [],
+  "generated_at": "2026-04-24T08:00:00Z"
 }
 ```
 

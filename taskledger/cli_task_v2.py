@@ -49,7 +49,7 @@ def register_task_v2_commands(app: typer.Typer) -> None:
                 slug=slug,
             )
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(
             ctx,
@@ -80,7 +80,7 @@ def register_task_v2_commands(app: typer.Typer) -> None:
         try:
             payload = show_task(state.cwd, ref)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         task = payload["task"]
         assert isinstance(task, dict)
@@ -127,7 +127,7 @@ def register_task_v2_commands(app: typer.Typer) -> None:
                 add_notes=tuple(add_note or ()),
             )
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, task.to_dict(), human=f"updated task {task.id}")
 
@@ -141,7 +141,7 @@ def register_task_v2_commands(app: typer.Typer) -> None:
         try:
             payload = cancel_task(state.cwd, ref, reason=reason)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, payload, human=f"cancelled task {payload['task_id']}")
 
@@ -154,6 +154,6 @@ def register_task_v2_commands(app: typer.Typer) -> None:
         try:
             payload = close_task(state.cwd, ref)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, payload, human=f"closed task {payload['task_id']}")

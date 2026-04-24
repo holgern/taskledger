@@ -29,7 +29,7 @@ def register_validate_v2_commands(app: typer.Typer) -> None:
         try:
             payload = start_validation(state.cwd, task_ref)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, payload, human=f"started validation {payload['run_id']}")
 
@@ -53,7 +53,7 @@ def register_validate_v2_commands(app: typer.Typer) -> None:
                 evidence=tuple(evidence or ()),
             )
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, run.to_dict(), human=f"added check to {run.run_id}")
 
@@ -75,7 +75,7 @@ def register_validate_v2_commands(app: typer.Typer) -> None:
                 recommendation=recommendation,
             )
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, payload, human=f"finished validation {payload['run_id']}")
 
@@ -94,7 +94,7 @@ def register_validate_v2_commands(app: typer.Typer) -> None:
                 run_type="validation",
             )
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         run = payload["run"]
         assert isinstance(run, dict)

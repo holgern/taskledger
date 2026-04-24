@@ -31,7 +31,7 @@ def register_question_v2_commands(app: typer.Typer) -> None:
         try:
             question = add_question(state.cwd, task_ref, text=text)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, question.to_dict(), human=f"added question {question.id}")
 
@@ -45,7 +45,7 @@ def register_question_v2_commands(app: typer.Typer) -> None:
             task = resolve_task(state.cwd, task_ref)
             payload = [item.to_dict() for item in list_questions(state.cwd, task.id)]
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         lines = ["QUESTIONS"]
         for item in payload:
@@ -67,7 +67,7 @@ def register_question_v2_commands(app: typer.Typer) -> None:
         try:
             question = answer_question(state.cwd, task_ref, question_id, text=text)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, question.to_dict(), human=f"answered {question.id}")
 
@@ -81,7 +81,7 @@ def register_question_v2_commands(app: typer.Typer) -> None:
         try:
             question = dismiss_question(state.cwd, task_ref, question_id)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, question.to_dict(), human=f"dismissed {question.id}")
 
@@ -94,7 +94,7 @@ def register_question_v2_commands(app: typer.Typer) -> None:
         try:
             payload = list_open_questions(state.cwd, task_ref)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         questions = payload["questions"]
         assert isinstance(questions, list)

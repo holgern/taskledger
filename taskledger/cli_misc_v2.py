@@ -49,7 +49,7 @@ def register_todo_v2_commands(app: typer.Typer) -> None:
         try:
             task = add_todo(state.cwd, task_ref, text=text)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, task.to_dict(), human=f"added todo on {task.id}")
 
@@ -62,7 +62,7 @@ def register_todo_v2_commands(app: typer.Typer) -> None:
         try:
             task = resolve_task(state.cwd, task_ref)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         payload = [todo.to_dict() for todo in task.todos]
         lines = ["TODOS"]
@@ -101,7 +101,7 @@ def register_todo_v2_commands(app: typer.Typer) -> None:
         try:
             payload = show_todo(state.cwd, task_ref, todo_id)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         todo = payload["todo"]
         assert isinstance(todo, dict)
@@ -124,7 +124,7 @@ def register_intro_v2_commands(app: typer.Typer) -> None:
                 body=read_text_input(text=text, from_file=from_file),
             )
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, intro.to_dict(), human=f"created intro {intro.id}")
 
@@ -150,7 +150,7 @@ def register_intro_v2_commands(app: typer.Typer) -> None:
         try:
             intro = resolve_introduction(state.cwd, intro_ref)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, intro.to_dict(), human=intro.body)
 
@@ -164,7 +164,7 @@ def register_intro_v2_commands(app: typer.Typer) -> None:
         try:
             task = link_introduction(state.cwd, task_ref, intro_ref)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, task.to_dict(), human=f"linked intro to {task.id}")
 
@@ -193,7 +193,7 @@ def register_file_v2_commands(app: typer.Typer) -> None:
                 required_for_validation=required_for_validation,
             )
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, task.to_dict(), human=f"linked file on {task.id}")
 
@@ -207,7 +207,7 @@ def register_file_v2_commands(app: typer.Typer) -> None:
         try:
             task = remove_file_link(state.cwd, task_ref, path=path)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, task.to_dict(), human=f"unlinked file on {task.id}")
 
@@ -220,7 +220,7 @@ def register_file_v2_commands(app: typer.Typer) -> None:
         try:
             payload = list_file_links(state.cwd, task_ref)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         file_links = payload["file_links"]
         assert isinstance(file_links, list)
@@ -244,7 +244,7 @@ def register_require_v2_commands(app: typer.Typer) -> None:
         try:
             task = add_requirement(state.cwd, task_ref, required_task_ref)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, task.to_dict(), human=f"added requirement on {task.id}")
 
@@ -257,7 +257,7 @@ def register_require_v2_commands(app: typer.Typer) -> None:
         try:
             task = resolve_task(state.cwd, task_ref)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(
             ctx,
@@ -277,7 +277,7 @@ def register_require_v2_commands(app: typer.Typer) -> None:
         try:
             task = remove_requirement(state.cwd, task_ref, required_task_ref)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, task.to_dict(), human=f"removed requirement on {task.id}")
 
@@ -292,7 +292,7 @@ def register_lock_v2_commands(app: typer.Typer) -> None:
         try:
             payload = show_lock(state.cwd, task_ref)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, payload, human=str(payload["lock"]))
 
@@ -306,7 +306,7 @@ def register_lock_v2_commands(app: typer.Typer) -> None:
         try:
             payload = break_lock(state.cwd, task_ref, reason=reason)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, payload, human=f"broke lock for {payload['task_id']}")
 
@@ -316,7 +316,7 @@ def register_lock_v2_commands(app: typer.Typer) -> None:
         try:
             payload = list_locks(state.cwd)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         locks = payload["locks"]
         assert isinstance(locks, list)
@@ -383,7 +383,7 @@ def emit_next_action_command(
     try:
         payload = next_action(state.cwd, task_ref)
     except LaunchError as exc:
-        emit_error(ctx, str(exc))
+        emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
     emit_payload(ctx, payload, human=f"{payload['action']}: {payload['reason']}")
 
@@ -393,7 +393,7 @@ def emit_can_command(ctx: typer.Context, task_ref: str, action: str) -> None:
     try:
         payload = can_perform(state.cwd, task_ref, action)
     except LaunchError as exc:
-        emit_error(ctx, str(exc))
+        emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
     prefix = "yes" if payload["ok"] else "no"
     emit_payload(ctx, payload, human=f"{prefix}: {payload['reason']}")
@@ -436,7 +436,7 @@ def _emit_todo_update(
     try:
         task = set_todo_done(state.cwd, task_ref, todo_id, done=done)
     except LaunchError as exc:
-        emit_error(ctx, str(exc))
+        emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
     emit_payload(ctx, task.to_dict(), human=f"updated todo {todo_id}")
 
@@ -457,7 +457,7 @@ def _emit_handoff(
             format_name=format_name,
         )
     except LaunchError as exc:
-        emit_error(ctx, str(exc))
+        emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
     emit_payload(ctx, payload, human=payload if isinstance(payload, str) else None)
 

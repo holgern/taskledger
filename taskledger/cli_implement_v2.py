@@ -32,7 +32,7 @@ def register_implement_v2_commands(app: typer.Typer) -> None:
         try:
             payload = start_implementation(state.cwd, task_ref)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(
             ctx,
@@ -50,7 +50,7 @@ def register_implement_v2_commands(app: typer.Typer) -> None:
         try:
             run = log_implementation(state.cwd, task_ref, message=message)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, run.to_dict(), human=f"logged implementation {run.run_id}")
 
@@ -76,7 +76,7 @@ def register_implement_v2_commands(app: typer.Typer) -> None:
                 git_diff_stat=git_diff_stat,
             )
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, change.to_dict(), human=f"logged change {change.change_id}")
 
@@ -90,7 +90,7 @@ def register_implement_v2_commands(app: typer.Typer) -> None:
         try:
             run = add_implementation_deviation(state.cwd, task_ref, message=message)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, run.to_dict(), human=f"logged deviation on {run.run_id}")
 
@@ -110,7 +110,7 @@ def register_implement_v2_commands(app: typer.Typer) -> None:
                 summary=summary,
             )
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, run.to_dict(), human=f"logged artifact on {run.run_id}")
 
@@ -124,7 +124,7 @@ def register_implement_v2_commands(app: typer.Typer) -> None:
         try:
             payload = finish_implementation(state.cwd, task_ref, summary=summary)
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(
             ctx,
@@ -147,7 +147,7 @@ def register_implement_v2_commands(app: typer.Typer) -> None:
                 run_type="implementation",
             )
         except LaunchError as exc:
-            emit_error(ctx, str(exc))
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         run = payload["run"]
         assert isinstance(run, dict)

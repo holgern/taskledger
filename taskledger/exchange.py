@@ -75,6 +75,10 @@ def parse_project_import_payload(text: str, *, format_name: str) -> dict[str, ob
         raise LaunchError(f"Invalid project import JSON: {exc}") from exc
     if not isinstance(payload, dict):
         raise LaunchError("Project import JSON must be an object.")
+    if payload.get("success") is True and isinstance(payload.get("data"), dict):
+        candidate = payload["data"]
+        if candidate.get("kind") in {"taskledger_export", "project_export"}:
+            payload = candidate
     if payload.get("kind") not in {None, "taskledger_export", "project_export"}:
         raise LaunchError("Unsupported project import payload kind.")
     return payload

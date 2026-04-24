@@ -17,10 +17,11 @@ metadata:
 - Record implementation logs, code changes, todos, and validation results.
 - Produce handoff context for fresh agent sessions.
 
-## Rules
+## Hard rules
 
 - Do not implement before an accepted plan exists.
 - Do not validate before implementation is finished.
+- Do not approve a plan while planning questions are still open.
 - Use `taskledger next-action <task>` before choosing the next operation.
 - Use `taskledger can <task> implement` or `taskledger can <task> validate` before active work.
 - Start active stages with the matching start command.

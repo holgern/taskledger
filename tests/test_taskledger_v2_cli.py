@@ -24,6 +24,13 @@ def _init_project(tmp_path: Path) -> None:
     assert result.exit_code == 0
 
 
+def _json(result) -> dict[str, object]:
+    assert result.exit_code == 0, result.stdout
+    payload = json.loads(result.stdout)
+    assert payload["success"] is True
+    return payload
+
+
 def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
     _init_project(tmp_path)
 
@@ -218,11 +225,11 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
         app,
         ["--cwd", str(tmp_path), "--json", "task", "show", "rewrite-v2"],
     )
-    assert show_result.exit_code == 0
-    payload = json.loads(show_result.stdout)
-    assert payload["task"]["status_stage"] == "done"
-    assert payload["task"]["accepted_plan_version"] == 1
-    assert payload["changes"][0]["path"] == "taskledger/storage/v2.py"
+    payload = _json(show_result)
+    assert payload["operation"] == "task.show"
+    assert payload["data"]["task"]["status_stage"] == "done"
+    assert payload["data"]["task"]["accepted_plan_version"] == 1
+    assert payload["data"]["changes"][0]["path"] == "taskledger/storage/v2.py"
 
     handoff_result = runner.invoke(
         app,
@@ -242,17 +249,15 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
         app,
         ["--cwd", str(tmp_path), "--json", "doctor"],
     )
-    assert doctor_result.exit_code == 0
-    doctor_payload = json.loads(doctor_result.stdout)
-    assert doctor_payload["healthy"] is True
+    doctor_payload = _json(doctor_result)
+    assert doctor_payload["data"]["healthy"] is True
 
     reindex_result = runner.invoke(
         app,
         ["--cwd", str(tmp_path), "--json", "reindex"],
     )
-    assert reindex_result.exit_code == 0
-    reindex_payload = json.loads(reindex_result.stdout)
-    assert reindex_payload["counts"]["tasks"] == 1
+    reindex_payload = _json(reindex_result)
+    assert reindex_payload["data"]["counts"]["tasks"] == 1
 
 
 def test_v2_lock_break_and_expired_lock_report(tmp_path: Path) -> None:
@@ -300,7 +305,7 @@ def test_v2_lock_break_and_expired_lock_report(tmp_path: Path) -> None:
         ],
     )
     assert break_result.exit_code == 0
-    assert json.loads(break_result.stdout)["command"] == "lock break"
+    assert _json(break_result)["data"]["command"] == "lock break"
     assert not lock_path.exists()
 
 
@@ -358,8 +363,7 @@ def test_task_first_support_commands_are_available(tmp_path: Path) -> None:
         app,
         ["--cwd", str(tmp_path), "--json", "todo", "show", "support-task", "todo-1"],
     )
-    assert todo_show.exit_code == 0
-    assert json.loads(todo_show.stdout)["todo"]["id"] == "todo-1"
+    assert _json(todo_show)["data"]["todo"]["id"] == "todo-1"
 
     file_list = runner.invoke(
         app,
@@ -367,3 +371,129 @@ def test_task_first_support_commands_are_available(tmp_path: Path) -> None:
     )
     assert file_list.exit_code == 0
     assert "@README.md [doc]" in file_list.stdout
+
+
+def test_root_alias_uses_stable_json_envelope(tmp_path: Path) -> None:
+    init_result = runner.invoke(app, ["--root", str(tmp_path), "init"])
+    assert init_result.exit_code == 0
+
+    create_result = runner.invoke(
+        app,
+        [
+            "--root",
+            str(tmp_path),
+            "--json",
+            "task",
+            "create",
+            "root-alias-task",
+            "--description",
+            "Exercise the root alias.",
+        ],
+    )
+    payload = _json(create_result)
+    assert payload["operation"] == "task.create"
+    assert payload["result_type"] == "task"
+    assert payload["data"]["slug"] == "root-alias-task"
+
+
+def test_plan_approval_blocks_open_questions_with_json_error(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+    runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "create",
+            "question-blocked",
+            "--description",
+            "Approval should fail while a question is open.",
+        ],
+    )
+    runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start", "question-blocked"])
+    runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "question",
+            "add",
+            "question-blocked",
+            "--text",
+            "Need one more decision?",
+        ],
+    )
+    runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "plan",
+            "propose",
+            "question-blocked",
+            "--text",
+            "## Goal\n\nAnswer the question first.\n",
+        ],
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "plan",
+            "approve",
+            "question-blocked",
+            "--version",
+            "1",
+        ],
+    )
+    assert result.exit_code == 21
+    payload = json.loads(result.stdout)
+    assert payload["success"] is False
+    assert payload["operation"] == "plan.approve"
+    assert payload["error_type"] == "ApprovalRequired"
+
+
+def test_expired_lock_requires_explicit_break_json_error(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+    runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "create",
+            "stale-lock-task",
+            "--description",
+            "Expired locks must be broken explicitly.",
+        ],
+    )
+    runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start", "stale-lock-task"])
+
+    lock_path = tmp_path / ".taskledger" / "tasks" / "task-1.lock.yaml"
+    payload = yaml.safe_load(lock_path.read_text(encoding="utf-8"))
+    payload["expires_at"] = "2000-01-01T00:00:00+00:00"
+    lock_path.write_text(
+        yaml.safe_dump(payload, sort_keys=False),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "plan",
+            "propose",
+            "stale-lock-task",
+            "--text",
+            "## Goal\n\nDo not silently replace stale locks.\n",
+        ],
+    )
+    assert result.exit_code == 31
+    payload = json.loads(result.stdout)
+    assert payload["success"] is False
+    assert payload["error_type"] == "StaleLockRequiresBreak"
