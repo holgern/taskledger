@@ -20,11 +20,13 @@ from taskledger.api.tasks import (
     can_perform,
     list_file_links,
     next_action,
+    next_todo,
     reindex,
     remove_file_link,
     remove_requirement,
     set_todo_done,
     show_todo,
+    todo_status,
     waive_requirement,
 )
 from taskledger.cli_common import (
@@ -161,6 +163,75 @@ def register_todo_v2_commands(app: typer.Typer) -> None:
         todo = payload["todo"]
         assert isinstance(todo, dict)
         emit_payload(ctx, payload, human=f"{todo['id']}  {todo['text']}")
+
+    @app.command("status")
+    def status_command(
+        ctx: typer.Context,
+        task_arg: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = resolve_cli_task(state.cwd, task_ref or task_arg)
+            payload = todo_status(state.cwd, task.id)
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        
+        # Build human-readable output
+        total = payload.get("total", 0)
+        done = payload.get("done", 0)
+        can_finish = payload.get("can_finish_implementation", False)
+        lines = [f"TODOS {payload['task_id']}  {done}/{total} done"]
+        
+        todos = load_todos(state.cwd, task.id).todos
+        for todo in todos:
+            status_mark = "[x]" if todo.done else "[ ]"
+            lines.append(f"{status_mark} {todo.id}  {todo.text}")
+        
+        if can_finish:
+            lines.append(f"\nFinish: Ready to implement finish.")
+        else:
+            lines.append(f"\nFinish blocked: {total - done} todos are not done.")
+        
+        emit_payload(ctx, payload, human="\n".join(lines))
+
+    @app.command("next")
+    def next_command(
+        ctx: typer.Context,
+        task_arg: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = resolve_cli_task(state.cwd, task_ref or task_arg)
+            payload = next_todo(state.cwd, task.id)
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        
+        # Build human-readable output
+        next_todo_id = payload.get("next_todo_id")
+        if next_todo_id is None:
+            human = "No unfinished todos. Ready to finish implementation."
+        else:
+            next_todo_obj = payload.get("next_todo", {})
+            human = f"Next todo: {next_todo_id}  {next_todo_obj.get('text', '')}"
+        
+        emit_payload(ctx, payload, human=human)
+
 
 
 def register_intro_v2_commands(app: typer.Typer) -> None:

@@ -154,13 +154,13 @@ def render_markdown_handoff(payload: dict[str, object]) -> str:
     _append_guardrails(lines, payload["guardrails"])
     if mode in {"full", "implementation", "validation", "review"}:
         _append_accepted_plan(lines, payload.get("accepted_plan"))
-    if mode in {"full", "implementation"}:
+    if mode in {"full", "implementation", "validation"}:
         _append_todos(lines, payload["todos"])
+    if mode in {"full", "implementation"}:
         _append_lock_and_runs(lines, payload)
     if mode in {"full", "validation"}:
         _append_implementation_summary(lines, payload["runs"])
         _append_change_log(lines, payload["changes"])
-        _append_todos(lines, payload["todos"])
         _append_validation_status(lines, payload.get("validation_status"))
         _append_validation_history(lines, payload["validation_history"])
     _append_required_output(lines, mode)
@@ -274,13 +274,18 @@ def _append_accepted_plan(lines: list[str], accepted_plan: object) -> None:
 def _append_todos(lines: list[str], todos: object) -> None:
     if not isinstance(todos, list):
         return
+    done_count = sum(1 for item in todos if isinstance(item, dict) and item.get("done"))
+    total_count = len(todos)
     lines.extend(["## Todo Checklist", ""])
-    for item in todos:
-        if isinstance(item, dict):
-            mark = "x" if item.get("done") else " "
-            lines.append(f"- [{mark}] {item['id']}: {item['text']}")
-    if not todos:
-        lines.append("- none")
+    if total_count == 0:
+        lines.append("- none (no todos)")
+    else:
+        lines.append(f"Progress: {done_count}/{total_count} done")
+        lines.append("")
+        for item in todos:
+            if isinstance(item, dict):
+                mark = "x" if item.get("done") else " "
+                lines.append(f"- [{mark}] {item['id']}: {item['text']}")
     lines.append("")
 
 

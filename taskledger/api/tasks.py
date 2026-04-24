@@ -15,6 +15,7 @@ from taskledger.services.tasks import (
     list_file_links,
     list_task_summaries,
     next_action,
+    next_todo,
     reindex,
     remove_file_link,
     remove_requirement,
@@ -25,6 +26,7 @@ from taskledger.services.tasks import (
     show_task,
     show_todo,
     task_dossier,
+    todo_status,
     waive_requirement,
 )
 
@@ -49,6 +51,8 @@ __all__ = [
     "add_todo",
     "set_todo_done",
     "show_todo",
+    "todo_status",
+    "next_todo",
     "task_dossier",
     "next_action",
     "can_perform",

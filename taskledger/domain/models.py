@@ -138,6 +138,17 @@ class TaskTodo:
     updated_at: str = field(default_factory=utc_now_iso)
     source: str | None = None
     mandatory: bool = False
+    # Extended fields for richer todo tracking
+    status: str = "open"  # Will be validated to TodoStatus
+    active_at: str | None = None
+    blocked_reason: str | None = None
+    done_at: str | None = None
+    skipped_at: str | None = None
+    completed_by: ActorRef | None = None
+    skipped_by: ActorRef | None = None
+    evidence: tuple[str, ...] = field(default_factory=tuple)
+    change_refs: tuple[str, ...] = field(default_factory=tuple)
+    command_refs: tuple[str, ...] = field(default_factory=tuple)
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -148,12 +159,42 @@ class TaskTodo:
             "updated_at": self.updated_at,
             "source": self.source,
             "mandatory": self.mandatory,
+            "status": self.status,
+            "active_at": self.active_at,
+            "blocked_reason": self.blocked_reason,
+            "done_at": self.done_at,
+            "skipped_at": self.skipped_at,
+            "completed_by": self.completed_by.to_dict() if self.completed_by else None,
+            "skipped_by": self.skipped_by.to_dict() if self.skipped_by else None,
+            "evidence": self.evidence,
+            "change_refs": self.change_refs,
+            "command_refs": self.command_refs,
         }
 
     @classmethod
     def from_dict(cls, data: object) -> TaskTodo:
         if not isinstance(data, dict):
             raise LaunchError("Invalid todo: expected mapping.")
+        
+        # Handle backward compatibility: infer status from done field if not present
+        status_raw = _optional_string(data.get("status"))
+        if status_raw is None:
+            status = "done" if bool(data.get("done", False)) else "open"
+        else:
+            from taskledger.domain.states import normalize_todo_status
+            status = normalize_todo_status(status_raw)
+        
+        # Parse completed_by and skipped_by
+        completed_by_data = data.get("completed_by")
+        completed_by = ActorRef.from_dict(completed_by_data) if completed_by_data else None
+        skipped_by_data = data.get("skipped_by")
+        skipped_by = ActorRef.from_dict(skipped_by_data) if skipped_by_data else None
+        
+        # Parse evidence and refs
+        evidence = tuple(data.get("evidence", []))
+        change_refs = tuple(data.get("change_refs", []))
+        command_refs = tuple(data.get("command_refs", []))
+        
         return cls(
             id=_string_value(data, "id"),
             text=_string_value(data, "text"),
@@ -162,6 +203,16 @@ class TaskTodo:
             updated_at=_optional_string(data.get("updated_at")) or utc_now_iso(),
             source=_optional_string(data.get("source")),
             mandatory=bool(data.get("mandatory", False)),
+            status=status,
+            active_at=_optional_string(data.get("active_at")),
+            blocked_reason=_optional_string(data.get("blocked_reason")),
+            done_at=_optional_string(data.get("done_at")),
+            skipped_at=_optional_string(data.get("skipped_at")),
+            completed_by=completed_by,
+            skipped_by=skipped_by,
+            evidence=evidence,
+            change_refs=change_refs,
+            command_refs=command_refs,
         )
 
 

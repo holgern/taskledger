@@ -15,6 +15,7 @@ from taskledger.api.task_runs import (
     show_task_run,
     start_implementation,
 )
+from taskledger.api.tasks import todo_status
 from taskledger.cli_common import (
     cli_state_from_context,
     emit_error,
@@ -23,6 +24,7 @@ from taskledger.cli_common import (
     resolve_cli_task,
 )
 from taskledger.errors import LaunchError
+from taskledger.storage.v2 import load_todos
 
 
 def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
@@ -262,3 +264,72 @@ def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
         run = payload["run"]
         assert isinstance(run, dict)
         emit_payload(ctx, payload, human=f"{run['run_id']}  {run['status']}")
+
+    @app.command("status")
+    def status_command(
+        ctx: typer.Context,
+        task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = resolve_cli_task(state.cwd, task_ref)
+            payload = todo_status(state.cwd, task.id)
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        
+        # Build human-readable output
+        total = payload.get("total", 0)
+        done = payload.get("done", 0)
+        can_finish = payload.get("can_finish_implementation", False)
+        lines = [f"IMPLEMENTATION STATUS {payload['task_id']}  {done}/{total} todos done"]
+        
+        todos = load_todos(state.cwd, task.id).todos
+        for todo in todos:
+            status_mark = "[x]" if todo.done else "[ ]"
+            lines.append(f"{status_mark} {todo.id}  {todo.text}")
+        
+        if can_finish:
+            lines.append(f"\nReady: All todos done. Run 'taskledger implement finish --summary \"...\"'")
+        else:
+            lines.append(f"\nBlocked: {total - done} todos not done.")
+        
+        emit_payload(ctx, payload, human="\n".join(lines))
+
+    @app.command("checklist")
+    def checklist_command(
+        ctx: typer.Context,
+        task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = resolve_cli_task(state.cwd, task_ref)
+            payload = todo_status(state.cwd, task.id)
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        
+        # Build human-readable checklist output
+        total = payload.get("total", 0)
+        done = payload.get("done", 0)
+        can_finish = payload.get("can_finish_implementation", False)
+        lines = [f"TODO CHECKLIST: {done}/{total} done"]
+        
+        todos = load_todos(state.cwd, task.id).todos
+        for todo in todos:
+            status_mark = "[x]" if todo.done else "[ ]"
+            lines.append(f"{status_mark} {todo.id}  {todo.text}")
+        
+        if can_finish:
+            lines.append(f"\n✓ All todos done!")
+        else:
+            lines.append(f"\n{total - done} todos remaining")
+        
+        emit_payload(ctx, payload, human="\n".join(lines))
+

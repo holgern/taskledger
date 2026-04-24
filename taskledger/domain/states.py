@@ -43,6 +43,7 @@ RunStatus = Literal["running", "finished", "passed", "failed", "blocked"]
 ValidationResult = Literal["passed", "failed", "blocked"]
 ValidationCheckStatus = Literal["pass", "fail", "warn", "not_run"]
 FileLinkKind = Literal["code", "test", "doc", "config", "dir", "other", "artifact"]
+TodoStatus = Literal["open", "active", "done", "blocked", "skipped"]
 EventName = Literal[
     "task.created",
     "task.updated",
@@ -65,6 +66,10 @@ EventName = Literal[
     "change.logged",
     "todo.added",
     "todo.toggled",
+    "todo.started",
+    "todo.blocked",
+    "todo.skipped",
+    "todo.completed",
     "lock.acquired",
     "lock.released",
     "lock.broken",
@@ -186,3 +191,12 @@ def normalize_file_link_kind(value: str) -> FileLinkKind:
     if normalized not in {"code", "test", "doc", "config", "dir", "other", "artifact"}:
         raise LaunchError(f"Unsupported file link kind: {value}")
     return cast(FileLinkKind, normalized)
+
+
+def normalize_todo_status(value: str) -> TodoStatus:
+    if value not in {"open", "active", "done", "blocked", "skipped"}:
+        raise LaunchError(f"Unsupported todo status: {value}")
+    return cast(TodoStatus, value)
+
+
+TODO_STATUSES = frozenset({"open", "active", "done", "blocked", "skipped"})

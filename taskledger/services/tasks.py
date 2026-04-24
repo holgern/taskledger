@@ -1420,6 +1420,86 @@ def run_implementation_command(
     }
 
 
+def _build_todo_gate_report(workspace_root: Path, task: TaskRecord) -> dict[str, object]:
+    """Build a report of todo completion status for finish gate validation."""
+    task = _task_with_sidecars(workspace_root, task)
+    todos = task.todos
+    open_todos = [todo.id for todo in todos if not todo.done]
+    blockers = [
+        {
+            "kind": "todo_open",
+            "ref": todo_id,
+            "message": f"Todo {todo_id} is not done.",
+            "command_hint": f"taskledger todo done {todo_id} --evidence \"...\"",
+        }
+        for todo_id in open_todos
+    ]
+    return {
+        "kind": "todo_gate_report",
+        "task_id": task.id,
+        "total": len(todos),
+        "done": len(todos) - len(open_todos),
+        "open_todos": open_todos,
+        "blockers": blockers,
+        "can_finish_implementation": not open_todos,
+    }
+
+
+def _require_todos_complete_for_implementation_finish(
+    workspace_root: Path, task: TaskRecord
+) -> None:
+    """Enforce that all todos are done before finishing implementation."""
+    report = _build_todo_gate_report(workspace_root, task)
+    if report["can_finish_implementation"]:
+        return
+    error = LaunchError("Cannot finish implementation because todos are incomplete.")
+    error.taskledger_exit_code = EXIT_CODE_VALIDATION_FAILED
+    error.taskledger_error_code = "IMPLEMENTATION_TODOS_INCOMPLETE"
+    error.taskledger_data = report
+    raise error
+
+
+def todo_status(workspace_root: Path, task_ref: str) -> dict[str, object]:
+    """Get todo status and progress for a task."""
+    task = resolve_task(workspace_root, task_ref)
+    return _build_todo_gate_report(workspace_root, task)
+
+
+def next_todo(workspace_root: Path, task_ref: str) -> dict[str, object]:
+    """Get the next unfinished todo for a task."""
+    task = _task_with_sidecars(workspace_root, resolve_task(workspace_root, task_ref))
+    todos = task.todos
+    
+    # Prefer active todos first, then first open todo
+    for todo in todos:
+        if not todo.done and hasattr(todo, 'status') and todo.status == 'active':
+            return {
+                "kind": "next_todo",
+                "task_id": task.id,
+                "next_todo_id": todo.id,
+                "next_todo": todo.to_dict(),
+                "can_finish_implementation": False,
+            }
+    
+    for todo in todos:
+        if not todo.done:
+            return {
+                "kind": "next_todo",
+                "task_id": task.id,
+                "next_todo_id": todo.id,
+                "next_todo": todo.to_dict(),
+                "can_finish_implementation": False,
+            }
+    
+    return {
+        "kind": "next_todo",
+        "task_id": task.id,
+        "next_todo_id": None,
+        "next_todo": None,
+        "can_finish_implementation": True,
+    }
+
+
 def finish_implementation(
     workspace_root: Path,
     task_ref: str,
@@ -1433,6 +1513,7 @@ def finish_implementation(
         task.latest_implementation_run,
         expected_type="implementation",
     )
+    _require_todos_complete_for_implementation_finish(workspace_root, task)
     finished = replace(
         run,
         status="finished",
@@ -2077,7 +2158,13 @@ def next_action(workspace_root: Path, task_ref: str) -> dict[str, object]:
     if active_stage == "planning":
         action, reason = "plan-propose", "Planning is active; propose the next plan."
     elif active_stage == "implementation":
-        action, reason = "implement-finish", "Implementation is in progress."
+        # During implementation, prioritize todos if any are open
+        todo_report = _build_todo_gate_report(workspace_root, task)
+        open_todo_count = len(todo_report.get("open_todos", []))
+        if open_todo_count > 0:
+            action, reason = "todo-work", f"Implementation is in progress; {open_todo_count} todos remain."
+        else:
+            action, reason = "implement-finish", "All todos done; ready to finish implementation."
     elif active_stage == "validation":
         action, reason = "validate-finish", "Validation is in progress."
         gate_report = _build_validation_gate_report(workspace_root, task)

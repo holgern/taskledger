@@ -43,11 +43,19 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 
 1. `taskledger context --for implementation --format markdown`
 2. `taskledger implement start`
-3. Make the code changes.
-4. Log work with `taskledger implement log --message "..."`.
-5. Log file changes with `taskledger implement change --path ... --kind edit --summary "..."`.
-6. Optionally capture Git evidence with `taskledger implement scan-changes --from-git --summary "..."`.
-7. `taskledger implement finish --summary "..."`
+3. `taskledger todo status` - review the todo checklist before starting.
+4. If no todos exist, create a concrete checklist: `taskledger todo add --text "..."`
+5. Work one todo at a time:
+   - `taskledger todo start <todo-id>` to mark it active
+   - Make the code changes
+   - `taskledger implement change --path ... --kind edit --summary "..."`
+   - Run verification for that todo
+   - `taskledger todo done <todo-id> --evidence "pytest -q"` to mark it done
+6. `taskledger todo status` after each meaningful change to track progress.
+7. Do not run `implement finish` until `todo status` says all todos are complete.
+8. `taskledger implement finish --summary "Completed all implementation todos..."`
+
+**Critical**: `implement finish` will block until all non-skipped todos are done. Use `todo status` to verify readiness.
 
 ## Validation protocol
 
@@ -74,11 +82,18 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 
 ## Required logging
 
-- Log every meaningful implementation change.
-- Record deviations from the approved plan.
+- Every implementation run must have a todo checklist unless the user explicitly says the task is too small.
+- Log every meaningful implementation change with `taskledger implement change`.
+- Record deviations from the approved plan with `taskledger implement deviation`.
+- Mark todos done with evidence: `taskledger todo done <todo-id> --evidence "pytest -q"`.
+- Use `taskledger link add --path ... --kind code|test|doc|config|dir|other` for files that matter.
 - Store failed validation; do not hide it.
-- Use `taskledger link add --path ... --kind code|test|doc|config|dir|other` for files that matter to the active task.
-- Use `taskledger todo done <todo-id>` when mandatory todos are completed.
+
+## Never do these things
+
+- Do not finish implementation while `taskledger todo status` shows open, active, or blocked todos.
+- Do not skip mandatory todos unless the user explicitly authorizes the skip with a reason.
+- Do not start a new todo while one is already marked active (finish or block the active one first).
 
 ## Failure handling
 
