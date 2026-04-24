@@ -1,0 +1,248 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from taskledger.domain.models import PlanRecord, TaskRecord
+from taskledger.domain.policies import derive_active_stage
+from taskledger.storage.locks import lock_is_expired
+from taskledger.storage.v2 import (
+    list_changes,
+    list_plans,
+    list_questions,
+    list_runs,
+    load_active_task_state,
+    read_lock,
+    resolve_task,
+    resolve_task_or_active,
+    resolve_v2_paths,
+    task_lock_path,
+)
+
+
+def dashboard(
+    workspace_root: Path,
+    *,
+    ref: str | None = None,
+) -> dict[str, object]:
+    if ref is not None:
+        task = resolve_task(workspace_root, ref)
+    else:
+        task = resolve_task_or_active(workspace_root)
+
+    paths = resolve_v2_paths(workspace_root)
+    lock = read_lock(task_lock_path(paths, task.id))
+    plans = list_plans(workspace_root, task.id)
+    questions = list_questions(workspace_root, task.id)
+    runs = list_runs(workspace_root, task.id)
+    changes = list_changes(workspace_root, task.id)
+
+    active_stage: str | None = None
+    if lock is not None and not lock_is_expired(lock):
+        active_stage = derive_active_stage(lock, runs)
+
+    # next action
+    from taskledger.services.tasks import next_action
+
+    action_info = next_action(workspace_root, task.id)
+
+    # todos
+    todos_total = len(task.todos)
+    todos_done = sum(1 for t in task.todos if t.done)
+
+    # files
+    files = task.file_links
+
+    return {
+        "kind": "dashboard",
+        "task": {
+            "id": task.id,
+            "slug": task.slug,
+            "title": task.title,
+            "status_stage": task.status_stage,
+            "active_stage": active_stage,
+            "created_at": task.created_at,
+            "updated_at": task.updated_at,
+            "description_summary": task.description_summary,
+            "priority": task.priority,
+            "labels": list(task.labels),
+            "owner": task.owner,
+        },
+        "plan": _plan_summary(plans),
+        "next_action": action_info,
+        "questions": {
+            "total": len(questions),
+            "open": sum(1 for q in questions if q.status == "open"),
+        },
+        "todos": {
+            "total": todos_total,
+            "done": todos_done,
+        },
+        "files": {
+            "total": len(files),
+            "links": [fl.to_dict() for fl in files],
+        },
+        "runs": [r.to_dict() for r in runs],
+        "changes": [c.to_dict() for c in changes],
+        "lock": lock.to_dict() if lock is not None else None,
+    }
+
+
+def render_dashboard_text(payload: dict[str, object]) -> str:
+    lines: list[str] = []
+
+    task = payload["task"]
+    assert isinstance(task, dict)
+    lines.append(
+        f"Task: {task['slug']} ({task['id']})\n"
+        f"Title: {task['title']}\n"
+        f"Stage: {task['status_stage']}  Active: {task.get('active_stage') or 'none'}\n"
+        f"Created: {_ts(task.get('created_at'))}  Updated: {_ts(task.get('updated_at'))}"
+    )
+
+    desc = task.get("description_summary")
+    if desc:
+        lines.append(f"Description: {desc}")
+
+    priority = task.get("priority")
+    if priority:
+        lines.append(f"Priority: {priority}")
+
+    labels = task.get("labels")
+    if labels and isinstance(labels, (list, tuple)) and len(labels) > 0:
+        lines.append(f"Labels: {', '.join(str(l) for l in labels)}")
+
+    owner = task.get("owner")
+    if owner:
+        lines.append(f"Owner: {owner}")
+
+    lines.append("")
+
+    # plan
+    plan = payload.get("plan")
+    assert isinstance(plan, dict | type(None))
+    if plan is not None:
+        version = plan.get("version")
+        status = plan.get("status", "none")
+        lines.append(f"Plan (v{version}): {status}")
+        criteria = plan.get("criteria")
+        if isinstance(criteria, (list, tuple)):
+            for ac in criteria:
+                assert isinstance(ac, dict)
+                lines.append(f"  {ac.get('id', '?')}: {ac.get('text', '')}")
+    else:
+        lines.append("Plan: none")
+
+    lines.append("")
+
+    # next action
+    na = payload.get("next_action")
+    assert isinstance(na, dict | type(None))
+    if na is not None:
+        lines.append(f"Next action: {na.get('action', 'none')}")
+        reason = na.get("reason")
+        if reason:
+            lines.append(f"  {reason}")
+        blockers = na.get("blocking")
+        if isinstance(blockers, (list, tuple)) and len(blockers) > 0:
+            for b in blockers:
+                assert isinstance(b, dict)
+                lines.append(f"  blocker: {b.get('message', '')}")
+
+    lines.append("")
+
+    # questions
+    q = payload.get("questions")
+    assert isinstance(q, dict)
+    lines.append(f"Questions: {q.get('open', 0)} open / {q.get('total', 0)} total")
+
+    # todos
+    t = payload.get("todos")
+    assert isinstance(t, dict)
+    lines.append(f"Todos: {t.get('done', 0)}/{t.get('total', 0)} done")
+
+    # files
+    f = payload.get("files")
+    assert isinstance(f, dict)
+    lines.append(f"Files: {f.get('total', 0)} linked")
+
+    lines.append("")
+
+    # runs
+    runs = payload.get("runs")
+    if isinstance(runs, (list, tuple)) and len(runs) > 0:
+        lines.append("Runs:")
+        for r in runs:
+            assert isinstance(r, dict)
+            rid = r.get("run_id", "?")
+            rtype = r.get("run_type", "?")
+            rstatus = r.get("status", "?")
+            finished = r.get("finished_at")
+            summary = r.get("summary")
+            line = f"  {rid} {rtype} {rstatus}"
+            if finished:
+                line += f" ({_ts(finished)})"
+            if summary:
+                line += f"\n    {summary}"
+            # validation result
+            result = r.get("result")
+            if result:
+                line += f" [{result}]"
+            lines.append(line)
+    else:
+        lines.append("Runs: none")
+
+    lines.append("")
+
+    # changes
+    changes = payload.get("changes")
+    if isinstance(changes, (list, tuple)) and len(changes) > 0:
+        lines.append(f"Changes: {len(changes)}")
+        for c in changes:
+            assert isinstance(c, dict)
+            cid = c.get("change_id", "?")
+            cpath = c.get("path", "?")
+            ckind = c.get("kind", "?")
+            csum = c.get("summary", "")
+            lines.append(f"  {cid} {cpath} ({ckind})")
+            if csum:
+                lines.append(f"    {csum}")
+    else:
+        lines.append("Changes: none")
+
+    lines.append("")
+
+    # lock
+    lock = payload.get("lock")
+    if lock is not None and isinstance(lock, dict):
+        lines.append(f"Lock: {lock.get('stage', '?')} ({lock.get('run_id', '?')})")
+    else:
+        lines.append("Lock: none")
+
+    return "\n".join(lines)
+
+
+def _plan_summary(plans: list[PlanRecord]) -> dict[str, object] | None:
+    if not plans:
+        return None
+    latest: PlanRecord | None = None
+    for p in plans:
+        if latest is None or p.plan_version > latest.plan_version:
+            latest = p
+    if latest is None:
+        return None
+    return {
+        "version": latest.plan_version,
+        "status": latest.status,
+        "criteria": [ac.to_dict() for ac in latest.criteria],
+        "body": latest.body,
+    }
+
+
+def _ts(value: object) -> str:
+    if value is None:
+        return "-"
+    s = str(value)
+    # trim to datetime portion (drop seconds timezone noise for compactness)
+    if len(s) >= 10:
+        return s[:10]
+    return s

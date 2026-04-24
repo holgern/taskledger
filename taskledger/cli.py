@@ -49,6 +49,7 @@ from taskledger.cli_misc_v2 import (
 from taskledger.cli_plan_v2 import register_plan_v2_commands
 from taskledger.cli_question_v2 import register_question_v2_commands
 from taskledger.cli_task_v2 import register_task_v2_commands
+from taskledger.services.dashboard import dashboard, render_dashboard_text
 from taskledger.cli_validate_v2 import register_validate_v2_commands
 from taskledger.errors import LaunchError
 
@@ -204,6 +205,25 @@ def status_command(
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
     emit_payload(ctx, payload)
+
+
+@app.command("view")
+def view_command(
+    ctx: typer.Context,
+    ref: Annotated[
+        str | None,
+        typer.Argument(help="Task ref. Defaults to the active task."),
+    ] = None,
+) -> None:
+    state = ctx.obj
+    assert isinstance(state, CLIState)
+    try:
+        payload = dashboard(state.cwd, ref=ref)
+    except LaunchError as exc:
+        emit_error(ctx, exc)
+        raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+    human = render_dashboard_text(payload)
+    emit_payload(ctx, payload, human=human)
 
 
 @doctor_app.callback()
