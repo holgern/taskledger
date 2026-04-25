@@ -389,8 +389,8 @@ def test_taskledger_main_import() -> None:
 
 def test_resolve_criterion_ref_canonicalization(tmp_path: Path) -> None:
     """Test criterion reference canonicalization."""
+    from taskledger.domain.models import AcceptanceCriterion, PlanRecord
     from taskledger.services.tasks import _resolve_criterion_ref
-    from taskledger.domain.models import AcceptanceCriterion, PlanRecord, ActorRef
     
     plan = PlanRecord(
         task_id="test-task",
@@ -415,9 +415,9 @@ def test_resolve_criterion_ref_canonicalization(tmp_path: Path) -> None:
 
 def test_resolve_criterion_ref_unknown(tmp_path: Path) -> None:
     """Test criterion resolver with unknown reference."""
-    from taskledger.services.tasks import _resolve_criterion_ref
     from taskledger.domain.models import AcceptanceCriterion, PlanRecord
     from taskledger.errors import LaunchError
+    from taskledger.services.tasks import _resolve_criterion_ref
     
     plan = PlanRecord(
         task_id="test-task",

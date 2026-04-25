@@ -5,16 +5,16 @@ from pathlib import Path
 
 from taskledger.domain.models import (
     AcceptanceCriterion,
-    ActorRef,
     ActiveTaskState,
+    ActorRef,
     CodeChangeRecord,
     PlanRecord,
     RequirementCollection,
     TaskLock,
     TaskRecord,
     TaskRunRecord,
-    TodoCollection,
     TaskTodo,
+    TodoCollection,
 )
 from taskledger.services.doctor_v2 import (
     inspect_v2_indexes,
@@ -27,10 +27,10 @@ from taskledger.storage.v2 import (
     save_active_task_state,
     save_change,
     save_plan,
+    save_requirements,
     save_run,
     save_task,
     save_todos,
-    save_requirements,
 )
 
 

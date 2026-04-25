@@ -97,7 +97,15 @@ def test_required_question_blocks_approval_until_answered_and_regenerated(
     assert (
         runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "question", "answer", "q-0001", "--text", "PostgreSQL."],
+            [
+                "--cwd",
+                str(tmp_path),
+                "question",
+                "answer",
+                "q-0001",
+                "--text",
+                "PostgreSQL.",
+            ],
         ).exit_code
         == 0
     )
@@ -144,3 +152,157 @@ Use PostgreSQL only.
     assert plan["generation_reason"] == "after_questions"
     assert plan["based_on_question_ids"] == ["q-0001"]
 
+    status = _json(
+        runner.invoke(app, ["--cwd", str(tmp_path), "--json", "question", "status"])
+    )
+    assert status["result"]["plan_regeneration_needed"] is False
+
+
+def test_answered_question_blocks_approval_of_stale_plan(tmp_path: Path) -> None:
+    _init_task(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "question",
+                "add",
+                "--text",
+                "Which database?",
+                "--required-for-plan",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "plan",
+                "propose",
+                "--criterion",
+                "Database choice is honored.",
+                "--text",
+                "Initial plan.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "question",
+                "answer",
+                "q-0001",
+                "--text",
+                "SQLite.",
+            ],
+        ).exit_code
+        == 0
+    )
+
+    blocked = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "plan",
+            "approve",
+            "--version",
+            "1",
+            "--actor",
+            "user",
+        ],
+    )
+
+    assert blocked.exit_code == 3
+    payload = json.loads(blocked.stdout)
+    assert payload["error"]["code"] == "APPROVAL_REQUIRED"
+    assert "Regenerate the plan from answers" in payload["error"]["message"]
+
+
+def test_changed_answer_requires_regeneration_again(tmp_path: Path) -> None:
+    _init_task(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "question",
+                "add",
+                "--text",
+                "Which database?",
+                "--required-for-plan",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "question",
+                "answer",
+                "q-0001",
+                "--text",
+                "SQLite.",
+            ],
+        ).exit_code
+        == 0
+    )
+    plan_text = """---
+acceptance_criteria:
+  - text: Database choice is honored.
+---
+
+# Plan
+
+Use SQLite.
+"""
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "plan",
+                "regenerate",
+                "--from-answers",
+                "--text",
+                plan_text,
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "question",
+                "answer",
+                "q-0001",
+                "--text",
+                "PostgreSQL.",
+            ],
+        ).exit_code
+        == 0
+    )
+
+    status = _json(
+        runner.invoke(app, ["--cwd", str(tmp_path), "--json", "question", "status"])
+    )
+
+    assert status["result"]["answered_since_latest_plan"] == ["q-0001"]
+    assert status["result"]["plan_regeneration_needed"] is True

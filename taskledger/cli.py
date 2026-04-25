@@ -21,6 +21,7 @@ from taskledger.api.search import (
     search_workspace,
     symbols_workspace,
 )
+from taskledger.cli_actor_v2 import app as actors_app
 from taskledger.cli_common import (
     CLIState,
     emit_error,
@@ -29,9 +30,7 @@ from taskledger.cli_common import (
     resolve_cli_task,
     resolve_workspace_root,
 )
-from taskledger.cli_actor_v2 import app as actors_app
 from taskledger.cli_implement_v2 import register_implement_v2_commands
-from taskledger.cli_handoff_v2 import app as handoffs_app
 from taskledger.cli_misc_v2 import (
     emit_can_command,
     emit_doctor_command,
@@ -93,7 +92,6 @@ app.add_typer(handoff_app, name="handoff")
 app.add_typer(doctor_app, name="doctor")
 app.add_typer(repair_app, name="repair")
 app.add_typer(actors_app, name="actor")
-app.add_typer(handoffs_app, name="handoff-protocol")
 
 register_task_v2_commands(task_app)
 register_plan_v2_commands(plan_app)

@@ -6,7 +6,8 @@ from pathlib import Path
 import pytest
 
 from taskledger.errors import LaunchError
-from taskledger.models import ProjectMemory, ProjectPaths
+from taskledger.models import ProjectPaths
+from taskledger.storage.frontmatter import MARKDOWN_FILE_VERSION
 from taskledger.storage.memories import (
     create_memory,
     delete_memory,
@@ -21,7 +22,6 @@ from taskledger.storage.memories import (
     update_memory_tags,
     write_memory_body,
 )
-from taskledger.storage.frontmatter import MARKDOWN_FILE_VERSION
 
 
 def _paths(tmp_path: Path) -> ProjectPaths:
@@ -263,8 +263,9 @@ def test_load_memories_filename_mismatch(tmp_path: Path) -> None:
 def test_load_memories_wrong_path_in_frontmatter(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
     mem = create_memory(paths, name="BadPath", body="x")
-    from taskledger.storage.frontmatter import write_markdown_front_matter
     from dataclasses import replace
+
+    from taskledger.storage.frontmatter import write_markdown_front_matter
     bad = replace(mem, path="memories/wrong.md")
     md_path = memory_markdown_path(paths, mem)
     write_markdown_front_matter(md_path, {"file_version": MARKDOWN_FILE_VERSION, **bad.to_dict()}, "x")

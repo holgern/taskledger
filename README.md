@@ -156,7 +156,9 @@ $ taskledger handoff show handoff-0001 --task task-0001
 $ taskledger handoff close handoff-0001 --task task-0001 --reason "Continued."
 ```
 
-See [docs/HANDOFF.md](docs/HANDOFF.md) for detailed protocol specification.
+See [docs/usage.rst](docs/usage.rst) and
+[skills/taskledger/examples/validation-flow.md](skills/taskledger/examples/validation-flow.md)
+for task-first handoff examples.
 
 ## Export, import, and snapshots
 
@@ -171,11 +173,11 @@ taskledger snapshot ./artifacts
 The packaged skill lives at:
 
 ```text
-taskledger/skills/taskledger/SKILL.md
+skills/taskledger/SKILL.md
 ```
 
 It includes example planner, implementer, and validator handoffs under
-`taskledger/skills/taskledger/examples/`.
+`skills/taskledger/examples/`.
 
 ## Development
 

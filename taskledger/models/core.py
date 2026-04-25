@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, cast
 
@@ -71,10 +70,6 @@ ARTIFACT_MEMORY_REF_FIELDS = (
     "validation_memory_ref",
     "save_target_ref",
 )
-
-
-def utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 @dataclass(slots=True, frozen=True)

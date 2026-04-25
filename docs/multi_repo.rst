@@ -1,80 +1,50 @@
-Multi-repo workflows
-====================
+Multi-repo context
+==================
 
-``runtildone`` supports projects where the code you need to read and the code
-you need to modify live in different repositories.
+``taskledger`` does not own repository checkout orchestration. It records the
+task, links the files and external resources that matter, and renders handoff
+context that another harness can use.
 
-Why this exists
+Common workflow
 ---------------
 
-Common cases:
-
-* upstream source in one repo, local customization in another
-* read-only vendor repo plus writable application repo
-* framework repo plus extension/addons repo
-
-Setup
------
-
-Register each repo once:
+Create or activate the task first:
 
 .. code-block:: bash
 
    taskledger init
-   taskledger repo add core --path ../odoo --kind odoo --role read
-   taskledger repo add addons --path ../custom-addons --kind custom --role write
-   taskledger repo set-default addons
+   taskledger task new "Fix sale customization" --description "Repair sale order behavior."
 
-Read/write split run
---------------------
-
-Read files from one repo and execute in another:
+Attach files from the current workspace or from neighboring checkouts:
 
 .. code-block:: bash
 
-   runtildone --harness codex project run \
-      --repo addons \
-      --file core:addons/sale/models/sale_order.py \
-      --profile multi-repo-implementation \
-      --prompt "implement the fix in the writable repo"
+   taskledger file link --path ../odoo/addons/sale/models/sale_order.py --kind reference
+   taskledger file link --path custom_sale/models/sale_order.py --kind implementation --required-for-validation
+   taskledger link add --url https://example.invalid/ticket/123 --kind issue --label "Support ticket"
 
-If the work item already has ``--target-repo`` metadata or a default execution repo is
-configured, that target is selected automatically and shown in previews. Use
-``--run-in-repo`` to override it explicitly.
-
-Saved context version
----------------------
-
-You can bundle the cross-repo sources once and reuse them:
+Use search helpers to inspect the workspace:
 
 .. code-block:: bash
 
-   taskledger context save sale-debug \
-     --file core:addons/sale/models/sale_order.py \
-     --file addons/custom_sale/models/sale_order.py
-   taskengine context run sale-debug \
-      --run-in-repo addons \
-      --profile multi-repo-implementation \
-      --prompt "apply the implementation"
+   taskledger search sale_order
+   taskledger grep "action_confirm"
+   taskledger symbols sale_order.py
+   taskledger deps custom_sale.models.sale_order
 
-Doctoring and review
---------------------
-
-Use these commands to keep the setup healthy:
+Then render fresh context for the next stage:
 
 .. code-block:: bash
 
-   taskledger repo doctor
-   taskledger status
-   taskledger runs list --json
+   taskledger context --for implementation --format markdown
+   taskledger handoff create --mode implementation --intended-actor agent --intended-harness codex
 
 Mental model
 ------------
 
-* ``--file repo:path`` selects source material from a registered repo.
-* ``--repo`` associates the run with a project repo for metadata and history.
-   * ``--run-in-repo`` changes the actual execution directory.
-   * ``taskledger repo set-default`` picks the fallback writable repo when the run does
-     not already imply one.
-   * read-only repos may provide context, but they are rejected as execution targets.
-* project runs still write artifacts under ``.taskledger/runs/``.
+* ``file link`` records task-specific source and implementation files.
+* ``link add`` records issue trackers, design notes, pull requests, or other
+  external references.
+* ``search``, ``grep``, ``symbols``, and ``deps`` are read-only helpers.
+* The active task remains explicit. Without an active task, task-scoped commands
+  require ``--task`` or a positional task reference.

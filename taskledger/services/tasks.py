@@ -939,11 +939,8 @@ def approve_plan(
     _enforce_decision(
         plan_approve_decision(task, _current_lock(workspace_root, task.id))
     )
-    open_questions = [
-        item.id
-        for item in list_questions(workspace_root, task.id)
-        if item.status == "open" and item.required_for_plan
-    ]
+    questions = list_questions(workspace_root, task.id)
+    open_questions = _required_open_question_ids(questions)
     if open_questions and not allow_open_questions:
         raise _cli_error(
             "Plan approval is blocked by open planning questions: "
@@ -957,6 +954,16 @@ def approve_plan(
             f"v{target.plan_version} is {target.status}.",
             EXIT_CODE_INVALID_TRANSITION,
         )
+    stale_answer_ids = _stale_answer_question_ids(questions, target)
+    if stale_answer_ids:
+        error = _cli_error(
+            "Plan approval is blocked by answered planning questions that are not "
+            "reflected in this plan. Regenerate the plan from answers first: "
+            + ", ".join(stale_answer_ids),
+            EXIT_CODE_APPROVAL_REQUIRED,
+        )
+        error.taskledger_error_code = "APPROVAL_REQUIRED"
+        raise error
     if not target.criteria and not allow_empty_criteria:
         raise _cli_error(
             "Plan approval requires at least one acceptance criterion.",
@@ -1104,7 +1111,11 @@ def regenerate_plan_from_answers(
             + ", ".join(open_required),
             EXIT_CODE_APPROVAL_REQUIRED,
         )
-    answered = [item for item in questions if item.status == "answered"]
+    answered = [
+        item
+        for item in questions
+        if item.status == "answered" and item.required_for_plan
+    ]
     plans = list_plans(workspace_root, task.id)
     if not answered and not plans:
         raise _cli_error(
@@ -1272,16 +1283,14 @@ def answer_question(
 def question_status(workspace_root: Path, task_ref: str) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
     questions = list_questions(workspace_root, task.id)
-    required_open = [
-        item.id
-        for item in questions
-        if item.status == "open" and item.required_for_plan
-    ]
-    answered_since_latest_plan = [
-        item.id
-        for item in questions
-        if item.status == "answered"
-    ]
+    required_open = _required_open_question_ids(questions)
+    answered = [item for item in questions if item.status == "answered"]
+    latest_plan = _latest_plan_or_none(workspace_root, task.id)
+    answered_since_latest_plan = (
+        _stale_answer_question_ids(questions, latest_plan)
+        if latest_plan is not None
+        else [item.id for item in answered]
+    )
     regeneration_needed = bool(answered_since_latest_plan) and not required_open
     return {
         "kind": "question_status",
@@ -2005,7 +2014,7 @@ def _build_validation_gate_report(
             blocker = []
             if criterion.mandatory:
                 if latest_status == "fail":
-                    blocker = [{"kind": "criterion_fail", "message": f"Latest check failed"}]
+                    blocker = [{"kind": "criterion_fail", "message": "Latest check failed"}]
                     failing_criteria.append(criterion.id)
                 elif latest_status == "not_run":
                     blocker = [{"kind": "criterion_missing", "message": "No passing check recorded"}]
@@ -2087,7 +2096,7 @@ def _build_validation_gate_report(
             "kind": "todo_open",
             "ref": todo_id,
             "message": f"Mandatory todo {todo_id} is not done.",
-            "command_hint": f"taskledger todo toggle {todo_id}",
+            "command_hint": f"taskledger todo done {todo_id} --evidence \"...\"",
         })
     
     for dep_blocker in cast(list[str], report["dependencies"]["blockers"]):
@@ -2109,17 +2118,13 @@ def validation_status(
     *,
     run_id: str | None = None,
 ) -> dict[str, object]:
-    """Get validation status report for a task.
-    
-    Public API wrapper for _build_validation_gate_report.
-    Returns the report along with status metadata.
-    """
+    """Get validation status report for a task."""
     task = resolve_task(workspace_root, task_ref)
     run = None
     if run_id:
         from taskledger.storage.v2 import load_run
         run = load_run(workspace_root, task.id, run_id)
-    
+
     report = _build_validation_gate_report(workspace_root, task, run)
     return {"kind": "validation_status", "result": report}
 
@@ -3174,6 +3179,39 @@ def _answer_snapshot_hash(questions: list[QuestionRecord]) -> str | None:
     return f"sha256:{digest}"
 
 
+def _required_open_question_ids(questions: list[QuestionRecord]) -> list[str]:
+    return [
+        item.id
+        for item in questions
+        if item.status == "open" and item.required_for_plan
+    ]
+
+
+def _latest_plan_or_none(workspace_root: Path, task_id: str) -> PlanRecord | None:
+    plans = list_plans(workspace_root, task_id)
+    return plans[-1] if plans else None
+
+
+def _stale_answer_question_ids(
+    questions: list[QuestionRecord],
+    plan: PlanRecord,
+) -> list[str]:
+    answered = [
+        item
+        for item in questions
+        if item.status == "answered" and item.required_for_plan
+    ]
+    if not answered:
+        return []
+    current_hash = _answer_snapshot_hash(questions)
+    if (
+        plan.generation_reason == "after_questions"
+        and plan.based_on_answer_hash == current_hash
+    ):
+        return []
+    return [item.id for item in answered]
+
+
 def _normalize_todo_text(text: str) -> str:
     return " ".join(text.casefold().split())
 
@@ -3329,7 +3367,7 @@ def _render_validation_status(payload: dict[str, object]) -> str:
                     lines.append(f"      {text[:80]}...")
                 lines.append(f"      Status: {latest_status}")
                 if has_waiver:
-                    lines.append(f"      ✓ Waived")
+                    lines.append("      ✓ Waived")
         lines.append("")
     
     todos_obj = payload.get("todos", {})
@@ -3351,7 +3389,7 @@ def _render_validation_status(payload: dict[str, object]) -> str:
             lines.append("")
     
     can_finish_passed = payload.get("can_finish_passed", False)
-    lines.append(f"## Result")
+    lines.append("## Result")
     lines.append(f"**Can Finish Passed:** {'✓ Yes' if can_finish_passed else '✗ No'}")
     
     blockers = payload.get("blockers", [])
@@ -3584,20 +3622,3 @@ def _write_broken_lock_audit(paths: V2Paths, task_id: str, lock: TaskLock) -> Pa
         yaml.safe_dump(lock.to_dict(), sort_keys=False, allow_unicode=True),
     )
     return path
-
-
-def validation_status(
-    workspace_root: Path,
-    task_ref: str,
-    *,
-    run_id: str | None = None,
-) -> dict[str, object]:
-    """Get validation status report for a task."""
-    task = resolve_task(workspace_root, task_ref)
-    run = None
-    if run_id:
-        from taskledger.storage.v2 import load_run
-        run = load_run(workspace_root, task.id, run_id)
-    
-    report = _build_validation_gate_report(workspace_root, task, run)
-    return {"kind": "validation_status", "result": report}

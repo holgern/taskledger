@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from taskledger.errors import LaunchError
+from taskledger.models import ProjectRepo
 from taskledger.storage.init import init_project_state
 from taskledger.storage.repos import (
     add_repo,
@@ -18,7 +19,6 @@ from taskledger.storage.repos import (
     set_default_execution_repo,
     set_repo_role,
 )
-from taskledger.models import ProjectRepo
 
 
 def _paths(tmp_path: Path):

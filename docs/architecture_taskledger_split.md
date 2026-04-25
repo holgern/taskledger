@@ -1,27 +1,32 @@
-# Taskledger split architecture
+# Taskledger Architecture
 
-`taskledger` owns durable project state only: models, storage, context composition, search/import/export, and persisted run/validation records. `runtildone` owns runtime-only concerns such as CLI option parsing, preview/execute calls, live rendering, stage orchestration (`plan`/`implement`/`validate`), and loop/runtime adapters.
+`taskledger` is a task-first CLI and Python package for staged coding work.
+The canonical workflow is:
 
-## Boundary rules
+```text
+task -> plan -> approval -> implement -> validate -> done
+```
 
-- `taskledger` must not import `runtildone.runtime.*`, `runtildone.supervisor`, `runtildone.rendering.*`, or `runtildone.loops.*`.
-- `taskledger` must not contain runtime command strings, runtime artifact layout assumptions, or runtime invocation contracts.
-- `runtildone.integrations.taskledger_runtime` maps `CLIOptions` and runtime preview/result payloads into execution requests and persisted taskledger records.
-- `runtildone.projects.*` remains importable as the compatibility surface and should stay thin.
+## Owning Layers
 
-## Current split
+- `taskledger/domain/` owns lifecycle enums, policies, and record models.
+- `taskledger/storage/v2.py` and `taskledger/storage/locks.py` own persisted
+  task bundles and visible lock files under `.taskledger/`.
+- `taskledger/services/tasks.py` owns task lifecycle orchestration.
+- `taskledger/services/handoff.py` owns handoff payloads and rendering.
+- `taskledger/services/doctor_v2.py` owns integrity checks.
+- `taskledger/api/*` exposes public wrappers.
+- `taskledger/cli*.py` wires commands only.
 
-- `taskledger/models/` is the canonical project-core model layer.
-- `taskledger/storage/` is the canonical project-state storage layer.
-- `taskledger/api/` exposes state CRUD/query operations only.
-- `runtildone/integrations/taskledger_runtime/services.py` owns project run preparation/execution semantics.
-- `runtildone/runtime/stage_flows.py` owns item-stage orchestration.
-- `runtildone/projects/runner.py` is a compatibility wrapper over runtime-owned services.
-- `runtildone/integrations/taskledger_runtime/` owns the runtime adapter boundary.
+## Storage Model
 
-## Guardrails
+Markdown records are canonical. JSON indexes are rebuildable caches. Active
+stages require visible lock files, and stale locks are reported instead of being
+cleared silently.
 
-- Keep `runtildone.projects.runner.build_preview` and `run_once` monkeypatchable.
-- Preserve project preview/result payload shape through the adapter layer.
-- Ship `taskledger` from the same distribution until packaging is split
-  further.
+## Command Surface
+
+The supported command groups are `task`, `plan`, `question`, `implement`,
+`validate`, `todo`, `intro`, `file`, `link`, `require`, `lock`, `handoff`,
+`doctor`, `repair`, `next-action`, `can`, `reindex`, `init`, `status`, `export`,
+`import`, and `snapshot`.

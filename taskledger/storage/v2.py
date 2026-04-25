@@ -30,7 +30,7 @@ from taskledger.storage.frontmatter import (
     read_markdown_front_matter,
     write_markdown_front_matter,
 )
-from taskledger.storage.locks import read_lock, write_lock, update_lock
+from taskledger.storage.locks import read_lock, update_lock, write_lock
 from taskledger.storage.paths import resolve_taskledger_root
 
 T = TypeVar("T")
@@ -172,13 +172,7 @@ def resolve_task_or_active(
 ) -> TaskRecord:
     if ref is not None and ref.strip():
         return resolve_task(workspace_root, ref)
-    try:
-        return resolve_active_task(workspace_root)
-    except NoActiveTask:
-        tasks = list_tasks(workspace_root)
-        if len(tasks) == 1:
-            return tasks[0]
-        raise
+    return resolve_active_task(workspace_root)
 
 
 def save_task(workspace_root: Path, task: TaskRecord) -> TaskRecord:

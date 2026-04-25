@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal
 
-from taskledger.domain.models import TaskHandoffRecord, ActorRef, HarnessRef
+from taskledger.domain.models import ActorRef, HarnessRef, TaskHandoffRecord
+from taskledger.errors import LaunchError
 from taskledger.models import utc_now_iso
 from taskledger.services.actors import resolve_actor, resolve_harness
-from taskledger.storage.v2 import save_handoff, resolve_handoff, resolve_lock, resolve_task
-from taskledger.errors import LaunchError
+from taskledger.storage.v2 import (
+    resolve_handoff,
+    resolve_lock,
+    resolve_task,
+    save_handoff,
+)
 
 
 def claim_handoff(

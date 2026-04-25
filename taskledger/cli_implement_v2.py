@@ -362,7 +362,7 @@ def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             lines.append(f"{status_mark} {todo.id}  {todo.text}")
         
         if can_finish:
-            lines.append(f"\nReady: All todos done. Run 'taskledger implement finish --summary \"...\"'")
+            lines.append("\nReady: All todos done. Run 'taskledger implement finish --summary \"...\"'")
         else:
             lines.append(f"\nBlocked: {total - done} todos not done.")
         
@@ -396,7 +396,7 @@ def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             lines.append(f"{status_mark} {todo.id}  {todo.text}")
         
         if can_finish:
-            lines.append(f"\n✓ All todos done!")
+            lines.append("\n✓ All todos done!")
         else:
             lines.append(f"\n{total - done} todos remaining")
         

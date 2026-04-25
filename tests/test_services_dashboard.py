@@ -3,9 +3,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from taskledger.services.dashboard import dashboard, render_dashboard_text
-from taskledger.storage.v2 import save_task, ensure_v2_layout, save_active_task_state
 from taskledger.domain.models import ActiveTaskState, TaskRecord
+from taskledger.services.dashboard import dashboard, render_dashboard_text
+from taskledger.storage.v2 import ensure_v2_layout, save_active_task_state, save_task
 
 
 def _create_task_and_activate(tmp_path: Path) -> TaskRecord:

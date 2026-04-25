@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import typer
 
-from taskledger.cli_common import CLIState, emit_payload
+from taskledger.cli_common import emit_payload
 from taskledger.services.actors import resolve_actor, resolve_harness
 
 app = typer.Typer(help="Actor and harness identity commands.")

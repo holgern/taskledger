@@ -42,8 +42,8 @@ from taskledger.cli_common import (
     emit_error,
     emit_payload,
     launch_error_exit_code,
-    render_json,
     read_text_input,
+    render_json,
     resolve_cli_task,
 )
 from taskledger.errors import LaunchError
@@ -225,7 +225,7 @@ def register_todo_v2_commands(app: typer.Typer) -> None:
             lines.append(f"{status_mark} {todo.id}  {todo.text}")
         
         if can_finish:
-            lines.append(f"\nFinish: Ready to implement finish.")
+            lines.append("\nFinish: Ready to implement finish.")
         else:
             lines.append(f"\nFinish blocked: {total - done} todos are not done.")
         

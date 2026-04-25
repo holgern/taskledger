@@ -6,7 +6,10 @@ from pathlib import Path
 import pytest
 
 from taskledger.errors import LaunchError
-from taskledger.models import ProjectPaths, ProjectWorkItem
+from taskledger.models import ProjectPaths
+from taskledger.storage.frontmatter import (
+    write_markdown_front_matter,
+)
 from taskledger.storage.items import (
     create_work_item,
     load_work_items,
@@ -14,10 +17,6 @@ from taskledger.storage.items import (
     save_work_item,
     save_work_items,
     update_work_item,
-)
-from taskledger.storage.frontmatter import (
-    MARKDOWN_FILE_VERSION,
-    write_markdown_front_matter,
 )
 
 

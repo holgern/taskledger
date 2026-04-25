@@ -1,7 +1,6 @@
 from pathlib import Path
-from typing import Any
 
-from taskledger.domain.models import TaskHandoffRecord, ActorRef, HarnessRef
+from taskledger.domain.models import ActorRef, HarnessRef, TaskHandoffRecord
 from taskledger.services.handoff import render_handoff
 from taskledger.storage.v2 import (
     list_handoffs,
@@ -25,8 +24,8 @@ def create_handoff(
     harness: HarnessRef | None = None,
 ) -> dict[str, object]:
     """Create and save a handoff record."""
-    from taskledger.services.actors import resolve_actor, resolve_harness
     from taskledger.ids import next_project_id
+    from taskledger.services.actors import resolve_actor, resolve_harness
     
     resolved_actor = actor or resolve_actor()
     resolved_harness = harness or resolve_harness()

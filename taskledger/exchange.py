@@ -10,8 +10,8 @@ from taskledger.domain.models import (
     IntroductionRecord,
     PlanRecord,
     QuestionRecord,
-    TaskHandoffRecord,
     TaskEvent,
+    TaskHandoffRecord,
     TaskLock,
     TaskRecord,
     TaskRunRecord,
@@ -40,12 +40,12 @@ from taskledger.storage.v2 import (
     task_lock_path,
 )
 from taskledger.storage.v2 import list_changes as list_v2_changes
+from taskledger.storage.v2 import list_handoffs as list_v2_handoffs
 from taskledger.storage.v2 import list_introductions as list_v2_introductions
 from taskledger.storage.v2 import list_plans as list_v2_plans
 from taskledger.storage.v2 import list_questions as list_v2_questions
 from taskledger.storage.v2 import list_runs as list_v2_runs
 from taskledger.storage.v2 import list_tasks as list_v2_tasks
-from taskledger.storage.v2 import list_handoffs as list_v2_handoffs
 
 
 def export_project_payload(

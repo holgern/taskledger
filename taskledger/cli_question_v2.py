@@ -11,7 +11,6 @@ from taskledger.api.questions import (
     list_open_questions,
     question_status,
 )
-from taskledger.domain.models import ActorRef
 from taskledger.cli_common import (
     cli_state_from_context,
     emit_error,
@@ -19,6 +18,7 @@ from taskledger.cli_common import (
     launch_error_exit_code,
     resolve_cli_task,
 )
+from taskledger.domain.models import ActorRef
 from taskledger.errors import LaunchError
 from taskledger.storage.v2 import list_questions
 

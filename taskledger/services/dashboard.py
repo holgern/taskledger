@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from taskledger.domain.models import PlanRecord, TaskRecord
+from taskledger.domain.models import PlanRecord
 from taskledger.domain.policies import derive_active_stage
 from taskledger.storage.locks import lock_is_expired
 from taskledger.storage.v2 import (
@@ -10,7 +10,6 @@ from taskledger.storage.v2 import (
     list_plans,
     list_questions,
     list_runs,
-    load_active_task_state,
     read_lock,
     resolve_task,
     resolve_task_or_active,

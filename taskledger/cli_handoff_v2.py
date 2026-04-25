@@ -8,12 +8,12 @@ from pathlib import Path
 import typer
 
 from taskledger.api.handoff import (
-    list_all_handoffs,
-    create_handoff,
-    show_handoff,
+    cancel_handoff_api,
     claim_handoff_api,
     close_handoff_api,
-    cancel_handoff_api,
+    create_handoff,
+    list_all_handoffs,
+    show_handoff,
 )
 from taskledger.services.actors import resolve_actor, resolve_harness
 

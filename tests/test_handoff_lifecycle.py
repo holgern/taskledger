@@ -11,12 +11,12 @@ from taskledger.api.handoff import create_handoff, list_all_handoffs
 from taskledger.api.project import init_project
 from taskledger.api.tasks import create_task
 from taskledger.domain.models import ActorRef
+from taskledger.errors import LaunchError
 from taskledger.services.handoff_lifecycle import (
+    cancel_handoff,
     claim_handoff,
     close_handoff,
-    cancel_handoff,
 )
-from taskledger.errors import LaunchError
 
 
 def test_handoff_creation():

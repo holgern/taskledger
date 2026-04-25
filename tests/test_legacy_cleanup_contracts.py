@@ -52,3 +52,8 @@ def test_package_initializers_do_not_use_star_imports() -> None:
 def test_v2_storage_does_not_import_storage_facade() -> None:
     text = (ROOT / "taskledger/storage/v2.py").read_text(encoding="utf-8")
     assert "from taskledger.storage import" not in text
+
+
+def test_domain_models_does_not_import_legacy_models_package() -> None:
+    text = (ROOT / "taskledger/domain/models.py").read_text(encoding="utf-8")
+    assert "from taskledger.models import" not in text

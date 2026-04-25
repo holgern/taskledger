@@ -46,6 +46,10 @@ def _prepare_task_for_implementation(tmp_path: Path, task_id: str = "test-task")
             "--description", "Test task for todo gate.",
         ],
     ).exit_code == 0
+    assert runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "task", "activate", task_id],
+    ).exit_code == 0
     
     # Start planning
     assert runner.invoke(
@@ -258,6 +262,71 @@ class TestTodoImplementationGate:
         data = _json(result)
         assert data.get("ok") is True
         assert data.get("run", {}).get("status") == "finished"
+
+    def test_validation_status_open_todo_hint_uses_existing_command(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        _init(tmp_path)
+        assert runner.invoke(
+            app,
+            [
+                "--cwd", str(tmp_path),
+                "task", "create", "validation-hint",
+                "--description", "Test validation todo hints.",
+            ],
+        ).exit_code == 0
+        assert runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "plan", "start", "validation-hint"],
+        ).exit_code == 0
+        plan = """---
+acceptance_criteria:
+  - text: Works correctly.
+todos:
+  - text: Complete mandatory implementation work.
+    mandatory: true
+---
+
+# Plan
+
+Implement the feature.
+"""
+        assert runner.invoke(
+            app,
+            [
+                "--cwd", str(tmp_path),
+                "plan", "propose", "validation-hint",
+                "--text", plan,
+            ],
+        ).exit_code == 0
+        assert runner.invoke(
+            app,
+            [
+                "--cwd", str(tmp_path),
+                "plan", "approve", "validation-hint",
+                "--version", "1",
+                "--actor", "user",
+                "--note", "Approved.",
+            ],
+        ).exit_code == 0
+
+        result = runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "--json", "validate", "status", "validation-hint"],
+        )
+
+        assert result.exit_code == 0, result.stdout
+        payload = json.loads(result.stdout)
+        blockers = payload["result"]["result"]["blockers"]
+        hints = [
+            blocker.get("command_hint", "")
+            for blocker in blockers
+            if blocker.get("kind") == "todo_open"
+        ]
+        assert hints
+        assert all("todo toggle" not in hint for hint in hints)
+        assert all("todo done" in hint for hint in hints)
     
     def test_lock_remains_active_on_finish_failure(self, tmp_path: Path) -> None:
         """Verify that implementation lock remains active when finish is blocked."""

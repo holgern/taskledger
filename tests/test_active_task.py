@@ -80,6 +80,44 @@ def test_task_scoped_command_without_active_task_fails_json(tmp_path: Path) -> N
     assert payload["error"]["code"] == "NO_ACTIVE_TASK"
 
 
+def test_single_task_without_active_task_fails_for_task_scoped_defaults(
+    tmp_path: Path,
+) -> None:
+    _init_project(tmp_path)
+    _create_task(tmp_path, "only-task")
+
+    commands = [
+        ["plan", "start"],
+        ["implement", "start"],
+        ["validate", "start"],
+        ["todo", "add", "--text", "write tests"],
+        ["question", "add", "--text", "Question?"],
+        ["task", "dossier"],
+        ["context"],
+    ]
+
+    for command in commands:
+        result = runner.invoke(app, ["--cwd", str(tmp_path), "--json", *command])
+        assert result.exit_code == 5, command
+        payload = json.loads(result.stdout)
+        assert payload["ok"] is False
+        assert payload["error"]["code"] == "NO_ACTIVE_TASK"
+
+
+def test_single_task_without_active_task_can_still_be_used_explicitly(
+    tmp_path: Path,
+) -> None:
+    _init_project(tmp_path)
+    _create_task(tmp_path, "only-task")
+
+    result = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "plan", "start", "--task", "only-task"],
+    )
+
+    assert result.exit_code == 0, result.stdout
+
+
 def test_task_activate_sets_active_task(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _create_task(tmp_path, "one")

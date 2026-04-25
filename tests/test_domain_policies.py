@@ -28,7 +28,6 @@ from taskledger.domain.policies import (
     todo_toggle_decision,
     validation_check_decision,
 )
-from taskledger.domain.states import EXIT_CODE_APPROVAL_REQUIRED
 
 
 def _actor() -> ActorRef:

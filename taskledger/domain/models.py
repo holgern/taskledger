@@ -25,7 +25,7 @@ from taskledger.domain.states import (
     normalize_validation_result,
 )
 from taskledger.errors import LaunchError
-from taskledger.models import utc_now_iso
+from taskledger.timeutils import utc_now_iso
 
 
 @dataclass(slots=True, frozen=True)

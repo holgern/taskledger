@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from typing import cast
 from pathlib import Path
+from typing import cast
 
 from taskledger.domain.models import TaskRunRecord
 from taskledger.domain.policies import derive_active_stage
@@ -372,7 +372,7 @@ def _append_validation_status(lines: list[str], status: object) -> None:
                     lines.append(f"      {text}")
                 lines.append(f"      Status: {latest_status}")
                 if has_waiver:
-                    lines.append(f"      ✓ Waived by user")
+                    lines.append("      ✓ Waived by user")
         lines.append("")
     
     todos_obj = status.get("todos", {})
