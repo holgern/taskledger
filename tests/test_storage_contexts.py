@@ -1,4 +1,5 @@
 """Tests for taskledger.storage.contexts."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -95,6 +96,7 @@ def test_save_context_creates_context_json_file(tmp_path: Path) -> None:
     context_json = paths.project_dir / entry.path
     assert context_json.exists()
     import json
+
     data = json.loads(context_json.read_text())
     assert data["id"] == entry.id
 
@@ -130,6 +132,7 @@ def test_save_context_entry(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
     entry = save_context(paths, name="Entry Test", memory_refs=("m1",))
     from dataclasses import replace
+
     updated = replace(entry, memory_refs=("m1", "m2"))
     result = save_context_entry(paths, updated)
     assert result.memory_refs == ("m1", "m2")

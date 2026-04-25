@@ -77,7 +77,6 @@ def emit_error(
     error_type: str | None = None,
 ) -> None:
     state = cli_state_from_context(ctx)
-    message = str(error)
     if state.json_output:
         typer.echo(
             render_json(
@@ -165,8 +164,7 @@ def _infer_result_type(payload: Any) -> str:
     if {"task_id", "plan_version", "status"}.issubset(payload):
         return "plan"
     if any(
-        key in payload
-        for key in ("tasks", "plans", "questions", "locks", "file_links")
+        key in payload for key in ("tasks", "plans", "questions", "locks", "file_links")
     ):
         return "collection"
     kind = payload.get("kind")
@@ -234,7 +232,9 @@ def _error_payload(
         payload = error.to_error_payload()
     else:
         payload = {
-            "code": _error_code(error, explicit_error_type=error_type, explicit_exit_code=exit_code),
+            "code": _error_code(
+                error, explicit_error_type=error_type, explicit_exit_code=exit_code
+            ),
             "message": str(error),
         }
     payload["code"] = _error_code(
@@ -271,19 +271,30 @@ def _error_code(
 ) -> str:
     if isinstance(error, TaskledgerError):
         explicit = getattr(error, "__dict__", {}).get("taskledger_error_code")
-        if isinstance(explicit, str) and explicit not in {"TASKLEDGER_ERROR", "LAUNCH_ERROR"}:
+        if isinstance(explicit, str) and explicit not in {
+            "TASKLEDGER_ERROR",
+            "LAUNCH_ERROR",
+        }:
             return explicit
         legacy_type = explicit_error_type or getattr(error, "__dict__", {}).get(
             "taskledger_error_type"
         )
         if isinstance(legacy_type, str):
             mapped = _error_code_from_error_type(legacy_type)
-            if mapped is not None and error.code in {"TASKLEDGER_ERROR", "LAUNCH_ERROR"}:
+            if mapped is not None and error.code in {
+                "TASKLEDGER_ERROR",
+                "LAUNCH_ERROR",
+            }:
                 return mapped
         by_exit_code = _error_code_from_exit_code(
-            explicit_exit_code if explicit_exit_code is not None else _error_exit_code(error)
+            explicit_exit_code
+            if explicit_exit_code is not None
+            else _error_exit_code(error)
         )
-        if by_exit_code is not None and error.code in {"TASKLEDGER_ERROR", "LAUNCH_ERROR"}:
+        if by_exit_code is not None and error.code in {
+            "TASKLEDGER_ERROR",
+            "LAUNCH_ERROR",
+        }:
             return by_exit_code
         return error.code
     if isinstance(error, Exception):
@@ -298,7 +309,9 @@ def _error_code(
             if mapped is not None:
                 return mapped
     by_exit_code = _error_code_from_exit_code(
-        explicit_exit_code if explicit_exit_code is not None else _error_exit_code(error)
+        explicit_exit_code
+        if explicit_exit_code is not None
+        else _error_exit_code(error)
     )
     if by_exit_code is not None:
         return by_exit_code
@@ -381,48 +394,49 @@ def _default_remediation(exit_code: int) -> list[str]:
 
 
 def _format_human_error(error: Exception | str) -> str:
-    """Format error for human-readable output with special handling for validation errors."""
+    """Format error for human-readable output
+    with special handling for validation errors."""
     message = str(error)
     error_code = None
     error_data = {}
-    
+
     if isinstance(error, Exception):
         error_code = getattr(error, "taskledger_error_code", None)
         payload = getattr(error, "taskledger_data", None)
         if isinstance(payload, dict):
             error_data = payload
-    
+
     if error_code == "VALIDATION_INCOMPLETE":
         lines = [f"Error: {message}", ""]
-        
+
         missing_criteria = error_data.get("missing_criteria", [])
         if missing_criteria and isinstance(missing_criteria, list):
             lines.append("Missing Mandatory Criteria:")
             for criterion in missing_criteria:
                 lines.append(f"  • {criterion}")
             lines.append("")
-        
+
         failing_criteria = error_data.get("failing_criteria", [])
         if failing_criteria and isinstance(failing_criteria, list):
             lines.append("Failing Mandatory Criteria:")
             for criterion in failing_criteria:
                 lines.append(f"  ✗ {criterion}")
             lines.append("")
-        
+
         open_mandatory_todos = error_data.get("open_mandatory_todos", [])
         if open_mandatory_todos and isinstance(open_mandatory_todos, list):
             lines.append("Open Mandatory Todos:")
             for todo_id in open_mandatory_todos:
                 lines.append(f"  ☐ {todo_id}")
             lines.append("")
-        
+
         dependency_blockers = error_data.get("dependency_blockers", [])
         if dependency_blockers and isinstance(dependency_blockers, list):
             lines.append("Dependency Blockers:")
             for blocker in dependency_blockers:
                 lines.append(f"  - {blocker}")
             lines.append("")
-        
+
         blockers = error_data.get("blockers", [])
         if blockers and isinstance(blockers, list):
             lines.append("Blocking Issues:")
@@ -435,14 +449,14 @@ def _format_human_error(error: Exception | str) -> str:
                     if hint:
                         lines.append(f"    Command: {hint}")
             lines.append("")
-        
+
         lines.append("Next Steps:")
         lines.append("  1. Review the blocking issues above")
         lines.append("  2. Address the validation gates")
         lines.append("  3. Run 'taskledger validate status' to check progress")
-        
+
         return "\n".join(lines)
-    
+
     return message
 
 
@@ -536,7 +550,10 @@ def actor_options() -> dict[str, Any]:
         "actor_role": typer.Option(
             None,
             "--actor-role",
-            help="Current role in task lifecycle (planner, implementer, validator, reviewer, operator).",
+            help=(
+                "Current role in task lifecycle "
+                "(planner, implementer, validator, reviewer, operator)."
+            ),
         ),
         "harness": typer.Option(
             None,
@@ -549,4 +566,3 @@ def actor_options() -> dict[str, Any]:
             help="External session identifier.",
         ),
     }
-

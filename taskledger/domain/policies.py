@@ -63,8 +63,10 @@ def build_policy_context(
     run: TaskRunRecord | None = None,
 ) -> PolicyContext:
     active_stage = (
-        derive_active_stage(lock, (run,)) if run is not None else lock.run_type
-    ) if lock is not None else None
+        (derive_active_stage(lock, (run,)) if run is not None else lock.run_type)
+        if lock is not None
+        else None
+    )
     return PolicyContext(task=task, lock=lock, run=run, active_stage=active_stage)
 
 

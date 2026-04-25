@@ -95,10 +95,11 @@ def build_handoff_payload(
         for run in runs
         if run.run_type == "validation" and run.status != "running"
     ]
-    
+
     validation_status_report = None
     if mode in {"validation", "full"}:
         from taskledger.services.tasks import _build_validation_gate_report
+
         validation_status_report = _build_validation_gate_report(workspace_root, task)
 
     return {
@@ -177,7 +178,8 @@ def _append_task_section(lines: list[str], task: dict[str, object]) -> None:
             f"- status_stage: {task['status_stage']}",
             f"- active_stage: {task.get('active_stage') or 'none'}",
             f"- priority: {task.get('priority') or 'unset'}",
-            f"- labels: {', '.join(cast(list[str], task.get('labels') or [])) or 'none'}",
+            "- labels: "
+            + (", ".join(cast(list[str], task.get("labels") or [])) or "none"),
             f"- owner: {task.get('owner') or 'unassigned'}",
             "",
         ]
@@ -303,10 +305,8 @@ def _append_lock_and_runs(lines: list[str], payload: dict[str, object]) -> None:
     status = payload.get("lock_status")
     if isinstance(status, dict) and status.get("active"):
         lines.append(
-            
-                f"- lock: {status.get('stage')} / {status.get('run_id')} "
-                f"expired={status.get('expired')}"
-            
+            f"- lock: {status.get('stage')} / {status.get('run_id')} "
+            f"expired={status.get('expired')}"
         )
     else:
         lines.append("- lock: none")
@@ -337,74 +337,6 @@ def _append_change_log(lines: list[str], changes: object) -> None:
     lines.append("")
 
 
-
-
-def _append_validation_status(lines: list[str], status: object) -> None:
-    """Append validation status report to handoff markdown."""
-    if not isinstance(status, dict):
-        return
-    
-    lines.append("## Current Validation Status")
-    lines.append("")
-    
-    can_finish = status.get("can_finish_passed", False)
-    status_stage = status.get("status_stage", "unknown")
-    lines.append(f"**Task Stage:** {status_stage}")
-    lines.append(f"**Can Finish Passed:** {'✓ Yes' if can_finish else '✗ No'}")
-    lines.append("")
-    
-    criteria = status.get("criteria", [])
-    if criteria:
-        lines.append("### Acceptance Criteria")
-        for criterion in criteria:
-            if isinstance(criterion, dict):
-                criterion_id = criterion.get("id", "?")
-                mandatory = criterion.get("mandatory", False)
-                satisfied = criterion.get("satisfied", False)
-                latest_status = criterion.get("latest_status", "unknown")
-                has_waiver = criterion.get("has_waiver", False)
-                text = criterion.get("text", "")
-                
-                checkbox = "[x]" if satisfied else "[ ]"
-                mandatory_marker = " (mandatory)" if mandatory else ""
-                lines.append(f"  {checkbox} **{criterion_id}**{mandatory_marker}")
-                if text:
-                    lines.append(f"      {text}")
-                lines.append(f"      Status: {latest_status}")
-                if has_waiver:
-                    lines.append("      ✓ Waived by user")
-        lines.append("")
-    
-    todos_obj = status.get("todos", {})
-    if isinstance(todos_obj, dict):
-        open_todos = todos_obj.get("open_mandatory", [])
-        if open_todos:
-            lines.append("### Open Mandatory Todos")
-            for todo_id in open_todos:
-                lines.append(f"  - [ ] {todo_id}")
-            lines.append("")
-    
-    dependencies_obj = status.get("dependencies", {})
-    if isinstance(dependencies_obj, dict):
-        dep_blockers = dependencies_obj.get("blockers", [])
-        if dep_blockers:
-            lines.append("### Dependency Blockers")
-            for blocker_id in dep_blockers:
-                lines.append(f"  - {blocker_id}")
-            lines.append("")
-    
-    if not can_finish:
-        blockers = status.get("blockers", [])
-        if blockers:
-            lines.append("### Blocking Issues")
-            for blocker in blockers:
-                if isinstance(blocker, dict):
-                    kind = blocker.get("kind", "unknown")
-                    message = blocker.get("message", "")
-                    lines.append(f"  - **[{kind}]** {message}")
-            lines.append("")
-
-
 def _append_validation_history(lines: list[str], history: object) -> None:
     if not isinstance(history, list):
         return
@@ -412,11 +344,9 @@ def _append_validation_history(lines: list[str], history: object) -> None:
     for item in history:
         if isinstance(item, dict):
             lines.append(
-                
-                    f"- {item['run_id']}: "
-                    f"{item.get('result') or item['status']} — "
-                    f"{item.get('summary') or ''}"
-                
+                f"- {item['run_id']}: "
+                f"{item.get('result') or item['status']} — "
+                f"{item.get('summary') or ''}"
             )
     if not history:
         lines.append("- none")
@@ -427,13 +357,13 @@ def _append_validation_status(lines: list[str], status_report: object) -> None:
     """Append current validation status to handoff before required output section."""
     if not isinstance(status_report, dict):
         return
-    
+
     lines.extend(["## Validation Status", ""])
-    
+
     can_finish = status_report.get("can_finish_passed", False)
     lines.append(f"**Can Finish Passed:** {'✓ Yes' if can_finish else '✗ No'}")
     lines.append("")
-    
+
     criteria = status_report.get("criteria", [])
     if criteria and isinstance(criteria, list):
         lines.append("### Acceptance Criteria")
@@ -443,12 +373,14 @@ def _append_validation_status(lines: list[str], status_report: object) -> None:
                 mandatory = criterion.get("mandatory", False)
                 satisfied = criterion.get("satisfied", False)
                 latest_status = criterion.get("latest_status", "unknown")
-                
+
                 checkbox = "☒" if satisfied else "☐"
                 mandatory_marker = " (mandatory)" if mandatory else ""
-                lines.append(f"- {checkbox} {criterion_id}{mandatory_marker}: {latest_status}")
+                lines.append(
+                    f"- {checkbox} {criterion_id}{mandatory_marker}: {latest_status}"
+                )
         lines.append("")
-    
+
     blockers = status_report.get("blockers", [])
     if blockers and isinstance(blockers, list) and not can_finish:
         lines.append("### Blocking Issues")
@@ -458,7 +390,6 @@ def _append_validation_status(lines: list[str], status_report: object) -> None:
                 message = blocker.get("message", "")
                 lines.append(f"- [{kind}] {message}")
         lines.append("")
-
 
 
 def _append_required_output(lines: list[str], mode: str) -> None:

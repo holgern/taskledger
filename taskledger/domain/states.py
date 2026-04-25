@@ -181,7 +181,15 @@ def normalize_question_status(value: str) -> QuestionStatus:
 
 
 def normalize_run_status(value: str) -> RunStatus:
-    if value not in {"running", "paused", "finished", "passed", "failed", "blocked", "aborted"}:
+    if value not in {
+        "running",
+        "paused",
+        "finished",
+        "passed",
+        "failed",
+        "blocked",
+        "aborted",
+    }:
         raise LaunchError(f"Unsupported run status: {value}")
     return cast(RunStatus, value)
 

@@ -129,11 +129,12 @@ taskledger handoff close handoff-0001 --reason "Implementation started."
 The handoff protocol enables safe work transitions between human and agent actors across different harnesses:
 
 ### Features
+
 - **Actor Identity**: Track WHO performs each stage (human, agent, system)
 - **Harness Tracking**: Record FROM WHERE each stage ran (manual, Codex, OpenCode, etc.)
 - **Handoff Records**: Explicitly hand off work with context and intent
 - **Claim Protocol**: New actors claim handoffs before starting work
-- **Lock Management**: Transfer or release locks during handoffs  
+- **Lock Management**: Transfer or release locks during handoffs
 - **Event Trail**: Full audit trail recording all state changes
 - **Durable Records**: Markdown-first storage with YAML metadata
 

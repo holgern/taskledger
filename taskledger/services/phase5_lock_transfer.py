@@ -19,20 +19,20 @@ def transfer_lock(
 ) -> TaskLock:
     """Transfer a lock from current holder to new actor."""
     lock = resolve_lock(workspace_root, task_id)
-    
+
     if lock is None:
         raise LaunchError(f"Lock not found for task: {task_id}")
-    
+
     if lock.lock_id != lock_id:
         raise LaunchError(f"Lock ID mismatch: expected {lock_id}, got {lock.lock_id}")
-    
+
     # Record transfer in history
     from_actor_str = f"{lock.holder.actor_type}:{lock.holder.actor_name}"
     to_actor_str = f"{to_actor.actor_type}:{to_actor.actor_name}"
-    
+
     new_entry = (lock_id, from_actor_str, to_actor_str)
     new_history = lock.transfer_history + (new_entry,)
-    
+
     updated = TaskLock(
         lock_id=lock.lock_id,
         task_id=lock.task_id,
@@ -52,7 +52,7 @@ def transfer_lock(
         transfer_history=new_history,
         transfer_date=utc_now_iso(),
     )
-    
+
     save_lock(workspace_root, task_id, updated)
     return updated
 
@@ -64,13 +64,13 @@ def release_lock(
 ) -> TaskLock:
     """Release a lock, preparing it for transfer or removal."""
     lock = resolve_lock(workspace_root, task_id)
-    
+
     if lock is None:
         raise LaunchError(f"Lock not found for task: {task_id}")
-    
+
     if lock.lock_id != lock_id:
         raise LaunchError(f"Lock ID mismatch: expected {lock_id}, got {lock.lock_id}")
-    
+
     # Record the release time in transfer_date
     updated = TaskLock(
         lock_id=lock.lock_id,
@@ -91,6 +91,6 @@ def release_lock(
         transfer_history=lock.transfer_history,
         transfer_date=utc_now_iso(),
     )
-    
+
     save_lock(workspace_root, task_id, updated)
     return updated

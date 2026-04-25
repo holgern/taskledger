@@ -23,7 +23,9 @@ def _init_project(tmp_path: Path) -> None:
     assert result.exit_code == 0
 
 
-def test_json_success_envelope_uses_ok_command_result_and_events(tmp_path: Path) -> None:
+def test_json_success_envelope_uses_ok_command_result_and_events(
+    tmp_path: Path,
+) -> None:
     _init_project(tmp_path)
 
     result = runner.invoke(

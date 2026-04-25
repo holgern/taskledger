@@ -51,10 +51,13 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
         ).exit_code
         == 0
     )
-    assert runner.invoke(
-        app,
-        ["--cwd", str(tmp_path), "task", "activate", "rewrite-v2"],
-    ).exit_code == 0
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "task", "activate", "rewrite-v2"],
+        ).exit_code
+        == 0
+    )
     assert runner.invoke(
         app,
         ["--cwd", str(tmp_path), "--json", "can", "plan"],
@@ -316,14 +319,14 @@ def test_v2_lock_break_and_expired_lock_report(tmp_path: Path) -> None:
             "--cwd",
             str(tmp_path),
             "--json",
-                "lock",
-                "break",
-                "--reason",
-                "recover stale planning lock",
-                "--task",
-                "lock-task",
-            ],
-        )
+            "lock",
+            "break",
+            "--reason",
+            "recover stale planning lock",
+            "--task",
+            "lock-task",
+        ],
+    )
     assert break_result.exit_code == 0
     assert _json(break_result)["result"]["command"] == "lock break"
     assert not lock_path.exists()

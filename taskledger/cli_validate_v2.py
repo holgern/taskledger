@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any, cast
 
 import typer
 
@@ -23,30 +23,30 @@ from taskledger.errors import LaunchError
 from taskledger.services.actors import resolve_actor, resolve_harness
 
 
-def _render_validation_status(payload: dict[str, object]) -> str:
+def _render_validation_status(payload: dict[str, Any]) -> str:
     """Render validation gate report to human-readable text."""
     lines = []
-    
+
     task_id = payload.get("task_id", "?")
     task_slug = payload.get("task_slug", "?")
     lines.append(f"Validation status for {task_slug} ({task_id})")
     lines.append("")
-    
+
     run_id = payload.get("run_id", "?")
     lines.append(f"Run: {run_id}")
     lines.append("")
-    
+
     accepted_plan = payload.get("accepted_plan", {})
     plan_version = accepted_plan.get("version", "none")
     plan_status = accepted_plan.get("status", "none")
     lines.append(f"Accepted plan: v{plan_version} {plan_status}")
-    
+
     implementation = payload.get("implementation", {})
     impl_run_id = implementation.get("run_id", "none")
     impl_status = implementation.get("status", "none")
     lines.append(f"Implementation: {impl_run_id} {impl_status}")
     lines.append("")
-    
+
     lines.append("Criteria:")
     criteria = payload.get("criteria", [])
     for crit in criteria:
@@ -63,7 +63,7 @@ def _render_validation_status(payload: dict[str, object]) -> str:
         if evidence:
             lines.append(f"      evidence: {', '.join(evidence)}")
     lines.append("")
-    
+
     todos = payload.get("todos", {})
     open_todos = todos.get("open_mandatory", [])
     if open_todos:
@@ -71,7 +71,7 @@ def _render_validation_status(payload: dict[str, object]) -> str:
         for todo_id in open_todos:
             lines.append(f"  [ ] {todo_id}")
         lines.append("")
-    
+
     dependencies = payload.get("dependencies", {})
     dep_blockers = dependencies.get("blockers", [])
     if dep_blockers:
@@ -79,10 +79,10 @@ def _render_validation_status(payload: dict[str, object]) -> str:
         for blocker in dep_blockers:
             lines.append(f"  - {blocker}")
         lines.append("")
-    
+
     can_finish = payload.get("can_finish_passed", False)
     lines.append(f"Can finish passed: {'yes' if can_finish else 'no'}")
-    
+
     blockers = payload.get("blockers", [])
     if blockers:
         lines.append("")
@@ -96,9 +96,8 @@ def _render_validation_status(payload: dict[str, object]) -> str:
             lines.append(f"  - {kind}{ref_str}: {message}")
             if hint:
                 lines.append(f"    {hint}")
-    
-    return "\n".join(lines)
 
+    return "\n".join(lines)
 
 
 def register_validate_v2_commands(app: typer.Typer) -> None:
@@ -274,7 +273,7 @@ def register_validate_v2_commands(app: typer.Typer) -> None:
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         run = payload["run"]
         assert isinstance(run, dict)
-        status_result = status_payload.get("result", {})
+        status_result = cast(dict[str, Any], status_payload.get("result", {}))
         human_output = _render_validation_status(status_result)
         emit_payload(ctx, payload, human=human_output)
 
@@ -294,7 +293,7 @@ def register_validate_v2_commands(app: typer.Typer) -> None:
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-        result = payload.get("result", {})
+        result = cast(dict[str, Any], payload.get("result", {}))
         human_output = _render_validation_status(result)
         emit_payload(ctx, payload, human=human_output)
 

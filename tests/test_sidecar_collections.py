@@ -104,6 +104,8 @@ def test_todos_links_and_requirements_live_in_sidecars(tmp_path: Path) -> None:
     assert links["links"][0]["path"] == "README.md"
     assert requirements["requirements"][0]["task_id"] == "task-0001"
 
-    result = runner.invoke(app, ["--cwd", str(tmp_path), "task", "show", "sidecar-task"])
+    result = runner.invoke(
+        app, ["--cwd", str(tmp_path), "task", "show", "sidecar-task"]
+    )
     assert result.exit_code == 0, result.stdout
     assert "sidecar-task" in result.stdout

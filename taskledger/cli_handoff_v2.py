@@ -29,7 +29,7 @@ def list_cmd(
 ) -> None:
     """List handoffs for a task."""
     handoffs = list_all_handoffs(workspace_root, task_ref)
-    
+
     if json_output:
         typer.echo(json.dumps({"kind": "handoff_list", "handoffs": handoffs}, indent=2))
     else:
@@ -55,7 +55,7 @@ def create_cmd(
         intended_actor_name=intended_actor,
         summary=summary,
     )
-    
+
     if json_output:
         typer.echo(json.dumps({"kind": "handoff_created", "handoff": result}, indent=2))
     else:
@@ -72,7 +72,7 @@ def show_cmd(
 ) -> None:
     """Show handoff details."""
     handoff = show_handoff(workspace_root, task_ref, handoff_ref)
-    
+
     if json_output:
         typer.echo(json.dumps({"kind": "handoff", "handoff": handoff}, indent=2))
     else:
@@ -90,11 +90,15 @@ def claim_cmd(
     """Claim a handoff."""
     actor = resolve_actor()
     harness = resolve_harness()
-    
-    updated = claim_handoff_api(workspace_root, task_ref, handoff_ref, actor=actor, harness=harness)
-    
+
+    updated = claim_handoff_api(
+        workspace_root, task_ref, handoff_ref, actor=actor, harness=harness
+    )
+
     if json_output:
-        typer.echo(json.dumps({"kind": "handoff_claimed", "handoff": updated}, indent=2))
+        typer.echo(
+            json.dumps({"kind": "handoff_claimed", "handoff": updated}, indent=2)
+        )
     else:
         typer.echo(f"Claimed handoff: {updated['handoff_id']}")
 
@@ -110,7 +114,7 @@ def close_cmd(
 ) -> None:
     """Close a handoff."""
     updated = close_handoff_api(workspace_root, task_ref, handoff_ref, reason=reason)
-    
+
     if json_output:
         typer.echo(json.dumps({"kind": "handoff_closed", "handoff": updated}, indent=2))
     else:
@@ -128,9 +132,10 @@ def cancel_cmd(
 ) -> None:
     """Cancel a handoff."""
     updated = cancel_handoff_api(workspace_root, task_ref, handoff_ref, reason=reason)
-    
+
     if json_output:
-        typer.echo(json.dumps({"kind": "handoff_cancelled", "handoff": updated}, indent=2))
+        typer.echo(
+            json.dumps({"kind": "handoff_cancelled", "handoff": updated}, indent=2)
+        )
     else:
         typer.echo(f"Cancelled handoff: {updated['handoff_id']}")
-

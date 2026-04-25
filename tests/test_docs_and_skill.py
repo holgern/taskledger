@@ -155,11 +155,7 @@ def _command_key(tokens: list[str]) -> str | None:
     if not remaining:
         return None
     first = remaining[0]
-    group_commands = {
-        key.split(" ", 1)[0]
-        for key in COMMAND_METADATA
-        if " " in key
-    }
+    group_commands = {key.split(" ", 1)[0] for key in COMMAND_METADATA if " " in key}
     if first not in group_commands:
         return first
     if len(remaining) == 1:

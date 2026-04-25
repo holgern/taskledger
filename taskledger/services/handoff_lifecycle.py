@@ -27,24 +27,26 @@ def claim_handoff(
 ) -> TaskHandoffRecord:
     """Claim a handoff, transitioning from 'open' to 'claimed'."""
     handoff = resolve_handoff(workspace_root, task_id, handoff_id)
-    
+
     if handoff.status != "open":
         raise LaunchError(f"Cannot claim handoff in status {handoff.status}")
-    
+
     resolved_actor = actor or resolve_actor()
     resolved_harness = harness or resolve_harness()
-    
+
     # Check intent match if specified
     if (
         handoff.intended_actor_type
-        and handoff.intended_actor_type != "any"
         and handoff.intended_actor_type != resolved_actor.actor_type
     ):
         raise LaunchError(
             f"Actor type mismatch: handoff intended for {handoff.intended_actor_type}, "
             f"but claiming as {resolved_actor.actor_type}"
         )
-    if handoff.intended_actor_name and handoff.intended_actor_name != resolved_actor.actor_name:
+    if (
+        handoff.intended_actor_name
+        and handoff.intended_actor_name != resolved_actor.actor_name
+    ):
         raise LaunchError(
             f"Actor name mismatch: handoff intended for {handoff.intended_actor_name}, "
             f"but claiming as {resolved_actor.actor_name}"
@@ -58,7 +60,7 @@ def claim_handoff(
             f"Harness mismatch: handoff intended for {handoff.intended_harness}, "
             f"but claiming in {resolved_harness.name}"
         )
-    
+
     # Create new handoff with claim info
     released_lock_id = handoff.released_lock_id
     updated = TaskHandoffRecord(
@@ -84,14 +86,17 @@ def claim_handoff(
         next_action=handoff.next_action,
         context_body=handoff.context_body,
     )
-    
+
     # Handle lock transfer if applicable
     if handoff.lock_policy == "transfer" and handoff.source_run_id:
         task = resolve_task(workspace_root, task_id)
         lock = resolve_lock(workspace_root, task.id)
         if lock and lock.run_id == handoff.source_run_id:
             from taskledger.services.phase5_lock_transfer import transfer_lock
-            transfer_lock(workspace_root, task.id, lock.lock_id, resolved_actor, resolved_harness)
+
+            transfer_lock(
+                workspace_root, task.id, lock.lock_id, resolved_actor, resolved_harness
+            )
             released_lock_id = lock.lock_id
             updated = TaskHandoffRecord(
                 handoff_id=updated.handoff_id,
@@ -121,6 +126,7 @@ def claim_handoff(
         lock = resolve_lock(workspace_root, task.id)
         if lock and lock.run_id == handoff.source_run_id:
             from taskledger.services.phase5_lock_transfer import release_lock
+
             release_lock(workspace_root, task.id, lock.lock_id)
             released_lock_id = lock.lock_id
             updated = TaskHandoffRecord(
@@ -146,7 +152,7 @@ def claim_handoff(
                 next_action=updated.next_action,
                 context_body=updated.context_body,
             )
-    
+
     save_handoff(workspace_root, updated)
     return updated
 
@@ -161,12 +167,13 @@ def close_handoff(
 ) -> TaskHandoffRecord:
     """Close a handoff, transitioning from 'claimed' to 'closed'."""
     handoff = resolve_handoff(workspace_root, task_id, handoff_id)
-    
+
     if handoff.status not in ("open", "claimed"):
         raise LaunchError(f"Cannot close handoff in status {handoff.status}")
-    
+
     resolved_actor = actor or resolve_actor()
-    
+    _ = resolved_actor  # used for actor resolution side-effect
+
     updated = TaskHandoffRecord(
         handoff_id=handoff.handoff_id,
         task_id=handoff.task_id,
@@ -190,7 +197,7 @@ def close_handoff(
         next_action=handoff.next_action,
         context_body=handoff.context_body,
     )
-    
+
     save_handoff(workspace_root, updated)
     return updated
 
@@ -205,12 +212,13 @@ def cancel_handoff(
 ) -> TaskHandoffRecord:
     """Cancel a handoff, transitioning from 'open' to 'cancelled'."""
     handoff = resolve_handoff(workspace_root, task_id, handoff_id)
-    
+
     if handoff.status != "open":
         raise LaunchError(f"Cannot cancel handoff in status {handoff.status}")
-    
+
     resolved_actor = actor or resolve_actor()
-    
+    _ = resolved_actor  # used for actor resolution side-effect
+
     updated = TaskHandoffRecord(
         handoff_id=handoff.handoff_id,
         task_id=handoff.task_id,
@@ -234,6 +242,6 @@ def cancel_handoff(
         next_action=handoff.next_action,
         context_body=handoff.context_body,
     )
-    
+
     save_handoff(workspace_root, updated)
     return updated

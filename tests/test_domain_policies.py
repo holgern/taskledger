@@ -1,4 +1,5 @@
 """Tests for taskledger.domain.policies covering uncovered branches."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -224,7 +225,9 @@ def test_can_start_implementation_no_accepted_plan() -> None:
 def test_can_start_implementation_locked() -> None:
     task = _task(status_stage="approved")
     lock = _lock()
-    decision = can_start_implementation(task, FakeLedger(accepted_plan=object(), lock=lock))
+    decision = can_start_implementation(
+        task, FakeLedger(accepted_plan=object(), lock=lock)
+    )
     assert decision.ok is False
 
 
@@ -325,7 +328,7 @@ def test_metadata_edit_decision_wrong_stage() -> None:
 def test_metadata_edit_decision_locked() -> None:
     task = _task(status_stage="draft")
     lock = _lock(stage="planning", run_id="run-0001")
-    run = _run(run_id="run-0001", run_type="planning", status="running")
+    _run(run_id="run-0001", run_type="planning", status="running")
     decision = metadata_edit_decision(task, lock)
     assert decision.ok is False
 
@@ -342,7 +345,7 @@ def test_todo_add_decision_ok() -> None:
 def test_todo_add_decision_during_planning() -> None:
     task = _task(status_stage="draft")
     lock = _lock(stage="planning", run_id="run-0001")
-    run = _run(run_id="run-0001", run_type="planning", status="running")
+    _run(run_id="run-0001", run_type="planning", status="running")
     decision = todo_add_decision(task, lock, actor_role="user")
     assert decision.ok is True
 
@@ -670,6 +673,7 @@ def test_require_known_actor_role_valid() -> None:
 
 def test_require_known_actor_role_invalid() -> None:
     import pytest
+
     with pytest.raises(ValueError, match="Unsupported actor role"):
         require_known_actor_role("admin")
 

@@ -29,7 +29,7 @@ from taskledger.errors import LaunchError
 from taskledger.services.actors import resolve_actor, resolve_harness
 
 
-def register_plan_v2_commands(app: typer.Typer) -> None:
+def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     @app.command("start")
     def start_command(
         ctx: typer.Context,
@@ -137,7 +137,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
                 "task_id": task.id,
                 "ask_questions": ask_questions,
                 "next_action": (
-                    "taskledger question add --text \"...\" --required-for-plan"
+                    'taskledger question add --text "..." --required-for-plan'
                     if ask_questions
                     else "taskledger plan propose --file plan.md"
                 ),
@@ -183,7 +183,8 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
         emit_payload(
             ctx,
             payload,
-            human=f"regenerated plan v{payload['plan_version']} for {payload['task_id']}",
+            human=f"regenerated plan v{payload['plan_version']} "
+            f"for {payload['task_id']}",
         )
 
     @app.command("materialize-todos")

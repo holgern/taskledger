@@ -99,7 +99,10 @@ def test_export_and_import_include_v2_state(tmp_path: Path) -> None:
     )
     export_payload = _json(export_result)
     assert export_payload["result"]["v2"]["tasks"][0]["slug"] == "migrate-v2"
-    assert export_payload["result"]["v2"]["handoffs"][0]["summary"] == "Continue elsewhere."
+    assert (
+        export_payload["result"]["v2"]["handoffs"][0]["summary"]
+        == "Continue elsewhere."
+    )
     export_file = tmp_path / "export.json"
     export_file.write_text(export_result.stdout, encoding="utf-8")
 

@@ -39,9 +39,11 @@ def whoami_cmd(
             human_lines.append(f"Tool: {actor.tool}")
         if actor.session_id:
             human_lines.append(f"Session: {actor.session_id}")
-        human_lines.extend([
-            f"Harness: {harness.name} ({harness.kind})",
-        ])
+        human_lines.extend(
+            [
+                f"Harness: {harness.name} ({harness.kind})",
+            ]
+        )
         if harness.session_id:
             human_lines.append(f"Harness Session: {harness.session_id}")
         typer.echo("\n".join(human_lines))

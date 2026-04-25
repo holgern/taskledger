@@ -56,7 +56,7 @@ from taskledger.services.doctor_v2 import (
 from taskledger.storage.v2 import load_active_locks, load_requirements, load_todos
 
 
-def register_todo_v2_commands(app: typer.Typer) -> None:
+def register_todo_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     @app.command("add")
     def add_command(
         ctx: typer.Context,
@@ -126,17 +126,25 @@ def register_todo_v2_commands(app: typer.Typer) -> None:
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-        payload = {"kind": "todo_list", "task_id": task.id, "todos": [todo.to_dict() for todo in todos]}
+        payload = {
+            "kind": "todo_list",
+            "task_id": task.id,
+            "todos": [todo.to_dict() for todo in todos],
+        }
         lines = ["TODOS"]
         for todo in todos:
             status = "done" if todo.done else "open"
             lines.append(f"{todo.id}  {status}  {todo.text}")
         if state.json_output:
-            emit_payload(ctx, payload, human="\n".join(lines) if todos else "TODOS\n(empty)")
+            emit_payload(
+                ctx, payload, human="\n".join(lines) if todos else "TODOS\n(empty)"
+            )
         elif json_output:
             typer.echo(render_json(payload))
         else:
-            emit_payload(ctx, payload, human="\n".join(lines) if todos else "TODOS\n(empty)")
+            emit_payload(
+                ctx, payload, human="\n".join(lines) if todos else "TODOS\n(empty)"
+            )
 
     @app.command("done")
     def done_command(
@@ -228,23 +236,26 @@ def register_todo_v2_commands(app: typer.Typer) -> None:
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-        
+
         # Build human-readable output
         total = payload.get("total", 0)
         done = payload.get("done", 0)
         can_finish = payload.get("can_finish_implementation", False)
         lines = [f"TODOS {payload['task_id']}  {done}/{total} done"]
-        
+
         todos = load_todos(state.cwd, task.id).todos
         for todo in todos:
             status_mark = "[x]" if todo.done else "[ ]"
             lines.append(f"{status_mark} {todo.id}  {todo.text}")
-        
+
         if can_finish:
             lines.append("\nFinish: Ready to implement finish.")
         else:
-            lines.append(f"\nFinish blocked: {total - done} todos are not done.")
-        
+            lines.append(
+                f"\nFinish blocked: "
+                f"{cast(int, total) - cast(int, done)} todos are not done."
+            )
+
         emit_payload(ctx, payload, human="\n".join(lines))
 
     @app.command("next")
@@ -266,17 +277,16 @@ def register_todo_v2_commands(app: typer.Typer) -> None:
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-        
+
         # Build human-readable output
         next_todo_id = payload.get("next_todo_id")
         if next_todo_id is None:
             human = "No unfinished todos. Ready to finish implementation."
         else:
-            next_todo_obj = payload.get("next_todo", {})
+            next_todo_obj = cast(dict[str, object], payload.get("next_todo", {}))
             human = f"Next todo: {next_todo_id}  {next_todo_obj.get('text', '')}"
-        
-        emit_payload(ctx, payload, human=human)
 
+        emit_payload(ctx, payload, human=human)
 
 
 def register_intro_v2_commands(app: typer.Typer) -> None:
@@ -786,7 +796,9 @@ def register_handoff_v2_commands(app: typer.Typer) -> None:
         ctx: typer.Context,
         mode: Annotated[str, typer.Option("--mode")],
         intended_actor: Annotated[str | None, typer.Option("--intended-actor")] = None,
-        intended_harness: Annotated[str | None, typer.Option("--intended-harness")] = None,
+        intended_harness: Annotated[
+            str | None, typer.Option("--intended-harness")
+        ] = None,
         summary: Annotated[str | None, typer.Option("--summary")] = None,
         next_action: Annotated[str | None, typer.Option("--next-action")] = None,
         task_arg: Annotated[
@@ -835,7 +847,11 @@ def register_handoff_v2_commands(app: typer.Typer) -> None:
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-        emit_payload(ctx, payload, human="\n".join(h["handoff_id"] for h in handoffs))
+        emit_payload(
+            ctx,
+            payload,
+            human="\n".join(str(h["handoff_id"]) for h in handoffs),
+        )
 
     @app.command("claim")
     def claim_command(
@@ -896,7 +912,9 @@ def register_handoff_v2_commands(app: typer.Typer) -> None:
     @app.command("show")
     def show_command(
         ctx: typer.Context,
-        handoff_id: Annotated[str | None, typer.Argument(help="Optional handoff id.")] = None,
+        handoff_id: Annotated[
+            str | None, typer.Argument(help="Optional handoff id.")
+        ] = None,
         format_name: Annotated[str, typer.Option("--format")] = "text",
         task_arg: Annotated[
             str | None,
@@ -908,7 +926,9 @@ def register_handoff_v2_commands(app: typer.Typer) -> None:
         ] = None,
     ) -> None:
         if handoff_id is None:
-            _emit_handoff(ctx, task_ref or task_arg, mode="show", format_name=format_name)
+            _emit_handoff(
+                ctx, task_ref or task_arg, mode="show", format_name=format_name
+            )
             return
         state = cli_state_from_context(ctx)
         try:

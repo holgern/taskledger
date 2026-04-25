@@ -1,4 +1,5 @@
 """Tests for taskledger.storage.common."""
+
 from __future__ import annotations
 
 import json

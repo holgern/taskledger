@@ -89,7 +89,7 @@ def dashboard(
     }
 
 
-def render_dashboard_text(payload: dict[str, object]) -> str:
+def render_dashboard_text(payload: dict[str, object]) -> str:  # noqa: C901
     lines: list[str] = []
 
     task = payload["task"]
@@ -98,7 +98,8 @@ def render_dashboard_text(payload: dict[str, object]) -> str:
         f"Task: {task['slug']} ({task['id']})\n"
         f"Title: {task['title']}\n"
         f"Stage: {task['status_stage']}  Active: {task.get('active_stage') or 'none'}\n"
-        f"Created: {_ts(task.get('created_at'))}  Updated: {_ts(task.get('updated_at'))}"
+        f"Created: {_ts(task.get('created_at'))} "
+        f"Updated: {_ts(task.get('updated_at'))}",
     )
 
     desc = task.get("description_summary")
@@ -110,8 +111,8 @@ def render_dashboard_text(payload: dict[str, object]) -> str:
         lines.append(f"Priority: {priority}")
 
     labels = task.get("labels")
-    if labels and isinstance(labels, (list, tuple)) and len(labels) > 0:
-        lines.append(f"Labels: {', '.join(str(l) for l in labels)}")
+    if labels and isinstance(labels, list | tuple) and len(labels) > 0:
+        lines.append(f"Labels: {', '.join(str(x) for x in labels)}")
 
     owner = task.get("owner")
     if owner:
@@ -127,7 +128,7 @@ def render_dashboard_text(payload: dict[str, object]) -> str:
         status = plan.get("status", "none")
         lines.append(f"Plan (v{version}): {status}")
         criteria = plan.get("criteria")
-        if isinstance(criteria, (list, tuple)):
+        if isinstance(criteria, list | tuple):
             for ac in criteria:
                 assert isinstance(ac, dict)
                 lines.append(f"  {ac.get('id', '?')}: {ac.get('text', '')}")
@@ -145,7 +146,7 @@ def render_dashboard_text(payload: dict[str, object]) -> str:
         if reason:
             lines.append(f"  {reason}")
         blockers = na.get("blocking")
-        if isinstance(blockers, (list, tuple)) and len(blockers) > 0:
+        if isinstance(blockers, list | tuple) and len(blockers) > 0:
             for b in blockers:
                 assert isinstance(b, dict)
                 lines.append(f"  blocker: {b.get('message', '')}")
@@ -162,7 +163,7 @@ def render_dashboard_text(payload: dict[str, object]) -> str:
     assert isinstance(t, dict)
     lines.append(f"Todos: {t.get('done', 0)}/{t.get('total', 0)} done")
     items = t.get("items")
-    if isinstance(items, (list, tuple)):
+    if isinstance(items, list | tuple):
         for item in items:
             assert isinstance(item, dict)
             mark = "x" if item.get("done") else " "
@@ -177,7 +178,7 @@ def render_dashboard_text(payload: dict[str, object]) -> str:
 
     # runs
     runs = payload.get("runs")
-    if isinstance(runs, (list, tuple)) and len(runs) > 0:
+    if isinstance(runs, list | tuple) and len(runs) > 0:
         lines.append("Runs:")
         for r in runs:
             assert isinstance(r, dict)
@@ -203,7 +204,7 @@ def render_dashboard_text(payload: dict[str, object]) -> str:
 
     # changes
     changes = payload.get("changes")
-    if isinstance(changes, (list, tuple)) and len(changes) > 0:
+    if isinstance(changes, list | tuple) and len(changes) > 0:
         lines.append(f"Changes: {len(changes)}")
         for c in changes:
             assert isinstance(c, dict)

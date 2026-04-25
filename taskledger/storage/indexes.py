@@ -18,21 +18,18 @@ def rebuild_v2_indexes(paths: V2Paths) -> dict[str, int]:
     tasks = list_tasks(paths.workspace_root)
     introductions = list_introductions(paths.workspace_root)
     locks = load_active_locks(paths.workspace_root)
-    locks_by_task = {
-        lock.task_id: lock for lock in locks if not lock_is_expired(lock)
-    }
+    locks_by_task = {lock.task_id: lock for lock in locks if not lock_is_expired(lock)}
     plan_versions = []
     latest_runs = []
-    runs_by_task = {
-        task.id: list_runs(paths.workspace_root, task.id)
-        for task in tasks
-    }
+    runs_by_task = {task.id: list_runs(paths.workspace_root, task.id) for task in tasks}
     dependencies = [
         {
             "task_id": task.id,
             "requirements": [
                 item.task_id
-                for item in load_requirements(paths.workspace_root, task.id).requirements
+                for item in load_requirements(
+                    paths.workspace_root, task.id
+                ).requirements
             ],
         }
         for task in tasks

@@ -28,7 +28,9 @@ def _json(result) -> dict[str, object]:
     return payload
 
 
-def _prepare_proposed_plan(tmp_path: Path, *, criterion: str | None = "Must be explicit.") -> None:
+def _prepare_proposed_plan(
+    tmp_path: Path, *, criterion: str | None = "Must be explicit."
+) -> None:
     assert (
         runner.invoke(
             app,
@@ -110,7 +112,9 @@ def test_plan_approval_records_actor_metadata_and_criteria_ids(tmp_path: Path) -
     assert plan["approved_at"]
 
 
-def test_plan_approval_rejects_agent_approval_without_escape_hatch(tmp_path: Path) -> None:
+def test_plan_approval_rejects_agent_approval_without_escape_hatch(
+    tmp_path: Path,
+) -> None:
     _init_project(tmp_path)
     _prepare_proposed_plan(tmp_path)
 
@@ -165,18 +169,24 @@ def test_plan_approval_requires_criteria_by_default(tmp_path: Path) -> None:
 
 
 def test_plan_approve_default_actor_is_agent(tmp_path: Path) -> None:
-    """Verify that plan approve defaults to agent, requiring explicit --actor user for user approval."""
+    """Verify that plan approve defaults to agent,
+    requiring explicit --actor user for user approval."""
     _init_project(tmp_path)
     _prepare_proposed_plan(tmp_path)
 
     approve = runner.invoke(
         app,
         [
-            "--cwd", str(tmp_path),
+            "--cwd",
+            str(tmp_path),
             "--json",
-            "plan", "approve", "approval-task",
-            "--version", "1",
-            "--note", "Auto-approved without specifying actor.",
+            "plan",
+            "approve",
+            "approval-task",
+            "--version",
+            "1",
+            "--note",
+            "Auto-approved without specifying actor.",
         ],
     )
     payload = _json(approve)
@@ -191,7 +201,15 @@ def test_plan_yaml_single_key_shorthand_criteria(tmp_path: Path) -> None:
     assert (
         runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "task", "create", "shorthand-task", "--description", "Test shorthand."],
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "create",
+                "shorthand-task",
+                "--description",
+                "Test shorthand.",
+            ],
         ).exit_code
         == 0
     )
@@ -212,14 +230,31 @@ acceptance_criteria:
     assert (
         runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "plan", "propose", "shorthand-task", "--text", plan_text],
+            [
+                "--cwd",
+                str(tmp_path),
+                "plan",
+                "propose",
+                "shorthand-task",
+                "--text",
+                plan_text,
+            ],
         ).exit_code
         == 0
     )
 
     show = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "--json", "plan", "show", "shorthand-task", "--version", "1"],
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "plan",
+            "show",
+            "shorthand-task",
+            "--version",
+            "1",
+        ],
     )
     assert show.exit_code == 0
     plan = json.loads(show.stdout)["result"]["plan"]

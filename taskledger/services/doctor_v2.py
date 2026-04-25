@@ -19,7 +19,6 @@ from taskledger.storage.v2 import (
     load_todos,
     resolve_introduction,
     resolve_run,
-    task_dir,
 )
 
 
@@ -49,9 +48,7 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
     if active_state is not None:
         active_task = task_map.get(active_state.task_id)
         if active_task is None:
-            errors.append(
-                f"Active task points to missing task {active_state.task_id}."
-            )
+            errors.append(f"Active task points to missing task {active_state.task_id}.")
         elif active_task.status_stage in {"cancelled", "done"}:
             warnings.append(
                 f"Active task {active_task.id} is {active_task.status_stage}."
@@ -72,7 +69,8 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
                     }
                 )
         for requirement in (
-            item.task_id for item in load_requirements(workspace_root, task.id).requirements
+            item.task_id
+            for item in load_requirements(workspace_root, task.id).requirements
         ):
             if requirement not in task_map:
                 broken_links.append(
@@ -107,7 +105,8 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
         running_runs = [run for run in task_runs[task.id] if run.status == "running"]
         if task.status_stage in {"planning", "implementing", "validating"}:
             errors.append(
-                f"Task {task.id} persists transient stage {task.status_stage} as status."
+                f"Task {task.id} persists transient stage "
+                f"{task.status_stage} as status."
             )
         if len(running_runs) > 1:
             errors.append(f"Task {task.id} has multiple running runs.")
@@ -126,7 +125,7 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
             )
             repair_hints.append(
                 "Break the stale lock with "
-                f"`taskledger lock break {task.id} --reason \"...\"`."
+                f'`taskledger lock break {task.id} --reason "..."`.'
             )
 
         for change in list_changes(workspace_root, task.id):
@@ -179,7 +178,9 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
             )
             continue
         if run.status != "running":
-            errors.append(f"Lock {lock.lock_id} references non-running run {run.run_id}.")
+            errors.append(
+                f"Lock {lock.lock_id} references non-running run {run.run_id}."
+            )
         expected_stage = {
             "planning": "planning",
             "implementation": "implementing",
@@ -208,7 +209,9 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
                     "Remove orphan directory with `taskledger repair task-dirs`."
                 )
             else:
-                warnings.append(f"Legacy slug sidecar directory retained: {child.name}/")
+                warnings.append(
+                    f"Legacy slug sidecar directory retained: {child.name}/"
+                )
 
     if broken_links:
         errors.append("V2 task records contain broken references.")
@@ -216,7 +219,7 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
         warnings.append("Expired task locks require explicit resolution.")
         repair_hints.append(
             "Break stale locks explicitly with "
-            "`taskledger lock break <task> --reason \"...\"`."
+            '`taskledger lock break <task> --reason "..."`.'
         )
 
     return {
@@ -256,7 +259,9 @@ def inspect_v2_locks(workspace_root: Path) -> dict[str, object]:
 def inspect_v2_schema(workspace_root: Path) -> dict[str, object]:
     payload = inspect_v2_project(workspace_root)
     schema_errors = [
-        item for item in cast(list[str], payload["errors"]) if "schema" in item.lower() or "version" in item.lower()
+        item
+        for item in cast(list[str], payload["errors"])
+        if "schema" in item.lower() or "version" in item.lower()
     ]
     return {
         "kind": "taskledger_schema_inspection",

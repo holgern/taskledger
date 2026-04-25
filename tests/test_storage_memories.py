@@ -1,4 +1,5 @@
 """Tests for taskledger.storage.memories."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -170,8 +171,13 @@ def test_refresh_memory(tmp_path: Path) -> None:
     mem = create_memory(paths, name="Refresh", body="initial content")
     # Manually overwrite body on disk
     from taskledger.storage.frontmatter import write_markdown_front_matter
+
     md_path = memory_markdown_path(paths, mem)
-    write_markdown_front_matter(md_path, {"file_version": MARKDOWN_FILE_VERSION, **mem.to_dict()}, "refreshed content")
+    write_markdown_front_matter(
+        md_path,
+        {"file_version": MARKDOWN_FILE_VERSION, **mem.to_dict()},
+        "refreshed content",
+    )
     refreshed = refresh_memory(paths, mem.id)
     assert refreshed.summary == "refreshed content"
 
@@ -225,7 +231,7 @@ def test_update_memory_tags_add_and_remove(tmp_path: Path) -> None:
 def test_save_memories_removes_stale(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
     mem1 = create_memory(paths, name="Keep", body="k")
-    mem2 = create_memory(paths, name="Remove", body="r")
+    create_memory(paths, name="Remove", body="r")
     # Save only mem1, which should cause mem2 file to be deleted
     save_memories(paths, [mem1])
     loaded = load_memories(paths)
@@ -266,9 +272,12 @@ def test_load_memories_wrong_path_in_frontmatter(tmp_path: Path) -> None:
     from dataclasses import replace
 
     from taskledger.storage.frontmatter import write_markdown_front_matter
+
     bad = replace(mem, path="memories/wrong.md")
     md_path = memory_markdown_path(paths, mem)
-    write_markdown_front_matter(md_path, {"file_version": MARKDOWN_FILE_VERSION, **bad.to_dict()}, "x")
+    write_markdown_front_matter(
+        md_path, {"file_version": MARKDOWN_FILE_VERSION, **bad.to_dict()}, "x"
+    )
     with pytest.raises(LaunchError, match="front matter path must be"):
         load_memories(paths)
 
@@ -286,6 +295,7 @@ def test_load_memories_wrong_file_version(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
     mem = create_memory(paths, name="VerCheck", body="x")
     from taskledger.storage.frontmatter import write_markdown_front_matter
+
     md_path = memory_markdown_path(paths, mem)
     bad_meta = {"file_version": "v99", **{k: v for k, v in mem.to_dict().items()}}
     write_markdown_front_matter(md_path, bad_meta, "x")

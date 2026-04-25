@@ -1,16 +1,27 @@
 """Tests for taskledger.services.dashboard."""
+
 from __future__ import annotations
 
 from pathlib import Path
 
-from taskledger.domain.models import ActiveTaskState, TaskRecord, TodoCollection, TaskTodo
+from taskledger.domain.models import (
+    ActiveTaskState,
+    TaskRecord,
+    TaskTodo,
+    TodoCollection,
+)
 from taskledger.services.dashboard import dashboard, render_dashboard_text
-from taskledger.storage.v2 import ensure_v2_layout, save_active_task_state, save_task, save_todos
+from taskledger.storage.v2 import (
+    ensure_v2_layout,
+    save_active_task_state,
+    save_task,
+    save_todos,
+)
 
 
 def _create_task_and_activate(tmp_path: Path) -> TaskRecord:
     """Create a minimal task and set it as active."""
-    paths = ensure_v2_layout(tmp_path)
+    ensure_v2_layout(tmp_path)
     task = TaskRecord(
         id="task-0001",
         slug="test-task",
@@ -25,7 +36,7 @@ def _create_task_and_activate(tmp_path: Path) -> TaskRecord:
 
 
 def test_dashboard_with_active_task(tmp_path: Path) -> None:
-    task = _create_task_and_activate(tmp_path)
+    _create_task_and_activate(tmp_path)
     result = dashboard(tmp_path)
     assert result["kind"] == "dashboard"
     task_info = result["task"]

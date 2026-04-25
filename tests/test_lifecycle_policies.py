@@ -58,7 +58,9 @@ def test_active_stage_requires_matching_running_run() -> None:
     assert derive_active_stage(lock, (run,)) is None
 
 
-def test_implementation_mutation_allows_active_implementation_without_status_flip() -> None:
+def test_implementation_mutation_allows_active_implementation_without_status_flip() -> (
+    None
+):
     task = TaskRecord(
         id="task-0001",
         slug="task-0001",

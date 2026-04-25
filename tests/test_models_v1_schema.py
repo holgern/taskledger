@@ -157,7 +157,9 @@ def test_plan_record_round_trips_acceptance_criteria_and_approval_metadata() -> 
         body="## Goal\n\nShip the delta rewrite.",
         criteria=(
             AcceptanceCriterion(id="ac-0001", text="Context output uses @path."),
-            AcceptanceCriterion(id="ac-0002", text="Validation cannot pass accidentally."),
+            AcceptanceCriterion(
+                id="ac-0002", text="Validation cannot pass accidentally."
+            ),
         ),
         approved_at="2026-04-24T09:00:00+00:00",
         approved_by=ActorRef(actor_type="user", actor_name="local-user"),

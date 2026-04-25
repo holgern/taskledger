@@ -345,9 +345,13 @@ def repair_task_dirs_command(ctx: typer.Context) -> None:
     state = ctx.obj
     assert isinstance(state, CLIState)
     payload = cleanup_orphan_slug_dirs(state.cwd)
-    removed = payload.get("removed", [])
+    removed = cast(list[str], payload.get("removed", []))
     names = ", ".join(removed) if removed else "(none)"
-    emit_payload(ctx, payload, human=f"removed {payload['count']} orphan slug directories: {names}")
+    emit_payload(
+        ctx,
+        payload,
+        human=f"removed {payload['count']} orphan slug directories: {names}",
+    )
 
 
 @app.command("export")

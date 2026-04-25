@@ -50,8 +50,8 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 6. After the user answers, run `taskledger question status`.
 7. Review all answered questions with `taskledger question answers` before regenerating the plan.
 8. Regenerate from answers with `taskledger plan regenerate --from-answers --file ./plan.md`.
-8. Ensure the plan front matter includes `acceptance_criteria` and `todos`; approved plan todos materialize into the implementation checklist.
-9. Record approval only with user intent: `taskledger plan approve --version N --actor user --note "..."`.
+9. Ensure the plan front matter includes `acceptance_criteria` and `todos`; approved plan todos materialize into the implementation checklist.
+10. Record approval only with user intent: `taskledger plan approve --version N --actor user --note "..."`.
 
 The plan file should use version ids like `plan-v1`, `plan-v2` in references. Do not use zero-padded forms.
 

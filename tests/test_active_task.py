@@ -134,111 +134,152 @@ def test_task_activate_sets_active_task(tmp_path: Path) -> None:
 def test_no_ref_plan_implementation_validation_flow(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _create_task(tmp_path)
-    assert runner.invoke(
-        app, ["--cwd", str(tmp_path), "task", "activate", "active-flow"]
-    ).exit_code == 0
+    assert (
+        runner.invoke(
+            app, ["--cwd", str(tmp_path), "task", "activate", "active-flow"]
+        ).exit_code
+        == 0
+    )
 
     assert runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start"]).exit_code == 0
-    assert runner.invoke(
-        app,
-        [
-            "--cwd",
-            str(tmp_path),
-            "plan",
-            "propose",
-            "--criterion",
-            "It works.",
-            "--text",
-            "Plan body",
-        ],
-    ).exit_code == 0
-    assert runner.invoke(
-        app,
-        [
-            "--cwd",
-            str(tmp_path),
-            "plan",
-            "approve",
-            "--version",
-            "1",
-            "--actor",
-            "user",
-            "--note",
-            "Approved.",
-        ],
-    ).exit_code == 0
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "plan",
+                "propose",
+                "--criterion",
+                "It works.",
+                "--text",
+                "Plan body",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "plan",
+                "approve",
+                "--version",
+                "1",
+                "--actor",
+                "user",
+                "--note",
+                "Approved.",
+            ],
+        ).exit_code
+        == 0
+    )
 
     assert (
         runner.invoke(app, ["--cwd", str(tmp_path), "implement", "start"]).exit_code
         == 0
     )
-    assert runner.invoke(
-        app,
-        ["--cwd", str(tmp_path), "implement", "log", "--message", "changed"],
-    ).exit_code == 0
-    assert runner.invoke(
-        app,
-        ["--cwd", str(tmp_path), "implement", "finish", "--summary", "done"],
-    ).exit_code == 0
-
     assert (
-        runner.invoke(app, ["--cwd", str(tmp_path), "validate", "start"]).exit_code
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "implement", "log", "--message", "changed"],
+        ).exit_code
         == 0
     )
-    assert runner.invoke(
-        app,
-        [
-            "--cwd",
-            str(tmp_path),
-            "validate",
-            "check",
-            "--criterion",
-            "ac-0001",
-            "--status",
-            "pass",
-            "--evidence",
-            "pytest -q",
-        ],
-    ).exit_code == 0
-    assert runner.invoke(
-        app,
-        [
-            "--cwd",
-            str(tmp_path),
-            "validate",
-            "finish",
-            "--result",
-            "passed",
-            "--summary",
-            "ok",
-        ],
-    ).exit_code == 0
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "implement", "finish", "--summary", "done"],
+        ).exit_code
+        == 0
+    )
+
+    assert (
+        runner.invoke(app, ["--cwd", str(tmp_path), "validate", "start"]).exit_code == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "validate",
+                "check",
+                "--criterion",
+                "ac-0001",
+                "--status",
+                "pass",
+                "--evidence",
+                "pytest -q",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "validate",
+                "finish",
+                "--result",
+                "passed",
+                "--summary",
+                "ok",
+            ],
+        ).exit_code
+        == 0
+    )
 
 
 def test_secondary_positional_commands_default_to_active_task(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _create_task(tmp_path)
-    assert runner.invoke(
-        app, ["--cwd", str(tmp_path), "task", "activate", "active-flow"]
-    ).exit_code == 0
+    assert (
+        runner.invoke(
+            app, ["--cwd", str(tmp_path), "task", "activate", "active-flow"]
+        ).exit_code
+        == 0
+    )
 
-    assert runner.invoke(
-        app, ["--cwd", str(tmp_path), "todo", "add", "--text", "write test"]
-    ).exit_code == 0
-    assert runner.invoke(
-        app, ["--cwd", str(tmp_path), "todo", "done", "todo-0001"]
-    ).exit_code == 0
+    assert (
+        runner.invoke(
+            app, ["--cwd", str(tmp_path), "todo", "add", "--text", "write test"]
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app, ["--cwd", str(tmp_path), "todo", "done", "todo-0001"]
+        ).exit_code
+        == 0
+    )
 
-    assert runner.invoke(
-        app, ["--cwd", str(tmp_path), "plan", "start"]
-    ).exit_code == 0
-    assert runner.invoke(
-        app, ["--cwd", str(tmp_path), "question", "add", "--text", "Question?"]
-    ).exit_code == 0
-    assert runner.invoke(
-        app,
-        ["--cwd", str(tmp_path), "question", "answer", "q-0001", "--text", "Answer."],
-    ).exit_code == 0
+    assert runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start"]).exit_code == 0
+    assert (
+        runner.invoke(
+            app, ["--cwd", str(tmp_path), "question", "add", "--text", "Question?"]
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "question",
+                "answer",
+                "q-0001",
+                "--text",
+                "Answer.",
+            ],
+        ).exit_code
+        == 0
+    )
 
 
 def test_task_option_overrides_active_task(tmp_path: Path) -> None:
@@ -249,9 +290,7 @@ def test_task_option_overrides_active_task(tmp_path: Path) -> None:
         app,
         ["--cwd", str(tmp_path), "task", "activate", "task-a"],
     )
-    assert (
-        activate.exit_code == 0
-    )
+    assert activate.exit_code == 0
 
     result = runner.invoke(
         app,
@@ -273,9 +312,7 @@ def test_export_import_preserves_active_task(tmp_path: Path) -> None:
         app,
         ["--cwd", str(source), "task", "activate", "portable"],
     )
-    assert (
-        activate.exit_code == 0
-    )
+    assert activate.exit_code == 0
 
     export_result = runner.invoke(app, ["--cwd", str(source), "--json", "export"])
     export_payload = _json(export_result)
@@ -283,9 +320,12 @@ def test_export_import_preserves_active_task(tmp_path: Path) -> None:
     export_file = tmp_path / "export.json"
     export_file.write_text(export_result.stdout, encoding="utf-8")
 
-    assert runner.invoke(
-        app,
-        ["--cwd", str(dest), "import", str(export_file), "--replace"],
-    ).exit_code == 0
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(dest), "import", str(export_file), "--replace"],
+        ).exit_code
+        == 0
+    )
     active = _json(runner.invoke(app, ["--cwd", str(dest), "--json", "task", "active"]))
     assert active["result"]["task_id"] == "task-0001"

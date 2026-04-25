@@ -25,7 +25,7 @@ def test_handoff_creation():
         workspace = Path(tmpdir)
         init_project(workspace)
         create_task(workspace, title="Test Task", description="Test", slug="task-0001")
-        
+
         result = create_handoff(
             workspace,
             "task-0001",
@@ -33,7 +33,7 @@ def test_handoff_creation():
             intended_actor_name="alice",
             summary="Implement feature X",
         )
-        
+
         assert result["handoff_id"].startswith("handoff-")
         assert result["status"] == "open"
         assert result["mode"] == "implementation"
@@ -46,15 +46,11 @@ def test_handoff_claim():
         workspace = Path(tmpdir)
         init_project(workspace)
         create_task(workspace, title="Test Task", description="Test", slug="task-0001")
-        
-        handoff = create_handoff(
-            workspace, "task-0001", mode="implementation"
-        )
-        
-        claimed = claim_handoff(
-            workspace, "task-0001", handoff["handoff_id"]
-        )
-        
+
+        handoff = create_handoff(workspace, "task-0001", mode="implementation")
+
+        claimed = claim_handoff(workspace, "task-0001", handoff["handoff_id"])
+
         assert claimed.status == "claimed"
         assert claimed.claimed_by is not None
         assert claimed.claimed_at is not None
@@ -66,16 +62,14 @@ def test_handoff_close():
         workspace = Path(tmpdir)
         init_project(workspace)
         create_task(workspace, title="Test Task", description="Test", slug="task-0001")
-        
-        handoff = create_handoff(
-            workspace, "task-0001", mode="implementation"
-        )
-        
+
+        handoff = create_handoff(workspace, "task-0001", mode="implementation")
+
         claim_handoff(workspace, "task-0001", handoff["handoff_id"])
         closed = close_handoff(
             workspace, "task-0001", handoff["handoff_id"], reason="Complete"
         )
-        
+
         assert closed.status == "closed"
 
 
@@ -85,15 +79,13 @@ def test_handoff_cancel():
         workspace = Path(tmpdir)
         init_project(workspace)
         create_task(workspace, title="Test Task", description="Test", slug="task-0001")
-        
-        handoff = create_handoff(
-            workspace, "task-0001", mode="implementation"
-        )
-        
+
+        handoff = create_handoff(workspace, "task-0001", mode="implementation")
+
         cancelled = cancel_handoff(
             workspace, "task-0001", handoff["handoff_id"], reason="No longer needed"
         )
-        
+
         assert cancelled.status == "cancelled"
 
 
@@ -103,17 +95,13 @@ def test_cannot_claim_already_claimed():
         workspace = Path(tmpdir)
         init_project(workspace)
         create_task(workspace, title="Test Task", description="Test", slug="task-0001")
-        
-        handoff = create_handoff(
-            workspace, "task-0001", mode="implementation"
-        )
-        
+
+        handoff = create_handoff(workspace, "task-0001", mode="implementation")
+
         claim_handoff(workspace, "task-0001", handoff["handoff_id"])
-        
+
         with pytest.raises(LaunchError, match="Cannot claim"):
-            claim_handoff(
-                workspace, "task-0001", handoff["handoff_id"]
-            )
+            claim_handoff(workspace, "task-0001", handoff["handoff_id"])
 
 
 def test_actor_intent_validation():
@@ -122,18 +110,16 @@ def test_actor_intent_validation():
         workspace = Path(tmpdir)
         init_project(workspace)
         create_task(workspace, title="Test Task", description="Test", slug="task-0001")
-        
+
         handoff = create_handoff(
             workspace,
             "task-0001",
             mode="implementation",
             intended_actor_name="alice",
         )
-        
-        wrong_actor = ActorRef(
-            actor_type="user", actor_name="bob"
-        )
-        
+
+        wrong_actor = ActorRef(actor_type="user", actor_name="bob")
+
         with pytest.raises(LaunchError, match="mismatch"):
             claim_handoff(
                 workspace,
@@ -149,13 +135,13 @@ def test_handoff_list():
         workspace = Path(tmpdir)
         init_project(workspace)
         create_task(workspace, title="Test Task", description="Test", slug="task-0001")
-        
+
         create_handoff(workspace, "task-0001", mode="implementation")
         create_handoff(workspace, "task-0001", mode="validation")
         create_handoff(workspace, "task-0001", mode="review")
-        
+
         handoffs = list_all_handoffs(workspace, "task-0001")
-        
+
         assert len(handoffs) == 3
 
 
@@ -165,7 +151,7 @@ def test_handoff_modes():
         workspace = Path(tmpdir)
         init_project(workspace)
         create_task(workspace, title="Test Task", description="Test", slug="task-0001")
-        
+
         modes = ["planning", "implementation", "validation", "review", "delivery"]
         for mode in modes:
             result = create_handoff(workspace, "task-0001", mode=mode)
@@ -178,7 +164,7 @@ def test_handoff_with_summary():
         workspace = Path(tmpdir)
         init_project(workspace)
         create_task(workspace, title="Test Task", description="Test", slug="task-0001")
-        
+
         summary = "Implement login feature with OAuth support"
         result = create_handoff(
             workspace,
@@ -186,7 +172,7 @@ def test_handoff_with_summary():
             mode="implementation",
             summary=summary,
         )
-        
+
         assert result["summary"] == summary
 
 
@@ -196,9 +182,9 @@ def test_handoff_list_empty_task():
         workspace = Path(tmpdir)
         init_project(workspace)
         create_task(workspace, title="Test Task", description="Test", slug="task-0001")
-        
+
         handoffs = list_all_handoffs(workspace, "task-0001")
-        
+
         assert len(handoffs) == 0
 
 
@@ -208,27 +194,20 @@ def test_handoff_lifecycle_sequence():
         workspace = Path(tmpdir)
         init_project(workspace)
         create_task(workspace, title="Test Task", description="Test", slug="task-0001")
-        
+
         # Create
         h = create_handoff(
-            workspace,
-            "task-0001",
-            mode="implementation",
-            summary="Work item"
+            workspace, "task-0001", mode="implementation", summary="Work item"
         )
         assert h["status"] == "open"
         handoff_id = h["handoff_id"]
-        
+
         # Claim
         claimed = claim_handoff(workspace, "task-0001", handoff_id)
         assert claimed.status == "claimed"
-        
+
         # Close
         closed = close_handoff(
-            workspace,
-            "task-0001",
-            handoff_id,
-            reason="Work completed"
+            workspace, "task-0001", handoff_id, reason="Work completed"
         )
         assert closed.status == "closed"
-

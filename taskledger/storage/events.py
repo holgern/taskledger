@@ -32,7 +32,9 @@ def load_events(events_dir: Path) -> list[TaskEvent]:
                 if isinstance(payload, dict):
                     event = TaskEvent.from_dict(payload)
                     if event.event_id in seen_ids:
-                        raise LaunchError(f"Duplicate event id detected: {event.event_id}")
+                        raise LaunchError(
+                            f"Duplicate event id detected: {event.event_id}"
+                        )
                     seen_ids.add(event.event_id)
                     events.append(event)
         except (OSError, json.JSONDecodeError) as exc:

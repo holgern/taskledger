@@ -114,9 +114,7 @@ def register_task_v2_commands(app: typer.Typer) -> None:  # noqa: C901
                     if active
                     else str(task["status_stage"])
                 )
-                human_lines.append(
-                    f"{task['slug']}  {task['id']}  {stage}"
-                )
+                human_lines.append(f"{task['slug']}  {task['id']}  {stage}")
         emit_payload(ctx, payload, human="\n".join(human_lines))
 
     @app.command("active")

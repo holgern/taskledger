@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, cast
 
 import typer
 
@@ -349,23 +349,30 @@ def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-        
+
         # Build human-readable output
         total = payload.get("total", 0)
         done = payload.get("done", 0)
         can_finish = payload.get("can_finish_implementation", False)
-        lines = [f"IMPLEMENTATION STATUS {payload['task_id']}  {done}/{total} todos done"]
-        
+        lines = [
+            f"IMPLEMENTATION STATUS {payload['task_id']}  {done}/{total} todos done"
+        ]
+
         todos = load_todos(state.cwd, task.id).todos
         for todo in todos:
             status_mark = "[x]" if todo.done else "[ ]"
             lines.append(f"{status_mark} {todo.id}  {todo.text}")
-        
+
         if can_finish:
-            lines.append("\nReady: All todos done. Run 'taskledger implement finish --summary \"...\"'")
+            lines.append(
+                "\nReady: All todos done. "
+                "Run 'taskledger implement finish --summary \"...\"'"
+            )
         else:
-            lines.append(f"\nBlocked: {total - done} todos not done.")
-        
+            lines.append(
+                f"\nBlocked: {cast(int, total) - cast(int, done)} todos not done."
+            )
+
         emit_payload(ctx, payload, human="\n".join(lines))
 
     @app.command("checklist")
@@ -383,21 +390,21 @@ def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-        
+
         # Build human-readable checklist output
-        total = payload.get("total", 0)
-        done = payload.get("done", 0)
+        total = cast(int, payload.get("total", 0))
+        done = cast(int, payload.get("done", 0))
         can_finish = payload.get("can_finish_implementation", False)
         lines = [f"TODO CHECKLIST: {done}/{total} done"]
-        
+
         todos = load_todos(state.cwd, task.id).todos
         for todo in todos:
             status_mark = "[x]" if todo.done else "[ ]"
             lines.append(f"{status_mark} {todo.id}  {todo.text}")
-        
+
         if can_finish:
             lines.append("\n✓ All todos done!")
         else:
             lines.append(f"\n{total - done} todos remaining")
-        
+
         emit_payload(ctx, payload, human="\n".join(lines))

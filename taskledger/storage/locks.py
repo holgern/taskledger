@@ -54,10 +54,8 @@ def lock_is_expired(lock: TaskLock, *, now: datetime | None = None) -> bool:
         expires_at = datetime.fromisoformat(lock.expires_at)
     except ValueError as exc:
         raise LaunchError(
-            
-                f"Invalid lock expiration on {lock.task_id} "
-                f"({lock.lock_id}): {lock.expires_at}"
-            
+            f"Invalid lock expiration on {lock.task_id} "
+            f"({lock.lock_id}): {lock.expires_at}"
         ) from exc
     reference = now or datetime.now(timezone.utc)
     return expires_at < reference

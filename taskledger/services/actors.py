@@ -140,7 +140,7 @@ def resolve_harness(
 
     # Use explicit params if provided
     if name:
-        harness_id = next_project_id('harness', [])
+        harness_id = next_project_id("harness", [])
         return HarnessRef(
             harness_id=harness_id,
             name=name,
@@ -152,7 +152,7 @@ def resolve_harness(
     # Check environment
     env_harness = os.getenv("TASKLEDGER_HARNESS")
     if env_harness:
-        harness_id = next_project_id('harness', [])
+        harness_id = next_project_id("harness", [])
         return HarnessRef(
             harness_id=harness_id,
             name=env_harness,
@@ -163,7 +163,7 @@ def resolve_harness(
 
     # Auto-detect
     if os.getenv("OPENCODE_VERSION"):
-        harness_id = next_project_id('harness', [])
+        harness_id = next_project_id("harness", [])
         return HarnessRef(
             harness_id=harness_id,
             name="opencode",
@@ -172,7 +172,7 @@ def resolve_harness(
         )
 
     if os.getenv("CODEX_VERSION"):
-        harness_id = next_project_id('harness', [])
+        harness_id = next_project_id("harness", [])
         return HarnessRef(
             harness_id=harness_id,
             name="codex",
@@ -181,7 +181,7 @@ def resolve_harness(
         )
 
     if os.getenv("GITHUB_ACTIONS") == "true":
-        harness_id = next_project_id('harness', [])
+        harness_id = next_project_id("harness", [])
         return HarnessRef(
             harness_id=harness_id,
             name="github-actions",
@@ -190,11 +190,11 @@ def resolve_harness(
         )
 
     # Default
-    harness_id = next_project_id('harness', [])
+    harness_id = next_project_id("harness", [])
     return HarnessRef(
         harness_id=harness_id,
         name="unknown",
-        kind="unknown",  # type: ignore
+        kind="unknown",
         session_id=session_id,
         working_directory=str(cwd) if cwd else None,
     )

@@ -1,4 +1,5 @@
 """Tests for taskledger.storage.validation."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -111,8 +112,12 @@ def test_append_with_source(tmp_path: Path) -> None:
 
 def test_multiple_records_increment_id(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
-    r1 = append_validation_record(paths, project_item_ref="it-1", memory_ref="m1", kind="a")
-    r2 = append_validation_record(paths, project_item_ref="it-2", memory_ref="m2", kind="b")
+    r1 = append_validation_record(
+        paths, project_item_ref="it-1", memory_ref="m1", kind="a"
+    )
+    r2 = append_validation_record(
+        paths, project_item_ref="it-2", memory_ref="m2", kind="b"
+    )
     assert r1["id"] == "val-0001"
     assert r2["id"] == "val-0002"
     assert len(load_validation_records(paths)) == 2
@@ -134,9 +139,15 @@ def test_save_and_reload(tmp_path: Path) -> None:
 
 def test_remove_validation_records(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
-    r1 = append_validation_record(paths, project_item_ref="it-r1", memory_ref="m1", kind="a")
-    r2 = append_validation_record(paths, project_item_ref="it-r2", memory_ref="m2", kind="b")
-    r3 = append_validation_record(paths, project_item_ref="it-r3", memory_ref="m3", kind="c")
+    r1 = append_validation_record(
+        paths, project_item_ref="it-r1", memory_ref="m1", kind="a"
+    )
+    r2 = append_validation_record(
+        paths, project_item_ref="it-r2", memory_ref="m2", kind="b"
+    )
+    r3 = append_validation_record(
+        paths, project_item_ref="it-r3", memory_ref="m3", kind="c"
+    )
     removed = remove_validation_records(paths, ids={r1["id"], r3["id"]})
     assert len(removed) == 2
     remaining = load_validation_records(paths)
@@ -163,14 +174,21 @@ def test_load_validation_records_normalizes_missing_optional(tmp_path: Path) -> 
     index_path = validation_records_index_path(paths)
     index_path.parent.mkdir(parents=True, exist_ok=True)
     import json
+
     # Write a raw record with only required fields
-    index_path.write_text(json.dumps([{
-        "id": "val-0001",
-        "created_at": "2026-01-01T00:00:00Z",
-        "project_item_ref": "it-raw",
-        "memory_ref": "m-raw",
-        "kind": "manual",
-    }]))
+    index_path.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "val-0001",
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "project_item_ref": "it-raw",
+                    "memory_ref": "m-raw",
+                    "kind": "manual",
+                }
+            ]
+        )
+    )
     loaded = load_validation_records(paths)
     assert len(loaded) == 1
     assert loaded[0]["id"] == "val-0001"
@@ -182,14 +200,21 @@ def test_load_validation_records_rejects_non_string_field(tmp_path: Path) -> Non
     index_path = validation_records_index_path(paths)
     index_path.parent.mkdir(parents=True, exist_ok=True)
     import json
-    index_path.write_text(json.dumps([{
-        "id": "val-0001",
-        "created_at": "2026-01-01T00:00:00Z",
-        "project_item_ref": "it-bad",
-        "memory_ref": "m-bad",
-        "kind": "manual",
-        "status": 123,  # not a string
-    }]))
+
+    index_path.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "val-0001",
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "project_item_ref": "it-bad",
+                    "memory_ref": "m-bad",
+                    "kind": "manual",
+                    "status": 123,  # not a string
+                }
+            ]
+        )
+    )
     with pytest.raises(LaunchError, match="must be a string"):
         load_validation_records(paths)
 
@@ -199,13 +224,20 @@ def test_load_validation_records_rejects_empty_required(tmp_path: Path) -> None:
     index_path = validation_records_index_path(paths)
     index_path.parent.mkdir(parents=True, exist_ok=True)
     import json
-    index_path.write_text(json.dumps([{
-        "id": "val-0001",
-        "created_at": "2026-01-01T00:00:00Z",
-        "project_item_ref": "",
-        "memory_ref": "m-x",
-        "kind": "manual",
-    }]))
+
+    index_path.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "val-0001",
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "project_item_ref": "",
+                    "memory_ref": "m-x",
+                    "kind": "manual",
+                }
+            ]
+        )
+    )
     with pytest.raises(LaunchError, match="non-empty string"):
         load_validation_records(paths)
 
@@ -215,14 +247,21 @@ def test_load_validation_records_source_not_dict(tmp_path: Path) -> None:
     index_path = validation_records_index_path(paths)
     index_path.parent.mkdir(parents=True, exist_ok=True)
     import json
-    index_path.write_text(json.dumps([{
-        "id": "val-0001",
-        "created_at": "2026-01-01T00:00:00Z",
-        "project_item_ref": "it-src",
-        "memory_ref": "m-src",
-        "kind": "manual",
-        "source": "not-a-dict",
-    }]))
+
+    index_path.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "val-0001",
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "project_item_ref": "it-src",
+                    "memory_ref": "m-src",
+                    "kind": "manual",
+                    "source": "not-a-dict",
+                }
+            ]
+        )
+    )
     with pytest.raises(LaunchError, match="must be an object"):
         load_validation_records(paths)
 
@@ -232,18 +271,25 @@ def test_load_validation_records_preserves_source_dict(tmp_path: Path) -> None:
     index_path = validation_records_index_path(paths)
     index_path.parent.mkdir(parents=True, exist_ok=True)
     import json
-    index_path.write_text(json.dumps([{
-        "id": "val-0001",
-        "created_at": "2026-01-01T00:00:00Z",
-        "project_item_ref": "it-src2",
-        "memory_ref": "m-src2",
-        "kind": "manual",
-        "source": {"a": 1},
-        "notes": "ok",
-        "verdict": "pass",
-        "status": "done",
-        "run_id": "r-1",
-    }]))
+
+    index_path.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "val-0001",
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "project_item_ref": "it-src2",
+                    "memory_ref": "m-src2",
+                    "kind": "manual",
+                    "source": {"a": 1},
+                    "notes": "ok",
+                    "verdict": "pass",
+                    "status": "done",
+                    "run_id": "r-1",
+                }
+            ]
+        )
+    )
     loaded = load_validation_records(paths)
     assert loaded[0]["source"] == {"a": 1}
     assert loaded[0]["notes"] == "ok"

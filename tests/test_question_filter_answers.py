@@ -44,7 +44,15 @@ def _init_task_with_questions(tmp_path: Path) -> None:
     assert (
         runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "question", "add", "--text", "Q1?", "--required-for-plan"],
+            [
+                "--cwd",
+                str(tmp_path),
+                "question",
+                "add",
+                "--text",
+                "Q1?",
+                "--required-for-plan",
+            ],
         ).exit_code
         == 0
     )
@@ -80,7 +88,15 @@ def test_list_with_status_answered(tmp_path: Path) -> None:
     result = _json(
         runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "--json", "question", "list", "--status", "answered"],
+            [
+                "--cwd",
+                str(tmp_path),
+                "--json",
+                "question",
+                "list",
+                "--status",
+                "answered",
+            ],
         )
     )
     items = result["result"]
@@ -94,7 +110,15 @@ def test_list_with_status_dismissed(tmp_path: Path) -> None:
     result = _json(
         runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "--json", "question", "list", "--status", "dismissed"],
+            [
+                "--cwd",
+                str(tmp_path),
+                "--json",
+                "question",
+                "list",
+                "--status",
+                "dismissed",
+            ],
         )
     )
     items = result["result"]
@@ -108,7 +132,15 @@ def test_list_with_comma_separated_status(tmp_path: Path) -> None:
     result = _json(
         runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "--json", "question", "list", "--status", "answered,dismissed"],
+            [
+                "--cwd",
+                str(tmp_path),
+                "--json",
+                "question",
+                "list",
+                "--status",
+                "answered,dismissed",
+            ],
         )
     )
     items = result["result"]
@@ -161,7 +193,15 @@ def test_answers_json_format(tmp_path: Path) -> None:
     result = _json(
         runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "--json", "question", "answers", "--format", "json"],
+            [
+                "--cwd",
+                str(tmp_path),
+                "--json",
+                "question",
+                "answers",
+                "--format",
+                "json",
+            ],
         )
     )
     payload = result["result"]
@@ -219,7 +259,16 @@ def test_answer_empty_text_rejected(tmp_path: Path) -> None:
     )
     result = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "--json", "question", "answer", "q-0001", "--text", ""],
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "question",
+            "answer",
+            "q-0001",
+            "--text",
+            "",
+        ],
     )
     assert result.exit_code != 0
     payload = json.loads(result.stdout)
@@ -245,7 +294,16 @@ def test_answer_whitespace_only_rejected(tmp_path: Path) -> None:
     )
     result = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "--json", "question", "answer", "q-0001", "--text", "   "],
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "question",
+            "answer",
+            "q-0001",
+            "--text",
+            "   ",
+        ],
     )
     assert result.exit_code != 0
     payload = json.loads(result.stdout)

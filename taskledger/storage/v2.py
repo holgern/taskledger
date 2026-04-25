@@ -529,7 +529,8 @@ def _ensure_schema_compat(record: dict) -> dict:
     version = record.get("schema_version", 1)
     if version > TASKLEDGER_SCHEMA_VERSION:
         raise LaunchError(
-            f"Record schema too new: {version} (current max: {TASKLEDGER_SCHEMA_VERSION}). "
+            f"Record schema too new: {version} "
+            f"(current max: {TASKLEDGER_SCHEMA_VERSION}). "
             "Please upgrade taskledger."
         )
     return record
@@ -568,7 +569,6 @@ def _legacy_slug_sidecar_path(
     if not task.slug or task.slug == task.id:
         return None
     return task_dir(paths, task.slug) / filename
-
 
 
 def _todo_collection(task: TaskRecord) -> dict[str, object]:
@@ -640,7 +640,9 @@ def list_handoffs(workspace_root: Path, task_id: str) -> list[TaskHandoffRecord]
     return sorted(result, key=lambda h: h.created_at)
 
 
-def resolve_handoff(workspace_root: Path, task_id: str, handoff_ref: str) -> TaskHandoffRecord:
+def resolve_handoff(
+    workspace_root: Path, task_id: str, handoff_ref: str
+) -> TaskHandoffRecord:
     paths = resolve_v2_paths(workspace_root)
     path = handoff_markdown_path(paths, task_id, handoff_ref)
     if not path.exists():

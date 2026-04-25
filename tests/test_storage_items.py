@@ -1,4 +1,5 @@
 """Tests for taskledger.storage.items."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -102,7 +103,9 @@ def test_resolve_work_item_by_slug(tmp_path: Path) -> None:
 
 def test_resolve_work_item_by_title(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
-    create_work_item(paths, slug="res-title", title="Exact Title Match", description="d")
+    create_work_item(
+        paths, slug="res-title", title="Exact Title Match", description="d"
+    )
     resolved = resolve_work_item(paths, "Exact Title Match")
     assert resolved.title == "Exact Title Match"
 
@@ -116,10 +119,15 @@ def test_resolve_work_item_unknown_raises(tmp_path: Path) -> None:
 def test_save_work_item(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
     item = create_work_item(
-        paths, slug="save-test", title="Save", description="d",
-        status="draft", stage="intake",
+        paths,
+        slug="save-test",
+        title="Save",
+        description="d",
+        status="draft",
+        stage="intake",
     )
     from dataclasses import replace
+
     updated = replace(item, title="Saved Title")
     saved = save_work_item(paths, updated)
     assert saved.title == "Saved Title"
@@ -131,9 +139,10 @@ def test_save_work_item(tmp_path: Path) -> None:
 
 def test_save_work_item_slug_change_conflict(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
-    item1 = create_work_item(paths, slug="alpha", title="Alpha", description="a")
+    create_work_item(paths, slug="alpha", title="Alpha", description="a")
     item2 = create_work_item(paths, slug="beta", title="Beta", description="b")
     from dataclasses import replace
+
     # Try to rename item2 slug to "alpha"
     renamed = replace(item2, slug="alpha")
     with pytest.raises(LaunchError, match="already exists with slug"):
@@ -144,6 +153,7 @@ def test_update_work_item(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
     item = create_work_item(paths, slug="upd", title="Upd", description="d")
     from dataclasses import replace
+
     updated = replace(item, title="Updated Title", description="new desc")
     result = update_work_item(paths, item.id, updated)
     assert result.title == "Updated Title"
@@ -153,6 +163,7 @@ def test_update_work_item_id_change_raises(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
     item = create_work_item(paths, slug="nochange", title="NC", description="d")
     from dataclasses import replace
+
     changed_id = replace(item, id="it-9999")
     with pytest.raises(LaunchError, match="id cannot be changed"):
         update_work_item(paths, item.id, changed_id)
@@ -160,9 +171,10 @@ def test_update_work_item_id_change_raises(tmp_path: Path) -> None:
 
 def test_update_work_item_slug_conflict(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
-    item1 = create_work_item(paths, slug="first", title="First", description="a")
+    create_work_item(paths, slug="first", title="First", description="a")
     item2 = create_work_item(paths, slug="second", title="Second", description="b")
     from dataclasses import replace
+
     renamed = replace(item2, slug="first")
     with pytest.raises(LaunchError, match="already exists with slug"):
         update_work_item(paths, item2.id, renamed)
@@ -171,7 +183,7 @@ def test_update_work_item_slug_conflict(tmp_path: Path) -> None:
 def test_save_work_items_removes_stale(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
     item1 = create_work_item(paths, slug="keep", title="Keep", description="k")
-    item2 = create_work_item(paths, slug="stale", title="Stale", description="s")
+    create_work_item(paths, slug="stale", title="Stale", description="s")
     save_work_items(paths, [item1])
     loaded = load_work_items(paths)
     assert len(loaded) == 1
@@ -201,9 +213,13 @@ def test_load_work_items_wrong_file_version(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
     item = create_work_item(paths, slug="fv", title="FV", description="d")
     from dataclasses import replace
-    bad = replace(item, description="d")
+
+    replace(item, description="d")  # unused: testing load, not the replaced value
     md_path = paths.items_dir / f"{item.id}.md"
-    meta = {"file_version": "v99", **{k: v for k, v in item.to_dict().items() if k != "description"}}
+    meta = {
+        "file_version": "v99",
+        **{k: v for k, v in item.to_dict().items() if k != "description"},
+    }
     write_markdown_front_matter(md_path, meta, "d")
     with pytest.raises(LaunchError, match="Unsupported work item file_version"):
         load_work_items(paths)

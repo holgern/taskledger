@@ -45,7 +45,12 @@ def _prepare_implementation(tmp_path: Path) -> None:
         ).exit_code
         == 0
     )
-    assert runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start", "impl-scan"]).exit_code == 0
+    assert (
+        runner.invoke(
+            app, ["--cwd", str(tmp_path), "plan", "start", "impl-scan"]
+        ).exit_code
+        == 0
+    )
     assert (
         runner.invoke(
             app,
@@ -91,10 +96,14 @@ def _prepare_implementation(tmp_path: Path) -> None:
     )
 
 
-def test_scan_changes_from_git_records_branch_status_and_diff_stat(tmp_path: Path) -> None:
+def test_scan_changes_from_git_records_branch_status_and_diff_stat(
+    tmp_path: Path,
+) -> None:
     _prepare_implementation(tmp_path)
 
-    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True, text=True)
+    subprocess.run(
+        ["git", "init"], cwd=tmp_path, check=True, capture_output=True, text=True
+    )
     subprocess.run(
         ["git", "config", "user.email", "test@example.com"],
         cwd=tmp_path,
@@ -111,7 +120,13 @@ def test_scan_changes_from_git_records_branch_status_and_diff_stat(tmp_path: Pat
     )
     readme = tmp_path / "README.md"
     readme.write_text("hello\n", encoding="utf-8")
-    subprocess.run(["git", "add", "README.md"], cwd=tmp_path, check=True, capture_output=True, text=True)
+    subprocess.run(
+        ["git", "add", "README.md"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     subprocess.run(
         ["git", "commit", "-m", "init"],
         cwd=tmp_path,
@@ -163,7 +178,9 @@ def test_scan_changes_from_git_rejects_non_git_workspace(tmp_path: Path) -> None
     assert "Git work tree" in payload["error"]["message"]
 
 
-def test_manual_implement_change_still_works_via_canonical_command(tmp_path: Path) -> None:
+def test_manual_implement_change_still_works_via_canonical_command(
+    tmp_path: Path,
+) -> None:
     _prepare_implementation(tmp_path)
 
     result = runner.invoke(
