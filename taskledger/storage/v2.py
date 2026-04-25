@@ -201,11 +201,6 @@ def save_task(workspace_root: Path, task: TaskRecord) -> TaskRecord:
             path=task_requirements_path(paths, task.id),
             payload=_requirement_collection(task),
         )
-    if task.slug and task.slug != task.id:
-        # Older task bundle layouts used the slug as the directory name. The
-        # id-named bundle is canonical, but keeping the slug directory present
-        # lets legacy sidecars be read without treating them as tasks.
-        task_dir(paths, task.slug).mkdir(parents=True, exist_ok=True)
     return task
 
 

@@ -393,3 +393,33 @@ def test_inspect_counts_include_plans_and_questions(tmp_path: Path) -> None:
     counts = result["counts"]
     assert counts["plans"] == 1
     assert counts["runs"] == 1
+
+
+def test_doctor_warns_about_empty_orphan_slug_dir(tmp_path: Path) -> None:
+    task = _task(slug="my-feature")
+    save_task(tmp_path, task)
+    paths = ensure_v2_layout(tmp_path)
+    orphan_dir = paths.tasks_dir / "my-feature"
+    orphan_dir.mkdir()
+    result = inspect_v2_project(tmp_path)
+    assert any("Orphan empty slug directory: my-feature/" in w for w in result["warnings"])
+    assert any("repair task-dirs" in h for h in result["repair_hints"])
+
+
+def test_doctor_warns_about_non_empty_legacy_sidecar(tmp_path: Path) -> None:
+    task = _task(slug="my-feature")
+    save_task(tmp_path, task)
+    paths = ensure_v2_layout(tmp_path)
+    sidecar_dir = paths.tasks_dir / "my-feature"
+    sidecar_dir.mkdir()
+    (sidecar_dir / "some-file.yaml").write_text("some content")
+    result = inspect_v2_project(tmp_path)
+    assert any("Legacy slug sidecar directory retained: my-feature/" in w for w in result["warnings"])
+    assert not any("repair task-dirs" in h for h in result["repair_hints"])
+
+
+def test_doctor_no_warning_for_canonical_task_dir(tmp_path: Path) -> None:
+    task = _task(slug="my-feature")
+    save_task(tmp_path, task)
+    result = inspect_v2_project(tmp_path)
+    assert not any("slug" in w for w in result["warnings"])

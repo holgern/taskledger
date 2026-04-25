@@ -307,7 +307,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
     def approve_command(
         ctx: typer.Context,
         version: Annotated[int, typer.Option("--version")],
-        actor: Annotated[str, typer.Option("--actor")] = "user",
+        actor: Annotated[str, typer.Option("--actor")] = "agent",
         actor_name: Annotated[str | None, typer.Option("--actor-name")] = None,
         note: Annotated[str | None, typer.Option("--note")] = None,
         allow_agent_approval: Annotated[

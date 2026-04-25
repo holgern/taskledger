@@ -98,3 +98,55 @@ def test_task_list_scans_task_markdown_without_indexes(tmp_path: Path) -> None:
     result = runner.invoke(app, ["--cwd", str(tmp_path), "task", "list"])
     assert result.exit_code == 0, result.stdout
     assert "scan-layout" in result.stdout
+
+
+def test_task_create_no_orphan_slug_directory(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "create",
+            "slug-orphan-check",
+            "--description",
+            "No empty slug dir should appear.",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+
+    tasks_dir = tmp_path / ".taskledger" / "tasks"
+    child_names = [p.name for p in tasks_dir.iterdir()]
+    # Only the canonical task-NNNN directory should exist
+    assert child_names == ["task-0001"], f"unexpected directories: {child_names}"
+    assert not (tasks_dir / "slug-orphan-check").exists()
+
+
+def test_repair_task_dirs_removes_orphans(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "create",
+            "orphan-parent",
+            "--description",
+            "Create a task then add an orphan dir.",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+
+    tasks_dir = tmp_path / ".taskledger" / "tasks"
+    # Manually create an empty slug-like directory
+    (tasks_dir / "orphan-parent").mkdir()
+    assert (tasks_dir / "orphan-parent").exists()
+
+    result = runner.invoke(app, ["--cwd", str(tmp_path), "repair", "task-dirs"])
+    assert result.exit_code == 0, result.stdout
+    assert "1" in result.stdout
+    assert not (tasks_dir / "orphan-parent").exists()

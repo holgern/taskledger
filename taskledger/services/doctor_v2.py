@@ -19,6 +19,7 @@ from taskledger.storage.v2 import (
     load_todos,
     resolve_introduction,
     resolve_run,
+    task_dir,
 )
 
 
@@ -190,6 +191,25 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
                 f"run {run.run_id} type {run.run_type}."
             )
 
+    # Detect orphan slug directories (empty dirs matching task slugs but not task-NNNN)
+    task_slugs = {task.slug for task in tasks if task.slug}
+    paths = ensure_v2_layout(workspace_root)
+    for child in paths.tasks_dir.iterdir():
+        if (
+            child.is_dir()
+            and not child.name.startswith("task-")
+            and child.name in task_slugs
+            and not (child / "task.md").exists()
+        ):
+            is_empty = not any(child.iterdir())
+            if is_empty:
+                warnings.append(f"Orphan empty slug directory: {child.name}/")
+                repair_hints.append(
+                    "Remove orphan directory with `taskledger repair task-dirs`."
+                )
+            else:
+                warnings.append(f"Legacy slug sidecar directory retained: {child.name}/")
+
     if broken_links:
         errors.append("V2 task records contain broken references.")
     if expired_locks:
@@ -269,4 +289,27 @@ def inspect_v2_indexes(workspace_root: Path) -> dict[str, object]:
         "healthy": not missing and not event_errors,
         "missing_indexes": missing,
         "event_errors": event_errors,
+    }
+
+
+def cleanup_orphan_slug_dirs(workspace_root: Path) -> dict[str, object]:
+    """Remove empty slug-named directories under tasks/ that have no task.md."""
+    paths = ensure_v2_layout(workspace_root)
+    tasks = list_tasks(workspace_root)
+    task_slugs = {task.slug for task in tasks if task.slug}
+    removed: list[str] = []
+    for child in sorted(paths.tasks_dir.iterdir()):
+        if (
+            child.is_dir()
+            and not child.name.startswith("task-")
+            and child.name in task_slugs
+            and not (child / "task.md").exists()
+            and not any(child.iterdir())
+        ):
+            child.rmdir()
+            removed.append(child.name)
+    return {
+        "kind": "taskledger_repair_task_dirs",
+        "removed": removed,
+        "count": len(removed),
     }

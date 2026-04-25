@@ -53,7 +53,7 @@ from taskledger.services.doctor_v2 import (
     inspect_v2_project,
     inspect_v2_schema,
 )
-from taskledger.storage.v2 import load_requirements, load_todos
+from taskledger.storage.v2 import load_active_locks, load_requirements, load_todos
 
 
 def register_todo_v2_commands(app: typer.Typer) -> None:
@@ -62,8 +62,12 @@ def register_todo_v2_commands(app: typer.Typer) -> None:
         ctx: typer.Context,
         text: Annotated[str, typer.Option("--text")],
         mandatory: Annotated[
-            bool,
+            bool | None,
             typer.Option("--mandatory", help="Mark todo as mandatory gate."),
+        ] = None,
+        optional: Annotated[
+            bool,
+            typer.Option("--optional", help="Explicitly mark todo as optional."),
         ] = False,
         task_arg: Annotated[
             str | None,
@@ -77,7 +81,19 @@ def register_todo_v2_commands(app: typer.Typer) -> None:
         state = cli_state_from_context(ctx)
         try:
             task = resolve_cli_task(state.cwd, task_ref or task_arg)
-            task = add_todo(state.cwd, task.id, text=text, mandatory=mandatory)
+            resolved_mandatory: bool
+            if optional:
+                resolved_mandatory = False
+            elif mandatory is not None:
+                resolved_mandatory = mandatory
+            else:
+                locks = load_active_locks(state.cwd)
+                active_impl = any(
+                    lock.task_id == task.id and lock.stage == "implementing"
+                    for lock in locks
+                )
+                resolved_mandatory = active_impl
+            task = add_todo(state.cwd, task.id, text=text, mandatory=resolved_mandatory)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc

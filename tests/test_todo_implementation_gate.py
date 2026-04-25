@@ -440,6 +440,56 @@ Implement the feature.
             assert "todo done" in blocker.get("command_hint", "")
 
 
+class TestTodoObservability:
+    """Regression tests for todo visibility during implementation."""
+
+    def test_four_todo_adds_all_visible_in_status(self, tmp_path: Path) -> None:
+        """Four sequential todo adds during implementation should all appear in status."""
+        _prepare_task_for_implementation(tmp_path)
+
+        todo_ids = []
+        for i in range(4):
+            result = runner.invoke(
+                app,
+                [
+                    "--cwd", str(tmp_path),
+                    "todo", "add",
+                    "--text", f"Implement step {i + 1}.",
+                ],
+            )
+            assert result.exit_code == 0, f"todo add {i + 1} failed: {result.stderr}"
+            task_data = _json(result)
+            new_todo = task_data["task"]["todos"][-1]
+            todo_ids.append(new_todo["id"])
+
+        # Check status shows all four
+        result = runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "--json", "todo", "status"],
+        )
+        assert result.exit_code == 0
+        # --json output may contain multiple JSON objects separated by blank lines
+        first_json = result.stdout.strip().split("\n\n")[0]
+        payload = json.loads(first_json)
+        status_data = payload["result"]
+        assert status_data["total"] == 4
+        assert status_data["done"] == 0
+
+        # Check list shows all four
+        result = runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "todo", "list", "--json"],
+        )
+        assert result.exit_code == 0
+        listed = _json(result)
+        listed_ids = [t["id"] for t in listed.get("todos", [])]
+        assert listed_ids == todo_ids
+
+        # Verify todos added during implementation default to mandatory
+        for t in listed.get("todos", []):
+            assert t["mandatory"] is True
+
+
 class TestTodoBackwardCompatibility:
     """Test suite for backward compatibility with old todo format."""
     
@@ -459,13 +509,13 @@ class TestTodoBackwardCompatibility:
         assert result.exit_code == 0
         
         # Get task to retrieve it
-        task_dir = tmp_path / ".taskledger" / "tasks" / "legacy-task"
+        task_dir = tmp_path / ".taskledger" / "tasks" / "task-0001"
         todos_file = task_dir / "todos.yaml"
         
         # Write legacy todos.yaml
         legacy_todos = """schema_version: 1
 object_type: todos
-task_id: legacy-task
+task_id: task-0001
 todos:
   - id: todo-0001
     text: Legacy done todo
@@ -505,12 +555,12 @@ todos:
         _prepare_task_for_implementation(tmp_path)
         
         # Manually write legacy todos.yaml
-        task_dir = tmp_path / ".taskledger" / "tasks" / "test-task"
+        task_dir = tmp_path / ".taskledger" / "tasks" / "task-0001"
         todos_file = task_dir / "todos.yaml"
         
         legacy_todos = """schema_version: 1
 object_type: todos
-task_id: test-task
+task_id: task-0001
 todos:
   - id: todo-0001
     text: Legacy todo

@@ -162,3 +162,69 @@ def test_plan_approval_requires_criteria_by_default(tmp_path: Path) -> None:
     assert approve.exit_code != 0
     assert payload["ok"] is False
     assert "acceptance criterion" in payload["error"]["message"]
+
+
+def test_plan_approve_default_actor_is_agent(tmp_path: Path) -> None:
+    """Verify that plan approve defaults to agent, requiring explicit --actor user for user approval."""
+    _init_project(tmp_path)
+    _prepare_proposed_plan(tmp_path)
+
+    approve = runner.invoke(
+        app,
+        [
+            "--cwd", str(tmp_path),
+            "--json",
+            "plan", "approve", "approval-task",
+            "--version", "1",
+            "--note", "Auto-approved without specifying actor.",
+        ],
+    )
+    payload = _json(approve)
+    assert approve.exit_code != 0
+    assert payload["ok"] is False
+    assert "allow-agent-approval" in payload["error"]["message"]
+
+
+def test_plan_yaml_single_key_shorthand_criteria(tmp_path: Path) -> None:
+    """Verify plan YAML accepts single-key shorthand mappings for criteria."""
+    _init_project(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "task", "create", "shorthand-task", "--description", "Test shorthand."],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "plan", "start", "shorthand-task"],
+        ).exit_code
+        == 0
+    )
+
+    plan_text = """---
+acceptance_criteria:
+  - ac-0001: The feature works correctly.
+  - id: ac-0002
+    text: Edge cases handled.
+---\n\n# Plan\n\nDo the work."""
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "plan", "propose", "shorthand-task", "--text", plan_text],
+        ).exit_code
+        == 0
+    )
+
+    show = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "--json", "plan", "show", "shorthand-task", "--version", "1"],
+    )
+    assert show.exit_code == 0
+    plan = json.loads(show.stdout)["result"]["plan"]
+    assert len(plan["criteria"]) == 2
+    assert plan["criteria"][0]["id"] == "ac-0001"
+    assert plan["criteria"][0]["text"] == "The feature works correctly."
+    assert plan["criteria"][1]["id"] == "ac-0002"
+    assert plan["criteria"][1]["text"] == "Edge cases handled."

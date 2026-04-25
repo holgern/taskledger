@@ -3100,6 +3100,23 @@ def _criteria_from_plan_input(
                 )
             text = str(item.get("text") or "").strip()
             if not text:
+                # Accept single-key shorthand: {ac-0001: "some text"}
+                if len(item) == 1:
+                    criterion_key, text_value = next(iter(item.items()))
+                    text = str(text_value).strip()
+                    if not text:
+                        raise _cli_error(
+                            "Plan criteria mappings must include non-empty text.",
+                            EXIT_CODE_BAD_INPUT,
+                        )
+                    items.append(
+                        AcceptanceCriterion(
+                            id=str(criterion_key).strip(),
+                            text=text,
+                            mandatory=True,
+                        )
+                    )
+                    continue
                 raise _cli_error(
                     "Plan criteria mappings must include text.",
                     EXIT_CODE_BAD_INPUT,

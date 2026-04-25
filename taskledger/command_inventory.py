@@ -111,4 +111,5 @@ COMMAND_METADATA: dict[str, tuple[str, str]] = {
     "repair index": (REPAIR, "ledger_mutation"),
     "repair lock": (REPAIR, "ledger_mutation"),
     "repair task": (REPAIR, "ledger_mutation"),
+    "repair task-dirs": (REPAIR, "ledger_mutation"),
 }
