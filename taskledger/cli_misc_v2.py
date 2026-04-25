@@ -5,7 +5,15 @@ from typing import Annotated, cast
 
 import typer
 
-from taskledger.api.handoff import render_handoff
+from taskledger.api.handoff import (
+    cancel_handoff_api,
+    claim_handoff_api,
+    close_handoff_api,
+    create_handoff,
+    list_all_handoffs,
+    render_handoff,
+    show_handoff,
+)
 from taskledger.api.introductions import (
     create_introduction,
     link_introduction,
@@ -34,6 +42,7 @@ from taskledger.cli_common import (
     emit_error,
     emit_payload,
     launch_error_exit_code,
+    render_json,
     read_text_input,
     resolve_cli_task,
 )
@@ -72,7 +81,11 @@ def register_todo_v2_commands(app: typer.Typer) -> None:
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-        emit_payload(ctx, task.to_dict(), human=f"added todo on {task.id}")
+        payload = {"kind": "task", "task": task.to_dict()}
+        if state.json_output:
+            emit_payload(ctx, payload, human=f"added todo on {task.id}")
+        else:
+            typer.echo(render_json(payload))
 
     @app.command("list")
     def list_command(
@@ -81,6 +94,10 @@ def register_todo_v2_commands(app: typer.Typer) -> None:
             str | None,
             typer.Argument(help="Task ref. Defaults to the active task."),
         ] = None,
+        json_output: Annotated[
+            bool,
+            typer.Option("--json", help="Render machine-readable JSON."),
+        ] = False,
         task_ref: Annotated[
             str | None,
             typer.Option("--task", help="Task ref. Defaults to the active task."),
@@ -93,22 +110,26 @@ def register_todo_v2_commands(app: typer.Typer) -> None:
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-        payload = [todo.to_dict() for todo in todos]
+        payload = {"kind": "todo_list", "task_id": task.id, "todos": [todo.to_dict() for todo in todos]}
         lines = ["TODOS"]
         for todo in todos:
             status = "done" if todo.done else "open"
             lines.append(f"{todo.id}  {status}  {todo.text}")
-        emit_payload(
-            ctx,
-            payload,
-            human="\n".join(lines) if payload else "TODOS\n(empty)",
-        )
+        if state.json_output:
+            emit_payload(ctx, payload, human="\n".join(lines) if todos else "TODOS\n(empty)")
+        elif json_output:
+            typer.echo(render_json(payload))
+        else:
+            emit_payload(ctx, payload, human="\n".join(lines) if todos else "TODOS\n(empty)")
 
     @app.command("done")
     def done_command(
         ctx: typer.Context,
         todo_id: Annotated[str, typer.Argument(...)],
         legacy_todo_id: Annotated[str | None, typer.Argument(help="Todo id.")] = None,
+        evidence: Annotated[str | None, typer.Option("--evidence")] = None,
+        artifact: Annotated[list[str] | None, typer.Option("--artifact")] = None,
+        change: Annotated[list[str] | None, typer.Option("--change")] = None,
         task_ref: Annotated[
             str | None,
             typer.Option("--task", help="Task ref. Defaults to the active task."),
@@ -119,7 +140,15 @@ def register_todo_v2_commands(app: typer.Typer) -> None:
             todo_id,
             legacy_todo_id,
         )
-        _emit_todo_update(ctx, target_ref, resolved_todo_id, done=True)
+        _emit_todo_update(
+            ctx,
+            target_ref,
+            resolved_todo_id,
+            done=True,
+            evidence=evidence,
+            artifacts=tuple(artifact or ()),
+            changes=tuple(change or ()),
+        )
 
     @app.command("undone")
     def undone_command(
@@ -736,9 +765,122 @@ def register_lock_v2_commands(app: typer.Typer) -> None:
 
 
 def register_handoff_v2_commands(app: typer.Typer) -> None:
+    @app.command("create")
+    def create_command(
+        ctx: typer.Context,
+        mode: Annotated[str, typer.Option("--mode")],
+        intended_actor: Annotated[str | None, typer.Option("--intended-actor")] = None,
+        intended_harness: Annotated[str | None, typer.Option("--intended-harness")] = None,
+        summary: Annotated[str | None, typer.Option("--summary")] = None,
+        next_action: Annotated[str | None, typer.Option("--next-action")] = None,
+        task_arg: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = resolve_cli_task(state.cwd, task_ref or task_arg)
+            payload = create_handoff(
+                state.cwd,
+                task.id,
+                mode=mode,
+                intended_actor_type=intended_actor,
+                intended_harness=intended_harness,
+                summary=summary,
+                next_action=next_action,
+            )
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, payload, human=f"created handoff {payload['handoff_id']}")
+
+    @app.command("list")
+    def list_handoff_command(
+        ctx: typer.Context,
+        task_arg: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = resolve_cli_task(state.cwd, task_ref or task_arg)
+            handoffs = list_all_handoffs(state.cwd, task.id)
+            payload = {"kind": "handoff_list", "task_id": task.id, "handoffs": handoffs}
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, payload, human="\n".join(h["handoff_id"] for h in handoffs))
+
+    @app.command("claim")
+    def claim_command(
+        ctx: typer.Context,
+        handoff_id: Annotated[str, typer.Argument(help="Handoff id.")],
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = resolve_cli_task(state.cwd, task_ref)
+            payload = claim_handoff_api(state.cwd, task.id, handoff_id)
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, payload, human=f"claimed handoff {payload['handoff_id']}")
+
+    @app.command("close")
+    def close_command(
+        ctx: typer.Context,
+        handoff_id: Annotated[str, typer.Argument(help="Handoff id.")],
+        reason: Annotated[str | None, typer.Option("--reason")] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = resolve_cli_task(state.cwd, task_ref)
+            payload = close_handoff_api(state.cwd, task.id, handoff_id, reason=reason)
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, payload, human=f"closed handoff {payload['handoff_id']}")
+
+    @app.command("cancel")
+    def cancel_command(
+        ctx: typer.Context,
+        handoff_id: Annotated[str, typer.Argument(help="Handoff id.")],
+        reason: Annotated[str | None, typer.Option("--reason")] = None,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = resolve_cli_task(state.cwd, task_ref)
+            payload = cancel_handoff_api(state.cwd, task.id, handoff_id, reason=reason)
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, payload, human=f"cancelled handoff {payload['handoff_id']}")
+
     @app.command("show")
     def show_command(
         ctx: typer.Context,
+        handoff_id: Annotated[str | None, typer.Argument(help="Optional handoff id.")] = None,
         format_name: Annotated[str, typer.Option("--format")] = "text",
         task_arg: Annotated[
             str | None,
@@ -749,7 +891,17 @@ def register_handoff_v2_commands(app: typer.Typer) -> None:
             typer.Option("--task", help="Task ref. Defaults to the active task."),
         ] = None,
     ) -> None:
-        _emit_handoff(ctx, task_ref or task_arg, mode="show", format_name=format_name)
+        if handoff_id is None:
+            _emit_handoff(ctx, task_ref or task_arg, mode="show", format_name=format_name)
+            return
+        state = cli_state_from_context(ctx)
+        try:
+            task = resolve_cli_task(state.cwd, task_ref or task_arg)
+            payload = show_handoff(state.cwd, task.id, handoff_id)
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, payload, human=str(payload))
 
     @app.command("plan-context")
     def plan_context_command(
@@ -893,15 +1045,30 @@ def _emit_todo_update(
     todo_id: str,
     *,
     done: bool,
+    evidence: str | None = None,
+    artifacts: tuple[str, ...] = (),
+    changes: tuple[str, ...] = (),
 ) -> None:
     state = cli_state_from_context(ctx)
     try:
         task = resolve_cli_task(state.cwd, task_ref)
-        task = set_todo_done(state.cwd, task.id, todo_id, done=done)
+        task = set_todo_done(
+            state.cwd,
+            task.id,
+            todo_id,
+            done=done,
+            evidence=evidence,
+            artifacts=artifacts,
+            changes=changes,
+        )
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-    emit_payload(ctx, task.to_dict(), human=f"updated todo {todo_id}")
+    payload = {"kind": "task", "task": task.to_dict()}
+    if state.json_output:
+        emit_payload(ctx, payload, human=f"updated todo {todo_id}")
+    else:
+        typer.echo(render_json(payload))
 
 
 def _emit_handoff(

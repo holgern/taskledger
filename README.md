@@ -35,21 +35,23 @@ taskledger init
 taskledger --root /path/to/repo init
 ```
 
-Create a task, propose a plan, approve it, implement it, and validate it:
+Create and activate a task, ask required planning questions, regenerate the
+plan from answers, approve it, implement todos with evidence, and validate it:
 
 ```bash
-taskledger task create rewrite-v2 --title "Rewrite V2" --description "Migrate to the task-first design."
-taskledger task activate rewrite-v2
+taskledger task new "Rewrite V2" --description "Migrate to the task-first design."
 taskledger plan start
-taskledger question add --text "Should exports include the new state?"
+taskledger question add --text "Should exports include the new state?" --required-for-plan
 taskledger question answer q-0001 --text "Yes."
-taskledger plan propose --criterion "Accepted workflow is implemented." --file ./plan.md
+taskledger question status
+taskledger plan regenerate --from-answers --file ./plan.md
 taskledger plan approve --version 1 --actor user --note "Ready."
 
 taskledger context --for implementation --format markdown
 taskledger implement start
-taskledger implement log --message "Started wiring the new storage model."
+taskledger implement checklist
 taskledger implement change --path taskledger/storage/v2.py --kind edit --summary "Normalized v2 markdown storage."
+taskledger todo done todo-0001 --evidence "Updated taskledger/storage/v2.py"
 taskledger implement finish --summary "Implemented the approved plan."
 
 taskledger context --for validation --format markdown
@@ -117,6 +119,9 @@ taskledger context --for planning --format markdown
 taskledger context --for implementation --format markdown
 taskledger context --for validation --format json
 taskledger task dossier --format markdown
+taskledger handoff create --mode implementation --intended-actor agent --intended-harness codex
+taskledger handoff claim handoff-0001
+taskledger handoff close handoff-0001 --reason "Implementation started."
 ```
 
 ## Multi-Actor Handoff Protocol
@@ -139,16 +144,16 @@ The handoff protocol enables safe work transitions between human and agent actor
 $ taskledger actor whoami
 
 # Create a handoff
-$ taskledger handoff-protocol create task-0001 --mode=implementation
+$ taskledger handoff create --task task-0001 --mode implementation
 
 # Claim it
-$ taskledger handoff-protocol claim task-0001 handoff-0001
+$ taskledger handoff claim handoff-0001 --task task-0001
 
 # Show details
-$ taskledger handoff-protocol show task-0001 handoff-0001
+$ taskledger handoff show handoff-0001 --task task-0001
 
 # Close when done
-$ taskledger handoff-protocol close task-0001 handoff-0001
+$ taskledger handoff close handoff-0001 --task task-0001 --reason "Continued."
 ```
 
 See [docs/HANDOFF.md](docs/HANDOFF.md) for detailed protocol specification.

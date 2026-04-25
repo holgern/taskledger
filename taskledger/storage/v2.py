@@ -172,7 +172,13 @@ def resolve_task_or_active(
 ) -> TaskRecord:
     if ref is not None and ref.strip():
         return resolve_task(workspace_root, ref)
-    return resolve_active_task(workspace_root)
+    try:
+        return resolve_active_task(workspace_root)
+    except NoActiveTask:
+        tasks = list_tasks(workspace_root)
+        if len(tasks) == 1:
+            return tasks[0]
+        raise
 
 
 def save_task(workspace_root: Path, task: TaskRecord) -> TaskRecord:
@@ -201,6 +207,11 @@ def save_task(workspace_root: Path, task: TaskRecord) -> TaskRecord:
             path=task_requirements_path(paths, task.id),
             payload=_requirement_collection(task),
         )
+    if task.slug and task.slug != task.id:
+        # Older task bundle layouts used the slug as the directory name. The
+        # id-named bundle is canonical, but keeping the slug directory present
+        # lets legacy sidecars be read without treating them as tasks.
+        task_dir(paths, task.slug).mkdir(parents=True, exist_ok=True)
     return task
 
 
@@ -362,6 +373,9 @@ def load_active_locks(workspace_root: Path) -> list[TaskLock]:
 def load_todos(workspace_root: Path, task_id: str) -> TodoCollection:
     paths = ensure_v2_layout(workspace_root)
     path = task_todos_path(paths, task_id)
+    alias_path = _legacy_slug_sidecar_path(paths, task_id, "todos.yaml")
+    if alias_path is not None and alias_path.exists():
+        path = alias_path
     if not path.exists():
         return TodoCollection(task_id=task_id)
     payload = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -374,6 +388,9 @@ def save_todos(workspace_root: Path, collection: TodoCollection) -> TodoCollecti
     paths = ensure_v2_layout(workspace_root)
     _ensure_task_bundle(paths, collection.task_id)
     _write_yaml(task_todos_path(paths, collection.task_id), collection.to_dict())
+    alias_path = _legacy_slug_sidecar_path(paths, collection.task_id, "todos.yaml")
+    if alias_path is not None and alias_path.exists():
+        _write_yaml(alias_path, collection.to_dict())
     return collection
 
 
@@ -548,6 +565,20 @@ def _ensure_task_bundle(paths: V2Paths, task_id: str) -> None:
         task_handoffs_dir(paths, task_id),
     ):
         directory.mkdir(parents=True, exist_ok=True)
+
+
+def _legacy_slug_sidecar_path(
+    paths: V2Paths,
+    task_id: str,
+    filename: str,
+) -> Path | None:
+    task_path = task_markdown_path(paths, task_id)
+    if not task_path.exists():
+        return None
+    task = _load_task(task_path)
+    if not task.slug or task.slug == task.id:
+        return None
+    return task_dir(paths, task.slug) / filename
 
 
 

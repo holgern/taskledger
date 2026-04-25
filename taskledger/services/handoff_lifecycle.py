@@ -31,7 +31,11 @@ def claim_handoff(
     resolved_harness = harness or resolve_harness()
     
     # Check intent match if specified
-    if handoff.intended_actor_type and handoff.intended_actor_type != resolved_actor.actor_type:
+    if (
+        handoff.intended_actor_type
+        and handoff.intended_actor_type != "any"
+        and handoff.intended_actor_type != resolved_actor.actor_type
+    ):
         raise LaunchError(
             f"Actor type mismatch: handoff intended for {handoff.intended_actor_type}, "
             f"but claiming as {resolved_actor.actor_type}"
@@ -40,6 +44,15 @@ def claim_handoff(
         raise LaunchError(
             f"Actor name mismatch: handoff intended for {handoff.intended_actor_name}, "
             f"but claiming as {resolved_actor.actor_name}"
+        )
+    if (
+        handoff.intended_harness
+        and handoff.intended_harness != "any"
+        and handoff.intended_harness != resolved_harness.name
+    ):
+        raise LaunchError(
+            f"Harness mismatch: handoff intended for {handoff.intended_harness}, "
+            f"but claiming in {resolved_harness.name}"
         )
     
     # Create new handoff with claim info

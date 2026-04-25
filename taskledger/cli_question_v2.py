@@ -9,7 +9,9 @@ from taskledger.api.questions import (
     answer_question,
     dismiss_question,
     list_open_questions,
+    question_status,
 )
+from taskledger.domain.models import ActorRef
 from taskledger.cli_common import (
     cli_state_from_context,
     emit_error,
@@ -26,6 +28,10 @@ def register_question_v2_commands(app: typer.Typer) -> None:
     def add_command(
         ctx: typer.Context,
         text: Annotated[str, typer.Option("--text")],
+        required_for_plan: Annotated[
+            bool,
+            typer.Option("--required-for-plan"),
+        ] = False,
         task_ref: Annotated[
             str | None,
             typer.Option("--task", help="Task ref. Defaults to the active task."),
@@ -34,7 +40,12 @@ def register_question_v2_commands(app: typer.Typer) -> None:
         state = cli_state_from_context(ctx)
         try:
             task = resolve_cli_task(state.cwd, task_ref)
-            question = add_question(state.cwd, task.id, text=text)
+            question = add_question(
+                state.cwd,
+                task.id,
+                text=text,
+                required_for_plan=required_for_plan,
+            )
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -69,6 +80,7 @@ def register_question_v2_commands(app: typer.Typer) -> None:
         ctx: typer.Context,
         question_id: Annotated[str, typer.Argument(..., help="Question id.")],
         text: Annotated[str, typer.Option("--text")],
+        actor: Annotated[str, typer.Option("--actor")] = "user",
         task_ref: Annotated[
             str | None,
             typer.Option("--task", help="Task ref. Defaults to the active task."),
@@ -77,7 +89,13 @@ def register_question_v2_commands(app: typer.Typer) -> None:
         state = cli_state_from_context(ctx)
         try:
             task = resolve_cli_task(state.cwd, task_ref)
-            question = answer_question(state.cwd, task.id, question_id, text=text)
+            question = answer_question(
+                state.cwd,
+                task.id,
+                question_id,
+                text=text,
+                actor=ActorRef(actor_type=actor, actor_name=actor),
+            )
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -126,4 +144,29 @@ def register_question_v2_commands(app: typer.Typer) -> None:
             ctx,
             payload,
             human="\n".join(lines) if questions else "OPEN QUESTIONS\n(empty)",
+        )
+
+    @app.command("status")
+    def status_command(
+        ctx: typer.Context,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = resolve_cli_task(state.cwd, task_ref)
+            payload = question_status(state.cwd, task.id)
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(
+            ctx,
+            payload,
+            human=(
+                f"Required open: {payload['required_open']}\n"
+                f"Plan regeneration needed: {payload['plan_regeneration_needed']}\n"
+                f"Next: {payload['next_action']}"
+            ),
         )

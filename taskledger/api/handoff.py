@@ -6,6 +6,7 @@ from taskledger.services.handoff import render_handoff
 from taskledger.storage.v2 import (
     list_handoffs,
     resolve_handoff,
+    resolve_task,
     save_handoff,
 )
 
@@ -30,14 +31,14 @@ def create_handoff(
     resolved_actor = actor or resolve_actor()
     resolved_harness = harness or resolve_harness()
     
-    # Get existing handoff IDs for this task
-    existing_handoffs = list_handoffs(workspace_root, task_ref)
+    task = resolve_task(workspace_root, task_ref)
+    existing_handoffs = list_handoffs(workspace_root, task.id)
     existing_ids = [h.handoff_id for h in existing_handoffs]
     
     handoff_id = next_project_id('handoff', existing_ids)
     handoff = TaskHandoffRecord(
         handoff_id=handoff_id,
-        task_id=task_ref,
+        task_id=task.id,
         mode=mode,
         status="open",
         created_by=resolved_actor,
@@ -54,7 +55,8 @@ def create_handoff(
 
 def list_all_handoffs(workspace_root: Path, task_ref: str) -> list[dict[str, object]]:
     """List all handoffs for a task."""
-    handoffs = list_handoffs(workspace_root, task_ref)
+    task = resolve_task(workspace_root, task_ref)
+    handoffs = list_handoffs(workspace_root, task.id)
     return [h.to_dict() for h in handoffs]
 
 
@@ -64,7 +66,8 @@ def show_handoff(
     handoff_ref: str,
 ) -> dict[str, object]:
     """Get a specific handoff."""
-    handoff = resolve_handoff(workspace_root, task_ref, handoff_ref)
+    task = resolve_task(workspace_root, task_ref)
+    handoff = resolve_handoff(workspace_root, task.id, handoff_ref)
     return handoff.to_dict()
 
 
@@ -80,9 +83,10 @@ def claim_handoff_api(
     """Claim a handoff, transitioning from 'open' to 'claimed'."""
     from taskledger.services.handoff_lifecycle import claim_handoff
     
+    task = resolve_task(workspace_root, task_ref)
     handoff = claim_handoff(
         workspace_root,
-        task_ref,
+        task.id,
         handoff_ref,
         actor=actor,
         harness=harness,
@@ -102,9 +106,10 @@ def close_handoff_api(
     """Close a handoff, transitioning from 'claimed' to 'closed'."""
     from taskledger.services.handoff_lifecycle import close_handoff
     
+    task = resolve_task(workspace_root, task_ref)
     handoff = close_handoff(
         workspace_root,
-        task_ref,
+        task.id,
         handoff_ref,
         actor=actor,
         reason=reason,
@@ -123,9 +128,10 @@ def cancel_handoff_api(
     """Cancel a handoff, transitioning from 'open' to 'cancelled'."""
     from taskledger.services.handoff_lifecycle import cancel_handoff
     
+    task = resolve_task(workspace_root, task_ref)
     handoff = cancel_handoff(
         workspace_root,
-        task_ref,
+        task.id,
         handoff_ref,
         actor=actor,
         reason=reason,
@@ -142,4 +148,3 @@ __all__ = [
     "close_handoff_api",
     "cancel_handoff_api",
 ]
-

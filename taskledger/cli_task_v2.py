@@ -63,6 +63,42 @@ def register_task_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             human=f"created task {task.slug} ({task.id})",
         )
 
+    @app.command("new")
+    def new_command(
+        ctx: typer.Context,
+        title: Annotated[str, typer.Argument(..., help="Task title.")],
+        description: Annotated[
+            str | None,
+            typer.Option("--description", help="Task description."),
+        ] = None,
+        slug: Annotated[str | None, typer.Option("--slug")] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = create_task(
+                state.cwd,
+                title=title,
+                description=read_text_input(
+                    text=description or title,
+                    text_label="--description",
+                ),
+                slug=slug or title,
+            )
+            active = activate_task(state.cwd, task.id, reason="task new")
+            payload = {
+                "kind": "task_new",
+                "task_id": task.id,
+                "task": task.to_dict(),
+                "active": True,
+                "active_state": active,
+                "next_action": "taskledger plan start",
+                "context_command": "taskledger handoff plan-context",
+            }
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, payload, human=f"created and activated {task.id}")
+
     @app.command("list")
     def list_command(ctx: typer.Context) -> None:
         state = cli_state_from_context(ctx)
@@ -148,6 +184,10 @@ def register_task_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             str | None,
             typer.Argument(help="Task ref. Defaults to the active task."),
         ] = None,
+        json_output: Annotated[
+            bool,
+            typer.Option("--json", help="Render machine-readable JSON."),
+        ] = False,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
@@ -158,16 +198,21 @@ def register_task_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         task = payload["task"]
         assert isinstance(task, dict)
-        emit_payload(
-            ctx,
-            payload,
-            human=(
-                f"{task['title']} ({task['id']})\n"
-                f"status: {task['status_stage']}\n"
-                f"active_stage: {task.get('active_stage') or 'none'}\n"
-                f"slug: {task['slug']}"
-            ),
-        )
+        if json_output and not state.json_output:
+            from taskledger.cli_common import render_json
+
+            typer.echo(render_json({"ok": True, **payload, "result": payload}))
+        else:
+            emit_payload(
+                ctx,
+                payload,
+                human=(
+                    f"{task['title']} ({task['id']})\n"
+                    f"status: {task['status_stage']}\n"
+                    f"active_stage: {task.get('active_stage') or 'none'}\n"
+                    f"slug: {task['slug']}"
+                ),
+            )
 
     @app.command("edit")
     def edit_command(

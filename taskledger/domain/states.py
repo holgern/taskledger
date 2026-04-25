@@ -4,7 +4,7 @@ from typing import Literal, cast
 
 from taskledger.errors import LaunchError
 
-TASKLEDGER_SCHEMA_VERSION = 3
+TASKLEDGER_SCHEMA_VERSION = 1
 TASKLEDGER_V2_FILE_VERSION = "v2"
 OBJECT_TYPES = frozenset(
     {

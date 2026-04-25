@@ -21,6 +21,7 @@ from taskledger.cli_common import (
     emit_error,
     emit_payload,
     launch_error_exit_code,
+    render_json,
     resolve_cli_task,
 )
 from taskledger.errors import LaunchError
@@ -85,7 +86,11 @@ def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     @app.command("log")
     def log_command(
         ctx: typer.Context,
-        message: Annotated[str, typer.Option("--message")],
+        message: Annotated[str | None, typer.Option("--message")] = None,
+        json_output: Annotated[
+            bool,
+            typer.Option("--json", help="Render machine-readable JSON."),
+        ] = False,
         task_ref: Annotated[
             str | None,
             typer.Argument(help="Task ref. Defaults to the active task."),
@@ -94,6 +99,18 @@ def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
         state = cli_state_from_context(ctx)
         try:
             task = resolve_cli_task(state.cwd, task_ref)
+            if message is None:
+                payload = show_task_run(
+                    state.cwd,
+                    task.id,
+                    run_id=None,
+                    run_type="implementation",
+                )
+                if json_output and not state.json_output:
+                    typer.echo(render_json(payload))
+                    return
+                emit_payload(ctx, payload, human=str(payload["run"]))
+                return
             run = log_implementation(state.cwd, task.id, message=message)
         except LaunchError as exc:
             emit_error(ctx, exc)
@@ -265,13 +282,32 @@ def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             task = resolve_cli_task(state.cwd, task_ref)
             payload = finish_implementation(state.cwd, task.id, summary=summary)
         except LaunchError as exc:
-            emit_error(ctx, exc)
+            if state.json_output:
+                emit_error(ctx, exc)
+            else:
+                from taskledger.cli_common import _error_envelope
+
+                typer.echo(
+                    render_json(
+                        _error_envelope(
+                            ctx,
+                            exc,
+                            data=None,
+                            remediation=None,
+                            exit_code=None,
+                            error_type=None,
+                        )
+                    )
+                )
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-        emit_payload(
-            ctx,
-            payload,
-            human=f"finished implementation {payload['run_id']}",
-        )
+        if state.json_output:
+            emit_payload(
+                ctx,
+                payload,
+                human=f"finished implementation {payload['run_id']}",
+            )
+        else:
+            typer.echo(render_json(payload))
 
     @app.command("show")
     def show_command(
@@ -365,4 +401,3 @@ def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             lines.append(f"\n{total - done} todos remaining")
         
         emit_payload(ctx, payload, human="\n".join(lines))
-

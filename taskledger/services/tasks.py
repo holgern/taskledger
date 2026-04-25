@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import difflib
 import getpass
+import hashlib
 import os
 import shlex
 import socket
@@ -652,11 +653,13 @@ def add_todo(
             actor_role=actor_role,
         )
     )
+    lock = _lock_for_mutation(workspace_root, task.id)
     todo = TaskTodo(
         id=next_project_id("todo", [item.id for item in task.todos]),
         text=text.strip(),
         source=source,
         mandatory=mandatory,
+        active_at=utc_now_iso() if lock is not None and lock.stage == "implementing" else None,
     )
     updated = replace(
         task,
@@ -675,7 +678,16 @@ def add_todo(
 
 
 def set_todo_done(
-    workspace_root: Path, task_ref: str, todo_id: str, *, done: bool
+    workspace_root: Path,
+    task_ref: str,
+    todo_id: str,
+    *,
+    done: bool,
+    evidence: str | None = None,
+    artifacts: tuple[str, ...] = (),
+    changes: tuple[str, ...] = (),
+    actor: ActorRef | None = None,
+    harness: HarnessRef | None = None,
 ) -> TaskRecord:
     task = _task_with_sidecars(workspace_root, resolve_task(workspace_root, task_ref))
     normalized_todo_id = _normalize_local_id(todo_id, "todo")
@@ -687,8 +699,24 @@ def set_todo_done(
         )
     )
     now = utc_now_iso()
+    resolved_actor = actor or _default_actor()
     todos = [
-        replace(todo, done=done, updated_at=now)
+        replace(
+            todo,
+            done=done,
+            status="done" if done else "open",
+            updated_at=now,
+            done_at=now if done else None,
+            completed_by=resolved_actor if done else None,
+            completed_in_harness=harness if done else None,
+            evidence=(
+                tuple([*todo.evidence, evidence.strip()])
+                if done and evidence and evidence.strip()
+                else todo.evidence
+            ),
+            artifact_refs=tuple([*todo.artifact_refs, *artifacts]) if done else todo.artifact_refs,
+            change_refs=tuple([*todo.change_refs, *changes]) if done else todo.change_refs,
+        )
         if todo.id in {todo_id, normalized_todo_id}
         else todo
         for todo in task.todos
@@ -701,8 +729,14 @@ def set_todo_done(
     _append_event(
         resolve_v2_paths(workspace_root).project_dir,
         updated.id,
-        "todo.toggled",
-        {"todo_id": todo_id, "done": done},
+        "todo.completed" if done else "todo.toggled",
+        {
+            "todo_id": todo_id,
+            "done": done,
+            "evidence": evidence,
+            "artifacts": list(artifacts),
+            "changes": list(changes),
+        },
     )
     return updated
 
@@ -774,6 +808,7 @@ def propose_plan(
     plans = list_plans(workspace_root, task.id)
     version = plans[-1].plan_version + 1 if plans else 1
     front_matter, plan_body = _parse_plan_front_matter(body)
+    questions = list_questions(workspace_root, task.id)
     plan = PlanRecord(
         task_id=task.id,
         plan_version=version,
@@ -783,10 +818,17 @@ def propose_plan(
         supersedes=plans[-1].plan_version if plans else None,
         question_refs=tuple(
             item.id
-            for item in list_questions(workspace_root, task.id)
+            for item in questions
             if item.status == "open"
         ),
         criteria=_criteria_from_plan_input(front_matter, criteria),
+        todos=_todos_from_plan_input(front_matter),
+        generation_reason=_optional_front_matter_string(front_matter, "generation_reason")
+        or "initial",
+        based_on_question_ids=tuple(
+            item.id for item in questions if item.status == "answered"
+        ),
+        based_on_answer_hash=_answer_snapshot_hash(questions),
     )
     save_plan(workspace_root, plan)
     finished_run = replace(
@@ -890,6 +932,8 @@ def approve_plan(
     allow_agent_approval: bool = False,
     reason: str | None = None,
     allow_empty_criteria: bool = False,
+    materialize_todos: bool = True,
+    allow_open_questions: bool = False,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
     _enforce_decision(
@@ -898,9 +942,9 @@ def approve_plan(
     open_questions = [
         item.id
         for item in list_questions(workspace_root, task.id)
-        if item.status == "open"
+        if item.status == "open" and item.required_for_plan
     ]
-    if open_questions:
+    if open_questions and not allow_open_questions:
         raise _cli_error(
             "Plan approval is blocked by open planning questions: "
             + ", ".join(open_questions),
@@ -947,6 +991,15 @@ def approve_plan(
         updated_at=utc_now_iso(),
     )
     save_task(workspace_root, updated)
+    materialized = 0
+    if materialize_todos:
+        materialized_result = materialize_plan_todos(
+            workspace_root,
+            updated.id,
+            version=target.plan_version,
+        )
+        materialized = int(materialized_result["materialized_todos"])
+        updated = resolve_task(workspace_root, updated.id)
     _append_event(
         resolve_v2_paths(workspace_root).project_dir,
         updated.id,
@@ -958,12 +1011,147 @@ def approve_plan(
         },
     )
     rebuild_v2_indexes(resolve_v2_paths(workspace_root))
-    return _lifecycle_payload(
+    payload = _lifecycle_payload(
         "plan approve",
         updated,
         warnings=[],
         changed=True,
         plan_version=target.plan_version,
+        result=f"materialized_todos={materialized}",
+    )
+    payload["materialized_todos"] = materialized
+    payload["mandatory_todos"] = len(
+        [todo for todo in load_todos(workspace_root, updated.id).todos if todo.mandatory]
+    )
+    payload["next_action"] = "taskledger implement start"
+    return payload
+
+
+def materialize_plan_todos(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    version: int,
+    dry_run: bool = False,
+) -> dict[str, object]:
+    task = _task_with_sidecars(workspace_root, resolve_task(workspace_root, task_ref))
+    plan = resolve_plan(workspace_root, task.id, version=version)
+    existing_keys = {
+        (todo.source_plan_id, _normalize_todo_text(todo.text))
+        for todo in task.todos
+    }
+    new_todos: list[TaskTodo] = []
+    next_ids = [todo.id for todo in task.todos]
+    for plan_todo in plan.todos:
+        key = (plan.plan_id, _normalize_todo_text(plan_todo.text))
+        if key in existing_keys:
+            continue
+        todo_id = next_project_id("todo", [*next_ids, *(todo.id for todo in new_todos)])
+        new_todos.append(
+            replace(
+                plan_todo,
+                id=todo_id,
+                source="plan",
+                source_plan_id=plan.plan_id,
+                mandatory=plan_todo.mandatory,
+                status="open",
+                done=False,
+                created_at=utc_now_iso(),
+                updated_at=utc_now_iso(),
+            )
+        )
+    if new_todos and not dry_run:
+        updated = replace(
+            task,
+            todos=tuple([*task.todos, *new_todos]),
+            updated_at=utc_now_iso(),
+        )
+        save_todos(workspace_root, TodoCollection(task_id=updated.id, todos=updated.todos))
+        save_task(workspace_root, updated)
+        _append_event(
+            resolve_v2_paths(workspace_root).project_dir,
+            updated.id,
+            "todo.added",
+            {"source_plan_id": plan.plan_id, "todo_ids": [todo.id for todo in new_todos]},
+        )
+    return {
+        "kind": "plan_todo_materialization",
+        "task_id": task.id,
+        "plan_id": plan.plan_id,
+        "materialized_todos": len(new_todos),
+        "todos": [todo.to_dict() for todo in new_todos],
+        "dry_run": dry_run,
+    }
+
+
+def regenerate_plan_from_answers(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    body: str,
+    allow_open_questions: bool = False,
+) -> dict[str, object]:
+    task = resolve_task(workspace_root, task_ref)
+    questions = list_questions(workspace_root, task.id)
+    open_required = [
+        item.id
+        for item in questions
+        if item.status == "open" and item.required_for_plan
+    ]
+    if open_required and not allow_open_questions:
+        raise _cli_error(
+            "Plan regeneration is blocked by required open questions: "
+            + ", ".join(open_required),
+            EXIT_CODE_APPROVAL_REQUIRED,
+        )
+    answered = [item for item in questions if item.status == "answered"]
+    plans = list_plans(workspace_root, task.id)
+    if not answered and not plans:
+        raise _cli_error(
+            "Plan regeneration requires answered questions or a previous plan.",
+            EXIT_CODE_APPROVAL_REQUIRED,
+        )
+    front_matter, plan_body = _parse_plan_front_matter(body)
+    version = plans[-1].plan_version + 1 if plans else 1
+    plan = PlanRecord(
+        task_id=task.id,
+        plan_version=version,
+        body=plan_body.strip(),
+        status="proposed",
+        created_by=_default_actor(),
+        supersedes=plans[-1].plan_version if plans else None,
+        question_refs=tuple(open_required),
+        criteria=_criteria_from_plan_input(front_matter, ()),
+        todos=_todos_from_plan_input(front_matter),
+        generation_reason="after_questions",
+        based_on_question_ids=tuple(item.id for item in answered),
+        based_on_answer_hash=_answer_snapshot_hash(questions),
+    )
+    save_plan(workspace_root, plan)
+    if plans:
+        previous = plans[-1]
+        if previous.status == "proposed":
+            overwrite_plan(workspace_root, replace(previous, status="superseded"))
+    updated = replace(
+        task,
+        latest_plan_version=version,
+        status_stage="plan_review",
+        updated_at=utc_now_iso(),
+    )
+    save_task(workspace_root, updated)
+    _append_event(
+        resolve_v2_paths(workspace_root).project_dir,
+        updated.id,
+        "plan.proposed",
+        {"plan_version": version, "generation_reason": "after_questions"},
+    )
+    rebuild_v2_indexes(resolve_v2_paths(workspace_root))
+    return _lifecycle_payload(
+        "plan regenerate",
+        updated,
+        warnings=[],
+        changed=True,
+        plan_version=version,
     )
 
 
@@ -1010,6 +1198,9 @@ def add_question(
     task_ref: str,
     *,
     text: str,
+    required_for_plan: bool = False,
+    actor: ActorRef | None = None,
+    harness: HarnessRef | None = None,
 ) -> QuestionRecord:
     task = resolve_task(workspace_root, task_ref)
     _enforce_decision(
@@ -1027,13 +1218,16 @@ def add_question(
         task_id=task.id,
         question=text.strip(),
         plan_version=task.latest_plan_version,
+        required_for_plan=required_for_plan,
+        asked_by_actor=actor or _default_actor(),
+        asked_in_harness=harness or _default_harness(),
     )
     save_question(workspace_root, question)
     _append_event(
         resolve_v2_paths(workspace_root).project_dir,
         task.id,
         "question.added",
-        {"question_id": question.id},
+        {"question_id": question.id, "required_for_plan": required_for_plan},
     )
     return question
 
@@ -1044,6 +1238,8 @@ def answer_question(
     question_id: str,
     *,
     text: str,
+    actor: ActorRef | None = None,
+    answer_source: str = "user",
 ) -> QuestionRecord:
     task = resolve_task(workspace_root, task_ref)
     _enforce_decision(
@@ -1059,7 +1255,9 @@ def answer_question(
         status="answered",
         answer=text.strip(),
         answered_at=utc_now_iso(),
-        answered_by="user",
+        answered_by=(actor.actor_name if actor is not None else "user"),
+        answered_by_actor=actor or ActorRef(actor_type="user", actor_name="user"),
+        answer_source=answer_source,
     )
     save_question(workspace_root, answered)
     _append_event(
@@ -1069,6 +1267,40 @@ def answer_question(
         {"question_id": answered.id},
     )
     return answered
+
+
+def question_status(workspace_root: Path, task_ref: str) -> dict[str, object]:
+    task = resolve_task(workspace_root, task_ref)
+    questions = list_questions(workspace_root, task.id)
+    required_open = [
+        item.id
+        for item in questions
+        if item.status == "open" and item.required_for_plan
+    ]
+    answered_since_latest_plan = [
+        item.id
+        for item in questions
+        if item.status == "answered"
+    ]
+    regeneration_needed = bool(answered_since_latest_plan) and not required_open
+    return {
+        "kind": "question_status",
+        "task_id": task.id,
+        "required_open": len(required_open),
+        "required_open_questions": required_open,
+        "answered": len([item for item in questions if item.status == "answered"]),
+        "answered_since_latest_plan": answered_since_latest_plan,
+        "plan_regeneration_needed": regeneration_needed,
+        "next_action": (
+            "taskledger plan regenerate --from-answers --file plan.md"
+            if regeneration_needed
+            else (
+                "taskledger question answer QUESTION_ID --text \"...\""
+                if required_open
+                else "taskledger plan propose --file plan.md"
+            )
+        ),
+    }
 
 
 def dismiss_question(
@@ -1152,6 +1384,7 @@ def start_implementation(
     updated = replace(
         resolve_task(workspace_root, task.id),
         latest_implementation_run=run.run_id,
+        status_stage="implementing",
         updated_at=utc_now_iso(),
     )
     save_task(workspace_root, updated)
@@ -1164,7 +1397,7 @@ def start_implementation(
     rebuild_v2_indexes(resolve_v2_paths(workspace_root))
     return _lifecycle_payload(
         "implement start",
-        updated,
+        replace(updated, status_stage=task.status_stage),
         warnings=[],
         changed=True,
         run=run,
@@ -1446,7 +1679,19 @@ def _build_todo_gate_report(workspace_root: Path, task: TaskRecord) -> dict[str,
     """Build a report of todo completion status for finish gate validation."""
     task = _task_with_sidecars(workspace_root, task)
     todos = task.todos
-    open_todos = [todo.id for todo in todos if not todo.done]
+    open_todos = [
+        todo.id
+        for todo in todos
+        if not todo.done
+        and todo.status not in {"done", "skipped"}
+        and (
+            not todo.mandatory
+            or
+            todo.active_at is not None
+            or todo.source == "plan"
+            or todo.source_plan_id is not None
+        )
+    ]
     blockers = [
         {
             "kind": "todo_open",
@@ -2690,6 +2935,16 @@ def _default_actor() -> ActorRef:
     )
 
 
+def _default_harness() -> HarnessRef:
+    return HarnessRef(
+        harness_id="harness-unknown",
+        name=os.getenv("TASKLEDGER_HARNESS") or "unknown",
+        kind="unknown",
+        session_id=os.getenv("TASKLEDGER_SESSION_ID"),
+        working_directory=os.getcwd(),
+    )
+
+
 def _append_event(
     project_dir: Path,
     task_id: str,
@@ -2704,6 +2959,7 @@ def _append_event(
             event=event_name,
             task_id=task_id,
             actor=_default_actor(),
+            harness=_default_harness(),
             event_id=next_event_id(project_dir / "events", timestamp),
             data=data,
         ),
@@ -2817,7 +3073,7 @@ def _criteria_from_plan_input(
     front_matter: dict[str, object],
     criteria: tuple[str, ...],
 ) -> tuple[AcceptanceCriterion, ...]:
-    raw_criteria = front_matter.get("criteria")
+    raw_criteria = front_matter.get("acceptance_criteria", front_matter.get("criteria"))
     items: list[AcceptanceCriterion] = []
     if raw_criteria is not None:
         if not isinstance(raw_criteria, list):
@@ -2860,6 +3116,77 @@ def _criteria_from_plan_input(
     if len(ids) != len(set(ids)):
         raise _cli_error("Plan criteria ids must be unique.", EXIT_CODE_BAD_INPUT)
     return tuple(items)
+
+
+def _todos_from_plan_input(front_matter: dict[str, object]) -> tuple[TaskTodo, ...]:
+    raw_todos = front_matter.get("todos")
+    if raw_todos is None:
+        return ()
+    if not isinstance(raw_todos, list):
+        raise _cli_error("Plan todos front matter must be a list.", EXIT_CODE_BAD_INPUT)
+    items: list[TaskTodo] = []
+    for index, item in enumerate(raw_todos, start=1):
+        if isinstance(item, str):
+            text = item.strip()
+            if not text:
+                continue
+            items.append(
+                TaskTodo(
+                    id=f"plan-todo-{index:04d}",
+                    text=text,
+                    mandatory=True,
+                    source="plan",
+                )
+            )
+            continue
+        if not isinstance(item, dict):
+            raise _cli_error(
+                "Plan todos must be strings or mappings.",
+                EXIT_CODE_BAD_INPUT,
+            )
+        text = str(item.get("text") or "").strip()
+        if not text:
+            raise _cli_error(
+                "Plan todo mappings must include text.",
+                EXIT_CODE_BAD_INPUT,
+            )
+        items.append(
+            TaskTodo(
+                id=str(item.get("id") or item.get("id_hint") or f"plan-todo-{index:04d}"),
+                text=text,
+                mandatory=bool(item.get("mandatory", True)),
+                source="plan",
+                validation_hint=_optional_string_value(item.get("validation_hint")),
+            )
+        )
+    return tuple(items)
+
+
+def _answer_snapshot_hash(questions: list[QuestionRecord]) -> str | None:
+    answered = [
+        f"{item.id}\0{item.answer or ''}"
+        for item in questions
+        if item.status == "answered"
+    ]
+    if not answered:
+        return None
+    digest = hashlib.sha256("\n".join(sorted(answered)).encode("utf-8")).hexdigest()
+    return f"sha256:{digest}"
+
+
+def _normalize_todo_text(text: str) -> str:
+    return " ".join(text.casefold().split())
+
+
+def _optional_front_matter_string(
+    front_matter: dict[str, object],
+    key: str,
+) -> str | None:
+    return _optional_string_value(front_matter.get(key))
+
+
+def _optional_string_value(value: object) -> str | None:
+    return value if isinstance(value, str) and value.strip() else None
 
 
 def _criterion_id(index: int) -> str:
@@ -3121,6 +3448,7 @@ def _lifecycle_payload(
         payload["plan_version"] = plan_version
     if run is not None:
         payload["run_id"] = run.run_id
+        payload["run"] = run.to_dict()
     if result is not None:
         payload["result"] = result
     return payload

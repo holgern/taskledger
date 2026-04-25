@@ -9,7 +9,9 @@ from taskledger.api.plans import (
     approve_plan,
     diff_plan,
     list_plan_versions,
+    materialize_plan_todos,
     propose_plan,
+    regenerate_plan_from_answers,
     reject_plan,
     revise_plan,
     show_plan,
@@ -114,6 +116,108 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
             human=f"proposed plan v{payload['plan_version']} for {payload['task_id']}",
         )
 
+    @app.command("draft")
+    def draft_command(
+        ctx: typer.Context,
+        task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        ask_questions: Annotated[bool, typer.Option("--ask-questions")] = False,
+        task_option: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = resolve_cli_task(state.cwd, task_option or task_ref)
+            payload = {
+                "kind": "plan_draft_context",
+                "task_id": task.id,
+                "ask_questions": ask_questions,
+                "next_action": (
+                    "taskledger question add --text \"...\" --required-for-plan"
+                    if ask_questions
+                    else "taskledger plan propose --file plan.md"
+                ),
+            }
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, payload, human=str(payload["next_action"]))
+
+    @app.command("regenerate")
+    def regenerate_command(
+        ctx: typer.Context,
+        task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        from_answers: Annotated[bool, typer.Option("--from-answers")] = False,
+        text: Annotated[str | None, typer.Option("--text")] = None,
+        from_file: Annotated[Path | None, typer.Option("--file")] = None,
+        allow_open_questions: Annotated[
+            bool,
+            typer.Option("--allow-open-questions"),
+        ] = False,
+        task_option: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            if not from_answers:
+                raise LaunchError("plan regenerate requires --from-answers.")
+            task = resolve_cli_task(state.cwd, task_option or task_ref)
+            payload = regenerate_plan_from_answers(
+                state.cwd,
+                task.id,
+                body=read_text_input(text=text, from_file=from_file),
+                allow_open_questions=allow_open_questions,
+            )
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(
+            ctx,
+            payload,
+            human=f"regenerated plan v{payload['plan_version']} for {payload['task_id']}",
+        )
+
+    @app.command("materialize-todos")
+    def materialize_todos_command(
+        ctx: typer.Context,
+        version: Annotated[int, typer.Option("--version")],
+        task_ref: Annotated[
+            str | None,
+            typer.Argument(help="Task ref. Defaults to the active task."),
+        ] = None,
+        dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
+        task_option: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = resolve_cli_task(state.cwd, task_option or task_ref)
+            payload = materialize_plan_todos(
+                state.cwd,
+                task.id,
+                version=version,
+                dry_run=dry_run,
+            )
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(
+            ctx,
+            payload,
+            human=f"materialized {payload['materialized_todos']} todos",
+        )
+
     @app.command("show")
     def show_command(
         ctx: typer.Context,
@@ -213,6 +317,12 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
         allow_empty_criteria: Annotated[
             bool, typer.Option("--allow-empty-criteria")
         ] = False,
+        no_materialize_todos: Annotated[
+            bool, typer.Option("--no-materialize-todos")
+        ] = False,
+        allow_open_questions: Annotated[
+            bool, typer.Option("--allow-open-questions")
+        ] = False,
         task_ref: Annotated[
             str | None,
             typer.Argument(help="Task ref. Defaults to the active task."),
@@ -235,6 +345,8 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
                 allow_agent_approval=allow_agent_approval,
                 reason=reason,
                 allow_empty_criteria=allow_empty_criteria,
+                materialize_todos=not no_materialize_todos,
+                allow_open_questions=allow_open_questions,
             )
         except LaunchError as exc:
             emit_error(ctx, exc)

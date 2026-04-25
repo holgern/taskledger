@@ -227,6 +227,16 @@ def todo_add_decision(
             expected_stage="planning",
             action="add todos during planning",
         )
+    if ctx.active_stage == "implementation" and ctx.task.status_stage in {
+        "approved",
+        "implementing",
+        "failed_validation",
+    }:
+        return _active_stage_lock_decision(
+            ctx,
+            expected_stage="implementing",
+            action="add todos during implementation",
+        )
     if ctx.active_stage is not None or ctx.task.status_stage not in {
         "draft",
         "plan_review",
@@ -400,7 +410,7 @@ def implementation_mutation_decision(
 ) -> Decision:
     ctx = build_policy_context(task, lock, run=run)
     if (
-        ctx.task.status_stage not in {"approved", "failed_validation"}
+        ctx.task.status_stage not in {"approved", "failed_validation", "implementing"}
         or ctx.active_stage != "implementation"
     ):
         return _policy_decision(

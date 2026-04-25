@@ -3,6 +3,7 @@ from taskledger.services.tasks import (
     answer_question,
     dismiss_question,
     list_open_questions,
+    question_status,
 )
 from taskledger.storage.v2 import list_questions
 
@@ -12,4 +13,5 @@ __all__ = [
     "list_open_questions",
     "answer_question",
     "dismiss_question",
+    "question_status",
 ]

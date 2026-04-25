@@ -85,6 +85,8 @@ from taskledger.errors import (
 
 - `start_planning`
 - `propose_plan`
+- `regenerate_plan_from_answers`
+- `materialize_plan_todos`
 - `list_plan_versions`
 - `show_plan`
 - `diff_plan`
@@ -99,6 +101,7 @@ from taskledger.errors import (
 - `list_open_questions`
 - `answer_question`
 - `dismiss_question`
+- `question_status`
 
 ### `taskledger.api.task_runs`
 
@@ -136,6 +139,12 @@ from taskledger.errors import (
 ### `taskledger.api.handoff`
 
 - `render_handoff`
+- `create_handoff`
+- `list_all_handoffs`
+- `show_handoff`
+- `claim_handoff_api`
+- `close_handoff_api`
+- `cancel_handoff_api`
 
 ### `taskledger.api.search`
 
@@ -183,3 +192,14 @@ All CLI commands support `--cwd`; task-first workflows also support `--root` as
 the preferred workspace alias. JSON mode returns a stable envelope with
 `ok`, `command`, `task_id` when applicable, `result`, `events`, and a
 structured `error` object on failure.
+
+Workflow additions:
+
+- `task new` creates and activates a task.
+- `plan draft`, `plan regenerate --from-answers`, and
+  `plan materialize-todos` support the question-answer-regenerate loop.
+- `question status` reports required open questions and whether regeneration is
+  needed.
+- `todo done` records evidence with `--evidence`, `--artifact`, and `--change`.
+- `handoff create|list|show|claim|close|cancel` are available on the main
+  task-first handoff command group.

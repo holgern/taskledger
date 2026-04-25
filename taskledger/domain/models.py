@@ -300,10 +300,15 @@ class TaskTodo:
     done_at: str | None = None
     skipped_at: str | None = None
     completed_by: ActorRef | None = None
+    completed_in_harness: HarnessRef | None = None
     skipped_by: ActorRef | None = None
     evidence: tuple[str, ...] = field(default_factory=tuple)
+    artifact_refs: tuple[str, ...] = field(default_factory=tuple)
     change_refs: tuple[str, ...] = field(default_factory=tuple)
     command_refs: tuple[str, ...] = field(default_factory=tuple)
+    source_plan_id: str | None = None
+    source_question_ids: tuple[str, ...] = field(default_factory=tuple)
+    validation_hint: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -320,10 +325,19 @@ class TaskTodo:
             "done_at": self.done_at,
             "skipped_at": self.skipped_at,
             "completed_by": self.completed_by.to_dict() if self.completed_by else None,
+            "completed_in_harness": (
+                self.completed_in_harness.to_dict()
+                if self.completed_in_harness
+                else None
+            ),
             "skipped_by": self.skipped_by.to_dict() if self.skipped_by else None,
-            "evidence": self.evidence,
+            "evidence": list(self.evidence),
+            "artifact_refs": list(self.artifact_refs),
             "change_refs": self.change_refs,
             "command_refs": self.command_refs,
+            "source_plan_id": self.source_plan_id,
+            "source_question_ids": list(self.source_question_ids),
+            "validation_hint": self.validation_hint,
         }
 
     @classmethod
@@ -342,13 +356,20 @@ class TaskTodo:
         # Parse completed_by and skipped_by
         completed_by_data = data.get("completed_by")
         completed_by = ActorRef.from_dict(completed_by_data) if completed_by_data else None
+        completed_in_harness_data = data.get("completed_in_harness")
+        completed_in_harness = (
+            HarnessRef.from_dict(completed_in_harness_data)
+            if completed_in_harness_data
+            else None
+        )
         skipped_by_data = data.get("skipped_by")
         skipped_by = ActorRef.from_dict(skipped_by_data) if skipped_by_data else None
         
         # Parse evidence and refs
-        evidence = tuple(data.get("evidence", []))
-        change_refs = tuple(data.get("change_refs", []))
-        command_refs = tuple(data.get("command_refs", []))
+        evidence = _string_tuple(data.get("evidence"))
+        artifact_refs = _string_tuple(data.get("artifact_refs")) or _string_tuple(data.get("artifacts"))
+        change_refs = _string_tuple(data.get("change_refs")) or _string_tuple(data.get("changes"))
+        command_refs = _string_tuple(data.get("command_refs"))
         
         return cls(
             id=_string_value(data, "id"),
@@ -364,10 +385,15 @@ class TaskTodo:
             done_at=_optional_string(data.get("done_at")),
             skipped_at=_optional_string(data.get("skipped_at")),
             completed_by=completed_by,
+            completed_in_harness=completed_in_harness,
             skipped_by=skipped_by,
             evidence=evidence,
+            artifact_refs=artifact_refs,
             change_refs=change_refs,
             command_refs=command_refs,
+            source_plan_id=_optional_string(data.get("source_plan_id")),
+            source_question_ids=_string_tuple(data.get("source_question_ids")),
+            validation_hint=_optional_string(data.get("validation_hint")),
         )
 
 
@@ -783,6 +809,10 @@ class PlanRecord:
     question_refs: tuple[str, ...] = ()
     file_version: str = TASKLEDGER_V2_FILE_VERSION
     criteria: tuple[AcceptanceCriterion, ...] = ()
+    todos: tuple[TaskTodo, ...] = ()
+    generation_reason: str | None = None
+    based_on_question_ids: tuple[str, ...] = ()
+    based_on_answer_hash: str | None = None
     approved_at: str | None = None
     approved_by: ActorRef | None = None
     approval_note: str | None = None
@@ -804,6 +834,13 @@ class PlanRecord:
             "supersedes": self.supersedes,
             "question_refs": list(self.question_refs),
             "criteria": [item.to_dict() for item in self.criteria],
+            "todos": [item.to_dict() for item in self.todos],
+            "generation_reason": self.generation_reason,
+            "based_on_question_ids": list(self.based_on_question_ids),
+            "based_on_answer_hash": self.based_on_answer_hash,
+            "supersedes_plan_id": (
+                _plan_id(self.supersedes) if self.supersedes is not None else None
+            ),
             "approved_at": self.approved_at,
             "approved_by": (
                 self.approved_by.to_dict() if self.approved_by is not None else None
@@ -837,6 +874,13 @@ class PlanRecord:
                 AcceptanceCriterion.from_dict(item)
                 for item in _dict_list(data.get("criteria"))
             ),
+            todos=tuple(TaskTodo.from_dict(item) for item in _dict_list(data.get("todos"))),
+            generation_reason=_optional_string(data.get("generation_reason")),
+            based_on_question_ids=(
+                _string_tuple(data.get("based_on_question_ids"))
+                or _string_tuple(data.get("question_refs"))
+            ),
+            based_on_answer_hash=_optional_string(data.get("based_on_answer_hash")),
             approved_at=_optional_string(data.get("approved_at")),
             approved_by=ActorRef.from_dict(data.get("approved_by"))
             if data.get("approved_by") is not None
@@ -861,6 +905,11 @@ class QuestionRecord:
     created_at: str = field(default_factory=utc_now_iso)
     answered_at: str | None = None
     answered_by: str | None = None
+    answered_by_actor: ActorRef | None = None
+    asked_by_actor: ActorRef | None = None
+    asked_in_harness: HarnessRef | None = None
+    required_for_plan: bool = False
+    answer_source: str | None = None
     answer: str | None = None
     file_version: str = TASKLEDGER_V2_FILE_VERSION
     schema_version: int = TASKLEDGER_SCHEMA_VERSION
@@ -878,6 +927,23 @@ class QuestionRecord:
             "created_at": self.created_at,
             "answered_at": self.answered_at,
             "answered_by": self.answered_by,
+            "answered_by_actor": (
+                self.answered_by_actor.to_dict()
+                if self.answered_by_actor is not None
+                else None
+            ),
+            "asked_by_actor": (
+                self.asked_by_actor.to_dict()
+                if self.asked_by_actor is not None
+                else None
+            ),
+            "asked_in_harness": (
+                self.asked_in_harness.to_dict()
+                if self.asked_in_harness is not None
+                else None
+            ),
+            "required_for_plan": self.required_for_plan,
+            "answer_source": self.answer_source,
             "question": self.question,
             "answer": self.answer,
         }
@@ -894,6 +960,17 @@ class QuestionRecord:
             created_at=_optional_string(data.get("created_at")) or utc_now_iso(),
             answered_at=_optional_string(data.get("answered_at")),
             answered_by=_optional_string(data.get("answered_by")),
+            answered_by_actor=ActorRef.from_dict(data.get("answered_by_actor"))
+            if data.get("answered_by_actor") is not None
+            else None,
+            asked_by_actor=ActorRef.from_dict(data.get("asked_by_actor"))
+            if data.get("asked_by_actor") is not None
+            else None,
+            asked_in_harness=HarnessRef.from_dict(data.get("asked_in_harness"))
+            if data.get("asked_in_harness") is not None
+            else None,
+            required_for_plan=bool(data.get("required_for_plan", False)),
+            answer_source=_optional_string(data.get("answer_source")),
             answer=_optional_string(data.get("answer")),
             file_version=_optional_string(data.get("file_version"))
             or TASKLEDGER_V2_FILE_VERSION,
@@ -1193,6 +1270,7 @@ class TaskEvent:
     event: str
     task_id: str
     actor: ActorRef
+    harness: HarnessRef | None = None
     event_id: str = field(
         default_factory=lambda: (
             f"evt-{utc_now_iso().replace(':', '').replace('-', '').replace('+00:00', 'Z')}"
@@ -1213,6 +1291,7 @@ class TaskEvent:
             "event": self.event,
             "task_id": self.task_id,
             "actor": self.actor.to_dict(),
+            "harness": self.harness.to_dict() if self.harness is not None else None,
             "data": dict(self.data),
         }
 
@@ -1226,6 +1305,9 @@ class TaskEvent:
             event=_string_value(data, "event"),
             task_id=_string_value(data, "task_id"),
             actor=ActorRef.from_dict(data.get("actor")),
+            harness=HarnessRef.from_dict(data.get("harness"))
+            if data.get("harness") is not None
+            else None,
             data=payload if isinstance(payload, dict) else {},
             file_version=_optional_string(data.get("file_version"))
             or TASKLEDGER_V2_FILE_VERSION,
@@ -1324,10 +1406,10 @@ def _generated_event_id() -> str:
 
 def _require_contract(data: dict[str, object], *, expected_object_type: str) -> None:
     version = data.get("schema_version")
-    if version != TASKLEDGER_SCHEMA_VERSION:
+    if not isinstance(version, int) or version > TASKLEDGER_SCHEMA_VERSION:
         raise LaunchError(
             "Unsupported schema version: "
-            f"expected {TASKLEDGER_SCHEMA_VERSION}, got {version!r}."
+            f"expected <= {TASKLEDGER_SCHEMA_VERSION}, got {version!r}."
         )
     object_type = _optional_string(data.get("object_type"))
     if object_type != expected_object_type:

@@ -28,30 +28,32 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 3. Run `taskledger context --for planning|implementation|validation --format markdown`.
 4. Inspect `taskledger lock show` before active work.
 5. Use `taskledger can implement` or `taskledger can validate` before those stages.
+6. If a durable handoff exists, claim it with `taskledger handoff claim handoff-0001` before continuing and close it after the intended next action starts.
 
 ## Planning protocol
 
-1. `taskledger task create <slug> --description "..."`
-2. `taskledger task activate <slug>`
+1. `taskledger task new "Short task request"` when creating a fresh task.
+2. For existing tasks, `taskledger task activate <slug>`.
 3. `taskledger plan start`
-4. Add questions with `taskledger question add --text "..."` when decisions are missing.
-5. Propose a plan with acceptance criteria: `taskledger plan propose --criterion "..." --file ./plan.md`.
-6. Wait for user review.
-7. Record approval only with user intent: `taskledger plan approve --version N --actor user --note "..."`.
+4. Add questions with `taskledger question add --text "..." --required-for-plan` when decisions are missing.
+5. Stop after asking required questions; do not invent answers.
+6. After the user answers, run `taskledger question status`.
+7. Regenerate from answers with `taskledger plan regenerate --from-answers --file ./plan.md`.
+8. Ensure the plan front matter includes `acceptance_criteria` and `todos`; approved plan todos materialize into the implementation checklist.
+9. Record approval only with user intent: `taskledger plan approve --version N --actor user --note "..."`.
 
 ## Implementation protocol
 
 1. `taskledger context --for implementation --format markdown`
 2. `taskledger implement start`
-3. `taskledger todo status` - review the todo checklist before starting.
+3. `taskledger implement checklist` - review the mandatory and optional todo checklist before starting.
 4. If no todos exist, create a concrete checklist: `taskledger todo add --text "..."`
 5. Work one todo at a time:
-   - `taskledger todo start <todo-id>` to mark it active
    - Make the code changes
    - `taskledger implement change --path ... --kind edit --summary "..."`
    - Run verification for that todo
-   - `taskledger todo done <todo-id> --evidence "pytest -q"` to mark it done
-6. `taskledger todo status` after each meaningful change to track progress.
+   - `taskledger todo done <todo-id> --evidence "pytest -q" --artifact tests/test_feature.py` to mark it done
+6. `taskledger implement checklist` after each meaningful change to track progress.
 7. Do not run `implement finish` until `todo status` says all todos are complete.
 8. `taskledger implement finish --summary "Completed all implementation todos..."`
 
@@ -86,6 +88,8 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 - Log every meaningful implementation change with `taskledger implement change`.
 - Record deviations from the approved plan with `taskledger implement deviation`.
 - Mark todos done with evidence: `taskledger todo done <todo-id> --evidence "pytest -q"`.
+- Use `taskledger handoff create --mode implementation|validation --intended-actor agent --intended-harness codex` when switching actor or harness.
+- Use `taskledger handoff claim handoff-0001` before continuing work from a handoff.
 - Use `taskledger link add --path ... --kind code|test|doc|config|dir|other` for files that matter.
 - Store failed validation; do not hide it.
 
