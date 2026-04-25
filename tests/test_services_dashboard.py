@@ -3,9 +3,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from taskledger.domain.models import ActiveTaskState, TaskRecord
+from taskledger.domain.models import ActiveTaskState, TaskRecord, TodoCollection, TaskTodo
 from taskledger.services.dashboard import dashboard, render_dashboard_text
-from taskledger.storage.v2 import ensure_v2_layout, save_active_task_state, save_task
+from taskledger.storage.v2 import ensure_v2_layout, save_active_task_state, save_task, save_todos
 
 
 def _create_task_and_activate(tmp_path: Path) -> TaskRecord:
@@ -49,6 +49,24 @@ def test_dashboard_todos_counts(tmp_path: Path) -> None:
     result = dashboard(tmp_path)
     assert result["todos"]["total"] == 0
     assert result["todos"]["done"] == 0
+    assert result["todos"]["items"] == []
+
+
+def test_dashboard_todos_counts_with_saved_todos(tmp_path: Path) -> None:
+    _create_task_and_activate(tmp_path)
+    col = TodoCollection(
+        task_id="task-0001",
+        todos=(
+            TaskTodo(id="todo-0001", text="First todo", done=True),
+            TaskTodo(id="todo-0002", text="Second todo", done=False),
+            TaskTodo(id="todo-0003", text="Third todo", done=True),
+        ),
+    )
+    save_todos(tmp_path, col)
+    result = dashboard(tmp_path)
+    assert result["todos"]["total"] == 3
+    assert result["todos"]["done"] == 2
+    assert len(result["todos"]["items"]) == 3
 
 
 def test_dashboard_files_counts(tmp_path: Path) -> None:
@@ -93,7 +111,7 @@ def test_render_dashboard_text_basic() -> None:
         "plan": None,
         "next_action": None,
         "questions": {"total": 0, "open": 0},
-        "todos": {"total": 0, "done": 0},
+        "todos": {"total": 0, "done": 0, "items": []},
         "files": {"total": 0},
         "runs": [],
         "changes": [],
@@ -134,7 +152,16 @@ def test_render_dashboard_text_with_plan() -> None:
         },
         "next_action": None,
         "questions": {"total": 1, "open": 1},
-        "todos": {"total": 4, "done": 2},
+        "todos": {
+            "total": 4,
+            "done": 2,
+            "items": [
+                {"id": "todo-0001", "text": "Write tests", "done": True},
+                {"id": "todo-0002", "text": "Fix bug", "done": True},
+                {"id": "todo-0003", "text": "Add docs", "done": False},
+                {"id": "todo-0004", "text": "Clean up", "done": False},
+            ],
+        },
         "files": {"total": 3},
         "runs": [],
         "changes": [],
@@ -146,6 +173,10 @@ def test_render_dashboard_text_with_plan() -> None:
     assert "ac-0002: Coverage above 80%" in text
     assert "Questions: 1 open / 1 total" in text
     assert "Todos: 2/4 done" in text
+    assert "[x] todo-0001  Write tests" in text
+    assert "[x] todo-0002  Fix bug" in text
+    assert "[ ] todo-0003  Add docs" in text
+    assert "[ ] todo-0004  Clean up" in text
     assert "Files: 3 linked" in text
 
 
@@ -173,7 +204,7 @@ def test_render_dashboard_text_with_next_action() -> None:
             ],
         },
         "questions": {"total": 0, "open": 0},
-        "todos": {"total": 0, "done": 0},
+        "todos": {"total": 0, "done": 0, "items": []},
         "files": {"total": 0},
         "runs": [],
         "changes": [],
@@ -203,7 +234,7 @@ def test_render_dashboard_text_with_runs() -> None:
         "plan": None,
         "next_action": None,
         "questions": {"total": 0, "open": 0},
-        "todos": {"total": 0, "done": 0},
+        "todos": {"total": 0, "done": 0, "items": []},
         "files": {"total": 0},
         "runs": [
             {
@@ -244,7 +275,7 @@ def test_render_dashboard_text_with_changes() -> None:
         "plan": None,
         "next_action": None,
         "questions": {"total": 0, "open": 0},
-        "todos": {"total": 0, "done": 0},
+        "todos": {"total": 0, "done": 0, "items": []},
         "files": {"total": 0},
         "runs": [],
         "changes": [
@@ -282,7 +313,7 @@ def test_render_dashboard_text_with_lock() -> None:
         "plan": None,
         "next_action": None,
         "questions": {"total": 0, "open": 0},
-        "todos": {"total": 0, "done": 0},
+        "todos": {"total": 0, "done": 0, "items": []},
         "files": {"total": 0},
         "runs": [],
         "changes": [],
@@ -313,7 +344,7 @@ def test_render_dashboard_text_with_metadata() -> None:
         "plan": None,
         "next_action": None,
         "questions": {"total": 0, "open": 0},
-        "todos": {"total": 0, "done": 0},
+        "todos": {"total": 0, "done": 0, "items": []},
         "files": {"total": 0},
         "runs": [],
         "changes": [],

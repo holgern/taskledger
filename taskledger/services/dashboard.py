@@ -10,6 +10,7 @@ from taskledger.storage.v2 import (
     list_plans,
     list_questions,
     list_runs,
+    load_todos,
     read_lock,
     resolve_task,
     resolve_task_or_active,
@@ -45,8 +46,9 @@ def dashboard(
     action_info = next_action(workspace_root, task.id)
 
     # todos
-    todos_total = len(task.todos)
-    todos_done = sum(1 for t in task.todos if t.done)
+    todo_collection = load_todos(workspace_root, task.id)
+    todos_total = len(todo_collection.todos)
+    todos_done = sum(1 for t in todo_collection.todos if t.done)
 
     # files
     files = task.file_links
@@ -75,6 +77,7 @@ def dashboard(
         "todos": {
             "total": todos_total,
             "done": todos_done,
+            "items": [t.to_dict() for t in todo_collection.todos],
         },
         "files": {
             "total": len(files),
@@ -158,6 +161,12 @@ def render_dashboard_text(payload: dict[str, object]) -> str:
     t = payload.get("todos")
     assert isinstance(t, dict)
     lines.append(f"Todos: {t.get('done', 0)}/{t.get('total', 0)} done")
+    items = t.get("items")
+    if isinstance(items, (list, tuple)):
+        for item in items:
+            assert isinstance(item, dict)
+            mark = "x" if item.get("done") else " "
+            lines.append(f"  [{mark}] {item.get('id', '?')}  {item.get('text', '')}")
 
     # files
     f = payload.get("files")
