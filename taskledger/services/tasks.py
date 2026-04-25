@@ -1260,11 +1260,17 @@ def answer_question(
             actor_role="user",
         )
     )
+    stripped = text.strip()
+    if not stripped:
+        raise _cli_error(
+            "Answer text must not be empty.",
+            EXIT_CODE_INVALID_TRANSITION,
+        )
     question = resolve_question(workspace_root, task.id, question_id)
     answered = replace(
         question,
         status="answered",
-        answer=text.strip(),
+        answer=stripped,
         answered_at=utc_now_iso(),
         answered_by=(actor.actor_name if actor is not None else "user"),
         answered_by_actor=actor or ActorRef(actor_type="user", actor_name="user"),

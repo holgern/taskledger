@@ -48,7 +48,8 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 4. Add questions with `taskledger question add --text "..." --required-for-plan` when decisions are missing.
 5. Stop after asking required questions; do not invent answers.
 6. After the user answers, run `taskledger question status`.
-7. Regenerate from answers with `taskledger plan regenerate --from-answers --file ./plan.md`.
+7. Review all answered questions with `taskledger question answers` before regenerating the plan.
+8. Regenerate from answers with `taskledger plan regenerate --from-answers --file ./plan.md`.
 8. Ensure the plan front matter includes `acceptance_criteria` and `todos`; approved plan todos materialize into the implementation checklist.
 9. Record approval only with user intent: `taskledger plan approve --version N --actor user --note "..."`.
 
@@ -142,6 +143,8 @@ taskledger actor whoami
 taskledger task new "Parser fix" --slug parser-fix
 taskledger question add --text "Should legacy storage be removed?" --required-for-plan
 taskledger question status
+taskledger question answers
+taskledger question list --status answered
 taskledger plan regenerate --from-answers --file ./plan.md
 taskledger context --for implementation --format markdown
 taskledger implement change --path taskledger/services/tasks.py --kind edit --summary "Hardened validation gates."

@@ -14,6 +14,11 @@ task -> plan -> approval -> implement -> validate -> done
 - `init`, `status`, `export`, `import`, `snapshot`
 - `context`, `search`, `grep`, `symbols`, `deps`
 
+### question subcommands
+
+- `question add`, `question list [--status STATUS]`, `question answers [--format markdown|json]`
+- `question answer`, `question dismiss`, `question open`, `question status`
+
 ## Supported Python API Modules
 
 - `taskledger.api.project`

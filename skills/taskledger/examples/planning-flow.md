@@ -7,5 +7,6 @@
 5. The agent stops until the user answers required questions.
 6. `taskledger --root /workspace question answer q-0001 --text "Yes." --actor user`
 7. `taskledger --root /workspace question status`
-8. `taskledger --root /workspace plan regenerate --from-answers --file ./plan.md`
-9. `taskledger --root /workspace plan approve --version 1 --actor user --note "Ready."`
+8. `taskledger --root /workspace question answers`
+9. `taskledger --root /workspace plan regenerate --from-answers --file ./plan.md`
+10. `taskledger --root /workspace plan approve --version 1 --actor user --note "Ready."`
