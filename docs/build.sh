@@ -1,16 +1,15 @@
 #!/bin/bash
 
-# Build script for runtildone documentation
+# Build script for taskledger documentation
 
 set -e
 
-# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${YELLOW}Building runtildone documentation...${NC}"
+echo -e "${YELLOW}Building taskledger documentation...${NC}"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -30,7 +29,7 @@ echo -e "${YELLOW}Installing documentation requirements...${NC}"
 python -m pip install -r "$SCRIPT_DIR/requirements.txt"
 
 # Install the package in development mode
-echo -e "${YELLOW}Installing runtildone in development mode...${NC}"
+echo -e "${YELLOW}Installing taskledger in development mode...${NC}"
 python -m pip install -e "$PROJECT_ROOT"
 
 # Clean previous build
@@ -53,6 +52,6 @@ fi
 
 echo -e "${GREEN}Documentation build complete!${NC}"
 echo -e "${GREEN}HTML documentation: $SCRIPT_DIR/_build/html/index.html${NC}"
-if [ -f "$SCRIPT_DIR/_build/latex/runtildone.pdf" ]; then
-    echo -e "${GREEN}PDF documentation: $SCRIPT_DIR/_build/latex/runtildone.pdf${NC}"
+if [ -f "$SCRIPT_DIR/_build/latex/taskledger.pdf" ]; then
+    echo -e "${GREEN}PDF documentation: $SCRIPT_DIR/_build/latex/taskledger.pdf${NC}"
 fi

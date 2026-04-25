@@ -72,7 +72,6 @@ from taskledger.domain.states import (
 )
 from taskledger.errors import LaunchError, LockConflict, NoActiveTask
 from taskledger.ids import next_project_id, slugify_project_ref
-from taskledger.models import utc_now_iso
 from taskledger.storage.atomic import atomic_write_text
 from taskledger.storage.events import append_event, load_events, next_event_id
 from taskledger.storage.indexes import rebuild_v2_indexes
@@ -121,6 +120,7 @@ from taskledger.storage.v2 import (
 from taskledger.storage.v2 import (
     resolve_active_task as storage_resolve_active_task,
 )
+from taskledger.timeutils import utc_now_iso
 
 
 def create_task(

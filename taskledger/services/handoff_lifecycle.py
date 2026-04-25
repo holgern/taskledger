@@ -6,7 +6,6 @@ from pathlib import Path
 
 from taskledger.domain.models import ActorRef, HarnessRef, TaskHandoffRecord
 from taskledger.errors import LaunchError
-from taskledger.models import utc_now_iso
 from taskledger.services.actors import resolve_actor, resolve_harness
 from taskledger.storage.v2 import (
     resolve_handoff,
@@ -14,6 +13,7 @@ from taskledger.storage.v2 import (
     resolve_task,
     save_handoff,
 )
+from taskledger.timeutils import utc_now_iso
 
 
 def claim_handoff(

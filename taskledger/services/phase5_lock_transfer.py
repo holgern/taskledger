@@ -6,8 +6,8 @@ from pathlib import Path
 
 from taskledger.domain.models import ActorRef, HarnessRef, TaskLock
 from taskledger.errors import LaunchError
-from taskledger.models import utc_now_iso
 from taskledger.storage.v2 import resolve_lock, save_lock
+from taskledger.timeutils import utc_now_iso
 
 
 def transfer_lock(

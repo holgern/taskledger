@@ -4,9 +4,10 @@ from pathlib import Path
 
 from taskledger.errors import LaunchError
 from taskledger.ids import next_project_id as _next_id
-from taskledger.models import ProjectPaths, utc_now_iso
+from taskledger.models import ProjectPaths
 from taskledger.storage.common import load_json_array as _load_json_array
 from taskledger.storage.common import write_json as _write_json
+from taskledger.timeutils import utc_now_iso
 
 ValidationRecordKind = str
 

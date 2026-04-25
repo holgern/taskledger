@@ -36,8 +36,8 @@ from taskledger.models.core import (
     WorkflowStatus,
     WorkflowTransition,
     WorkflowTransitionRule,
-    utc_now_iso,
 )
+from taskledger.timeutils import utc_now_iso
 from taskledger.models.execution import (
     ExecutionCommandInvocation,
     ExecutionHarnessCapabilities,

@@ -364,6 +364,25 @@ def test_user_dependency_waiver_unblocks_implementation(tmp_path: Path) -> None:
     assert allowed.exit_code == 0, allowed.stdout
 
 
+def test_services_tasks_has_no_duplicate_top_level_function_names() -> None:
+    """Static AST check: no duplicate top-level function definitions."""
+    import ast
+
+    path = Path(__file__).resolve().parents[1] / "taskledger" / "services" / "tasks.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+
+    seen: set[str] = set()
+    duplicates: set[str] = set()
+
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef):
+            if node.name in seen:
+                duplicates.add(node.name)
+            seen.add(node.name)
+
+    assert duplicates == set(), f"Duplicate top-level functions: {duplicates}"
+
+
 def test_import_smoke_tests() -> None:
     """Smoke tests for module imports."""
     from taskledger.domain.policies import Decision, PolicyDecision

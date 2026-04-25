@@ -5,12 +5,13 @@ from dataclasses import replace
 from taskledger.errors import LaunchError
 from taskledger.ids import next_project_id as _next_id
 from taskledger.ids import slugify_project_ref as _slugify
-from taskledger.models import ProjectContextEntry, ProjectPaths, utc_now_iso
+from taskledger.models import ProjectContextEntry, ProjectPaths
 from taskledger.storage.common import load_json_array as _load_json_array
 from taskledger.storage.common import (
     relative_to_project as _relative_to_project,
 )
 from taskledger.storage.common import write_json as _write_json
+from taskledger.timeutils import utc_now_iso
 
 
 def load_contexts(paths: ProjectPaths) -> list[ProjectContextEntry]:

@@ -17,7 +17,6 @@ from taskledger.domain.models import (
     TaskRunRecord,
 )
 from taskledger.errors import LaunchError
-from taskledger.models import utc_now_iso
 from taskledger.storage.events import append_event, load_events
 from taskledger.storage.indexes import rebuild_v2_indexes
 from taskledger.storage.locks import write_lock
@@ -46,6 +45,7 @@ from taskledger.storage.v2 import list_plans as list_v2_plans
 from taskledger.storage.v2 import list_questions as list_v2_questions
 from taskledger.storage.v2 import list_runs as list_v2_runs
 from taskledger.storage.v2 import list_tasks as list_v2_tasks
+from taskledger.timeutils import utc_now_iso
 
 
 def export_project_payload(

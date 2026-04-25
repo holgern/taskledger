@@ -7,7 +7,7 @@ from pathlib import Path
 from taskledger.errors import LaunchError
 from taskledger.ids import next_project_id as _next_id
 from taskledger.ids import slugify_project_ref as _slugify
-from taskledger.models import ProjectMemory, ProjectPaths, utc_now_iso
+from taskledger.models import ProjectMemory, ProjectPaths
 from taskledger.storage.common import content_hash as _content_hash
 from taskledger.storage.common import merge_text as _merge_text
 from taskledger.storage.common import summarize_text as _summarize_text
@@ -23,6 +23,7 @@ from taskledger.storage.frontmatter import (
 from taskledger.storage.frontmatter import (
     write_markdown_front_matter as _write_markdown_front_matter,
 )
+from taskledger.timeutils import utc_now_iso
 
 _NUMERIC_SUFFIX_PATTERN = re.compile(r".*-(\d+)$")
 _REQUIRED_MEMORY_KEYS = (
