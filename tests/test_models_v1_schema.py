@@ -110,7 +110,7 @@ def test_persisted_models_round_trip_with_schema_metadata() -> None:
             task_id="task-0001",
             actor=actor,
             event_id="evt-20260424T084500Z-000001",
-            data={"plan_id": "plan-v0001"},
+            data={"plan_id": "plan-v1"},
         ),
     ]
 
@@ -168,7 +168,7 @@ def test_plan_record_round_trips_acceptance_criteria_and_approval_metadata() -> 
     assert restored.criteria[0].id == "ac-0001"
     assert restored.approved_by is not None
     assert restored.approval_note == "Looks good."
-    assert restored.plan_id == "plan-v0007"
+    assert restored.plan_id == "plan-v7"
 
 
 def test_validation_check_requires_criterion_id_unless_not_run() -> None:

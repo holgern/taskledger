@@ -75,6 +75,23 @@ def test_export_and_import_include_v2_state(tmp_path: Path) -> None:
         ).exit_code
         == 0
     )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(source_root),
+                "handoff",
+                "create",
+                "migrate-v2",
+                "--mode",
+                "implementation",
+                "--summary",
+                "Continue elsewhere.",
+            ],
+        ).exit_code
+        == 0
+    )
 
     export_result = runner.invoke(
         app,
@@ -82,6 +99,7 @@ def test_export_and_import_include_v2_state(tmp_path: Path) -> None:
     )
     export_payload = _json(export_result)
     assert export_payload["result"]["v2"]["tasks"][0]["slug"] == "migrate-v2"
+    assert export_payload["result"]["v2"]["handoffs"][0]["summary"] == "Continue elsewhere."
     export_file = tmp_path / "export.json"
     export_file.write_text(export_result.stdout, encoding="utf-8")
 
@@ -103,3 +121,10 @@ def test_export_and_import_include_v2_state(tmp_path: Path) -> None:
     )
     task_payload = _json(show_result)
     assert task_payload["result"]["task"]["latest_plan_version"] == 1
+    handoffs = _json(
+        runner.invoke(
+            app,
+            ["--cwd", str(dest_root), "--json", "handoff", "list", "migrate-v2"],
+        )
+    )
+    assert handoffs["result"]["handoffs"][0]["mode"] == "implementation"

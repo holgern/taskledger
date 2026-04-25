@@ -18,17 +18,27 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 - Do not validate before implementation has been finished.
 - Do not manually edit ledger files except through documented repair.
 - Do not break locks without a reason.
+- Do not break locks for normal actor or harness transfer; use durable handoffs.
 - Do not mark validation passed without checking every mandatory acceptance criterion.
 - Do not inline large source files into taskledger records by default; use `@path` references.
 
 ## Fresh context entry protocol
 
-1. Run `taskledger task active`.
-2. Run `taskledger next-action`.
-3. Run `taskledger context --for planning|implementation|validation --format markdown`.
-4. Inspect `taskledger lock show` before active work.
-5. Use `taskledger can implement` or `taskledger can validate` before those stages.
-6. If a durable handoff exists, claim it with `taskledger handoff claim handoff-0001` before continuing and close it after the intended next action starts.
+1. Run `taskledger actor whoami`.
+2. Run `taskledger task active`.
+3. Run `taskledger next-action`.
+4. Run `taskledger context --for planning|implementation|validation --format markdown`.
+5. Inspect `taskledger lock show` before active work.
+6. Use `taskledger can implement` or `taskledger can validate` before those stages.
+7. If a durable handoff exists, claim it with `taskledger handoff claim handoff-0001` before continuing and close it after the intended next action starts.
+
+## Actor and harness protocol
+
+1. Before mutating taskledger state, verify identity with `taskledger actor whoami`.
+2. If identity is wrong, set `TASKLEDGER_ACTOR_TYPE`, `TASKLEDGER_ACTOR_NAME`, `TASKLEDGER_ACTOR_ROLE`, `TASKLEDGER_HARNESS`, and `TASKLEDGER_SESSION_ID`.
+3. Never claim to be a user unless the user explicitly instructed it.
+4. User-only actions remain user-only: plan approval, acceptance criterion waivers, and dependency waivers.
+5. For handoffs, use `--intended-actor` and `--intended-harness` to document the target actor and harness.
 
 ## Planning protocol
 
@@ -41,6 +51,8 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 7. Regenerate from answers with `taskledger plan regenerate --from-answers --file ./plan.md`.
 8. Ensure the plan front matter includes `acceptance_criteria` and `todos`; approved plan todos materialize into the implementation checklist.
 9. Record approval only with user intent: `taskledger plan approve --version N --actor user --note "..."`.
+
+The plan file should use version ids like `plan-v1`, `plan-v2` in references. Do not use zero-padded forms.
 
 ## Implementation protocol
 
@@ -93,11 +105,28 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 - Use `taskledger link add --path ... --kind code|test|doc|config|dir|other` for files that matter.
 - Store failed validation; do not hide it.
 
+## Handoff protocol
+
+Use durable handoffs when switching harnesses or switching between human and agent work.
+
+To hand work to another actor:
+
+1. Run `taskledger handoff create --mode implementation|validation --intended-actor agent|user --intended-harness codex --summary "..."`
+2. Do not break a lock for normal transfer.
+3. Tell the receiving actor to claim the handoff before continuing.
+
+To receive work:
+
+1. Run `taskledger actor whoami`.
+2. Run `taskledger handoff claim handoff-0001`.
+3. Run `taskledger next-action`.
+4. Run `taskledger context --for implementation|validation --format markdown`.
+
 ## Never do these things
 
 - Do not finish implementation while `taskledger todo status` shows open, active, or blocked todos.
 - Do not skip mandatory todos unless the user explicitly authorizes the skip with a reason.
-- Do not start a new todo while one is already marked active (finish or block the active one first).
+- Do not rely on prior chat context when a taskledger handoff exists; claim and read the durable context.
 
 ## Failure handling
 
@@ -109,8 +138,15 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 ## Command examples
 
 ```bash
+taskledger actor whoami
+taskledger task new "Parser fix" --slug parser-fix
+taskledger question add --text "Should legacy storage be removed?" --required-for-plan
+taskledger question status
+taskledger plan regenerate --from-answers --file ./plan.md
 taskledger context --for implementation --format markdown
 taskledger implement change --path taskledger/services/tasks.py --kind edit --summary "Hardened validation gates."
+taskledger todo done todo-0001 --evidence "uv run pytest -q" --artifact tests/test_parser.py
 taskledger validate check --criterion ac-0001 --status pass --evidence "uv run pytest -q"
+taskledger handoff create --mode validation --intended-actor agent --intended-harness codex --summary "Ready for validation."
 taskledger task dossier --format markdown
 ```

@@ -10,6 +10,7 @@ from taskledger.domain.models import (
     IntroductionRecord,
     PlanRecord,
     QuestionRecord,
+    TaskHandoffRecord,
     TaskEvent,
     TaskLock,
     TaskRecord,
@@ -30,6 +31,7 @@ from taskledger.storage.v2 import (
     resolve_v2_paths,
     save_active_task_state,
     save_change,
+    save_handoff,
     save_introduction,
     save_plan,
     save_question,
@@ -43,6 +45,7 @@ from taskledger.storage.v2 import list_plans as list_v2_plans
 from taskledger.storage.v2 import list_questions as list_v2_questions
 from taskledger.storage.v2 import list_runs as list_v2_runs
 from taskledger.storage.v2 import list_tasks as list_v2_tasks
+from taskledger.storage.v2 import list_handoffs as list_v2_handoffs
 
 
 def export_project_payload(
@@ -178,6 +181,11 @@ def _export_v2_payload(workspace_root: Path) -> dict[str, object]:
             for task in tasks
             for change in list_v2_changes(workspace_root, task.id)
         ],
+        "handoffs": [
+            handoff.to_dict()
+            for task in tasks
+            for handoff in list_v2_handoffs(workspace_root, task.id)
+        ],
         "locks": [item.to_dict() for item in load_active_locks(workspace_root)],
         "events": [
             item.to_dict()
@@ -215,6 +223,8 @@ def _import_v2_payload(workspace_root: Path, payload: dict[str, object]) -> None
         save_run(workspace_root, TaskRunRecord.from_dict(item))
     for item in _dict_list(raw_v2.get("changes")):
         save_change(workspace_root, CodeChangeRecord.from_dict(item))
+    for item in _dict_list(raw_v2.get("handoffs")):
+        save_handoff(workspace_root, TaskHandoffRecord.from_dict(item))
     for item in _dict_list(raw_v2.get("locks")):
         lock = TaskLock.from_dict(item)
         write_lock(task_lock_path(paths, lock.task_id), lock)

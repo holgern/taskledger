@@ -3,9 +3,11 @@
 Create and plan a task:
 
 ```bash
-taskledger task create parser-fix --description "Repair parser handling."
-taskledger task activate parser-fix
+taskledger task new "Parser fix" --slug parser-fix --description "Repair parser handling."
+taskledger actor whoami
 taskledger plan start
-taskledger question add --text "Should legacy storage be removed?"
-taskledger plan propose --file ./plan.md
+taskledger question add --text "Should legacy storage be removed?" --required-for-plan
+taskledger question answer q-0001 --text "No." --actor user
+taskledger question status
+taskledger plan regenerate --from-answers --file ./plan.md
 ```

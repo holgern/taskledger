@@ -489,7 +489,7 @@ def handoff_markdown_path(paths: V2Paths, task_id: str, handoff_id: str) -> Path
 
 
 def plan_markdown_path(paths: V2Paths, task_id: str, version: int) -> Path:
-    return task_plans_dir(paths, task_id) / f"plan-v{version:04d}.md"
+    return task_plans_dir(paths, task_id) / f"plan-v{version}.md"
 
 
 def question_markdown_path(paths: V2Paths, task_id: str, question_id: str) -> Path:

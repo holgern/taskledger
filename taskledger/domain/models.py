@@ -1367,7 +1367,7 @@ def _first_string(value: object) -> str | None:
 
 
 def _plan_id(version: int) -> str:
-    return f"plan-v{version:04d}"
+    return f"plan-v{version}"
 
 
 def _plan_version_from_id(value: str | None) -> int | None:

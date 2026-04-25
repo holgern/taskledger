@@ -96,7 +96,7 @@ Ship the feature.
     assert [todo["text"] for todo in todos] == ["Add feature tests.", "Update docs."]
     assert todos[0]["mandatory"] is True
     assert todos[0]["source"] == "plan"
-    assert todos[0]["source_plan_id"] == "plan-v0001"
+    assert todos[0]["source_plan_id"] == "plan-v1"
     assert todos[1]["mandatory"] is False
 
     rerun = _json(
