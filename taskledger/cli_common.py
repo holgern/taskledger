@@ -536,6 +536,39 @@ def human_kv(title: str, rows: list[tuple[str, object]]) -> str:
     return "\n".join(lines)
 
 
+def render_events_human(events: list[dict[str, object]]) -> str:
+    if not events:
+        return "EVENTS\n(empty)"
+    header = f"{'TIMESTAMP':<21} {'EVENT':<25} {'ACTOR':<15} SUMMARY"
+    lines = ["EVENTS", header]
+    for evt in events:
+        ts_raw = str(evt.get("ts", ""))
+        ts = ts_raw[:19].replace("T", " ") if ts_raw else ""
+        event_type = str(evt.get("event", ""))
+        actor_ref = evt.get("actor")
+        if isinstance(actor_ref, dict):
+            actor = str(actor_ref.get("actor_name", ""))
+        else:
+            actor = ""
+        summary = _event_summary(evt)
+        lines.append(f"{ts:<21} {event_type:<25} {actor:<15} {summary}")
+    return "\n".join(lines)
+
+
+def _event_summary(evt: dict[str, object]) -> str:
+    data = evt.get("data")
+    if not isinstance(data, dict):
+        return ""
+    for key in ("reason", "todo_id", "lock_id", "status", "slug", "title"):
+        value = data.get(key)
+        if isinstance(value, str) and value:
+            return value
+    parts = [
+        f"{k}={v}" for k, v in data.items() if isinstance(v, (str, int, float, bool))
+    ]
+    return " ".join(parts[:3])
+
+
 def human_list(title: str, rows: list[str]) -> str:
     if not rows:
         return f"{title}\n(empty)"

@@ -30,6 +30,7 @@ COMMAND_METADATA: dict[str, tuple[str, str]] = {
     "task cancel": (STABLE_FOR_AGENTS, "ledger_mutation"),
     "task close": (STABLE_FOR_AGENTS, "ledger_mutation"),
     "task dossier": (STABLE_FOR_AGENTS, "safe_read_only"),
+    "task events": (STABLE_FOR_AGENTS, "safe_read_only"),
     "plan start": (STABLE_FOR_AGENTS, "ledger_mutation"),
     "plan propose": (STABLE_FOR_AGENTS, "ledger_mutation"),
     "plan draft": (STABLE_FOR_AGENTS, "safe_read_only"),

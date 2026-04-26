@@ -27,6 +27,7 @@ from taskledger.cli_common import (
     resolve_cli_task,
 )
 from taskledger.errors import LaunchError
+from taskledger.services.tasks import list_events as _list_events
 
 
 def register_task_v2_commands(app: typer.Typer) -> None:  # noqa: C901
@@ -214,6 +215,31 @@ def register_task_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, payload, human=f"closed task {payload['task_id']}")
+
+    @app.command("events")
+    def events_command(
+        ctx: typer.Context,
+        task_ref: TaskOption = None,
+        all_tasks: Annotated[
+            bool, typer.Option("--all", help="Show events for all tasks.")
+        ] = False,
+        limit: Annotated[int, typer.Option("--limit", help="Max events to show.")] = 50,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        events = _list_events(state.cwd)
+        if not all_tasks:
+            try:
+                resolved = resolve_cli_task(state.cwd, task_ref)
+            except LaunchError as exc:
+                emit_error(ctx, exc)
+                raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+            events = [e for e in events if e.get("task_id") == resolved.id]
+        events = events[-limit:]
+        payload = {"kind": "event_list", "items": events}
+        from taskledger.cli_common import render_events_human
+
+        human = render_events_human(events)
+        emit_payload(ctx, payload, human=human, result_type="event_list")
 
     @app.command("dossier")
     def dossier_command(
