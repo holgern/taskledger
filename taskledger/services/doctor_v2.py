@@ -125,7 +125,7 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
             )
             repair_hints.append(
                 "Break the stale lock with "
-                f'`taskledger lock break {task.id} --reason "..."`.'
+                f'`taskledger lock break --task {task.id} --reason "..."`.'
             )
 
         for change in list_changes(workspace_root, task.id):
