@@ -11,6 +11,7 @@ Contents
    :caption: Documentation
 
    usage
+   full_task_cycle
    api
    public_surface
    command_contract
