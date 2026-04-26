@@ -8,6 +8,7 @@ import socket
 import sys
 from pathlib import Path
 
+from taskledger.domain.states import normalize_actor_type, normalize_actor_role, normalize_harness_kind
 from taskledger.domain.models import ActorRef, HarnessRef
 from taskledger.ids import next_project_id
 
@@ -32,9 +33,9 @@ def resolve_actor(
     # 1. Use explicit params if provided
     if actor_type and actor_name:
         return ActorRef(
-            actor_type=actor_type,  # type: ignore
+            actor_type=normalize_actor_type(actor_type),
             actor_name=actor_name,
-            role=role,  # type: ignore
+            role=normalize_actor_role(role) if role else None,
             tool=tool,
             session_id=session_id,
             harness_id=harness_id,
@@ -51,9 +52,9 @@ def resolve_actor(
 
     if env_actor_type or env_actor_name:
         return ActorRef(
-            actor_type=env_actor_type or actor_type or "agent",  # type: ignore
+            actor_type=normalize_actor_type(env_actor_type or actor_type or "agent"),
             actor_name=env_actor_name or actor_name or "taskledger",
-            role=env_role or role,  # type: ignore
+            role=normalize_actor_role(env_role or role) if (env_role or role) else None,
             tool=tool,
             session_id=env_session_id or session_id,
             harness_id=harness_id or env_harness,
@@ -144,7 +145,7 @@ def resolve_harness(
         return HarnessRef(
             harness_id=harness_id,
             name=name,
-            kind=kind or "unknown",  # type: ignore
+            kind=normalize_harness_kind(kind or "unknown"),
             session_id=session_id,
             working_directory=str(cwd) if cwd else None,
         )
@@ -156,7 +157,7 @@ def resolve_harness(
         return HarnessRef(
             harness_id=harness_id,
             name=env_harness,
-            kind=kind or "unknown",  # type: ignore
+            kind=normalize_harness_kind(kind or "unknown"),
             session_id=session_id or os.getenv("TASKLEDGER_SESSION_ID"),
             working_directory=str(cwd) if cwd else None,
         )

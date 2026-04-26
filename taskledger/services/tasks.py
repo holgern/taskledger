@@ -10,7 +10,7 @@ import subprocess
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal, TypedDict, cast
 
 import yaml
 
@@ -67,6 +67,7 @@ from taskledger.domain.states import (
     IMPLEMENTABLE_TASK_STAGES,
     TaskStatusStage,
     normalize_file_link_kind,
+    normalize_run_type,
     normalize_validation_check_status,
     normalize_validation_result,
     require_transition,
@@ -644,23 +645,32 @@ def add_todo(
     task_ref: str,
     *,
     text: str,
-    source: str = "user",
+    source: str | None = None,
     mandatory: bool = False,
 ) -> TaskRecord:
     task = _task_with_sidecars(workspace_root, resolve_task(workspace_root, task_ref))
-    actor_role = require_known_actor_role(source)
+    lock = _lock_for_mutation(workspace_root, task.id)
+    # Infer source from active lock unless explicitly provided
+    if source is not None:
+        resolved_source = source
+    elif lock is not None and lock.stage == "planning":
+        resolved_source = "planner"
+    elif lock is not None and lock.stage == "implementing":
+        resolved_source = "implementer"
+    else:
+        resolved_source = "user"
+    actor_role = require_known_actor_role(resolved_source)
     _enforce_decision(
         todo_add_decision(
             task,
-            _lock_for_mutation(workspace_root, task.id),
+            lock,
             actor_role=actor_role,
         )
     )
-    lock = _lock_for_mutation(workspace_root, task.id)
     todo = TaskTodo(
         id=next_project_id("todo", [item.id for item in task.todos]),
         text=text.strip(),
-        source=source,
+        source=resolved_source,
         mandatory=mandatory,
         active_at=utc_now_iso()
         if lock is not None and lock.stage == "implementing"
@@ -993,6 +1003,10 @@ def approve_plan(
         )
     if allow_empty_todos and not (reason or "").strip():
         raise _cli_error("--allow-empty-todos requires --reason.", EXIT_CODE_BAD_INPUT)
+    if not materialize_todos and not (reason or "").strip():
+        raise _cli_error(
+            "--no-materialize-todos requires --reason.", EXIT_CODE_BAD_INPUT
+        )
     approved_by = _approval_actor(
         actor_type=actor_type,
         actor_name=actor_name,
@@ -1029,7 +1043,7 @@ def approve_plan(
             updated.id,
             version=target.plan_version,
         )
-        materialized = int(cast(int, materialized_result["materialized_todos"]))
+        materialized = materialized_result["materialized_todos"]
         updated = resolve_task(workspace_root, updated.id)
     _append_event(
         resolve_v2_paths(workspace_root).project_dir,
@@ -1062,13 +1076,22 @@ def approve_plan(
     return payload
 
 
+class PlanTodoMaterializationPayload(TypedDict):
+    kind: str
+    task_id: str
+    plan_id: str
+    materialized_todos: int
+    todos: list[dict[str, object]]
+    dry_run: bool
+
+
 def materialize_plan_todos(
     workspace_root: Path,
     task_ref: str,
     *,
     version: int,
     dry_run: bool = False,
-) -> dict[str, object]:
+) -> PlanTodoMaterializationPayload:
     task = _task_with_sidecars(workspace_root, resolve_task(workspace_root, task_ref))
     plan = resolve_plan(workspace_root, task.id, version=version)
     existing_keys = {
@@ -1113,14 +1136,14 @@ def materialize_plan_todos(
                 "todo_ids": [todo.id for todo in new_todos],
             },
         )
-    return {
-        "kind": "plan_todo_materialization",
-        "task_id": task.id,
-        "plan_id": plan.plan_id,
-        "materialized_todos": len(new_todos),
-        "todos": [todo.to_dict() for todo in new_todos],
-        "dry_run": dry_run,
-    }
+    return PlanTodoMaterializationPayload(
+        kind="plan_todo_materialization",
+        task_id=task.id,
+        plan_id=plan.plan_id,
+        materialized_todos=len(new_todos),
+        todos=[todo.to_dict() for todo in new_todos],
+        dry_run=dry_run,
+    )
 
 
 def regenerate_plan_from_answers(
@@ -2895,7 +2918,7 @@ def _start_run(
             [item.run_id for item in list_runs(workspace_root, task.id)],
         ),
         task_id=task.id,
-        run_type=run_type,  # type: ignore[arg-type]
+        run_type=normalize_run_type(run_type),
         actor=resolved_actor,
         harness=harness,
         based_on_plan_version=task.accepted_plan_version or task.latest_plan_version,

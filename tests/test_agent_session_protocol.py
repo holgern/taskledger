@@ -556,3 +556,210 @@ def test_validate_finish_passed_blocks_unchecked_mandatory_criteria(
         "incomplete" in payload["error"]["message"].lower()
         or "mandatory" in payload["error"]["message"].lower()
     )
+
+
+# --- --no-materialize-todos reason gate ---
+
+
+def test_no_materialize_todos_without_reason_fails(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+    _prepare_proposed_plan_with_todos(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "plan",
+            "approve",
+            "--task",
+            "test-task",
+            "--version",
+            "1",
+            "--actor",
+            "user",
+            "--note",
+            "approved",
+            "--no-materialize-todos",
+        ],
+    )
+    payload = _json(result)
+    assert result.exit_code != 0
+    assert payload["ok"] is False
+    assert "reason" in payload["error"]["message"].lower()
+
+
+def test_no_materialize_todos_with_reason_succeeds(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+    _prepare_proposed_plan_with_todos(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "plan",
+            "approve",
+            "--task",
+            "test-task",
+            "--version",
+            "1",
+            "--actor",
+            "user",
+            "--note",
+            "approved",
+            "--no-materialize-todos",
+            "--reason",
+            "trivial task; checklist not needed",
+        ],
+    )
+    assert result.exit_code == 0
+
+
+# --- Todo source inference ---
+
+
+def test_todo_added_during_implementation_is_implementer_sourced(
+    tmp_path: Path,
+) -> None:
+    _init_project(tmp_path)
+    _prepare_proposed_plan_with_todos(tmp_path)
+
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "plan",
+                "approve",
+                "--task",
+                "test-task",
+                "--version",
+                "1",
+                "--actor",
+                "user",
+                "--note",
+                "approved",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "implement", "start", "--task", "test-task"],
+        ).exit_code
+        == 0
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "todo",
+            "add",
+            "--task",
+            "test-task",
+            "--text",
+            "Implementation todo",
+        ],
+    )
+    assert result.exit_code == 0
+    payload = _json(result)
+    todos = payload["result"]["task"]["todos"]
+    added = [t for t in todos if t["text"] == "Implementation todo"]
+    assert len(added) == 1
+    assert added[0]["source"] == "implementer"
+
+
+def test_todo_added_during_planning_is_planner_sourced(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "create",
+                "source-test",
+                "--description",
+                "Source test.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "plan", "start", "--task", "source-test"],
+        ).exit_code
+        == 0
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "todo",
+            "add",
+            "--task",
+            "source-test",
+            "--text",
+            "Planning todo",
+        ],
+    )
+    assert result.exit_code == 0
+    payload = _json(result)
+    todos = payload["result"]["task"]["todos"]
+    added = [t for t in todos if t["text"] == "Planning todo"]
+    assert len(added) == 1
+    assert added[0]["source"] == "planner"
+
+
+def test_todo_added_without_active_stage_defaults_to_user(
+    tmp_path: Path,
+) -> None:
+    _init_project(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "create",
+                "source-default",
+                "--description",
+                "Source default test.",
+            ],
+        ).exit_code
+        == 0
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "todo",
+            "add",
+            "--task",
+            "source-default",
+            "--text",
+            "User todo",
+        ],
+    )
+    assert result.exit_code == 0
+    payload = _json(result)
+    todos = payload["result"]["task"]["todos"]
+    added = [t for t in todos if t["text"] == "User todo"]
+    assert len(added) == 1
+    assert added[0]["source"] == "user"

@@ -15,7 +15,13 @@ from taskledger.domain.states import (
     TaskStatusStage,
     ValidationCheckStatus,
     ValidationResult,
+    normalize_actor_type,
+    normalize_actor_role,
     normalize_file_link_kind,
+    normalize_handoff_mode,
+    normalize_handoff_status,
+    normalize_harness_kind,
+    normalize_lock_policy,
     normalize_plan_status,
     normalize_question_status,
     normalize_run_status,
@@ -59,32 +65,20 @@ class ActorRef:
     def from_dict(cls, data: object) -> ActorRef:
         if not isinstance(data, dict):
             return cls()
-        actor_type = _optional_string(data.get("actor_type")) or "agent"
-        if actor_type not in {"agent", "user", "system"}:
-            raise LaunchError(f"Unsupported actor type: {actor_type}")
+        raw_actor_type = _optional_string(data.get("actor_type")) or "agent"
+        actor_type = normalize_actor_type(raw_actor_type)
         pid = data.get("pid")
-        role = _optional_string(data.get("role"))
-        if role and role not in {
-            "planner",
-            "implementer",
-            "validator",
-            "reviewer",
-            "operator",
-        }:
-            role = None
+        raw_role = _optional_string(data.get("role"))
+        role = normalize_actor_role(raw_role) if raw_role else None
         return cls(
-            actor_type=cast(Literal["agent", "user", "system"], actor_type),
+            actor_type=actor_type,
             actor_name=_optional_string(data.get("actor_name")) or "taskledger",
             tool=_optional_string(data.get("tool")),
             session_id=_optional_string(data.get("session_id")),
             host=_optional_string(data.get("host")),
             pid=pid if isinstance(pid, int) else None,
             actor_id=_optional_string(data.get("actor_id")),
-            role=cast(
-                Literal["planner", "implementer", "validator", "reviewer", "operator"]
-                | None,
-                role,
-            ),
+            role=role,
             harness_id=_optional_string(data.get("harness_id")),
         )
 
@@ -126,9 +120,8 @@ class HarnessRef:
         return cls(
             harness_id=_string_value(data, "harness_id"),
             name=_string_value(data, "name"),
-            kind=cast(
-                Literal["agent_harness", "manual", "ci", "unknown"],
-                _optional_string(data.get("kind")) or "unknown",
+            kind=normalize_harness_kind(
+                _optional_string(data.get("kind")) or "unknown"
             ),
             session_id=_optional_string(data.get("session_id")),
             working_directory=_optional_string(data.get("working_directory")),
@@ -212,31 +205,27 @@ class TaskHandoffRecord:
         return cls(
             handoff_id=_string_value(data, "handoff_id"),
             task_id=_string_value(data, "task_id"),
-            mode=cast(
-                Literal["planning", "implementation", "validation", "review", "full"],
-                _string_value(data, "mode"),
-            ),
-            status=cast(
-                Literal["open", "claimed", "closed", "cancelled"],
-                _optional_string(data.get("status")) or "open",
+            mode=normalize_handoff_mode(_string_value(data, "mode")),
+            status=normalize_handoff_status(
+                _optional_string(data.get("status")) or "open"
             ),
             created_at=_optional_string(data.get("created_at")) or utc_now_iso(),
             created_by=ActorRef.from_dict(data.get("created_by")),
             created_from_harness=HarnessRef.from_dict(data.get("created_from_harness"))
             if data.get("created_from_harness")
             else None,
-            intended_actor_type=cast(
-                Literal["agent", "user", "system"] | None,
-                _optional_string(data.get("intended_actor_type")),
+            intended_actor_type=(
+                normalize_actor_type(v)
+                if (v := _optional_string(data.get("intended_actor_type")))
+                else None
             ),
             intended_actor_name=_optional_string(data.get("intended_actor_name")),
             intended_harness=_optional_string(data.get("intended_harness")),
             source_run_id=_optional_string(data.get("source_run_id")),
             resumes_run_id=_optional_string(data.get("resumes_run_id")),
             claim_run_id=_optional_string(data.get("claim_run_id")),
-            lock_policy=cast(
-                Literal["none", "retain", "release", "transfer"],
-                _optional_string(data.get("lock_policy")) or "none",
+            lock_policy=normalize_lock_policy(
+                _optional_string(data.get("lock_policy")) or "none"
             ),
             released_lock_id=_optional_string(data.get("released_lock_id")),
             claimed_at=_optional_string(data.get("claimed_at")),

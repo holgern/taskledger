@@ -24,6 +24,14 @@ OBJECT_TYPES = frozenset(
     }
 )
 
+ActorType = Literal["agent", "user", "system"]
+ActorRole = Literal["planner", "implementer", "validator", "reviewer", "operator"]
+HarnessKind = Literal["agent_harness", "manual", "ci", "unknown"]
+HandoffMode = Literal["planning", "implementation", "validation", "review", "full"]
+HandoffStatus = Literal["open", "claimed", "closed", "cancelled"]
+LockPolicy = Literal["none", "retain", "release", "transfer"]
+TodoSource = Literal["user", "planner", "implementer", "plan"]
+
 TaskStatusStage = Literal[
     "draft",
     "planning",
@@ -221,3 +229,39 @@ def normalize_todo_status(value: str) -> TodoStatus:
 
 
 TODO_STATUSES = frozenset({"open", "active", "done", "blocked", "skipped"})
+
+
+def normalize_actor_type(value: str) -> ActorType:
+    if value not in {"agent", "user", "system"}:
+        raise LaunchError(f"Unsupported actor type: {value!r}")
+    return cast(ActorType, value)
+
+
+def normalize_actor_role(value: str) -> ActorRole:
+    if value not in {"planner", "implementer", "validator", "reviewer", "operator"}:
+        raise LaunchError(f"Unsupported actor role: {value!r}")
+    return cast(ActorRole, value)
+
+
+def normalize_harness_kind(value: str) -> HarnessKind:
+    if value not in {"agent_harness", "manual", "ci", "unknown"}:
+        raise LaunchError(f"Unsupported harness kind: {value!r}")
+    return cast(HarnessKind, value)
+
+
+def normalize_handoff_mode(value: str) -> HandoffMode:
+    if value not in {"planning", "implementation", "validation", "review", "full"}:
+        raise LaunchError(f"Unsupported handoff mode: {value!r}")
+    return cast(HandoffMode, value)
+
+
+def normalize_handoff_status(value: str) -> HandoffStatus:
+    if value not in {"open", "claimed", "closed", "cancelled"}:
+        raise LaunchError(f"Unsupported handoff status: {value!r}")
+    return cast(HandoffStatus, value)
+
+
+def normalize_lock_policy(value: str) -> LockPolicy:
+    if value not in {"none", "retain", "release", "transfer"}:
+        raise LaunchError(f"Unsupported lock policy: {value!r}")
+    return cast(LockPolicy, value)
