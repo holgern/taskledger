@@ -8,9 +8,14 @@ import socket
 import sys
 from pathlib import Path
 
-from taskledger.domain.states import normalize_actor_type, normalize_actor_role, normalize_harness_kind
 from taskledger.domain.models import ActorRef, HarnessRef
+from taskledger.domain.states import (
+    normalize_actor_role,
+    normalize_actor_type,
+    normalize_harness_kind,
+)
 from taskledger.ids import next_project_id
+from taskledger.storage.v2 import load_actor_state, load_harness_state
 
 
 def resolve_actor(
@@ -21,13 +26,15 @@ def resolve_actor(
     tool: str | None = None,
     session_id: str | None = None,
     harness_id: str | None = None,
+    workspace_root: Path | None = None,
 ) -> ActorRef:
     """
     Resolve actor identity with fallback order:
     1. Explicit parameters
     2. Environment variables
-    3. Auto-detect from environment
-    4. Safe default
+    3. Stored state (actor.yaml)
+    4. Auto-detect from environment
+    5. Safe default
     """
 
     # 1. Use explicit params if provided
@@ -62,7 +69,22 @@ def resolve_actor(
             pid=os.getpid(),
         )
 
-    # 3. Auto-detect from environment
+    # 3. Check stored state
+    if workspace_root is not None:
+        stored = load_actor_state(workspace_root)
+        if stored is not None:
+            return ActorRef(
+                actor_type=stored.actor_type,
+                actor_name=stored.actor_name,
+                role=stored.role,
+                tool=stored.tool or tool,
+                session_id=stored.session_id or session_id,
+                harness_id=harness_id,
+                host=socket.gethostname(),
+                pid=os.getpid(),
+            )
+
+    # 4. Auto-detect from environment
     if os.getenv("OPENCODE_VERSION"):
         return ActorRef(
             actor_type="agent",
@@ -119,7 +141,7 @@ def resolve_actor(
             pid=os.getpid(),
         )
 
-    # 4. Safe default
+    # 5. Safe default
     return ActorRef(
         actor_type="agent",
         actor_name="taskledger",
@@ -136,8 +158,16 @@ def resolve_harness(
     kind: str | None = None,
     session_id: str | None = None,
     cwd: Path | None = None,
+    workspace_root: Path | None = None,
 ) -> HarnessRef:
-    """Resolve harness identity with fallback order."""
+    """
+    Resolve harness identity with fallback order:
+    1. Explicit parameters
+    2. Environment variables
+    3. Stored state (harness.yaml)
+    4. Auto-detect from environment
+    5. Safe default
+    """
 
     # Use explicit params if provided
     if name:
@@ -161,6 +191,19 @@ def resolve_harness(
             session_id=session_id or os.getenv("TASKLEDGER_SESSION_ID"),
             working_directory=str(cwd) if cwd else None,
         )
+
+    # Check stored state
+    if workspace_root is not None:
+        stored = load_harness_state(workspace_root)
+        if stored is not None:
+            harness_id = next_project_id("harness", [])
+            return HarnessRef(
+                harness_id=harness_id,
+                name=stored.name,
+                kind=stored.kind,
+                session_id=stored.session_id or session_id,
+                working_directory=str(cwd) if cwd else None,
+            )
 
     # Auto-detect
     if os.getenv("OPENCODE_VERSION"):

@@ -15,8 +15,8 @@ from taskledger.domain.states import (
     TaskStatusStage,
     ValidationCheckStatus,
     ValidationResult,
-    normalize_actor_type,
     normalize_actor_role,
+    normalize_actor_type,
     normalize_file_link_kind,
     normalize_handoff_mode,
     normalize_handoff_status,
@@ -276,6 +276,80 @@ class ActiveTaskState:
             activated_by=ActorRef.from_dict(data.get("activated_by")),
             reason=_optional_string(data.get("reason")),
             previous_task_id=_optional_string(data.get("previous_task_id")),
+            schema_version=_int_value(data, "schema_version"),
+            object_type=_string_value(data, "object_type"),
+        )
+
+
+@dataclass(slots=True, frozen=True)
+class ActiveActorState:
+    actor_type: Literal["agent", "user", "system"] = "agent"
+    actor_name: str = "taskledger"
+    role: (
+        Literal["planner", "implementer", "validator", "reviewer", "operator"] | None
+    ) = None
+    tool: str | None = None
+    session_id: str | None = None
+    schema_version: int = TASKLEDGER_SCHEMA_VERSION
+    object_type: str = "active_actor"
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema_version": self.schema_version,
+            "object_type": self.object_type,
+            "actor_type": self.actor_type,
+            "actor_name": self.actor_name,
+            "role": self.role,
+            "tool": self.tool,
+            "session_id": self.session_id,
+        }
+
+    @classmethod
+    def from_dict(cls, data: object) -> ActiveActorState:
+        if not isinstance(data, dict):
+            raise LaunchError("Invalid active actor state: expected mapping.")
+        _require_contract(data, expected_object_type="active_actor")
+        raw_role = _optional_string(data.get("role"))
+        return cls(
+            actor_type=normalize_actor_type(
+                _optional_string(data.get("actor_type")) or "agent"
+            ),
+            actor_name=_optional_string(data.get("actor_name")) or "taskledger",
+            role=normalize_actor_role(raw_role) if raw_role else None,
+            tool=_optional_string(data.get("tool")),
+            session_id=_optional_string(data.get("session_id")),
+            schema_version=_int_value(data, "schema_version"),
+            object_type=_string_value(data, "object_type"),
+        )
+
+
+@dataclass(slots=True, frozen=True)
+class ActiveHarnessState:
+    name: str = "unknown"
+    kind: Literal["agent_harness", "manual", "ci", "unknown"] = "unknown"
+    session_id: str | None = None
+    schema_version: int = TASKLEDGER_SCHEMA_VERSION
+    object_type: str = "active_harness"
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema_version": self.schema_version,
+            "object_type": self.object_type,
+            "name": self.name,
+            "kind": self.kind,
+            "session_id": self.session_id,
+        }
+
+    @classmethod
+    def from_dict(cls, data: object) -> ActiveHarnessState:
+        if not isinstance(data, dict):
+            raise LaunchError("Invalid active harness state: expected mapping.")
+        _require_contract(data, expected_object_type="active_harness")
+        raw_kind = _optional_string(data.get("kind"))
+        return cls(
+            name=_optional_string(data.get("name")) or "unknown",
+            kind=normalize_harness_kind(raw_kind) if raw_kind else "unknown",
+            session_id=_optional_string(data.get("session_id")),
             schema_version=_int_value(data, "schema_version"),
             object_type=_string_value(data, "object_type"),
         )

@@ -8,6 +8,8 @@ from typing import TypeVar
 import yaml
 
 from taskledger.domain.models import (
+    ActiveActorState,
+    ActiveHarnessState,
     ActiveTaskState,
     CodeChangeRecord,
     DependencyRequirement,
@@ -49,6 +51,8 @@ class V2Paths:
     events_dir: Path
     indexes_dir: Path
     active_task_path: Path
+    actor_path: Path
+    harness_path: Path
     tasks_index_path: Path
     active_locks_index_path: Path
     dependencies_index_path: Path
@@ -72,6 +76,8 @@ def resolve_v2_paths(workspace_root: Path) -> V2Paths:
         events_dir=project_dir / "events",
         indexes_dir=indexes_dir,
         active_task_path=project_dir / "active-task.yaml",
+        actor_path=project_dir / "actor.yaml",
+        harness_path=project_dir / "harness.yaml",
         tasks_index_path=indexes_dir / "tasks.json",
         active_locks_index_path=indexes_dir / "active_locks.json",
         dependencies_index_path=indexes_dir / "dependencies.json",
@@ -149,6 +155,66 @@ def clear_active_task_state(workspace_root: Path) -> ActiveTaskState | None:
     state = load_active_task_state(workspace_root)
     if paths.active_task_path.exists():
         paths.active_task_path.unlink()
+    return state
+
+
+def load_actor_state(workspace_root: Path) -> ActiveActorState | None:
+    paths = ensure_v2_layout(workspace_root)
+    if not paths.actor_path.exists():
+        return None
+    try:
+        payload = yaml.safe_load(paths.actor_path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        raise LaunchError(f"Invalid actor state: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise LaunchError("Invalid actor state: expected mapping.")
+    return ActiveActorState.from_dict(payload)
+
+
+def save_actor_state(
+    workspace_root: Path,
+    state: ActiveActorState,
+) -> ActiveActorState:
+    paths = ensure_v2_layout(workspace_root)
+    _write_yaml(paths.actor_path, state.to_dict())
+    return state
+
+
+def clear_actor_state(workspace_root: Path) -> ActiveActorState | None:
+    paths = ensure_v2_layout(workspace_root)
+    state = load_actor_state(workspace_root)
+    if paths.actor_path.exists():
+        paths.actor_path.unlink()
+    return state
+
+
+def load_harness_state(workspace_root: Path) -> ActiveHarnessState | None:
+    paths = ensure_v2_layout(workspace_root)
+    if not paths.harness_path.exists():
+        return None
+    try:
+        payload = yaml.safe_load(paths.harness_path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        raise LaunchError(f"Invalid harness state: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise LaunchError("Invalid harness state: expected mapping.")
+    return ActiveHarnessState.from_dict(payload)
+
+
+def save_harness_state(
+    workspace_root: Path,
+    state: ActiveHarnessState,
+) -> ActiveHarnessState:
+    paths = ensure_v2_layout(workspace_root)
+    _write_yaml(paths.harness_path, state.to_dict())
+    return state
+
+
+def clear_harness_state(workspace_root: Path) -> ActiveHarnessState | None:
+    paths = ensure_v2_layout(workspace_root)
+    state = load_harness_state(workspace_root)
+    if paths.harness_path.exists():
+        paths.harness_path.unlink()
     return state
 
 

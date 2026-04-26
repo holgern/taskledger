@@ -22,6 +22,7 @@ from taskledger.api.search import (
     symbols_workspace,
 )
 from taskledger.cli_actor_v2 import app as actors_app
+from taskledger.cli_actor_v2 import harness_app
 from taskledger.cli_common import (
     CLIState,
     TaskOption,
@@ -93,6 +94,7 @@ app.add_typer(handoff_app, name="handoff")
 app.add_typer(doctor_app, name="doctor")
 app.add_typer(repair_app, name="repair")
 app.add_typer(actors_app, name="actor")
+app.add_typer(harness_app, name="harness")
 
 register_task_v2_commands(task_app)
 register_plan_v2_commands(plan_app)

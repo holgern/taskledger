@@ -38,10 +38,12 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 ## Actor and harness protocol
 
 1. Before mutating taskledger state, verify identity with `taskledger actor whoami`.
-2. If identity is wrong, set `TASKLEDGER_ACTOR_TYPE`, `TASKLEDGER_ACTOR_NAME`, `TASKLEDGER_ACTOR_ROLE`, `TASKLEDGER_HARNESS`, and `TASKLEDGER_SESSION_ID`.
-3. Never claim to be a user unless the user explicitly instructed it.
-4. User-only actions remain user-only: plan approval, acceptance criterion waivers, and dependency waivers.
-5. For handoffs, use `--intended-actor` and `--intended-harness` to document the target actor and harness.
+2. If identity is wrong, use `taskledger actor set --type <type> --name <name> [--role <role>] [--tool <tool>]` and `taskledger harness set --name <name> [--kind <kind>]` to persist the correct identity.
+3. Alternatively, set `TASKLEDGER_ACTOR_TYPE`, `TASKLEDGER_ACTOR_NAME`, `TASKLEDGER_ACTOR_ROLE`, `TASKLEDGER_HARNESS`, and `TASKLEDGER_SESSION_ID` environment variables. Env vars take priority over stored values.
+4. Use `taskledger actor clear` and `taskledger harness clear` to remove stored identity and revert to env/auto-detection.
+5. Never claim to be a user unless the user explicitly instructed it.
+6. User-only actions remain user-only: plan approval, acceptance criterion waivers, and dependency waivers.
+7. For handoffs, use `--intended-actor` and `--intended-harness` to document the target actor and harness.
 
 ## Planning protocol
 
@@ -148,6 +150,10 @@ To receive work:
 
 ```bash
 taskledger actor whoami
+taskledger actor set --type agent --name my-agent --role implementer
+taskledger actor clear
+taskledger harness set --name pi --kind agent_harness
+taskledger harness clear
 taskledger task create "Parser fix" --slug parser-fix
 taskledger question add --text "Should legacy storage be removed?" --required-for-plan
 taskledger question status
