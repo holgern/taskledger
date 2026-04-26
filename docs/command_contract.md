@@ -58,3 +58,31 @@ These aliases are intentionally not registered:
 
 Use `task create`, `task deactivate`, `implement change`, `validate check`,
 `file add`, `file remove`, `link add`, and `link remove` instead.
+
+## Approval Escape Hatches
+
+Plan approval escape hatches require `--reason` to prevent silent bypass:
+
+| Flag | Effect | Requires `--reason` |
+|------|--------|---------------------|
+| `--allow-empty-criteria` | Skip the acceptance criteria requirement | Yes |
+| `--allow-open-questions` | Approve despite open planning questions | Yes |
+| `--allow-empty-todos` | Approve despite no todos in the plan | Yes |
+| `--no-materialize-todos` | Skip materializing plan todos into the checklist | Yes |
+| `--allow-agent-approval` | Allow agent (non-user) approval | Yes (plus `--reason`) |
+
+Approval also requires `--note` for user approval. Agent approval additionally
+requires `--allow-agent-approval --reason "..."`.
+
+## Todo Source Inference
+
+When `todo add` is called without an explicit `--source`, the source is
+inferred from the active lock:
+
+| Active lock stage | Inferred source |
+|-------------------|-----------------|
+| `implementing` | `implementer` |
+| `planning` | `planner` |
+| No active lock | `user` |
+
+Plan-materialized todos always use `source=plan`.

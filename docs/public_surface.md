@@ -19,6 +19,16 @@ task -> plan -> approval -> implement -> validate -> done
 - `question add`, `question list [--status STATUS]`, `question answers [--format markdown|json]`
 - `question answer`, `question dismiss`, `question open`, `question status`
 
+### plan subcommands
+
+- `plan start`, `plan propose`, `plan approve`, `plan reject`, `plan show`, `plan diff`
+- `plan regenerate --from-answers`, `plan materialize-todos`, `plan command -- ...`
+
+### todo subcommands
+
+- `todo add`, `todo list`, `todo done`, `todo show`, `todo status`, `todo next`
+- Todo source is inferred from active lock: `implementer` during implementation, `planner` during planning, `user` otherwise.
+
 ## Supported Python API Modules
 
 - `taskledger.api.project`

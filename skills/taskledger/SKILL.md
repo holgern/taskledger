@@ -23,7 +23,7 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 - Do not inline large source files into taskledger records by default; use `@path` references.
 - Do not import or call `taskledger.storage.*`, `taskledger.services.*`, or `taskledger.domain.*` from ad-hoc Python during normal task work. Use CLI commands or public `taskledger.api.*` only.
 - Do not use repair commands (`lock break`, `repair lock`, `repair task`, `repair index`) in the normal lifecycle. Use them only after `doctor`/`lock show` proves there is stale or corrupted state.
-- Do not pass approval escape hatches such as `--allow-empty-criteria`, `--allow-open-questions`, or `--allow-agent-approval` unless the user explicitly requested that bypass and gave a reason.
+- Do not pass approval escape hatches such as `--allow-empty-criteria`, `--allow-open-questions`, `--allow-empty-todos`, `--no-materialize-todos`, or `--allow-agent-approval` unless the user explicitly requested that bypass and gave a reason. All escape hatches require `--reason`.
 
 ## Fresh context entry protocol
 
@@ -66,12 +66,13 @@ The plan file should use version ids like `plan-v1`, `plan-v2` in references. Do
 1. `taskledger context --for implementation --format markdown`
 2. `taskledger implement start`
 3. `taskledger implement checklist` - review the mandatory and optional todo checklist before starting.
-4. If no todos exist, create a concrete checklist: `taskledger todo add --text "..."`
+4. If no todos exist, create a concrete checklist: `taskledger todo add --text "..."`. Todo source is inferred automatically from the active lock: `implementer` during implementation, `planner` during planning, `user` otherwise.
 5. Work one todo at a time:
    - Make the code changes
    - `taskledger implement change --path ... --kind edit --summary "..."`
    - Run verification through `taskledger implement command -- ...` so exit code and output are recorded.
-   - Mark each todo done only after the relevant command or inspection evidence exists: `taskledger todo done <todo-id> --evidence "implement command change-NNNN exited 0"`
+   - Mark each todo done only after the relevant command or inspection evidence exists: `taskledger todo done <todo-id> --evidence "implement command change-NNNN exited 0"`.
+   - Optional: add `--source planner|implementer|user` to override the inferred source, though this is rarely needed.
 6. `taskledger implement checklist` after each meaningful change to track progress.
 7. Do not run `implement finish` until `todo status` says all todos are complete.
 8. `taskledger implement finish --summary "Completed all implementation todos..."`

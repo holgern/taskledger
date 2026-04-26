@@ -114,6 +114,18 @@ If answers changed after the plan was proposed, regenerate before approval:
 
 Regeneration keeps the durable answer snapshot aligned with the plan.
 
+For diagnostic commands needed during planning (linting, test runs, code
+inspection), preserve their output with ``plan command``:
+
+.. code-block:: bash
+
+   taskledger plan command -- pytest tests/test_parser.py -q
+   taskledger plan command -- python -m compileall taskledger
+
+``plan command`` records the command exit code and output as a change record
+attached to the planning run. Use it to build evidence into the plan before
+proposal.
+
 6. Materialize Todos And Approve
 --------------------------------
 
@@ -131,6 +143,15 @@ may also materialize structured plan todos:
 
 Mandatory todos gate implementation completion. Optional todos remain visible but
 do not block ``implement finish``.
+
+All approval escape hatches require ``--reason``:
+
+- ``--allow-empty-criteria --reason "..."``
+- ``--allow-open-questions --reason "..."``
+- ``--allow-empty-todos --reason "..."``
+- ``--no-materialize-todos --reason "..."``
+
+Without a reason, the approval command will fail.
 
 7. Start Implementation
 -----------------------
@@ -168,6 +189,10 @@ Mark mandatory todos done with evidence:
    taskledger todo done TODO_ID --evidence "Reviewed parser docs."
    taskledger todo status
    taskledger implement finish --summary "Implemented parser delimiter rejection and tests."
+
+Todo source is inferred from the active lock: todos added during implementation
+are recorded as ``source=implementer``, during planning as ``source=planner``,
+and outside an active stage as ``source=user``.
 
 ``implement finish`` releases the implementation lock only when mandatory todos
 are complete.

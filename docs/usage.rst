@@ -29,6 +29,19 @@ Task-first workflow
    taskledger plan propose --criterion "Accepted workflow is implemented." --file ./plan.md
    taskledger plan approve --version 1 --actor user --note "Ready."
 
+All approval escape hatches require ``--reason``:
+
+.. code-block:: bash
+
+   taskledger plan approve --version 1 --actor user --note "Ready." --no-materialize-todos --reason "trivial task"
+   taskledger plan approve --version 1 --actor user --note "Ready." --allow-empty-criteria --reason "no criteria needed"
+
+Use ``plan command`` to record diagnostic commands during planning:
+
+.. code-block:: bash
+
+   taskledger plan command -- pytest tests/ -q
+
    taskledger context --for implementation --format markdown
    taskledger implement start
    taskledger implement log --message "Started implementation."
