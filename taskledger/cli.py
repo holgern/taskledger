@@ -24,6 +24,7 @@ from taskledger.api.search import (
 from taskledger.cli_actor_v2 import app as actors_app
 from taskledger.cli_common import (
     CLIState,
+    TaskOption,
     emit_error,
     emit_payload,
     launch_error_exit_code,
@@ -110,10 +111,7 @@ register_handoff_v2_commands(handoff_app)
 @app.command("context")
 def context_command(
     ctx: typer.Context,
-    task_arg: Annotated[
-        str | None,
-        typer.Argument(help="Task ref. Defaults to the active task."),
-    ] = None,
+    task_ref: TaskOption = None,
     context_for: Annotated[
         str,
         typer.Option(
@@ -122,15 +120,11 @@ def context_command(
         ),
     ] = "full",
     format_name: Annotated[str, typer.Option("--format")] = "markdown",
-    task_ref: Annotated[
-        str | None,
-        typer.Option("--task", help="Task ref. Defaults to the active task."),
-    ] = None,
 ) -> None:
     state = ctx.obj
     assert isinstance(state, CLIState)
     try:
-        task = resolve_cli_task(state.cwd, task_ref or task_arg)
+        task = resolve_cli_task(state.cwd, task_ref)
         payload = render_handoff(
             state.cwd,
             task.id,
@@ -215,15 +209,12 @@ def status_command(
 @app.command("view")
 def view_command(
     ctx: typer.Context,
-    ref: Annotated[
-        str | None,
-        typer.Argument(help="Task ref. Defaults to the active task."),
-    ] = None,
+    task_ref: TaskOption = None,
 ) -> None:
     state = ctx.obj
     assert isinstance(state, CLIState)
     try:
-        payload = dashboard(state.cwd, ref=ref)
+        payload = dashboard(state.cwd, ref=task_ref)
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -256,32 +247,18 @@ def doctor_indexes_command(ctx: typer.Context) -> None:
 @app.command("next-action")
 def next_action_command(
     ctx: typer.Context,
-    task_arg: Annotated[
-        str | None,
-        typer.Argument(help="Task ref. Defaults to the active task."),
-    ] = None,
-    task_ref: Annotated[
-        str | None,
-        typer.Option("--task", help="Task ref. Defaults to the active task."),
-    ] = None,
+    task_ref: TaskOption = None,
 ) -> None:
-    emit_next_action_command(ctx, task_ref or task_arg)
+    emit_next_action_command(ctx, task_ref)
 
 
 @app.command("can")
 def can_command(
     ctx: typer.Context,
     action_or_task: Annotated[str, typer.Argument(..., help="Action name.")],
-    legacy_action: Annotated[str | None, typer.Argument(help="Action name.")] = None,
-    task_ref: Annotated[
-        str | None,
-        typer.Option("--task", help="Task ref. Defaults to the active task."),
-    ] = None,
+    task_ref: TaskOption = None,
 ) -> None:
-    if legacy_action is None:
-        emit_can_command(ctx, task_ref, action_or_task)
-        return
-    emit_can_command(ctx, task_ref or action_or_task, legacy_action)
+    emit_can_command(ctx, task_ref, action_or_task)
 
 
 @app.command("reindex")

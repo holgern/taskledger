@@ -19,6 +19,7 @@ from taskledger.api.plans import (
     start_planning,
 )
 from taskledger.cli_common import (
+    TaskOption,
     cli_state_from_context,
     emit_error,
     emit_payload,
@@ -34,14 +35,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     @app.command("start")
     def start_command(
         ctx: typer.Context,
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
-        task_option: Annotated[
-            str | None,
-            typer.Option("--task", help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
         actor: Annotated[
             str | None,
             typer.Option("--actor", help="Actor type: user, agent, or system."),
@@ -65,7 +59,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            task = resolve_cli_task(state.cwd, task_option or task_ref)
+            task = resolve_cli_task(state.cwd, task_ref)
             resolved_actor = resolve_actor(
                 actor_type=actor,
                 actor_name=actor_name,
@@ -87,21 +81,14 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     @app.command("propose")
     def propose_command(
         ctx: typer.Context,
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
         text: Annotated[str | None, typer.Option("--text")] = None,
         from_file: Annotated[Path | None, typer.Option("--file")] = None,
         criterion: Annotated[list[str] | None, typer.Option("--criterion")] = None,
-        task_option: Annotated[
-            str | None,
-            typer.Option("--task", help="Task ref. Defaults to the active task."),
-        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            task = resolve_cli_task(state.cwd, task_option or task_ref)
+            task = resolve_cli_task(state.cwd, task_ref)
             payload = propose_plan(
                 state.cwd,
                 task.id,
@@ -120,19 +107,12 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     @app.command("draft")
     def draft_command(
         ctx: typer.Context,
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
         ask_questions: Annotated[bool, typer.Option("--ask-questions")] = False,
-        task_option: Annotated[
-            str | None,
-            typer.Option("--task", help="Task ref. Defaults to the active task."),
-        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            task = resolve_cli_task(state.cwd, task_option or task_ref)
+            task = resolve_cli_task(state.cwd, task_ref)
             payload = {
                 "kind": "plan_draft_context",
                 "task_id": task.id,
@@ -151,10 +131,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     @app.command("regenerate")
     def regenerate_command(
         ctx: typer.Context,
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
         from_answers: Annotated[bool, typer.Option("--from-answers")] = False,
         text: Annotated[str | None, typer.Option("--text")] = None,
         from_file: Annotated[Path | None, typer.Option("--file")] = None,
@@ -162,16 +139,12 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             bool,
             typer.Option("--allow-open-questions"),
         ] = False,
-        task_option: Annotated[
-            str | None,
-            typer.Option("--task", help="Task ref. Defaults to the active task."),
-        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
             if not from_answers:
                 raise LaunchError("plan regenerate requires --from-answers.")
-            task = resolve_cli_task(state.cwd, task_option or task_ref)
+            task = resolve_cli_task(state.cwd, task_ref)
             payload = regenerate_plan_from_answers(
                 state.cwd,
                 task.id,
@@ -192,19 +165,12 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     def materialize_todos_command(
         ctx: typer.Context,
         version: Annotated[int, typer.Option("--version")],
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
         dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
-        task_option: Annotated[
-            str | None,
-            typer.Option("--task", help="Task ref. Defaults to the active task."),
-        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            task = resolve_cli_task(state.cwd, task_option or task_ref)
+            task = resolve_cli_task(state.cwd, task_ref)
             payload = materialize_plan_todos(
                 state.cwd,
                 task.id,
@@ -223,19 +189,12 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     @app.command("show")
     def show_command(
         ctx: typer.Context,
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
         version: Annotated[int | None, typer.Option("--version")] = None,
-        task_option: Annotated[
-            str | None,
-            typer.Option("--task", help="Task ref. Defaults to the active task."),
-        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            task = resolve_cli_task(state.cwd, task_option or task_ref)
+            task = resolve_cli_task(state.cwd, task_ref)
             payload = show_plan(state.cwd, task.id, version=version)
         except LaunchError as exc:
             emit_error(ctx, exc)
@@ -251,18 +210,11 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     @app.command("list")
     def list_command(
         ctx: typer.Context,
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
-        task_option: Annotated[
-            str | None,
-            typer.Option("--task", help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            task = resolve_cli_task(state.cwd, task_option or task_ref)
+            task = resolve_cli_task(state.cwd, task_ref)
             payload = list_plan_versions(state.cwd, task.id)
         except LaunchError as exc:
             emit_error(ctx, exc)
@@ -280,20 +232,13 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     @app.command("diff")
     def diff_command(
         ctx: typer.Context,
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
         from_version: Annotated[int, typer.Option("--from")] = 1,
         to_version: Annotated[int, typer.Option("--to")] = 1,
-        task_option: Annotated[
-            str | None,
-            typer.Option("--task", help="Task ref. Defaults to the active task."),
-        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            task = resolve_cli_task(state.cwd, task_option or task_ref)
+            task = resolve_cli_task(state.cwd, task_ref)
             payload = diff_plan(
                 state.cwd,
                 task.id,
@@ -326,18 +271,11 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             bool, typer.Option("--allow-open-questions")
         ] = False,
         allow_empty_todos: Annotated[bool, typer.Option("--allow-empty-todos")] = False,
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
-        task_option: Annotated[
-            str | None,
-            typer.Option("--task", help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            task = resolve_cli_task(state.cwd, task_option or task_ref)
+            task = resolve_cli_task(state.cwd, task_ref)
             payload = approve_plan(
                 state.cwd,
                 task.id,
@@ -364,19 +302,12 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     @app.command("reject")
     def reject_command(
         ctx: typer.Context,
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
         reason: Annotated[str | None, typer.Option("--reason")] = None,
-        task_option: Annotated[
-            str | None,
-            typer.Option("--task", help="Task ref. Defaults to the active task."),
-        ] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            task = resolve_cli_task(state.cwd, task_option or task_ref)
+            task = resolve_cli_task(state.cwd, task_ref)
             payload = reject_plan(state.cwd, task.id, reason=reason)
         except LaunchError as exc:
             emit_error(ctx, exc)
@@ -386,18 +317,11 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     @app.command("revise")
     def revise_command(
         ctx: typer.Context,
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
-        task_option: Annotated[
-            str | None,
-            typer.Option("--task", help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
-            task = resolve_cli_task(state.cwd, task_option or task_ref)
+            task = resolve_cli_task(state.cwd, task_ref)
             payload = revise_plan(state.cwd, task.id)
         except LaunchError as exc:
             emit_error(ctx, exc)
@@ -410,10 +334,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     )
     def plan_command_command(
         ctx: typer.Context,
-        task_ref: Annotated[
-            str | None,
-            typer.Option("--task", help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         argv = tuple(ctx.args)

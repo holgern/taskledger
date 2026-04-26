@@ -13,15 +13,15 @@ Create or activate the task first:
 .. code-block:: bash
 
    taskledger init
-   taskledger task new "Fix sale customization" --description "Repair sale order behavior."
+   taskledger task create "Fix sale customization" --description "Repair sale order behavior."
 
 Attach files from the current workspace or from neighboring checkouts:
 
 .. code-block:: bash
 
-   taskledger file link --path ../odoo/addons/sale/models/sale_order.py --kind reference
-   taskledger file link --path custom_sale/models/sale_order.py --kind implementation --required-for-validation
-   taskledger link add --url https://example.invalid/ticket/123 --kind issue --label "Support ticket"
+   taskledger file add --path ../odoo/addons/sale/models/sale_order.py --kind reference
+   taskledger file add --path custom_sale/models/sale_order.py --kind implementation --required-for-validation
+   taskledger link add --url https://example.invalid/ticket/123 --label "Support ticket"
 
 Use search helpers to inspect the workspace:
 
@@ -42,7 +42,7 @@ Then render fresh context for the next stage:
 Mental model
 ------------
 
-* ``file link`` records task-specific source and implementation files.
+* ``file add`` records task-specific source and implementation files.
 * ``link add`` records issue trackers, design notes, pull requests, or other
   external references.
 * ``search``, ``grep``, ``symbols``, and ``deps`` are read-only helpers.

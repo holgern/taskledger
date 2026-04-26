@@ -56,7 +56,7 @@ def test_export_and_import_include_v2_state(tmp_path: Path) -> None:
     assert (
         runner.invoke(
             app,
-            ["--cwd", str(source_root), "plan", "start", "migrate-v2"],
+            ["--cwd", str(source_root), "plan", "start", "--task", "migrate-v2"],
         ).exit_code
         == 0
     )
@@ -66,9 +66,7 @@ def test_export_and_import_include_v2_state(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(source_root),
-                "plan",
-                "propose",
-                "migrate-v2",
+                "plan", "propose", "--task", "migrate-v2",
                 "--text",
                 "## Goal\n\nShip export support.",
             ],
@@ -83,6 +81,7 @@ def test_export_and_import_include_v2_state(tmp_path: Path) -> None:
                 str(source_root),
                 "handoff",
                 "create",
+                "--task",
                 "migrate-v2",
                 "--mode",
                 "implementation",
@@ -120,14 +119,14 @@ def test_export_and_import_include_v2_state(tmp_path: Path) -> None:
 
     show_result = runner.invoke(
         app,
-        ["--cwd", str(dest_root), "--json", "task", "show", "migrate-v2"],
+        ["--cwd", str(dest_root), "--json", "task", "show", "--task", "migrate-v2"],
     )
     task_payload = _json(show_result)
     assert task_payload["result"]["task"]["latest_plan_version"] == 1
     handoffs = _json(
         runner.invoke(
             app,
-            ["--cwd", str(dest_root), "--json", "handoff", "list", "migrate-v2"],
+            ["--cwd", str(dest_root), "--json", "handoff", "list", "--task", "migrate-v2"],
         )
     )
     assert handoffs["result"]["handoffs"][0]["mode"] == "implementation"

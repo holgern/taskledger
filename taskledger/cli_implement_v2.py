@@ -17,6 +17,7 @@ from taskledger.api.task_runs import (
 )
 from taskledger.api.tasks import todo_status
 from taskledger.cli_common import (
+    TaskOption,
     cli_state_from_context,
     emit_error,
     emit_payload,
@@ -33,10 +34,7 @@ def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     @app.command("start")
     def start_command(
         ctx: typer.Context,
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
         actor: Annotated[
             str | None,
             typer.Option("--actor", help="Actor type: user, agent, or system."),
@@ -87,14 +85,7 @@ def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     def log_command(
         ctx: typer.Context,
         message: Annotated[str | None, typer.Option("--message")] = None,
-        json_output: Annotated[
-            bool,
-            typer.Option("--json", help="Render machine-readable JSON."),
-        ] = False,
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
@@ -106,9 +97,6 @@ def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
                     run_id=None,
                     run_type="implementation",
                 )
-                if json_output and not state.json_output:
-                    typer.echo(render_json(payload))
-                    return
                 emit_payload(ctx, payload, human=str(payload["run"]))
                 return
             run = log_implementation(state.cwd, task.id, message=message)
@@ -151,25 +139,7 @@ def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
         summary: Annotated[str, typer.Option("--summary")] = "",
         command: Annotated[str | None, typer.Option("--command")] = None,
         git_diff_stat: Annotated[str | None, typer.Option("--git-diff-stat")] = None,
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
-    ) -> None:
-        _emit_change_command(ctx, path, kind, summary, command, git_diff_stat, task_ref)
-
-    @app.command("add-change")
-    def add_change_command(
-        ctx: typer.Context,
-        path: Annotated[str, typer.Option("--path")],
-        kind: Annotated[str, typer.Option("--kind")] = "edit",
-        summary: Annotated[str, typer.Option("--summary")] = "",
-        command: Annotated[str | None, typer.Option("--command")] = None,
-        git_diff_stat: Annotated[str | None, typer.Option("--git-diff-stat")] = None,
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
     ) -> None:
         _emit_change_command(ctx, path, kind, summary, command, git_diff_stat, task_ref)
 
@@ -178,10 +148,7 @@ def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
         ctx: typer.Context,
         from_git: Annotated[bool, typer.Option("--from-git")] = False,
         summary: Annotated[str, typer.Option("--summary")] = "",
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
@@ -203,10 +170,7 @@ def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     )
     def command_command(
         ctx: typer.Context,
-        task_ref: Annotated[
-            str | None,
-            typer.Option("--task", help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         argv = tuple(ctx.args)
@@ -230,10 +194,7 @@ def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     def deviation_command(
         ctx: typer.Context,
         message: Annotated[str, typer.Option("--message")],
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
@@ -249,10 +210,7 @@ def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
         ctx: typer.Context,
         path: Annotated[str, typer.Option("--path")],
         summary: Annotated[str, typer.Option("--summary")],
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
@@ -272,10 +230,7 @@ def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     def finish_command(
         ctx: typer.Context,
         summary: Annotated[str, typer.Option("--summary")],
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
@@ -313,10 +268,7 @@ def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     def show_command(
         ctx: typer.Context,
         run_id: Annotated[str | None, typer.Option("--run")] = None,
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
@@ -337,10 +289,7 @@ def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     @app.command("status")
     def status_command(
         ctx: typer.Context,
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
@@ -378,10 +327,7 @@ def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     @app.command("checklist")
     def checklist_command(
         ctx: typer.Context,
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:

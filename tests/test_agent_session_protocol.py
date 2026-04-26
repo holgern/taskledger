@@ -61,7 +61,7 @@ def _prepare_proposed_plan_with_todos(
     assert (
         runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "plan", "start", "test-task"],
+            ["--cwd", str(tmp_path), "plan", "start", "--task", "test-task"],
         ).exit_code
         == 0
     )
@@ -77,9 +77,7 @@ def _prepare_proposed_plan_with_todos(
     command = [
         "--cwd",
         str(tmp_path),
-        "plan",
-        "propose",
-        "test-task",
+        "plan", "propose", "--task", "test-task",
         "--text",
         plan_body,
     ]
@@ -109,16 +107,14 @@ def _prepare_proposed_plan_no_todos(
     assert (
         runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "plan", "start", "test-task"],
+            ["--cwd", str(tmp_path), "plan", "start", "--task", "test-task"],
         ).exit_code
         == 0
     )
     command = [
         "--cwd",
         str(tmp_path),
-        "plan",
-        "propose",
-        "test-task",
+        "plan", "propose", "--task", "test-task",
         "--text",
         "Fix things.",
         "--criterion",
@@ -154,10 +150,7 @@ def test_lock_break_no_lock_message_mentions_next_action(tmp_path: Path) -> None
             "--cwd",
             str(tmp_path),
             "--json",
-            "lock",
-            "break",
-            "lock-test",
-            "--reason",
+            "lock", "break", "--task", "lock-test", "--reason",
             "testing",
         ],
     )
@@ -188,7 +181,7 @@ def test_plan_propose_releases_planning_lock(tmp_path: Path) -> None:
     )
     assert (
         runner.invoke(
-            app, ["--cwd", str(tmp_path), "plan", "start", "lock-rel"]
+            app, ["--cwd", str(tmp_path), "plan", "start", "--task", "lock-rel"]
         ).exit_code
         == 0
     )
@@ -198,9 +191,7 @@ def test_plan_propose_releases_planning_lock(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "plan",
-                "propose",
-                "lock-rel",
+                "plan", "propose", "--task", "lock-rel",
                 "--text",
                 "---\n"
                 "acceptance_criteria:\n"
@@ -236,9 +227,7 @@ def test_allow_empty_criteria_requires_reason(tmp_path: Path) -> None:
             "--cwd",
             str(tmp_path),
             "--json",
-            "plan",
-            "approve",
-            "test-task",
+            "plan", "approve", "--task", "test-task",
             "--version",
             "1",
             "--actor",
@@ -264,9 +253,7 @@ def test_allow_open_questions_requires_reason(tmp_path: Path) -> None:
             "--cwd",
             str(tmp_path),
             "--json",
-            "plan",
-            "approve",
-            "test-task",
+            "plan", "approve", "--task", "test-task",
             "--version",
             "1",
             "--actor",
@@ -291,9 +278,7 @@ def test_allow_empty_criteria_with_reason_succeeds(tmp_path: Path) -> None:
         [
             "--cwd",
             str(tmp_path),
-            "plan",
-            "approve",
-            "test-task",
+            "plan", "approve", "--task", "test-task",
             "--version",
             "1",
             "--actor",
@@ -321,9 +306,7 @@ def test_plan_approval_blocks_when_no_todos(tmp_path: Path) -> None:
             "--cwd",
             str(tmp_path),
             "--json",
-            "plan",
-            "approve",
-            "test-task",
+            "plan", "approve", "--task", "test-task",
             "--version",
             "1",
             "--actor",
@@ -348,9 +331,7 @@ def test_plan_approval_empty_todos_with_reason_succeeds(tmp_path: Path) -> None:
         [
             "--cwd",
             str(tmp_path),
-            "plan",
-            "approve",
-            "test-task",
+            "plan", "approve", "--task", "test-task",
             "--version",
             "1",
             "--actor",
@@ -375,9 +356,7 @@ def test_plan_approval_empty_todos_without_reason_fails(tmp_path: Path) -> None:
             "--cwd",
             str(tmp_path),
             "--json",
-            "plan",
-            "approve",
-            "test-task",
+            "plan", "approve", "--task", "test-task",
             "--version",
             "1",
             "--actor",
@@ -415,7 +394,7 @@ def test_plan_command_records_exit_code(tmp_path: Path) -> None:
     )
     assert (
         runner.invoke(
-            app, ["--cwd", str(tmp_path), "plan", "start", "cmd-test"]
+            app, ["--cwd", str(tmp_path), "plan", "start", "--task", "cmd-test"]
         ).exit_code
         == 0
     )
@@ -493,9 +472,7 @@ def test_validate_finish_passed_blocks_unchecked_mandatory_criteria(
             [
                 "--cwd",
                 str(tmp_path),
-                "plan",
-                "approve",
-                "test-task",
+                "plan", "approve", "--task", "test-task",
                 "--version",
                 "1",
                 "--actor",
@@ -509,7 +486,7 @@ def test_validate_finish_passed_blocks_unchecked_mandatory_criteria(
     assert (
         runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "implement", "start", "test-task"],
+            ["--cwd", str(tmp_path), "implement", "start", "--task", "test-task"],
         ).exit_code
         == 0
     )
@@ -544,9 +521,7 @@ def test_validate_finish_passed_blocks_unchecked_mandatory_criteria(
             [
                 "--cwd",
                 str(tmp_path),
-                "implement",
-                "finish",
-                "test-task",
+                "implement", "finish", "--task", "test-task",
                 "--summary",
                 "done",
             ],
@@ -556,7 +531,7 @@ def test_validate_finish_passed_blocks_unchecked_mandatory_criteria(
     assert (
         runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "validate", "start", "test-task"],
+            ["--cwd", str(tmp_path), "validate", "start", "--task", "test-task"],
         ).exit_code
         == 0
     )
@@ -567,9 +542,7 @@ def test_validate_finish_passed_blocks_unchecked_mandatory_criteria(
             "--cwd",
             str(tmp_path),
             "--json",
-            "validate",
-            "finish",
-            "test-task",
+            "validate", "finish", "--task", "test-task",
             "--result",
             "passed",
             "--summary",

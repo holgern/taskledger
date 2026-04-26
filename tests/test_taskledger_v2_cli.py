@@ -42,9 +42,9 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
                 str(tmp_path),
                 "task",
                 "create",
-                "rewrite-v2",
-                "--title",
                 "Rewrite V2",
+                "--slug",
+                "rewrite-v2",
                 "--description",
                 "Rewrite taskledger to the new design.",
             ],
@@ -65,7 +65,7 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
     start_plan = _json(
         runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "--json", "plan", "start", "rewrite-v2"],
+            ["--cwd", str(tmp_path), "--json", "plan", "start", "--task", "rewrite-v2"],
         )
     )
     assert start_plan["result"]["status_stage"] == "draft"
@@ -106,9 +106,7 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
                 "--cwd",
                 str(tmp_path),
                 "--json",
-                "plan",
-                "propose",
-                "rewrite-v2",
+                "plan", "propose", "--task", "rewrite-v2",
                 "--criterion",
                 "Ship the rewrite safely.",
                 "--text",
@@ -124,9 +122,7 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "plan",
-                "approve",
-                "rewrite-v2",
+                "plan", "approve", "--task", "rewrite-v2",
                 "--version",
                 "1",
                 "--actor",
@@ -143,7 +139,7 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
     start_impl = _json(
         runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "--json", "implement", "start", "rewrite-v2"],
+            ["--cwd", str(tmp_path), "--json", "implement", "start", "--task", "rewrite-v2"],
         )
     )
     assert start_impl["result"]["status_stage"] == "approved"
@@ -154,9 +150,7 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "implement",
-                "log",
-                "rewrite-v2",
+                "implement", "log", "--task", "rewrite-v2",
                 "--message",
                 "wired new storage",
             ],
@@ -166,13 +160,14 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
     assert (
         runner.invoke(
             app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "implement",
-                "add-change",
-                "rewrite-v2",
-                "--path",
+                [
+                    "--cwd",
+                    str(tmp_path),
+                    "implement",
+                    "change",
+                    "--task",
+                    "rewrite-v2",
+                    "--path",
                 "taskledger/storage/v2.py",
                 "--kind",
                 "edit",
@@ -189,9 +184,7 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
                 "--cwd",
                 str(tmp_path),
                 "--json",
-                "implement",
-                "finish",
-                "rewrite-v2",
+                "implement", "finish", "--task", "rewrite-v2",
                 "--summary",
                 "Implemented v2",
             ],
@@ -202,7 +195,7 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
     start_validation = _json(
         runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "--json", "validate", "start", "rewrite-v2"],
+            ["--cwd", str(tmp_path), "--json", "validate", "start", "--task", "rewrite-v2"],
         )
     )
     assert start_validation["result"]["status_stage"] == "implemented"
@@ -213,9 +206,7 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "validate",
-                "check",
-                "rewrite-v2",
+                "validate", "check", "--task", "rewrite-v2",
                 "--criterion",
                 "ac-0001",
                 "--status",
@@ -233,9 +224,7 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
                 "--cwd",
                 str(tmp_path),
                 "--json",
-                "validate",
-                "finish",
-                "rewrite-v2",
+                "validate", "finish", "--task", "rewrite-v2",
                 "--result",
                 "passed",
                 "--summary",
@@ -248,7 +237,7 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
 
     show_result = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "--json", "task", "show", "rewrite-v2"],
+        ["--cwd", str(tmp_path), "--json", "task", "show", "--task", "rewrite-v2"],
     )
     payload = _json(show_result)
     assert payload["command"] == "task.show"
@@ -299,7 +288,7 @@ def test_v2_lock_break_and_expired_lock_report(tmp_path: Path) -> None:
             "Task with a planning lock.",
         ],
     )
-    runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start", "lock-task"])
+    runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start", "--task", "lock-task"])
 
     lock_path = tmp_path / ".taskledger" / "tasks" / "task-0001" / "lock.yaml"
     payload = yaml.safe_load(lock_path.read_text(encoding="utf-8"))
@@ -365,9 +354,7 @@ def test_task_first_support_commands_are_available(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "todo",
-                "add",
-                "--text",
+                "todo", "add", "--text",
                 "write docs",
             ],
         ).exit_code
@@ -380,7 +367,7 @@ def test_task_first_support_commands_are_available(tmp_path: Path) -> None:
                 "--cwd",
                 str(tmp_path),
                 "file",
-                "link",
+                "add",
                 "--path",
                 "README.md",
                 "--kind",
@@ -440,7 +427,7 @@ def test_plan_approval_blocks_open_questions_with_json_error(tmp_path: Path) -> 
             "Approval should fail while a question is open.",
         ],
     )
-    runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start", "question-blocked"])
+    runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start", "--task", "question-blocked"])
     runner.invoke(
         app,
         [
@@ -459,9 +446,7 @@ def test_plan_approval_blocks_open_questions_with_json_error(tmp_path: Path) -> 
         [
             "--cwd",
             str(tmp_path),
-            "plan",
-            "propose",
-            "question-blocked",
+            "plan", "propose", "--task", "question-blocked",
             "--text",
             "## Goal\n\nAnswer the question first.\n",
         ],
@@ -473,9 +458,7 @@ def test_plan_approval_blocks_open_questions_with_json_error(tmp_path: Path) -> 
             "--cwd",
             str(tmp_path),
             "--json",
-            "plan",
-            "approve",
-            "question-blocked",
+            "plan", "approve", "--task", "question-blocked",
             "--version",
             "1",
         ],
@@ -501,7 +484,7 @@ def test_expired_lock_requires_explicit_break_json_error(tmp_path: Path) -> None
             "Expired locks must be broken explicitly.",
         ],
     )
-    runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start", "stale-lock-task"])
+    runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start", "--task", "stale-lock-task"])
 
     lock_path = tmp_path / ".taskledger" / "tasks" / "task-0001" / "lock.yaml"
     payload = yaml.safe_load(lock_path.read_text(encoding="utf-8"))
@@ -517,9 +500,7 @@ def test_expired_lock_requires_explicit_break_json_error(tmp_path: Path) -> None
             "--cwd",
             str(tmp_path),
             "--json",
-            "plan",
-            "propose",
-            "stale-lock-task",
+            "plan", "propose", "--task", "stale-lock-task",
             "--text",
             "## Goal\n\nDo not silently replace stale locks.\n",
         ],

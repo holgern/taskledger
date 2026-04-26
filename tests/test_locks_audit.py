@@ -47,7 +47,7 @@ def test_break_lock_writes_audit_file_and_repair_event(tmp_path: Path) -> None:
     )
     assert (
         runner.invoke(
-            app, ["--cwd", str(tmp_path), "plan", "start", "lock-audit"]
+            app, ["--cwd", str(tmp_path), "plan", "start", "--task", "lock-audit"]
         ).exit_code
         == 0
     )
@@ -58,10 +58,7 @@ def test_break_lock_writes_audit_file_and_repair_event(tmp_path: Path) -> None:
             "--cwd",
             str(tmp_path),
             "--json",
-            "lock",
-            "break",
-            "lock-audit",
-            "--reason",
+            "lock", "break", "--task", "lock-audit", "--reason",
             "recover stale planning lock",
         ],
     )
@@ -106,7 +103,7 @@ def test_stale_lock_blocks_new_run_until_explicit_break(tmp_path: Path) -> None:
     )
     assert (
         runner.invoke(
-            app, ["--cwd", str(tmp_path), "plan", "start", "stale-lock"]
+            app, ["--cwd", str(tmp_path), "plan", "start", "--task", "stale-lock"]
         ).exit_code
         == 0
     )
@@ -120,7 +117,7 @@ def test_stale_lock_blocks_new_run_until_explicit_break(tmp_path: Path) -> None:
 
     blocked = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "--json", "plan", "start", "stale-lock"],
+        ["--cwd", str(tmp_path), "--json", "plan", "start", "--task", "stale-lock"],
     )
     blocked_payload = _json(blocked)
     assert blocked.exit_code != 0

@@ -30,7 +30,7 @@ def test_mutating_commands_are_not_marked_safe_read_only() -> None:
     mutating_suffixes = {
         "activate",
         "add",
-        "add-change",
+        "change",
         "answer",
         "approve",
         "artifact",
@@ -38,7 +38,6 @@ def test_mutating_commands_are_not_marked_safe_read_only() -> None:
         "cancel",
         "change",
         "check",
-        "clear-active",
         "close",
         "command",
         "create",

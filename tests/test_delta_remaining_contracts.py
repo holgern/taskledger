@@ -46,7 +46,7 @@ def _prepare_validating_task(tmp_path: Path) -> None:
     )
     assert (
         runner.invoke(
-            app, ["--cwd", str(tmp_path), "plan", "start", "validation-gate"]
+            app, ["--cwd", str(tmp_path), "plan", "start", "--task", "validation-gate"]
         ).exit_code
         == 0
     )
@@ -56,9 +56,7 @@ def _prepare_validating_task(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "plan",
-                "propose",
-                "validation-gate",
+                "plan", "propose", "--task", "validation-gate",
                 "--criterion",
                 "Mandatory behavior is checked.",
                 "--text",
@@ -73,9 +71,7 @@ def _prepare_validating_task(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "plan",
-                "approve",
-                "validation-gate",
+                "plan", "approve", "--task", "validation-gate",
                 "--version",
                 "1",
                 "--actor",
@@ -91,7 +87,7 @@ def _prepare_validating_task(tmp_path: Path) -> None:
     )
     assert (
         runner.invoke(
-            app, ["--cwd", str(tmp_path), "implement", "start", "validation-gate"]
+            app, ["--cwd", str(tmp_path), "implement", "start", "--task", "validation-gate"]
         ).exit_code
         == 0
     )
@@ -101,9 +97,7 @@ def _prepare_validating_task(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "implement",
-                "finish",
-                "validation-gate",
+                "implement", "finish", "--task", "validation-gate",
                 "--summary",
                 "Implemented.",
             ],
@@ -112,7 +106,7 @@ def _prepare_validating_task(tmp_path: Path) -> None:
     )
     assert (
         runner.invoke(
-            app, ["--cwd", str(tmp_path), "validate", "start", "validation-gate"]
+            app, ["--cwd", str(tmp_path), "validate", "start", "--task", "validation-gate"]
         ).exit_code
         == 0
     )
@@ -137,7 +131,7 @@ def _prepare_validating_task_with_mandatory_todo(tmp_path: Path) -> None:
     )
     assert (
         runner.invoke(
-            app, ["--cwd", str(tmp_path), "plan", "start", "validation-gate"]
+            app, ["--cwd", str(tmp_path), "plan", "start", "--task", "validation-gate"]
         ).exit_code
         == 0
     )
@@ -147,9 +141,7 @@ def _prepare_validating_task_with_mandatory_todo(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "plan",
-                "propose",
-                "validation-gate",
+                "plan", "propose", "--task", "validation-gate",
                 "--criterion",
                 "Mandatory behavior is checked.",
                 "--text",
@@ -164,9 +156,7 @@ def _prepare_validating_task_with_mandatory_todo(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "plan",
-                "approve",
-                "validation-gate",
+                "plan", "approve", "--task", "validation-gate",
                 "--version",
                 "1",
                 "--actor",
@@ -186,9 +176,7 @@ def _prepare_validating_task_with_mandatory_todo(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "todo",
-                "add",
-                "validation-gate",
+                "todo", "add", "--task", "validation-gate",
                 "--text",
                 "Final sign-off",
                 "--mandatory",
@@ -198,7 +186,7 @@ def _prepare_validating_task_with_mandatory_todo(tmp_path: Path) -> None:
     )
     assert (
         runner.invoke(
-            app, ["--cwd", str(tmp_path), "implement", "start", "validation-gate"]
+            app, ["--cwd", str(tmp_path), "implement", "start", "--task", "validation-gate"]
         ).exit_code
         == 0
     )
@@ -208,9 +196,7 @@ def _prepare_validating_task_with_mandatory_todo(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "implement",
-                "finish",
-                "validation-gate",
+                "implement", "finish", "--task", "validation-gate",
                 "--summary",
                 "Implemented.",
             ],
@@ -219,7 +205,7 @@ def _prepare_validating_task_with_mandatory_todo(tmp_path: Path) -> None:
     )
     assert (
         runner.invoke(
-            app, ["--cwd", str(tmp_path), "validate", "start", "validation-gate"]
+            app, ["--cwd", str(tmp_path), "validate", "start", "--task", "validation-gate"]
         ).exit_code
         == 0
     )
@@ -234,9 +220,7 @@ def test_validation_pass_requires_mandatory_criteria_checks(tmp_path: Path) -> N
             "--cwd",
             str(tmp_path),
             "--json",
-            "validate",
-            "finish",
-            "validation-gate",
+            "validate", "finish", "--task", "validation-gate",
             "--result",
             "passed",
             "--summary",
@@ -258,9 +242,7 @@ def test_validation_pass_accepts_canonical_criterion_check(tmp_path: Path) -> No
             [
                 "--cwd",
                 str(tmp_path),
-                "validate",
-                "check",
-                "validation-gate",
+                "validate", "check", "--task", "validation-gate",
                 "--criterion",
                 "ac-0001",
                 "--status",
@@ -278,9 +260,7 @@ def test_validation_pass_accepts_canonical_criterion_check(tmp_path: Path) -> No
             "--cwd",
             str(tmp_path),
             "--json",
-            "validate",
-            "finish",
-            "validation-gate",
+            "validate", "finish", "--task", "validation-gate",
             "--result",
             "passed",
             "--summary",
@@ -315,8 +295,9 @@ def test_context_dossier_and_link_alias_are_canonical(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "link",
+                "file",
                 "add",
+                "--task",
                 "context-task",
                 "--path",
                 "README.md",
@@ -333,6 +314,7 @@ def test_context_dossier_and_link_alias_are_canonical(tmp_path: Path) -> None:
             "--cwd",
             str(tmp_path),
             "context",
+            "--task",
             "context-task",
             "--for",
             "planning",
@@ -351,6 +333,7 @@ def test_context_dossier_and_link_alias_are_canonical(tmp_path: Path) -> None:
             str(tmp_path),
             "task",
             "dossier",
+            "--task",
             "context-task",
             "--format",
             "markdown",
@@ -380,13 +363,13 @@ def test_user_dependency_waiver_unblocks_implementation(tmp_path: Path) -> None:
         )
     assert (
         runner.invoke(
-            app, ["--cwd", str(tmp_path), "require", "add", "main-task", "dependency"]
+            app, ["--cwd", str(tmp_path), "require", "add", "dependency", "--task", "main-task"]
         ).exit_code
         == 0
     )
     assert (
         runner.invoke(
-            app, ["--cwd", str(tmp_path), "plan", "start", "main-task"]
+            app, ["--cwd", str(tmp_path), "plan", "start", "--task", "main-task"]
         ).exit_code
         == 0
     )
@@ -396,9 +379,7 @@ def test_user_dependency_waiver_unblocks_implementation(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "plan",
-                "propose",
-                "main-task",
+                "plan", "propose", "--task", "main-task",
                 "--criterion",
                 "Implementation starts.",
                 "--text",
@@ -413,9 +394,7 @@ def test_user_dependency_waiver_unblocks_implementation(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "plan",
-                "approve",
-                "main-task",
+                "plan", "approve", "--task", "main-task",
                 "--version",
                 "1",
                 "--actor",
@@ -432,7 +411,7 @@ def test_user_dependency_waiver_unblocks_implementation(tmp_path: Path) -> None:
 
     blocked = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "--json", "implement", "start", "main-task"],
+        ["--cwd", str(tmp_path), "--json", "implement", "start", "--task", "main-task"],
     )
     assert blocked.exit_code == 3
 
@@ -442,10 +421,7 @@ def test_user_dependency_waiver_unblocks_implementation(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "require",
-                "waive",
-                "main-task",
-                "dependency",
+                "require", "waive", "dependency", "--task", "main-task",
                 "--actor",
                 "user",
                 "--reason",
@@ -456,7 +432,7 @@ def test_user_dependency_waiver_unblocks_implementation(tmp_path: Path) -> None:
     )
     allowed = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "--json", "implement", "start", "main-task"],
+        ["--cwd", str(tmp_path), "--json", "implement", "start", "--task", "main-task"],
     )
     assert allowed.exit_code == 0, allowed.stdout
 
@@ -559,9 +535,7 @@ def test_reject_unknown_criterion_at_check_time(tmp_path: Path) -> None:
         [
             "--cwd",
             str(tmp_path),
-            "validate",
-            "check",
-            "validation-gate",
+            "validate", "check", "--task", "validation-gate",
             "--criterion",
             "ac-9999",
             "--status",
@@ -587,9 +561,7 @@ def test_latest_check_wins_semantics(tmp_path: Path) -> None:
         [
             "--cwd",
             str(tmp_path),
-            "validate",
-            "check",
-            "validation-gate",
+            "validate", "check", "--task", "validation-gate",
             "--criterion",
             "ac-0001",
             "--status",
@@ -605,9 +577,7 @@ def test_latest_check_wins_semantics(tmp_path: Path) -> None:
         [
             "--cwd",
             str(tmp_path),
-            "validate",
-            "check",
-            "validation-gate",
+            "validate", "check", "--task", "validation-gate",
             "--criterion",
             "ac-0001",
             "--status",
@@ -624,9 +594,7 @@ def test_latest_check_wins_semantics(tmp_path: Path) -> None:
             "--cwd",
             str(tmp_path),
             "--json",
-            "validate",
-            "finish",
-            "validation-gate",
+            "validate", "finish", "--task", "validation-gate",
             "--result",
             "passed",
             "--summary",
@@ -647,9 +615,7 @@ def test_waiver_satisfies_criterion(tmp_path: Path) -> None:
         [
             "--cwd",
             str(tmp_path),
-            "validate",
-            "waive",
-            "validation-gate",
+            "validate", "waive", "--task", "validation-gate",
             "--criterion",
             "ac-0001",
             "--reason",
@@ -664,9 +630,7 @@ def test_waiver_satisfies_criterion(tmp_path: Path) -> None:
             "--cwd",
             str(tmp_path),
             "--json",
-            "validate",
-            "finish",
-            "validation-gate",
+            "validate", "finish", "--task", "validation-gate",
             "--result",
             "passed",
             "--summary",
@@ -688,9 +652,7 @@ def test_validation_status_command_shows_blockers(tmp_path: Path) -> None:
             "--cwd",
             str(tmp_path),
             "--json",
-            "validate",
-            "status",
-            "validation-gate",
+            "validate", "status", "--task", "validation-gate",
         ],
     )
     assert result.exit_code == 0
@@ -722,7 +684,7 @@ def test_mandatory_todo_blocks_validation_completion(tmp_path: Path) -> None:
     )
     assert (
         runner.invoke(
-            app, ["--cwd", str(tmp_path), "plan", "start", "validation-gate"]
+            app, ["--cwd", str(tmp_path), "plan", "start", "--task", "validation-gate"]
         ).exit_code
         == 0
     )
@@ -732,9 +694,7 @@ def test_mandatory_todo_blocks_validation_completion(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "plan",
-                "propose",
-                "validation-gate",
+                "plan", "propose", "--task", "validation-gate",
                 "--criterion",
                 "Mandatory behavior is checked.",
                 "--text",
@@ -749,9 +709,7 @@ def test_mandatory_todo_blocks_validation_completion(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "plan",
-                "approve",
-                "validation-gate",
+                "plan", "approve", "--task", "validation-gate",
                 "--version",
                 "1",
                 "--actor",
@@ -773,9 +731,7 @@ def test_mandatory_todo_blocks_validation_completion(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "todo",
-                "add",
-                "validation-gate",
+                "todo", "add", "--task", "validation-gate",
                 "--text",
                 "Final sign-off",
                 "--mandatory",
@@ -786,7 +742,7 @@ def test_mandatory_todo_blocks_validation_completion(tmp_path: Path) -> None:
 
     assert (
         runner.invoke(
-            app, ["--cwd", str(tmp_path), "implement", "start", "validation-gate"]
+            app, ["--cwd", str(tmp_path), "implement", "start", "--task", "validation-gate"]
         ).exit_code
         == 0
     )
@@ -796,9 +752,7 @@ def test_mandatory_todo_blocks_validation_completion(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "implement",
-                "finish",
-                "validation-gate",
+                "implement", "finish", "--task", "validation-gate",
                 "--summary",
                 "Implemented.",
             ],
@@ -807,7 +761,7 @@ def test_mandatory_todo_blocks_validation_completion(tmp_path: Path) -> None:
     )
     assert (
         runner.invoke(
-            app, ["--cwd", str(tmp_path), "validate", "start", "validation-gate"]
+            app, ["--cwd", str(tmp_path), "validate", "start", "--task", "validation-gate"]
         ).exit_code
         == 0
     )
@@ -817,9 +771,7 @@ def test_mandatory_todo_blocks_validation_completion(tmp_path: Path) -> None:
         [
             "--cwd",
             str(tmp_path),
-            "validate",
-            "check",
-            "validation-gate",
+            "validate", "check", "--task", "validation-gate",
             "--criterion",
             "ac-0001",
             "--status",
@@ -835,9 +787,7 @@ def test_mandatory_todo_blocks_validation_completion(tmp_path: Path) -> None:
             "--cwd",
             str(tmp_path),
             "--json",
-            "validate",
-            "finish",
-            "validation-gate",
+            "validate", "finish", "--task", "validation-gate",
             "--result",
             "passed",
             "--summary",
@@ -860,8 +810,7 @@ def test_next_action_validation_includes_blockers(tmp_path: Path) -> None:
             "--cwd",
             str(tmp_path),
             "--json",
-            "next-action",
-            "validation-gate",
+            "next-action", "--task", "validation-gate",
         ],
     )
     assert result.exit_code == 0

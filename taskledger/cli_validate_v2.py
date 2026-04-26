@@ -13,6 +13,7 @@ from taskledger.api.task_runs import (
     waive_criterion,
 )
 from taskledger.cli_common import (
+    TaskOption,
     cli_state_from_context,
     emit_error,
     emit_payload,
@@ -104,10 +105,7 @@ def register_validate_v2_commands(app: typer.Typer) -> None:
     @app.command("start")
     def start_command(
         ctx: typer.Context,
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
         actor: Annotated[
             str | None,
             typer.Option("--actor", help="Actor type: user, agent, or system."),
@@ -185,33 +183,7 @@ def register_validate_v2_commands(app: typer.Typer) -> None:
         evidence: Annotated[list[str] | None, typer.Option("--evidence")] = None,
         name: Annotated[str | None, typer.Option("--name")] = None,
         details: Annotated[str | None, typer.Option("--details")] = None,
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
-    ) -> None:
-        _emit_check(
-            ctx,
-            name=name,
-            criterion=criterion,
-            status=status,
-            details=details,
-            evidence=evidence,
-            task_ref=task_ref,
-        )
-
-    @app.command("add-check")
-    def add_check_command(
-        ctx: typer.Context,
-        name: Annotated[str | None, typer.Option("--name")] = None,
-        criterion: Annotated[str | None, typer.Option("--criterion")] = None,
-        status: Annotated[str, typer.Option("--status")] = "pass",
-        details: Annotated[str | None, typer.Option("--details")] = None,
-        evidence: Annotated[list[str] | None, typer.Option("--evidence")] = None,
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
     ) -> None:
         _emit_check(
             ctx,
@@ -229,10 +201,7 @@ def register_validate_v2_commands(app: typer.Typer) -> None:
         result: Annotated[str, typer.Option("--result")],
         summary: Annotated[str, typer.Option("--summary")],
         recommendation: Annotated[str | None, typer.Option("--recommendation")] = None,
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
@@ -253,10 +222,7 @@ def register_validate_v2_commands(app: typer.Typer) -> None:
     def show_command(
         ctx: typer.Context,
         run_id: Annotated[str | None, typer.Option("--run")] = None,
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
@@ -280,10 +246,7 @@ def register_validate_v2_commands(app: typer.Typer) -> None:
     @app.command("status")
     def status_command(
         ctx: typer.Context,
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
         run: Annotated[str | None, typer.Option("--run")] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
@@ -303,10 +266,7 @@ def register_validate_v2_commands(app: typer.Typer) -> None:
         criterion: Annotated[str, typer.Option("--criterion")],
         reason: Annotated[str, typer.Option("--reason")],
         actor: Annotated[str, typer.Option("--actor")] = "user",
-        task_ref: Annotated[
-            str | None,
-            typer.Argument(help="Task ref. Defaults to the active task."),
-        ] = None,
+        task_ref: TaskOption = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:

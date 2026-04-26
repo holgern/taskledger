@@ -19,6 +19,7 @@ LEGACY_MODULE_PATHS = {
     "taskledger/cli_compose.py",
     "taskledger/cli_context.py",
     "taskledger/cli_execution_requests.py",
+    "taskledger/cli_handoff_v2.py",
     "taskledger/cli_item.py",
     "taskledger/cli_memory.py",
     "taskledger/cli_repo.py",

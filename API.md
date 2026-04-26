@@ -195,7 +195,7 @@ structured `error` object on failure.
 
 Workflow additions:
 
-- `task new` creates and activates a task.
+- `task create` creates a task. Use `task activate TASK_REF` to make it active.
 - `plan draft`, `plan regenerate --from-answers`, and
   `plan materialize-todos` support the question-answer-regenerate loop.
 - `question status` reports required open questions and whether regeneration is

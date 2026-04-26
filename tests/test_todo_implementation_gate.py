@@ -67,7 +67,7 @@ def _prepare_task_for_implementation(
     assert (
         runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "plan", "start", task_id],
+            ["--cwd", str(tmp_path), "plan", "start", "--task", task_id],
         ).exit_code
         == 0
     )
@@ -81,6 +81,7 @@ def _prepare_task_for_implementation(
                 str(tmp_path),
                 "plan",
                 "propose",
+                "--task",
                 task_id,
                 "--criterion",
                 "Works correctly.",
@@ -100,6 +101,7 @@ def _prepare_task_for_implementation(
                 str(tmp_path),
                 "plan",
                 "approve",
+                "--task",
                 task_id,
                 "--version",
                 "1",
@@ -119,7 +121,7 @@ def _prepare_task_for_implementation(
     assert (
         runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "implement", "start", task_id],
+            ["--cwd", str(tmp_path), "implement", "start", "--task", task_id],
         ).exit_code
         == 0
     )
@@ -138,9 +140,7 @@ class TestTodoImplementationGate:
             [
                 "--cwd",
                 str(tmp_path),
-                "todo",
-                "add",
-                "--text",
+                "todo", "add", "--text",
                 "Implement the main feature.",
             ],
         )
@@ -152,9 +152,7 @@ class TestTodoImplementationGate:
             [
                 "--cwd",
                 str(tmp_path),
-                "implement",
-                "finish",
-                "--summary",
+                "implement", "finish", "--summary",
                 "Completed implementation.",
             ],
         )
@@ -173,9 +171,7 @@ class TestTodoImplementationGate:
             [
                 "--cwd",
                 str(tmp_path),
-                "todo",
-                "add",
-                "--text",
+                "todo", "add", "--text",
                 "Implement the main feature.",
             ],
         )
@@ -202,9 +198,7 @@ class TestTodoImplementationGate:
             [
                 "--cwd",
                 str(tmp_path),
-                "implement",
-                "finish",
-                "--summary",
+                "implement", "finish", "--summary",
                 "Completed implementation.",
             ],
         )
@@ -223,9 +217,7 @@ class TestTodoImplementationGate:
             [
                 "--cwd",
                 str(tmp_path),
-                "implement",
-                "finish",
-                "--summary",
+                "implement", "finish", "--summary",
                 "Completed implementation.",
             ],
         )
@@ -244,9 +236,7 @@ class TestTodoImplementationGate:
                 [
                     "--cwd",
                     str(tmp_path),
-                    "todo",
-                    "add",
-                    "--text",
+                    "todo", "add", "--text",
                     f"Todo {i + 1}.",
                 ],
             )
@@ -255,9 +245,9 @@ class TestTodoImplementationGate:
         # Mark first todo done
         result = runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "todo", "list", "--json"],
+            ["--cwd", str(tmp_path), "--json", "todo", "list"],
         )
-        todos = _json(result).get("todos", [])
+        todos = _json(result).get("result", {}).get("todos", [])
         first_todo_id = todos[0]["id"]
 
         result = runner.invoke(
@@ -272,9 +262,7 @@ class TestTodoImplementationGate:
             [
                 "--cwd",
                 str(tmp_path),
-                "implement",
-                "finish",
-                "--summary",
+                "implement", "finish", "--summary",
                 "Completed implementation.",
             ],
         )
@@ -296,9 +284,7 @@ class TestTodoImplementationGate:
                 [
                     "--cwd",
                     str(tmp_path),
-                    "todo",
-                    "add",
-                    "--text",
+                    "todo", "add", "--text",
                     f"Todo {i + 1}.",
                 ],
             )
@@ -320,9 +306,7 @@ class TestTodoImplementationGate:
             [
                 "--cwd",
                 str(tmp_path),
-                "implement",
-                "finish",
-                "--summary",
+                "implement", "finish", "--summary",
                 "Completed implementation.",
             ],
         )
@@ -354,7 +338,7 @@ class TestTodoImplementationGate:
         assert (
             runner.invoke(
                 app,
-                ["--cwd", str(tmp_path), "plan", "start", "validation-hint"],
+                ["--cwd", str(tmp_path), "plan", "start", "--task", "validation-hint"],
             ).exit_code
             == 0
         )
@@ -376,9 +360,7 @@ Implement the feature.
                 [
                     "--cwd",
                     str(tmp_path),
-                    "plan",
-                    "propose",
-                    "validation-hint",
+                    "plan", "propose", "--task", "validation-hint",
                     "--text",
                     plan,
                 ],
@@ -391,9 +373,7 @@ Implement the feature.
                 [
                     "--cwd",
                     str(tmp_path),
-                    "plan",
-                    "approve",
-                    "validation-hint",
+                    "plan", "approve", "--task", "validation-hint",
                     "--version",
                     "1",
                     "--actor",
@@ -410,7 +390,7 @@ Implement the feature.
 
         result = runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "--json", "validate", "status", "validation-hint"],
+            ["--cwd", str(tmp_path), "--json", "validate", "status", "--task", "validation-hint"],
         )
 
         assert result.exit_code == 0, result.stdout
@@ -435,9 +415,7 @@ Implement the feature.
             [
                 "--cwd",
                 str(tmp_path),
-                "todo",
-                "add",
-                "--text",
+                "todo", "add", "--text",
                 "Incomplete todo.",
             ],
         )
@@ -449,9 +427,7 @@ Implement the feature.
             [
                 "--cwd",
                 str(tmp_path),
-                "implement",
-                "finish",
-                "--summary",
+                "implement", "finish", "--summary",
                 "Completed implementation.",
             ],
         )
@@ -460,12 +436,12 @@ Implement the feature.
         # Verify lock is still active by checking task status
         result = runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "task", "show", "test-task", "--json"],
+            ["--cwd", str(tmp_path), "--json", "task", "show", "--task", "test-task"],
         )
         assert result.exit_code == 0
         task_data = _json(result)
         # Task should still be in "implementing" stage
-        assert task_data.get("task", {}).get("status_stage") == "implementing"
+        assert task_data.get("result", {}).get("task", {}).get("status_stage") == "implementing"
 
     def test_run_remains_running_on_finish_failure(self, tmp_path: Path) -> None:
         """Verify that implementation run remains in 'running' state
@@ -478,9 +454,7 @@ Implement the feature.
             [
                 "--cwd",
                 str(tmp_path),
-                "todo",
-                "add",
-                "--text",
+                "todo", "add", "--text",
                 "Incomplete todo.",
             ],
         )
@@ -492,9 +466,7 @@ Implement the feature.
             [
                 "--cwd",
                 str(tmp_path),
-                "implement",
-                "finish",
-                "--summary",
+                "implement", "finish", "--summary",
                 "Completed implementation.",
             ],
         )
@@ -503,11 +475,11 @@ Implement the feature.
         # Verify run is still running
         result = runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "implement", "log", "--json"],
+            ["--cwd", str(tmp_path), "--json", "implement", "log"],
         )
         assert result.exit_code == 0
         run_data = _json(result)
-        assert run_data.get("run", {}).get("status") == "running"
+        assert run_data.get("result", {}).get("run", {}).get("status") == "running"
 
     def test_error_payload_includes_blockers(self, tmp_path: Path) -> None:
         """Verify error payload includes blocker details."""
@@ -520,9 +492,7 @@ Implement the feature.
                 [
                     "--cwd",
                     str(tmp_path),
-                    "todo",
-                    "add",
-                    "--text",
+                    "todo", "add", "--text",
                     f"Todo {i + 1}.",
                 ],
             )
@@ -533,9 +503,7 @@ Implement the feature.
             [
                 "--cwd",
                 str(tmp_path),
-                "implement",
-                "finish",
-                "--summary",
+                "implement", "finish", "--summary",
                 "Completed implementation.",
             ],
         )
@@ -571,9 +539,7 @@ class TestTodoObservability:
                 [
                     "--cwd",
                     str(tmp_path),
-                    "todo",
-                    "add",
-                    "--text",
+                    "todo", "add", "--text",
                     f"Implement step {i + 1}.",
                 ],
             )
@@ -598,15 +564,15 @@ class TestTodoObservability:
         # Check list shows all four
         result = runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "todo", "list", "--json"],
+            ["--cwd", str(tmp_path), "--json", "todo", "list"],
         )
         assert result.exit_code == 0
         listed = _json(result)
-        listed_ids = [t["id"] for t in listed.get("todos", [])]
+        listed_ids = [t["id"] for t in listed.get("result", {}).get("todos", [])]
         assert listed_ids == todo_ids
 
         # Verify todos added during implementation default to mandatory
-        for t in listed.get("todos", []):
+        for t in listed.get("result", {}).get("todos", []):
             assert t["mandatory"] is True
 
 
@@ -661,11 +627,11 @@ todos:
         # Load task and verify todos are loaded
         result = runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "task", "show", "legacy-task", "--json"],
+            ["--cwd", str(tmp_path), "--json", "task", "show", "--task", "legacy-task"],
         )
         assert result.exit_code == 0
         task_data = _json(result)
-        todos = task_data.get("task", {}).get("todos", [])
+        todos = task_data.get("result", {}).get("task", {}).get("todos", [])
 
         # Verify both todos loaded
         assert len(todos) == 2
@@ -704,9 +670,7 @@ todos:
             [
                 "--cwd",
                 str(tmp_path),
-                "implement",
-                "finish",
-                "--summary",
+                "implement", "finish", "--summary",
                 "Completed implementation.",
             ],
         )
@@ -725,9 +689,7 @@ todos:
             [
                 "--cwd",
                 str(tmp_path),
-                "implement",
-                "finish",
-                "--summary",
+                "implement", "finish", "--summary",
                 "Completed implementation.",
             ],
         )

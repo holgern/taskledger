@@ -30,12 +30,18 @@ def test_plan_approval_materializes_structured_todos_once(tmp_path: Path) -> Non
             [
                 "--cwd",
                 str(tmp_path),
-                "task",
-                "new",
+                "task", "create",
                 "Materialize plan todos",
                 "--slug",
                 "todo-plan",
             ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "task", "activate", "todo-plan"],
         ).exit_code
         == 0
     )
@@ -61,9 +67,7 @@ Ship the feature.
             [
                 "--cwd",
                 str(tmp_path),
-                "plan",
-                "propose",
-                "--text",
+                "plan", "propose", "--text",
                 plan_text,
             ],
         ).exit_code
@@ -77,9 +81,7 @@ Ship the feature.
                 "--cwd",
                 str(tmp_path),
                 "--json",
-                "plan",
-                "approve",
-                "--version",
+                "plan", "approve", "--version",
                 "1",
                 "--actor",
                 "user",
@@ -91,8 +93,8 @@ Ship the feature.
     assert approved["result"]["materialized_todos"] == 2
 
     todos = _json(
-        runner.invoke(app, ["--cwd", str(tmp_path), "todo", "list", "--json"])
-    )["todos"]
+        runner.invoke(app, ["--cwd", str(tmp_path), "--json", "todo", "list"])
+    )["result"]["todos"]
     assert [todo["text"] for todo in todos] == ["Add feature tests.", "Update docs."]
     assert todos[0]["mandatory"] is True
     assert todos[0]["source"] == "plan"
@@ -106,9 +108,7 @@ Ship the feature.
                 "--cwd",
                 str(tmp_path),
                 "--json",
-                "plan",
-                "materialize-todos",
-                "--version",
+                "plan", "materialize-todos", "--version",
                 "1",
             ],
         )

@@ -30,12 +30,18 @@ def _init_task(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "task",
-                "new",
+                "task", "create",
                 "Regeneration task",
                 "--slug",
                 "regen-task",
             ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "task", "activate", "regen-task"],
         ).exit_code
         == 0
     )
@@ -67,9 +73,7 @@ def test_required_question_blocks_approval_until_answered_and_regenerated(
             [
                 "--cwd",
                 str(tmp_path),
-                "plan",
-                "propose",
-                "--criterion",
+                "plan", "propose", "--criterion",
                 "Database choice is honored.",
                 "--text",
                 "Initial plan.",
@@ -83,9 +87,7 @@ def test_required_question_blocks_approval_until_answered_and_regenerated(
             "--cwd",
             str(tmp_path),
             "--json",
-            "plan",
-            "approve",
-            "--version",
+            "plan", "approve", "--version",
             "1",
             "--actor",
             "user",
@@ -132,9 +134,7 @@ Use PostgreSQL only.
                 "--cwd",
                 str(tmp_path),
                 "--json",
-                "plan",
-                "regenerate",
-                "--from-answers",
+                "plan", "regenerate", "--from-answers",
                 "--text",
                 plan_text,
             ],
@@ -181,9 +181,7 @@ def test_answered_question_blocks_approval_of_stale_plan(tmp_path: Path) -> None
             [
                 "--cwd",
                 str(tmp_path),
-                "plan",
-                "propose",
-                "--criterion",
+                "plan", "propose", "--criterion",
                 "Database choice is honored.",
                 "--text",
                 "Initial plan.",
@@ -213,9 +211,7 @@ def test_answered_question_blocks_approval_of_stale_plan(tmp_path: Path) -> None
             "--cwd",
             str(tmp_path),
             "--json",
-            "plan",
-            "approve",
-            "--version",
+            "plan", "approve", "--version",
             "1",
             "--actor",
             "user",
@@ -275,9 +271,7 @@ Use SQLite.
             [
                 "--cwd",
                 str(tmp_path),
-                "plan",
-                "regenerate",
-                "--from-answers",
+                "plan", "regenerate", "--from-answers",
                 "--text",
                 plan_text,
             ],

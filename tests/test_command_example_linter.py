@@ -54,8 +54,7 @@ _SINGLE_TOKEN_COMMANDS = {
     "context",
     "view",
     "can",
-    "next-action",
-    "search",
+    "next-action", "--task", "search",
     "grep",
     "symbols",
     "deps",
@@ -74,6 +73,15 @@ _FORBIDDEN = [
     "taskengine context run",
     "runtildone --harness",
     "todo toggle",
+    "taskledger task new",
+    "taskledger task clear-active",
+    "taskledger implement add-change",
+    "taskledger validate add-check",
+    "taskledger file link",
+    "taskledger file unlink",
+    "taskledger link link",
+    "taskledger link unlink",
+    "taskledger actor whoami --json",
 ]
 
 

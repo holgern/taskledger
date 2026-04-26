@@ -45,7 +45,7 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 
 ## Planning protocol
 
-1. `taskledger task new "Short task request"` when creating a fresh task.
+1. `taskledger task create "Short task request"` when creating a fresh task.
 2. For existing tasks, `taskledger task activate <slug>`.
 3. `taskledger plan start`
 4. Add questions with `taskledger question add --text "..." --required-for-plan` when decisions are missing.
@@ -109,7 +109,7 @@ The plan file should use version ids like `plan-v1`, `plan-v2` in references. Do
 - Mark todos done with evidence: `taskledger todo done <todo-id> --evidence "pytest -q"`.
 - Use `taskledger handoff create --mode implementation|validation --intended-actor agent --intended-harness codex` when switching actor or harness.
 - Use `taskledger handoff claim handoff-0001` before continuing work from a handoff.
-- Use `taskledger link add --path ... --kind code|test|doc|config|dir|other` for files that matter.
+- Use `taskledger file add --path ... --kind code|test|doc|config|dir|other` for files that matter.
 - Store failed validation; do not hide it.
 
 ## Handoff protocol
@@ -146,7 +146,7 @@ To receive work:
 
 ```bash
 taskledger actor whoami
-taskledger task new "Parser fix" --slug parser-fix
+taskledger task create "Parser fix" --slug parser-fix
 taskledger question add --text "Should legacy storage be removed?" --required-for-plan
 taskledger question status
 taskledger question answers

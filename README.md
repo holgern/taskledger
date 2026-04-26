@@ -39,7 +39,7 @@ Create and activate a task, ask required planning questions, regenerate the
 plan from answers, approve it, implement todos with evidence, and validate it:
 
 ```bash
-taskledger task new "Rewrite V2" --description "Migrate to the task-first design."
+taskledger task create "Rewrite V2" --description "Migrate to the task-first design."
 taskledger plan start
 taskledger question add --text "Should exports include the new state?" --required-for-plan
 taskledger question answer q-0001 --text "Yes."

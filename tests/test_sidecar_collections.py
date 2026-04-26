@@ -56,9 +56,7 @@ def test_todos_links_and_requirements_live_in_sidecars(tmp_path: Path) -> None:
         [
             "--cwd",
             str(tmp_path),
-            "todo",
-            "add",
-            "sidecar-task",
+            "todo", "add", "--task", "sidecar-task",
             "--text",
             "Write sidecar test.",
         ],
@@ -68,9 +66,7 @@ def test_todos_links_and_requirements_live_in_sidecars(tmp_path: Path) -> None:
         [
             "--cwd",
             str(tmp_path),
-            "file",
-            "link",
-            "sidecar-task",
+            "file", "add", "--task", "sidecar-task",
             "--path",
             "README.md",
             "--kind",
@@ -82,10 +78,7 @@ def test_todos_links_and_requirements_live_in_sidecars(tmp_path: Path) -> None:
         [
             "--cwd",
             str(tmp_path),
-            "require",
-            "add",
-            "sidecar-task",
-            "dependency-task",
+            "require", "add", "dependency-task", "--task", "sidecar-task",
         ],
     )
 
@@ -105,7 +98,7 @@ def test_todos_links_and_requirements_live_in_sidecars(tmp_path: Path) -> None:
     assert requirements["requirements"][0]["task_id"] == "task-0001"
 
     result = runner.invoke(
-        app, ["--cwd", str(tmp_path), "task", "show", "sidecar-task"]
+        app, ["--cwd", str(tmp_path), "task", "show", "--task", "sidecar-task"]
     )
     assert result.exit_code == 0, result.stdout
     assert "sidecar-task" in result.stdout

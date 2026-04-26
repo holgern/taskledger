@@ -13,6 +13,7 @@ Contents
    usage
    api
    public_surface
+   command_contract
 
 Indices and tables
 ------------------

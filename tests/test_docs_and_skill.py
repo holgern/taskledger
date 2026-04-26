@@ -90,6 +90,15 @@ def test_docs_do_not_reference_removed_commands() -> None:
         "runtildone --harness",
         "handoff-protocol",
         "taskledger todo toggle",
+        "taskledger task new",
+        "taskledger task clear-active",
+        "taskledger implement add-change",
+        "taskledger validate add-check",
+        "taskledger file link",
+        "taskledger file unlink",
+        "taskledger link link",
+        "taskledger link unlink",
+        "taskledger actor whoami --json",
     ]
     for path in DOC_PATHS:
         text = path.read_text(encoding="utf-8")

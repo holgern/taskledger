@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import typer
 
@@ -15,6 +15,17 @@ from taskledger.storage.v2 import TaskRecord, resolve_task_or_active
 class CLIState:
     cwd: Path
     json_output: bool
+
+
+TaskOption = Annotated[
+    str | None,
+    typer.Option("--task", help="Task ref. Defaults to the active task."),
+]
+TextOption = Annotated[str | None, typer.Option("--text")]
+MessageOption = Annotated[str | None, typer.Option("--message")]
+SummaryOption = Annotated[str, typer.Option("--summary")]
+ReasonOption = Annotated[str, typer.Option("--reason")]
+EvidenceOption = Annotated[list[str] | None, typer.Option("--evidence")]
 
 
 def resolve_workspace_root(cwd: Path | None) -> Path:

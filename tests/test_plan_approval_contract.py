@@ -49,16 +49,14 @@ def _prepare_proposed_plan(
     assert (
         runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "plan", "start", "approval-task"],
+            ["--cwd", str(tmp_path), "plan", "start", "--task", "approval-task"],
         ).exit_code
         == 0
     )
     command = [
         "--cwd",
         str(tmp_path),
-        "plan",
-        "propose",
-        "approval-task",
+        "plan", "propose", "--task", "approval-task",
         "--text",
         "## Goal\n\nShip safely.",
     ]
@@ -77,9 +75,7 @@ def test_plan_approval_records_actor_metadata_and_criteria_ids(tmp_path: Path) -
             "--cwd",
             str(tmp_path),
             "--json",
-            "plan",
-            "approve",
-            "approval-task",
+            "plan", "approve", "--task", "approval-task",
             "--version",
             "1",
             "--actor",
@@ -100,9 +96,7 @@ def test_plan_approval_records_actor_metadata_and_criteria_ids(tmp_path: Path) -
                 "--cwd",
                 str(tmp_path),
                 "--json",
-                "plan",
-                "show",
-                "approval-task",
+                "plan", "show", "--task", "approval-task",
                 "--version",
                 "1",
             ],
@@ -127,9 +121,7 @@ def test_plan_approval_rejects_agent_approval_without_escape_hatch(
             "--cwd",
             str(tmp_path),
             "--json",
-            "plan",
-            "approve",
-            "approval-task",
+            "plan", "approve", "--task", "approval-task",
             "--version",
             "1",
             "--actor",
@@ -157,9 +149,7 @@ def test_plan_approval_requires_criteria_by_default(tmp_path: Path) -> None:
             "--cwd",
             str(tmp_path),
             "--json",
-            "plan",
-            "approve",
-            "approval-task",
+            "plan", "approve", "--task", "approval-task",
             "--version",
             "1",
             "--actor",
@@ -189,9 +179,7 @@ def test_plan_approve_default_actor_is_agent(tmp_path: Path) -> None:
             "--cwd",
             str(tmp_path),
             "--json",
-            "plan",
-            "approve",
-            "approval-task",
+            "plan", "approve", "--task", "approval-task",
             "--version",
             "1",
             "--note",
@@ -228,7 +216,7 @@ def test_plan_yaml_single_key_shorthand_criteria(tmp_path: Path) -> None:
     assert (
         runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "plan", "start", "shorthand-task"],
+            ["--cwd", str(tmp_path), "plan", "start", "--task", "shorthand-task"],
         ).exit_code
         == 0
     )
@@ -245,9 +233,7 @@ acceptance_criteria:
             [
                 "--cwd",
                 str(tmp_path),
-                "plan",
-                "propose",
-                "shorthand-task",
+                "plan", "propose", "--task", "shorthand-task",
                 "--text",
                 plan_text,
             ],
@@ -261,9 +247,7 @@ acceptance_criteria:
             "--cwd",
             str(tmp_path),
             "--json",
-            "plan",
-            "show",
-            "shorthand-task",
+            "plan", "show", "--task", "shorthand-task",
             "--version",
             "1",
         ],

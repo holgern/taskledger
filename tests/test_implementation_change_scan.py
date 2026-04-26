@@ -47,7 +47,7 @@ def _prepare_implementation(tmp_path: Path) -> None:
     )
     assert (
         runner.invoke(
-            app, ["--cwd", str(tmp_path), "plan", "start", "impl-scan"]
+            app, ["--cwd", str(tmp_path), "plan", "start", "--task", "impl-scan"]
         ).exit_code
         == 0
     )
@@ -57,9 +57,7 @@ def _prepare_implementation(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "plan",
-                "propose",
-                "impl-scan",
+                "plan", "propose", "--task", "impl-scan",
                 "--criterion",
                 "Record the implementation evidence.",
                 "--text",
@@ -74,9 +72,7 @@ def _prepare_implementation(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "plan",
-                "approve",
-                "impl-scan",
+                "plan", "approve", "--task", "impl-scan",
                 "--version",
                 "1",
                 "--actor",
@@ -93,7 +89,7 @@ def _prepare_implementation(tmp_path: Path) -> None:
     assert (
         runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "implement", "start", "impl-scan"],
+            ["--cwd", str(tmp_path), "implement", "start", "--task", "impl-scan"],
         ).exit_code
         == 0
     )
@@ -145,9 +141,7 @@ def test_scan_changes_from_git_records_branch_status_and_diff_stat(
             "--cwd",
             str(tmp_path),
             "--json",
-            "implement",
-            "scan-changes",
-            "impl-scan",
+            "implement", "scan-changes", "--task", "impl-scan",
             "--from-git",
             "--summary",
             "Captured Git state.",
@@ -169,9 +163,7 @@ def test_scan_changes_from_git_rejects_non_git_workspace(tmp_path: Path) -> None
             "--cwd",
             str(tmp_path),
             "--json",
-            "implement",
-            "scan-changes",
-            "impl-scan",
+            "implement", "scan-changes", "--task", "impl-scan",
             "--from-git",
         ],
     )
@@ -192,9 +184,7 @@ def test_manual_implement_change_still_works_via_canonical_command(
             "--cwd",
             str(tmp_path),
             "--json",
-            "implement",
-            "change",
-            "impl-scan",
+            "implement", "change", "--task", "impl-scan",
             "--path",
             "taskledger/services/tasks.py",
             "--kind",

@@ -148,9 +148,7 @@ def test_no_ref_plan_implementation_validation_flow(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "plan",
-                "propose",
-                "--criterion",
+                "plan", "propose", "--criterion",
                 "It works.",
                 "--text",
                 "Plan body",
@@ -164,9 +162,7 @@ def test_no_ref_plan_implementation_validation_flow(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "plan",
-                "approve",
-                "--version",
+                "plan", "approve", "--version",
                 "1",
                 "--actor",
                 "user",
@@ -208,9 +204,7 @@ def test_no_ref_plan_implementation_validation_flow(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "validate",
-                "check",
-                "--criterion",
+                "validate", "check", "--criterion",
                 "ac-0001",
                 "--status",
                 "pass",
@@ -226,9 +220,7 @@ def test_no_ref_plan_implementation_validation_flow(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "validate",
-                "finish",
-                "--result",
+                "validate", "finish", "--result",
                 "passed",
                 "--summary",
                 "ok",
