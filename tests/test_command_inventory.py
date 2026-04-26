@@ -36,7 +36,6 @@ def test_mutating_commands_are_not_marked_safe_read_only() -> None:
         "artifact",
         "break",
         "cancel",
-        "change",
         "check",
         "close",
         "command",

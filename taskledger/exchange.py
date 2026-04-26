@@ -7,14 +7,20 @@ from pathlib import Path
 from taskledger.domain.models import (
     ActiveTaskState,
     CodeChangeRecord,
+    DependencyRequirement,
+    FileLink,
     IntroductionRecord,
+    LinkCollection,
     PlanRecord,
     QuestionRecord,
+    RequirementCollection,
     TaskEvent,
     TaskHandoffRecord,
     TaskLock,
     TaskRecord,
     TaskRunRecord,
+    TaskTodo,
+    TodoCollection,
 )
 from taskledger.errors import LaunchError
 from taskledger.storage.events import append_event, load_events
@@ -32,10 +38,13 @@ from taskledger.storage.v2 import (
     save_change,
     save_handoff,
     save_introduction,
+    save_links,
     save_plan,
     save_question,
+    save_requirements,
     save_run,
     save_task,
+    save_todos,
     task_lock_path,
 )
 from taskledger.storage.v2 import list_changes as list_v2_changes
@@ -45,6 +54,9 @@ from taskledger.storage.v2 import list_plans as list_v2_plans
 from taskledger.storage.v2 import list_questions as list_v2_questions
 from taskledger.storage.v2 import list_runs as list_v2_runs
 from taskledger.storage.v2 import list_tasks as list_v2_tasks
+from taskledger.storage.v2 import load_links as load_v2_links
+from taskledger.storage.v2 import load_requirements as load_v2_requirements
+from taskledger.storage.v2 import load_todos as load_v2_todos
 from taskledger.timeutils import utc_now_iso
 
 
@@ -186,6 +198,21 @@ def _export_v2_payload(workspace_root: Path) -> dict[str, object]:
             for task in tasks
             for handoff in list_v2_handoffs(workspace_root, task.id)
         ],
+        "todos": [
+            todo.to_dict()
+            for task in tasks
+            for todo in load_v2_todos(workspace_root, task.id).todos
+        ],
+        "links": [
+            link.to_dict()
+            for task in tasks
+            for link in load_v2_links(workspace_root, task.id).links
+        ],
+        "requirements": [
+            req.to_dict()
+            for task in tasks
+            for req in load_v2_requirements(workspace_root, task.id).requirements
+        ],
         "locks": [item.to_dict() for item in load_active_locks(workspace_root)],
         "events": [
             item.to_dict()
@@ -194,13 +221,82 @@ def _export_v2_payload(workspace_root: Path) -> dict[str, object]:
     }
 
 
+def _import_standalone_collections(
+    raw_v2: dict[str, object], workspace_root: Path
+) -> None:
+    """Import per-record collections from newer exports."""
+    todos_by_task: dict[str, list] = {}
+    for item in _dict_list(raw_v2.get("todos")):
+        tid = str(item.get("task_id") or "")
+        todos_by_task.setdefault(tid, []).append(item)
+    for tid, items in todos_by_task.items():
+        save_todos(
+            workspace_root,
+            TodoCollection(
+                task_id=tid,
+                todos=tuple(TaskTodo.from_dict(i) for i in items),
+            ),
+        )
+    links_by_task: dict[str, list] = {}
+    for item in _dict_list(raw_v2.get("links")):
+        tid = str(item.get("task_id") or "")
+        links_by_task.setdefault(tid, []).append(item)
+    for tid, items in links_by_task.items():
+        save_links(
+            workspace_root,
+            LinkCollection(
+                task_id=tid,
+                links=tuple(FileLink.from_dict(i) for i in items),
+            ),
+        )
+    reqs_by_task: dict[str, list] = {}
+    for item in _dict_list(raw_v2.get("requirements")):
+        tid = str(item.get("task_id") or item.get("parent_task_id") or "")
+        reqs_by_task.setdefault(tid, []).append(item)
+    for tid, items in reqs_by_task.items():
+        save_requirements(
+            workspace_root,
+            RequirementCollection(
+                task_id=tid,
+                requirements=tuple(
+                    DependencyRequirement.from_dict(i) for i in items
+                ),
+            ),
+        )
+
+
 def _import_v2_payload(workspace_root: Path, payload: dict[str, object]) -> None:
     raw_v2 = payload.get("v2")
     if not isinstance(raw_v2, dict):
         raise LaunchError("Import payload is missing v2 task state.")
     paths = resolve_v2_paths(workspace_root)
     for item in _dict_list(raw_v2.get("tasks")):
-        save_task(workspace_root, TaskRecord.from_dict(item))
+        task = TaskRecord.from_dict(item)
+        save_task(workspace_root, task)
+        # Import per-record collections from embedded task data
+        if task.todos:
+            save_todos(
+                workspace_root,
+                TodoCollection(task_id=task.id, todos=task.todos),
+            )
+        if task.file_links:
+            save_links(
+                workspace_root,
+                LinkCollection(task_id=task.id, links=task.file_links),
+            )
+        if task.requirements:
+            save_requirements(
+                workspace_root,
+                RequirementCollection(
+                    task_id=task.id,
+                    requirements=tuple(
+                        DependencyRequirement(task_id=r)
+                        for r in task.requirements
+                    ),
+                ),
+            )
+    # Import standalone per-record collections (from newer exports)
+    _import_standalone_collections(raw_v2, workspace_root)
     active_task = raw_v2.get("active_task")
     if active_task is not None:
         state = ActiveTaskState.from_dict(active_task)

@@ -13,6 +13,7 @@ from taskledger.domain.models import (
     ActiveTaskState,
     CodeChangeRecord,
     DependencyRequirement,
+    FileLink,
     IntroductionRecord,
     LinkCollection,
     PlanRecord,
@@ -22,9 +23,13 @@ from taskledger.domain.models import (
     TaskLock,
     TaskRecord,
     TaskRunRecord,
+    TaskTodo,
     TodoCollection,
 )
-from taskledger.domain.states import TASKLEDGER_SCHEMA_VERSION
+from taskledger.domain.states import (
+    TASKLEDGER_SCHEMA_VERSION,
+    TASKLEDGER_V2_FILE_VERSION,
+)
 from taskledger.errors import ActiveTaskNotFound, LaunchError, NoActiveTask
 from taskledger.storage.atomic import atomic_write_text
 from taskledger.storage.frontmatter import (
@@ -34,8 +39,27 @@ from taskledger.storage.frontmatter import (
 )
 from taskledger.storage.locks import read_lock, update_lock, write_lock
 from taskledger.storage.paths import resolve_taskledger_root
+from taskledger.timeutils import utc_now_iso
 
 T = TypeVar("T")
+
+
+def _link_id_from_path(path: str) -> str:
+    """Generate a deterministic link id from the path."""
+    import hashlib
+
+    digest = hashlib.sha256(path.encode("utf-8")).hexdigest()[:8]
+    return f"link-{digest}"
+
+
+def _requirement_id_from_task(task_id: str) -> str:
+    """Generate a deterministic requirement id from the required task id."""
+    import re
+
+    match = re.match(r"task-(\d+)", task_id)
+    if match:
+        return f"req-{match.group(1)}"
+    return f"req-{task_id}"
 
 
 @dataclass(slots=True, frozen=True)
@@ -252,21 +276,6 @@ def save_task(workspace_root: Path, task: TaskRecord) -> TaskRecord:
     metadata.pop("file_links", None)
     metadata.pop("requirements", None)
     _write_markdown_record(path, metadata, task.body)
-    if not task_todos_path(paths, task.id).exists():
-        _write_yaml(
-            path=task_todos_path(paths, task.id),
-            payload=_todo_collection(task),
-        )
-    if not task_links_path(paths, task.id).exists():
-        _write_yaml(
-            path=task_links_path(paths, task.id),
-            payload=_link_collection(task),
-        )
-    if not task_requirements_path(paths, task.id).exists():
-        _write_yaml(
-            path=task_requirements_path(paths, task.id),
-            payload=_requirement_collection(task),
-        )
     return task
 
 
@@ -427,6 +436,17 @@ def load_active_locks(workspace_root: Path) -> list[TaskLock]:
 
 def load_todos(workspace_root: Path, task_id: str) -> TodoCollection:
     paths = ensure_v2_layout(workspace_root)
+    directory = task_todos_dir(paths, task_id)
+    records = sorted(
+        [
+            _load_record(p, TaskTodo.from_dict)
+            for p in directory.glob("todo-*.md")
+        ],
+        key=lambda t: t.id,
+    )
+    if records:
+        return TodoCollection(task_id=task_id, todos=tuple(records))
+    # Backward compat: read legacy todos.yaml
     path = task_todos_path(paths, task_id)
     alias_path = _legacy_slug_sidecar_path(paths, task_id, "todos.yaml")
     if alias_path is not None and alias_path.exists():
@@ -442,15 +462,49 @@ def load_todos(workspace_root: Path, task_id: str) -> TodoCollection:
 def save_todos(workspace_root: Path, collection: TodoCollection) -> TodoCollection:
     paths = ensure_v2_layout(workspace_root)
     _ensure_task_bundle(paths, collection.task_id)
-    _write_yaml(task_todos_path(paths, collection.task_id), collection.to_dict())
+    directory = task_todos_dir(paths, collection.task_id)
+    directory.mkdir(parents=True, exist_ok=True)
+    keep_ids = set()
+    now = utc_now_iso()
+    for todo in collection.todos:
+        keep_ids.add(todo.id)
+        metadata = todo.to_dict()
+        metadata["task_id"] = collection.task_id
+        metadata["file_version"] = TASKLEDGER_V2_FILE_VERSION
+        metadata["schema_version"] = TASKLEDGER_SCHEMA_VERSION
+        metadata["object_type"] = "todo"
+        if "updated_at" not in metadata or metadata["updated_at"] is None:
+            metadata["updated_at"] = now
+        body = todo.text
+        path = todo_markdown_path(paths, collection.task_id, todo.id)
+        _write_markdown_record(path, metadata, body)
+    # Remove stale files
+    for path in directory.glob("todo-*.md"):
+        if path.stem not in keep_ids:
+            path.unlink()
+    # Remove legacy YAML sidecar if it exists
+    legacy = task_todos_path(paths, collection.task_id)
+    if legacy.exists():
+        legacy.unlink()
     alias_path = _legacy_slug_sidecar_path(paths, collection.task_id, "todos.yaml")
     if alias_path is not None and alias_path.exists():
-        _write_yaml(alias_path, collection.to_dict())
+        alias_path.unlink()
     return collection
 
 
 def load_links(workspace_root: Path, task_id: str) -> LinkCollection:
     paths = ensure_v2_layout(workspace_root)
+    directory = task_links_dir(paths, task_id)
+    records = sorted(
+        [
+            _load_record(p, FileLink.from_dict)
+            for p in directory.glob("link-*.md")
+        ],
+        key=lambda lk: lk.id or "",
+    )
+    if records:
+        return LinkCollection(task_id=task_id, links=tuple(records))
+    # Backward compat: read legacy links.yaml
     path = task_links_path(paths, task_id)
     if not path.exists():
         return LinkCollection(task_id=task_id)
@@ -463,12 +517,50 @@ def load_links(workspace_root: Path, task_id: str) -> LinkCollection:
 def save_links(workspace_root: Path, collection: LinkCollection) -> LinkCollection:
     paths = ensure_v2_layout(workspace_root)
     _ensure_task_bundle(paths, collection.task_id)
-    _write_yaml(task_links_path(paths, collection.task_id), collection.to_dict())
+    directory = task_links_dir(paths, collection.task_id)
+    directory.mkdir(parents=True, exist_ok=True)
+    keep_ids = set()
+    now = utc_now_iso()
+    for link in collection.links:
+        link_id = link.id or _link_id_from_path(link.path)
+        keep_ids.add(link_id)
+        metadata = link.to_dict()
+        metadata["id"] = link_id
+        metadata["task_id"] = collection.task_id
+        metadata["file_version"] = TASKLEDGER_V2_FILE_VERSION
+        metadata["schema_version"] = TASKLEDGER_SCHEMA_VERSION
+        metadata["object_type"] = "link"
+        if metadata.get("created_at") is None:
+            metadata["created_at"] = now
+        if metadata.get("updated_at") is None:
+            metadata["updated_at"] = now
+        body = link.path
+        path = link_markdown_path(paths, collection.task_id, link_id)
+        _write_markdown_record(path, metadata, body)
+    # Remove stale files
+    for path in directory.glob("link-*.md"):
+        if path.stem not in keep_ids:
+            path.unlink()
+    # Remove legacy YAML sidecar
+    legacy = task_links_path(paths, collection.task_id)
+    if legacy.exists():
+        legacy.unlink()
     return collection
 
 
 def load_requirements(workspace_root: Path, task_id: str) -> RequirementCollection:
     paths = ensure_v2_layout(workspace_root)
+    directory = task_requirements_dir(paths, task_id)
+    records = sorted(
+        [
+            _load_record(p, DependencyRequirement.from_dict)
+            for p in directory.glob("req-*.md")
+        ],
+        key=lambda r: r.id or "",
+    )
+    if records:
+        return RequirementCollection(task_id=task_id, requirements=tuple(records))
+    # Backward compat: read legacy requirements.yaml
     path = task_requirements_path(paths, task_id)
     if not path.exists():
         return RequirementCollection(task_id=task_id)
@@ -483,7 +575,38 @@ def save_requirements(
 ) -> RequirementCollection:
     paths = ensure_v2_layout(workspace_root)
     _ensure_task_bundle(paths, collection.task_id)
-    _write_yaml(task_requirements_path(paths, collection.task_id), collection.to_dict())
+    directory = task_requirements_dir(paths, collection.task_id)
+    directory.mkdir(parents=True, exist_ok=True)
+    keep_ids = set()
+    now = utc_now_iso()
+    for req in collection.requirements:
+        req_id = req.id or _requirement_id_from_task(req.task_id)
+        keep_ids.add(req_id)
+        metadata = req.to_dict()
+        metadata["id"] = req_id
+        metadata["task_id"] = collection.task_id
+        metadata["required_task_id"] = req.required_task_id or req.task_id
+        metadata["file_version"] = TASKLEDGER_V2_FILE_VERSION
+        metadata["schema_version"] = TASKLEDGER_SCHEMA_VERSION
+        metadata["object_type"] = "requirement"
+        if metadata.get("created_at") is None:
+            metadata["created_at"] = now
+        if metadata.get("updated_at") is None:
+            metadata["updated_at"] = now
+        body = (
+            f"Requires {req.required_task_id or req.task_id}"
+            f" to be {req.required_status}."
+        )
+        path = requirement_markdown_path(paths, collection.task_id, req_id)
+        _write_markdown_record(path, metadata, body)
+    # Remove stale files
+    for path in directory.glob("req-*.md"):
+        if path.stem not in keep_ids:
+            path.unlink()
+    # Remove legacy YAML sidecar
+    legacy = task_requirements_path(paths, collection.task_id)
+    if legacy.exists():
+        legacy.unlink()
     return collection
 
 
@@ -499,6 +622,18 @@ def task_lock_path(paths: V2Paths, task_id: str) -> Path:
     return task_dir(paths, task_id) / "lock.yaml"
 
 
+def task_todos_dir(paths: V2Paths, task_id: str) -> Path:
+    return task_dir(paths, task_id) / "todos"
+
+
+def task_links_dir(paths: V2Paths, task_id: str) -> Path:
+    return task_dir(paths, task_id) / "links"
+
+
+def task_requirements_dir(paths: V2Paths, task_id: str) -> Path:
+    return task_dir(paths, task_id) / "requirements"
+
+
 def task_todos_path(paths: V2Paths, task_id: str) -> Path:
     return task_dir(paths, task_id) / "todos.yaml"
 
@@ -509,6 +644,18 @@ def task_links_path(paths: V2Paths, task_id: str) -> Path:
 
 def task_requirements_path(paths: V2Paths, task_id: str) -> Path:
     return task_dir(paths, task_id) / "requirements.yaml"
+
+
+def todo_markdown_path(paths: V2Paths, task_id: str, todo_id: str) -> Path:
+    return task_todos_dir(paths, task_id) / f"{todo_id}.md"
+
+
+def link_markdown_path(paths: V2Paths, task_id: str, link_id: str) -> Path:
+    return task_links_dir(paths, task_id) / f"{link_id}.md"
+
+
+def requirement_markdown_path(paths: V2Paths, task_id: str, req_id: str) -> Path:
+    return task_requirements_dir(paths, task_id) / f"{req_id}.md"
 
 
 def task_plans_dir(paths: V2Paths, task_id: str) -> Path:
@@ -614,6 +761,9 @@ def _ensure_task_bundle(paths: V2Paths, task_id: str) -> None:
         task_dir(paths, task_id),
         task_plans_dir(paths, task_id),
         task_questions_dir(paths, task_id),
+        task_todos_dir(paths, task_id),
+        task_links_dir(paths, task_id),
+        task_requirements_dir(paths, task_id),
         task_runs_dir(paths, task_id),
         task_changes_dir(paths, task_id),
         task_artifacts_dir(paths, task_id),
@@ -637,27 +787,10 @@ def _legacy_slug_sidecar_path(
     return task_dir(paths, task.slug) / filename
 
 
-def _todo_collection(task: TaskRecord) -> dict[str, object]:
-    return TodoCollection(task_id=task.id, todos=task.todos).to_dict()
-
-
-def _link_collection(task: TaskRecord) -> dict[str, object]:
-    return LinkCollection(task_id=task.id, links=task.file_links).to_dict()
-
-
-def _requirement_collection(task: TaskRecord) -> dict[str, object]:
-    return RequirementCollection(
-        task_id=task.id,
-        requirements=tuple(
-            DependencyRequirement(task_id=requirement)
-            for requirement in task.requirements
-        ),
-    ).to_dict()
-
-
 def _write_yaml(path: Path, payload: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     atomic_write_text(path, yaml.safe_dump(payload, sort_keys=False))
+
 
 
 def _normalize_numeric_ref(ref: str, prefix: str) -> str:

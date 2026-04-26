@@ -19,6 +19,7 @@ from taskledger.storage.v2 import (
     load_todos,
     resolve_introduction,
     resolve_run,
+    task_dir,
 )
 
 
@@ -211,6 +212,17 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
             else:
                 warnings.append(
                     f"Legacy slug sidecar directory retained: {child.name}/"
+                )
+
+    # Detect legacy YAML sidecars that should be migrated
+    for task in tasks:
+        td = task_dir(paths, task.id)
+        for legacy_name in ("todos.yaml", "links.yaml", "requirements.yaml"):
+            legacy_path = td / legacy_name
+            if legacy_path.exists():
+                warnings.append(
+                    f"Task {task.id} has a legacy {legacy_name} sidecar. "
+                    "Load once and re-save to migrate to per-record Markdown."
                 )
 
     if broken_links:

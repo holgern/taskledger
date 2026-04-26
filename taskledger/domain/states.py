@@ -17,8 +17,11 @@ OBJECT_TYPES = frozenset(
         "intro",
         "lock",
         "event",
+        "todo",
         "todos",
+        "link",
         "links",
+        "requirement",
         "requirements",
         "handoff",
     }

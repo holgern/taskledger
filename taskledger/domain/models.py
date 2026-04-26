@@ -361,13 +361,29 @@ class FileLink:
     kind: FileLinkKind = "code"
     label: str | None = None
     required_for_validation: bool = False
+    id: str | None = None
+    task_id: str | None = None
+    target_type: str | None = None
+    file_version: str = TASKLEDGER_V2_FILE_VERSION
+    schema_version: int = TASKLEDGER_SCHEMA_VERSION
+    object_type: str = "link"
+    created_at: str = field(default_factory=utc_now_iso)
+    updated_at: str = field(default_factory=utc_now_iso)
 
     def to_dict(self) -> dict[str, object]:
         return {
+            "id": self.id,
+            "task_id": self.task_id,
             "path": self.path,
             "kind": self.kind,
             "label": self.label,
             "required_for_validation": self.required_for_validation,
+            "target_type": self.target_type,
+            "file_version": self.file_version,
+            "schema_version": self.schema_version,
+            "object_type": self.object_type,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
         }
 
     @classmethod
@@ -375,10 +391,23 @@ class FileLink:
         if not isinstance(data, dict):
             raise LaunchError("Invalid file link: expected mapping.")
         return cls(
+            id=_optional_string(data.get("id")),
+            task_id=_optional_string(data.get("task_id")),
             path=_string_value(data, "path"),
-            kind=normalize_file_link_kind(_string_value(data, "kind")),
+            kind=normalize_file_link_kind(
+                _optional_string(data.get("kind")) or "code"
+            ),
             label=_optional_string(data.get("label")),
             required_for_validation=bool(data.get("required_for_validation", False)),
+            target_type=_optional_string(data.get("target_type")),
+            file_version=_optional_string(data.get("file_version"))
+            or TASKLEDGER_V2_FILE_VERSION,
+            schema_version=_int_or_default(
+                data.get("schema_version"), TASKLEDGER_SCHEMA_VERSION
+            ),
+            object_type=_optional_string(data.get("object_type")) or "link",
+            created_at=_optional_string(data.get("created_at")) or utc_now_iso(),
+            updated_at=_optional_string(data.get("updated_at")) or utc_now_iso(),
         )
 
 
@@ -583,22 +612,53 @@ class DependencyRequirement:
     task_id: str
     required_status: str = "done"
     waiver: DependencyWaiver | None = None
+    id: str | None = None
+    required_task_id: str | None = None
+    parent_task_id: str | None = None
+    file_version: str = TASKLEDGER_V2_FILE_VERSION
+    schema_version: int = TASKLEDGER_SCHEMA_VERSION
+    object_type: str = "requirement"
+    created_at: str = field(default_factory=utc_now_iso)
+    updated_at: str = field(default_factory=utc_now_iso)
 
     def to_dict(self) -> dict[str, object]:
         return {
-            "task_id": self.task_id,
+            "id": self.id,
+            "task_id": self.required_task_id or self.task_id,
+            "required_task_id": self.required_task_id or self.task_id,
+            "parent_task_id": self.parent_task_id,
             "required_status": self.required_status,
             "waiver": self.waiver.to_dict() if self.waiver is not None else None,
+            "file_version": self.file_version,
+            "schema_version": self.schema_version,
+            "object_type": self.object_type,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
         }
 
     @classmethod
     def from_dict(cls, data: object) -> DependencyRequirement:
         if not isinstance(data, dict):
             raise LaunchError("Invalid dependency requirement: expected mapping.")
+        task_id = (
+            _optional_string(data.get("required_task_id"))
+            or _string_value(data, "task_id")
+        )
         return cls(
-            task_id=_string_value(data, "task_id"),
+            id=_optional_string(data.get("id")),
+            task_id=task_id,
+            required_task_id=_optional_string(data.get("required_task_id")) or task_id,
+            parent_task_id=_optional_string(data.get("parent_task_id")),
             required_status=_optional_string(data.get("required_status")) or "done",
             waiver=DependencyWaiver.from_dict(data.get("waiver")),
+            file_version=_optional_string(data.get("file_version"))
+            or TASKLEDGER_V2_FILE_VERSION,
+            schema_version=_int_or_default(
+                data.get("schema_version"), TASKLEDGER_SCHEMA_VERSION
+            ),
+            object_type=_optional_string(data.get("object_type")) or "requirement",
+            created_at=_optional_string(data.get("created_at")) or utc_now_iso(),
+            updated_at=_optional_string(data.get("updated_at")) or utc_now_iso(),
         )
 
 
@@ -1530,6 +1590,10 @@ def _require_contract(data: dict[str, object], *, expected_object_type: str) -> 
         )
     if "file_version" in data:
         _require_v2_file_version(data)
+
+
+def _int_or_default(value: object, default: int) -> int:
+    return value if isinstance(value, int) else default
 
 
 def _require_v2_file_version(data: dict[str, object]) -> None:

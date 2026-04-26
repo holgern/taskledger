@@ -8,7 +8,6 @@ from typer.testing import CliRunner
 
 from taskledger.cli import app
 
-
 REMOVED_COMMANDS = {
     "task new",
     "task clear-active",

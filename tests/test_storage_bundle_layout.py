@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import yaml
 from typer.testing import CliRunner
 
 from taskledger.cli import app
@@ -56,9 +55,12 @@ def test_task_create_uses_task_bundle_layout(tmp_path: Path) -> None:
 
     task_dir = project_dir / "tasks" / "task-0001"
     assert (task_dir / "task.md").is_file()
-    assert (task_dir / "todos.yaml").is_file()
-    assert (task_dir / "links.yaml").is_file()
-    assert (task_dir / "requirements.yaml").is_file()
+    assert (task_dir / "todos").is_dir()
+    assert (task_dir / "links").is_dir()
+    assert (task_dir / "requirements").is_dir()
+    assert not (task_dir / "todos.yaml").exists()
+    assert not (task_dir / "links.yaml").exists()
+    assert not (task_dir / "requirements.yaml").exists()
     assert (task_dir / "plans").is_dir()
     assert (task_dir / "questions").is_dir()
     assert (task_dir / "runs").is_dir()
@@ -66,14 +68,10 @@ def test_task_create_uses_task_bundle_layout(tmp_path: Path) -> None:
     assert (task_dir / "artifacts").is_dir()
     assert (task_dir / "audit").is_dir()
 
-    todos = yaml.safe_load((task_dir / "todos.yaml").read_text(encoding="utf-8"))
-    links = yaml.safe_load((task_dir / "links.yaml").read_text(encoding="utf-8"))
-    requirements = yaml.safe_load(
-        (task_dir / "requirements.yaml").read_text(encoding="utf-8")
-    )
-    assert todos["object_type"] == "todos"
-    assert links["object_type"] == "links"
-    assert requirements["object_type"] == "requirements"
+    # Empty collections should produce no per-record files
+    assert list((task_dir / "todos").glob("todo-*.md")) == []
+    assert list((task_dir / "links").glob("link-*.md")) == []
+    assert list((task_dir / "requirements").glob("req-*.md")) == []
 
 
 def test_task_list_scans_task_markdown_without_indexes(tmp_path: Path) -> None:

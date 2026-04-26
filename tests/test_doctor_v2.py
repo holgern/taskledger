@@ -219,8 +219,9 @@ def test_inspect_duplicate_todo_ids(tmp_path: Path) -> None:
     save_task(tmp_path, task)
     todo = TaskTodo(id="todo-1", text="same id")
     save_todos(tmp_path, TodoCollection(task_id=task.id, todos=(todo, todo)))
+    # Per-record storage deduplicates by id (one file per id)
     result = inspect_v2_project(tmp_path)
-    assert any("duplicate todo" in e for e in result["errors"])
+    assert not any("duplicate todo" in e for e in result["errors"])
 
 
 def test_inspect_transient_stage_in_status(tmp_path: Path) -> None:
