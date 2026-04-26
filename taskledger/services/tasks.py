@@ -1864,7 +1864,7 @@ def run_planning_command(
         kind="command",
         path=".",
         summary=_command_summary(argv, completed.returncode, artifact_ref),
-        command=" ".join(shlex.quote(item) for item in argv),
+        command=shlex.join(argv),
         exit_code=completed.returncode,
     )
     save_change(workspace_root, change)
@@ -1950,7 +1950,7 @@ def run_implementation_command(
         path=".",
         kind="command",
         summary=_command_summary(argv, completed.returncode, artifact_ref),
-        command=" ".join(shlex.quote(item) for item in argv),
+        command=shlex.join(argv),
         exit_code=completed.returncode,
         artifact_refs=((artifact_ref,) if artifact_ref else ()),
     )
@@ -2347,7 +2347,7 @@ def _build_validation_gate_report(
                 "kind": "no_accepted_plan",
                 "message": "No accepted plan is recorded.",
                 "command_hint": (
-                    "taskledger plan propose ... " "&& taskledger plan approve ..."
+                    "taskledger plan propose ... && taskledger plan approve ..."
                 ),
             }
         )
@@ -2374,8 +2374,7 @@ def _build_validation_gate_report(
                 "kind": "no_finished_implementation",
                 "message": "No finished implementation run is recorded.",
                 "command_hint": (
-                    "taskledger implement start ... "
-                    "&& taskledger implement finish ..."
+                    "taskledger implement start ... && taskledger implement finish ..."
                 ),
             }
         )
@@ -2943,7 +2942,7 @@ def can_perform(workspace_root: Path, task_ref: str, action: str) -> dict[str, o
                 {
                     "kind": "lock",
                     "message": (
-                        f"Task has an active {lock.stage} lock " f"from {lock.run_id}."
+                        f"Task has an active {lock.stage} lock from {lock.run_id}."
                     ),
                 }
             )
@@ -2973,7 +2972,7 @@ def can_perform(workspace_root: Path, task_ref: str, action: str) -> dict[str, o
                 {
                     "kind": "lock",
                     "message": (
-                        f"Task has an active {lock.stage} lock " f"from {lock.run_id}."
+                        f"Task has an active {lock.stage} lock from {lock.run_id}."
                     ),
                 }
             )
@@ -3011,7 +3010,7 @@ def can_perform(workspace_root: Path, task_ref: str, action: str) -> dict[str, o
                 {
                     "kind": "lock",
                     "message": (
-                        f"Task has an active {lock.stage} lock " f"from {lock.run_id}."
+                        f"Task has an active {lock.stage} lock from {lock.run_id}."
                     ),
                 }
             )
@@ -3321,8 +3320,7 @@ def _dependency_blockers(
                 {
                     "kind": "dependency",
                     "message": (
-                        f"Requirement {required.id} is still "
-                        f"{required.status_stage}."
+                        f"Requirement {required.id} is still {required.status_stage}."
                     ),
                 }
             )
@@ -3441,7 +3439,7 @@ def _command_output(
     stderr: str,
 ) -> str:
     return (
-        f"$ {' '.join(shlex.quote(item) for item in argv)}\n\n"
+        f"$ {shlex.join(argv)}\n\n"
         f"stdout:\n{stdout or '(empty)'}\n\n"
         f"stderr:\n{stderr or '(empty)'}\n"
     )
@@ -3452,7 +3450,7 @@ def _command_summary(
     exit_code: int,
     artifact_ref: str | None,
 ) -> str:
-    summary = f"Ran {' '.join(shlex.quote(item) for item in argv)} (exit {exit_code})"
+    summary = f"Ran {shlex.join(argv)} (exit {exit_code})"
     if artifact_ref is not None:
         summary += f" output: @{artifact_ref}"
     return summary

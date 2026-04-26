@@ -158,7 +158,7 @@ def test_command_examples_in_docs_use_valid_commands() -> None:
                 if two_token in _VALID_COMMANDS:
                     continue
             failures.append(
-                f"{path}:{i}: unknown command" f" '{tokens}' in: {stripped[:120]}"
+                f"{path}:{i}: unknown command '{tokens}' in: {stripped[:120]}"
             )
 
     assert not failures, "\n".join(failures)
