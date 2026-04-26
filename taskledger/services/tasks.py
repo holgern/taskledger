@@ -43,6 +43,7 @@ from taskledger.domain.policies import (
     implementation_mutation_decision,
     metadata_edit_decision,
     plan_approve_decision,
+    plan_command_decision,
     plan_propose_decision,
     plan_revise_decision,
     question_add_decision,
@@ -940,6 +941,7 @@ def approve_plan(
     allow_empty_criteria: bool = False,
     materialize_todos: bool = True,
     allow_open_questions: bool = False,
+    allow_empty_todos: bool = False,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
     _enforce_decision(
@@ -952,6 +954,10 @@ def approve_plan(
             "Plan approval is blocked by open planning questions: "
             + ", ".join(open_questions),
             EXIT_CODE_APPROVAL_REQUIRED,
+        )
+    if allow_open_questions and not (reason or "").strip():
+        raise _cli_error(
+            "--allow-open-questions requires --reason.", EXIT_CODE_BAD_INPUT
         )
     target = resolve_plan(workspace_root, task.id, version=version)
     if target.status != "proposed":
@@ -975,6 +981,18 @@ def approve_plan(
             "Plan approval requires at least one acceptance criterion.",
             EXIT_CODE_APPROVAL_REQUIRED,
         )
+    if allow_empty_criteria and not (reason or "").strip():
+        raise _cli_error(
+            "--allow-empty-criteria requires --reason.", EXIT_CODE_BAD_INPUT
+        )
+    if not target.todos and not allow_empty_todos:
+        raise _cli_error(
+            "Plan approval requires at least one todo. "
+            'Use --allow-empty-todos --reason "..." for trivial tasks.',
+            EXIT_CODE_APPROVAL_REQUIRED,
+        )
+    if allow_empty_todos and not (reason or "").strip():
+        raise _cli_error("--allow-empty-todos requires --reason.", EXIT_CODE_BAD_INPUT)
     approved_by = _approval_actor(
         actor_type=actor_type,
         actor_name=actor_name,
@@ -1642,6 +1660,94 @@ def scan_changes(
         command="git branch --show-current && git status --short && git diff --stat",
         git_diff_stat=diff_stat,
     )
+
+
+def run_planning_command(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    argv: tuple[str, ...],
+) -> dict[str, object]:
+    if not argv:
+        raise _cli_error("plan command requires a command to run.", EXIT_CODE_BAD_INPUT)
+    task = resolve_task(workspace_root, task_ref)
+    run = _require_running_run(
+        workspace_root,
+        task,
+        task.latest_planning_run,
+        expected_type="planning",
+    )
+    _enforce_decision(
+        plan_command_decision(
+            task,
+            _lock_for_mutation(workspace_root, task.id),
+            run=run,
+        )
+    )
+    completed = subprocess.run(
+        list(argv),
+        cwd=workspace_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    output = _command_output(argv, completed.stdout, completed.stderr)
+    artifact_ref: str | None = None
+    if len(output) > 4000 or output.count("\n") > 50:
+        artifact_ref = _write_command_artifact(
+            workspace_root,
+            task.id,
+            run.run_id,
+            output,
+        )
+    change = CodeChangeRecord(
+        change_id=next_project_id(
+            "change",
+            [item.change_id for item in list_changes(workspace_root, task.id)],
+        ),
+        task_id=task.id,
+        implementation_run=run.run_id,
+        timestamp=utc_now_iso(),
+        kind="command",
+        path=".",
+        summary=_command_summary(argv, completed.returncode, artifact_ref),
+        command=" ".join(shlex.quote(item) for item in argv),
+        exit_code=completed.returncode,
+    )
+    save_change(workspace_root, change)
+    save_run(
+        workspace_root,
+        replace(
+            run,
+            change_refs=tuple([*run.change_refs, change.change_id]),
+            artifact_refs=tuple(
+                [*run.artifact_refs, *((artifact_ref,) if artifact_ref else ())]
+            ),
+        ),
+    )
+    save_task(
+        workspace_root,
+        replace(
+            task,
+            code_change_log_refs=tuple([*task.code_change_log_refs, change.change_id]),
+            updated_at=utc_now_iso(),
+        ),
+    )
+    _append_event(
+        resolve_v2_paths(workspace_root).project_dir,
+        task.id,
+        "change.logged",
+        {"change_id": change.change_id, "path": "."},
+    )
+    return {
+        "kind": "planning_command",
+        "task_id": change.task_id,
+        "change": change.to_dict(),
+        "exit_code": completed.returncode,
+        "artifact_path": artifact_ref,
+        "stdout": completed.stdout,
+        "stderr": completed.stderr,
+    }
 
 
 def run_implementation_command(
@@ -2439,7 +2545,12 @@ def break_lock(
     lock_path = task_lock_path(paths, task.id)
     lock = read_lock(lock_path)
     if lock is None:
-        raise _cli_error("No active lock exists for the task.", EXIT_CODE_MISSING)
+        raise _cli_error(
+            "No active lock exists for the task. "
+            "This is normal after plan propose, implement finish, or validate finish. "
+            "Run `taskledger next-action` to see what to do next.",
+            EXIT_CODE_MISSING,
+        )
     broken_lock = replace(
         lock,
         broken_at=utc_now_iso(),

@@ -363,6 +363,36 @@ def plan_propose_decision(
     )
 
 
+def plan_command_decision(
+    task: TaskRecord,
+    lock: TaskLock | None,
+    *,
+    run: TaskRunRecord | None,
+) -> Decision:
+    ctx = build_policy_context(task, lock, run=run)
+    if (
+        ctx.task.status_stage not in {"draft", "plan_review"}
+        or ctx.active_stage != "planning"
+    ):
+        return _policy_decision(
+            False,
+            "Plan commands require active planning.",
+            EXIT_CODE_INVALID_TRANSITION,
+        )
+    if ctx.run is None or ctx.run.run_type != "planning" or ctx.run.status != "running":
+        return _policy_decision(
+            False,
+            "Plan commands require an active planning run.",
+            EXIT_CODE_INVALID_TRANSITION,
+        )
+    return _active_stage_lock_decision(
+        ctx,
+        expected_stage="planning",
+        action="run a planning command",
+        expected_run_id=ctx.run.run_id,
+    )
+
+
 def plan_approve_decision(task: TaskRecord, lock: TaskLock | None) -> Decision:
     ctx = build_policy_context(task, lock)
     if ctx.task.status_stage != "plan_review":

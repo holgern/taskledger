@@ -86,6 +86,9 @@ def test_plan_approval_records_actor_metadata_and_criteria_ids(tmp_path: Path) -
             "user",
             "--note",
             "Reviewed and approved.",
+            "--allow-empty-todos",
+            "--reason",
+            "test",
         ],
     )
     assert approve.exit_code == 0
@@ -133,6 +136,9 @@ def test_plan_approval_rejects_agent_approval_without_escape_hatch(
             "agent",
             "--note",
             "Auto-approved.",
+            "--allow-empty-todos",
+            "--reason",
+            "test",
         ],
     )
     payload = _json(approve)
@@ -160,6 +166,9 @@ def test_plan_approval_requires_criteria_by_default(tmp_path: Path) -> None:
             "user",
             "--note",
             "Reviewed and approved.",
+            "--allow-empty-todos",
+            "--reason",
+            "test",
         ],
     )
     payload = _json(approve)
@@ -187,6 +196,9 @@ def test_plan_approve_default_actor_is_agent(tmp_path: Path) -> None:
             "1",
             "--note",
             "Auto-approved without specifying actor.",
+            "--allow-empty-todos",
+            "--reason",
+            "test",
         ],
     )
     payload = _json(approve)

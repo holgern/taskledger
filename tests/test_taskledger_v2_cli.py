@@ -133,6 +133,9 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
                 "user",
                 "--note",
                 "Ready to implement.",
+                "--allow-empty-todos",
+                "--reason",
+                "test",
             ],
         ).exit_code
         == 0

@@ -83,6 +83,9 @@ def _prepare_implementation(tmp_path: Path) -> None:
                 "user",
                 "--note",
                 "Proceed.",
+                "--allow-empty-todos",
+                "--reason",
+                "test",
             ],
         ).exit_code
         == 0

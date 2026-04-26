@@ -82,6 +82,9 @@ def _prepare_validating_task(tmp_path: Path) -> None:
                 "user",
                 "--note",
                 "Approved.",
+                "--allow-empty-todos",
+                "--reason",
+                "test",
             ],
         ).exit_code
         == 0
@@ -170,6 +173,9 @@ def _prepare_validating_task_with_mandatory_todo(tmp_path: Path) -> None:
                 "user",
                 "--note",
                 "Approved.",
+                "--allow-empty-todos",
+                "--reason",
+                "test",
             ],
         ).exit_code
         == 0
@@ -416,6 +422,9 @@ def test_user_dependency_waiver_unblocks_implementation(tmp_path: Path) -> None:
                 "user",
                 "--note",
                 "Approved.",
+                "--allow-empty-todos",
+                "--reason",
+                "test",
             ],
         ).exit_code
         == 0
@@ -749,6 +758,9 @@ def test_mandatory_todo_blocks_validation_completion(tmp_path: Path) -> None:
                 "user",
                 "--note",
                 "Approved.",
+                "--allow-empty-todos",
+                "--reason",
+                "test",
             ],
         ).exit_code
         == 0

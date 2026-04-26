@@ -21,6 +21,9 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 - Do not break locks for normal actor or harness transfer; use durable handoffs.
 - Do not mark validation passed without checking every mandatory acceptance criterion.
 - Do not inline large source files into taskledger records by default; use `@path` references.
+- Do not import or call `taskledger.storage.*`, `taskledger.services.*`, or `taskledger.domain.*` from ad-hoc Python during normal task work. Use CLI commands or public `taskledger.api.*` only.
+- Do not use repair commands (`lock break`, `repair lock`, `repair task`, `repair index`) in the normal lifecycle. Use them only after `doctor`/`lock show` proves there is stale or corrupted state.
+- Do not pass approval escape hatches such as `--allow-empty-criteria`, `--allow-open-questions`, or `--allow-agent-approval` unless the user explicitly requested that bypass and gave a reason.
 
 ## Fresh context entry protocol
 
@@ -51,7 +54,10 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 7. Review all answered questions with `taskledger question answers` before regenerating the plan.
 8. Regenerate from answers with `taskledger plan regenerate --from-answers --file ./plan.md`.
 9. Ensure the plan front matter includes `acceptance_criteria` and `todos`; approved plan todos materialize into the implementation checklist.
-10. Record approval only with user intent: `taskledger plan approve --version N --actor user --note "..."`.
+10. For diagnostic commands needed to build the plan, preserve their output in a linked artifact or use `taskledger plan command -- ...`.
+11. A proposed plan must include concrete `acceptance_criteria` and `todos` in front matter unless the user explicitly says the task is trivial.
+12. After `taskledger plan propose`, do not run `taskledger lock break`; planning locks are released by proposal. Run `taskledger next-action`.
+13. Record approval only with user intent: `taskledger plan approve --version N --actor user --note "..."`.
 
 The plan file should use version ids like `plan-v1`, `plan-v2` in references. Do not use zero-padded forms.
 
@@ -64,8 +70,8 @@ The plan file should use version ids like `plan-v1`, `plan-v2` in references. Do
 5. Work one todo at a time:
    - Make the code changes
    - `taskledger implement change --path ... --kind edit --summary "..."`
-   - Run verification for that todo
-   - `taskledger todo done <todo-id> --evidence "pytest -q" --artifact tests/test_feature.py` to mark it done
+   - Run verification through `taskledger implement command -- ...` so exit code and output are recorded.
+   - Mark each todo done only after the relevant command or inspection evidence exists: `taskledger todo done <todo-id> --evidence "implement command change-NNNN exited 0"`
 6. `taskledger implement checklist` after each meaningful change to track progress.
 7. Do not run `implement finish` until `todo status` says all todos are complete.
 8. `taskledger implement finish --summary "Completed all implementation todos..."`

@@ -41,6 +41,7 @@ COMMAND_METADATA: dict[str, tuple[str, str]] = {
     "plan list": (STABLE_FOR_AGENTS, "safe_read_only"),
     "plan diff": (STABLE_FOR_AGENTS, "safe_read_only"),
     "plan approve": (STABLE_FOR_AGENTS, "ledger_mutation"),
+    "plan command": (STABLE_FOR_AGENTS, "ledger_mutation"),
     "plan reject": (STABLE_FOR_AGENTS, "ledger_mutation"),
     "plan revise": (STABLE_FOR_AGENTS, "ledger_mutation"),
     "question add": (STABLE_FOR_AGENTS, "ledger_mutation"),

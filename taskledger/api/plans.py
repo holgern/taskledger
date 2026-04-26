@@ -7,6 +7,7 @@ from taskledger.services.tasks import (
     regenerate_plan_from_answers,
     reject_plan,
     revise_plan,
+    run_planning_command,
     show_plan,
     start_planning,
 )
@@ -22,4 +23,5 @@ __all__ = [
     "materialize_plan_todos",
     "reject_plan",
     "revise_plan",
+    "run_planning_command",
 ]

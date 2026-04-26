@@ -172,6 +172,9 @@ def test_no_ref_plan_implementation_validation_flow(tmp_path: Path) -> None:
                 "user",
                 "--note",
                 "Approved.",
+                "--allow-empty-todos",
+                "--reason",
+                "test",
             ],
         ).exit_code
         == 0

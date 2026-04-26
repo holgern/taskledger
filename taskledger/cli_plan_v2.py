@@ -14,6 +14,7 @@ from taskledger.api.plans import (
     regenerate_plan_from_answers,
     reject_plan,
     revise_plan,
+    run_planning_command,
     show_plan,
     start_planning,
 )
@@ -324,6 +325,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
         allow_open_questions: Annotated[
             bool, typer.Option("--allow-open-questions")
         ] = False,
+        allow_empty_todos: Annotated[bool, typer.Option("--allow-empty-todos")] = False,
         task_ref: Annotated[
             str | None,
             typer.Argument(help="Task ref. Defaults to the active task."),
@@ -348,6 +350,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
                 allow_empty_criteria=allow_empty_criteria,
                 materialize_todos=not no_materialize_todos,
                 allow_open_questions=allow_open_questions,
+                allow_empty_todos=allow_empty_todos,
             )
         except LaunchError as exc:
             emit_error(ctx, exc)
@@ -400,3 +403,32 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, payload, human=f"restarted planning {payload['task_id']}")
+
+    @app.command(
+        "command",
+        context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+    )
+    def plan_command_command(
+        ctx: typer.Context,
+        task_ref: Annotated[
+            str | None,
+            typer.Option("--task", help="Task ref. Defaults to the active task."),
+        ] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        argv = tuple(ctx.args)
+        try:
+            task = resolve_cli_task(state.cwd, task_ref)
+            payload = run_planning_command(
+                state.cwd,
+                task.id,
+                argv=argv,
+            )
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(
+            ctx,
+            payload,
+            human=f"ran planning command exit={payload['exit_code']}",
+        )

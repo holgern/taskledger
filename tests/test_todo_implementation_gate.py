@@ -107,6 +107,9 @@ def _prepare_task_for_implementation(
                 "user",
                 "--note",
                 "Looks good.",
+                "--allow-empty-todos",
+                "--reason",
+                "test",
             ],
         ).exit_code
         == 0
@@ -397,6 +400,9 @@ Implement the feature.
                     "user",
                     "--note",
                     "Approved.",
+                    "--allow-empty-todos",
+                    "--reason",
+                    "test",
                 ],
             ).exit_code
             == 0
