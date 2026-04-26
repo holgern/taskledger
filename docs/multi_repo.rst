@@ -19,8 +19,8 @@ Attach files from the current workspace or from neighboring checkouts:
 
 .. code-block:: bash
 
-   taskledger file add --path ../odoo/addons/sale/models/sale_order.py --kind reference
-   taskledger file add --path custom_sale/models/sale_order.py --kind implementation --required-for-validation
+   taskledger file add --path ../odoo/addons/sale/models/sale_order.py --kind code --label "Upstream sale order reference"
+   taskledger file add --path custom_sale/models/sale_order.py --kind code --label "Custom sale implementation" --required-for-validation
    taskledger link add --url https://example.invalid/ticket/123 --label "Support ticket"
 
 Use search helpers to inspect the workspace:

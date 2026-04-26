@@ -4,6 +4,7 @@ Create and plan a task:
 
 ```bash
 taskledger task create "Parser fix" --slug parser-fix --description "Repair parser handling."
+taskledger task activate parser-fix --reason "Start planning"
 taskledger actor whoami
 taskledger plan start
 taskledger question add --text "Should legacy storage be removed?" --required-for-plan

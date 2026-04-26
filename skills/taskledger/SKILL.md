@@ -45,8 +45,9 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 
 ## Planning protocol
 
-1. `taskledger task create "Short task request"` when creating a fresh task.
-2. For existing tasks, `taskledger task activate <slug>`.
+1. `taskledger task create "Short task request" --slug <slug>` when creating a fresh task.
+2. `taskledger task activate <slug>` to activate the newly created task for planning.
+3. For existing tasks, `taskledger task activate <slug>`.
 3. `taskledger plan start`
 4. Add questions with `taskledger question add --text "..." --required-for-plan` when decisions are missing.
 5. Stop after asking required questions; do not invent answers.

@@ -32,5 +32,6 @@ Command surface
 
 The supported command groups are ``task``, ``plan``, ``question``, ``implement``,
 ``validate``, ``todo``, ``intro``, ``file``, ``link``, ``require``, ``lock``,
-``handoff``, ``doctor``, ``repair``, ``next-action``, ``can``, ``reindex``,
-``init``, ``status``, ``export``, ``import``, and ``snapshot``.
+``handoff``, ``context``, ``actor``, ``view``, ``next-action``, ``can``, ``search``,
+``grep``, ``symbols``, ``deps``, ``doctor``, ``repair``, ``reindex``, ``init``,
+``status``, ``export``, ``import``, and ``snapshot``.

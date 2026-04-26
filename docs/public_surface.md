@@ -10,9 +10,9 @@ task -> plan -> approval -> implement -> validate -> done
 
 - `task`, `plan`, `question`, `implement`, `validate`, `todo`
 - `intro`, `file`, `link`, `require`, `lock`, `handoff`
-- `doctor`, `repair`, `next-action`, `can`, `reindex`
+- `context`, `actor`, `view`, `next-action`, `can`, `search`, `grep`, `symbols`, `deps`
+- `doctor`, `repair`, `reindex`
 - `init`, `status`, `export`, `import`, `snapshot`
-- `context`, `search`, `grep`, `symbols`, `deps`
 
 ### question subcommands
 

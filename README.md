@@ -10,13 +10,22 @@ fresh-context handoffs under `.taskledger/`.
 task -> plan -> approval -> implement -> validate -> done
 ```
 
-The supported command surface is centered on:
+The supported command surface is organized as:
 
+**Core workflow:**
 - `task`, `plan`, `question`, `implement`, `validate`, `todo`
-- `intro`, `link`, `require`, `lock`, `context`
-- `doctor`, `next-action`, `can`, `reindex`
+
+**Context and decision-making:**
+- `intro`, `file`, `link`, `require`, `handoff`
+
+**Operations:**
+- `context`, `next-action`, `can`, `search`, `grep`, `symbols`, `deps`, `actor`, `view`
+
+**Repair and inspection:**
+- `lock`, `doctor`, `repair`, `reindex`
+
+**Project lifecycle:**
 - `init`, `status`, `export`, `import`, `snapshot`
-- `search`, `grep`, `symbols`, `deps`
 
 ## Install
 
@@ -39,7 +48,8 @@ Create and activate a task, ask required planning questions, regenerate the
 plan from answers, approve it, implement todos with evidence, and validate it:
 
 ```bash
-taskledger task create "Rewrite V2" --description "Migrate to the task-first design."
+taskledger task create "Rewrite V2" --slug rewrite-v2 --description "Migrate to the task-first design."
+taskledger task activate rewrite-v2 --reason "Start planning"
 taskledger plan start
 taskledger question add --text "Should exports include the new state?" --required-for-plan
 taskledger question answer q-0001 --text "Yes."

@@ -49,15 +49,20 @@ Task API
 - ``close_task``
 - ``add_requirement``
 - ``remove_requirement``
+- ``waive_requirement``
 - ``add_file_link``
 - ``remove_file_link``
 - ``list_file_links``
 - ``add_todo``
 - ``set_todo_done``
 - ``show_todo``
+- ``todo_status``
+- ``next_todo``
+- ``task_dossier``
 - ``next_action``
 - ``can_perform``
 - ``reindex``
+- ``repair_task_record``
 
 Plan API
 --------
@@ -70,6 +75,9 @@ Plan API
 - ``approve_plan``
 - ``reject_plan``
 - ``revise_plan``
+- ``regenerate_plan_from_answers``
+- ``materialize_plan_todos``
+- ``run_planning_command``
 
 Question API
 ------------
@@ -79,6 +87,7 @@ Question API
 - ``list_open_questions``
 - ``answer_question``
 - ``dismiss_question``
+- ``question_status``
 
 Run API
 -------
@@ -88,11 +97,17 @@ Run API
 - ``add_implementation_deviation``
 - ``add_implementation_artifact``
 - ``add_change``
+- ``scan_changes``
+- ``run_implementation_command``
 - ``finish_implementation``
 - ``show_task_run``
 - ``start_validation``
 - ``add_validation_check``
+- ``validation_status``
+- ``waive_criterion``
 - ``finish_validation``
+- ``list_runs``
+- ``list_changes``
 
 Other APIs
 ----------
