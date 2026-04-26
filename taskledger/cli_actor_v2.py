@@ -62,7 +62,10 @@ def whoami_cmd(ctx: typer.Context) -> None:
         human_lines.append(f"Harness Session: {harness.session_id}")
 
     emit_payload(
-        ctx, payload, human="\n".join(human_lines), result_type="actor_identity",
+        ctx,
+        payload,
+        human="\n".join(human_lines),
+        result_type="actor_identity",
     )
 
 

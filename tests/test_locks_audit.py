@@ -58,7 +58,11 @@ def test_break_lock_writes_audit_file_and_repair_event(tmp_path: Path) -> None:
             "--cwd",
             str(tmp_path),
             "--json",
-            "lock", "break", "--task", "lock-audit", "--reason",
+            "lock",
+            "break",
+            "--task",
+            "lock-audit",
+            "--reason",
             "recover stale planning lock",
         ],
     )

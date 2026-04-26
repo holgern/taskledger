@@ -140,7 +140,9 @@ class TestTodoImplementationGate:
             [
                 "--cwd",
                 str(tmp_path),
-                "todo", "add", "--text",
+                "todo",
+                "add",
+                "--text",
                 "Implement the main feature.",
             ],
         )
@@ -152,7 +154,9 @@ class TestTodoImplementationGate:
             [
                 "--cwd",
                 str(tmp_path),
-                "implement", "finish", "--summary",
+                "implement",
+                "finish",
+                "--summary",
                 "Completed implementation.",
             ],
         )
@@ -171,7 +175,9 @@ class TestTodoImplementationGate:
             [
                 "--cwd",
                 str(tmp_path),
-                "todo", "add", "--text",
+                "todo",
+                "add",
+                "--text",
                 "Implement the main feature.",
             ],
         )
@@ -198,7 +204,9 @@ class TestTodoImplementationGate:
             [
                 "--cwd",
                 str(tmp_path),
-                "implement", "finish", "--summary",
+                "implement",
+                "finish",
+                "--summary",
                 "Completed implementation.",
             ],
         )
@@ -217,7 +225,9 @@ class TestTodoImplementationGate:
             [
                 "--cwd",
                 str(tmp_path),
-                "implement", "finish", "--summary",
+                "implement",
+                "finish",
+                "--summary",
                 "Completed implementation.",
             ],
         )
@@ -236,7 +246,9 @@ class TestTodoImplementationGate:
                 [
                     "--cwd",
                     str(tmp_path),
-                    "todo", "add", "--text",
+                    "todo",
+                    "add",
+                    "--text",
                     f"Todo {i + 1}.",
                 ],
             )
@@ -262,7 +274,9 @@ class TestTodoImplementationGate:
             [
                 "--cwd",
                 str(tmp_path),
-                "implement", "finish", "--summary",
+                "implement",
+                "finish",
+                "--summary",
                 "Completed implementation.",
             ],
         )
@@ -284,7 +298,9 @@ class TestTodoImplementationGate:
                 [
                     "--cwd",
                     str(tmp_path),
-                    "todo", "add", "--text",
+                    "todo",
+                    "add",
+                    "--text",
                     f"Todo {i + 1}.",
                 ],
             )
@@ -306,7 +322,9 @@ class TestTodoImplementationGate:
             [
                 "--cwd",
                 str(tmp_path),
-                "implement", "finish", "--summary",
+                "implement",
+                "finish",
+                "--summary",
                 "Completed implementation.",
             ],
         )
@@ -360,7 +378,10 @@ Implement the feature.
                 [
                     "--cwd",
                     str(tmp_path),
-                    "plan", "propose", "--task", "validation-hint",
+                    "plan",
+                    "propose",
+                    "--task",
+                    "validation-hint",
                     "--text",
                     plan,
                 ],
@@ -373,7 +394,10 @@ Implement the feature.
                 [
                     "--cwd",
                     str(tmp_path),
-                    "plan", "approve", "--task", "validation-hint",
+                    "plan",
+                    "approve",
+                    "--task",
+                    "validation-hint",
                     "--version",
                     "1",
                     "--actor",
@@ -390,7 +414,15 @@ Implement the feature.
 
         result = runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "--json", "validate", "status", "--task", "validation-hint"],
+            [
+                "--cwd",
+                str(tmp_path),
+                "--json",
+                "validate",
+                "status",
+                "--task",
+                "validation-hint",
+            ],
         )
 
         assert result.exit_code == 0, result.stdout
@@ -415,7 +447,9 @@ Implement the feature.
             [
                 "--cwd",
                 str(tmp_path),
-                "todo", "add", "--text",
+                "todo",
+                "add",
+                "--text",
                 "Incomplete todo.",
             ],
         )
@@ -427,7 +461,9 @@ Implement the feature.
             [
                 "--cwd",
                 str(tmp_path),
-                "implement", "finish", "--summary",
+                "implement",
+                "finish",
+                "--summary",
                 "Completed implementation.",
             ],
         )
@@ -441,7 +477,10 @@ Implement the feature.
         assert result.exit_code == 0
         task_data = _json(result)
         # Task should still be in "implementing" stage
-        assert task_data.get("result", {}).get("task", {}).get("status_stage") == "implementing"
+        assert (
+            task_data.get("result", {}).get("task", {}).get("status_stage")
+            == "implementing"
+        )
 
     def test_run_remains_running_on_finish_failure(self, tmp_path: Path) -> None:
         """Verify that implementation run remains in 'running' state
@@ -454,7 +493,9 @@ Implement the feature.
             [
                 "--cwd",
                 str(tmp_path),
-                "todo", "add", "--text",
+                "todo",
+                "add",
+                "--text",
                 "Incomplete todo.",
             ],
         )
@@ -466,7 +507,9 @@ Implement the feature.
             [
                 "--cwd",
                 str(tmp_path),
-                "implement", "finish", "--summary",
+                "implement",
+                "finish",
+                "--summary",
                 "Completed implementation.",
             ],
         )
@@ -492,7 +535,9 @@ Implement the feature.
                 [
                     "--cwd",
                     str(tmp_path),
-                    "todo", "add", "--text",
+                    "todo",
+                    "add",
+                    "--text",
                     f"Todo {i + 1}.",
                 ],
             )
@@ -503,7 +548,9 @@ Implement the feature.
             [
                 "--cwd",
                 str(tmp_path),
-                "implement", "finish", "--summary",
+                "implement",
+                "finish",
+                "--summary",
                 "Completed implementation.",
             ],
         )
@@ -539,7 +586,9 @@ class TestTodoObservability:
                 [
                     "--cwd",
                     str(tmp_path),
-                    "todo", "add", "--text",
+                    "todo",
+                    "add",
+                    "--text",
                     f"Implement step {i + 1}.",
                 ],
             )
@@ -670,7 +719,9 @@ todos:
             [
                 "--cwd",
                 str(tmp_path),
-                "implement", "finish", "--summary",
+                "implement",
+                "finish",
+                "--summary",
                 "Completed implementation.",
             ],
         )
@@ -689,7 +740,9 @@ todos:
             [
                 "--cwd",
                 str(tmp_path),
-                "implement", "finish", "--summary",
+                "implement",
+                "finish",
+                "--summary",
                 "Completed implementation.",
             ],
         )

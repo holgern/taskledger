@@ -31,7 +31,8 @@ def _init_task_with_questions(tmp_path: Path) -> None:
             [
                 "--cwd",
                 str(tmp_path),
-                "task", "create",
+                "task",
+                "create",
                 "Test task",
                 "--slug",
                 "test-task",
@@ -227,7 +228,10 @@ def test_answers_empty_when_none_answered(tmp_path: Path) -> None:
         ).exit_code
         == 0
     )
-    assert runner.invoke(app, ["--cwd", str(tmp_path), "task", "activate", "t"]).exit_code == 0
+    assert (
+        runner.invoke(app, ["--cwd", str(tmp_path), "task", "activate", "t"]).exit_code
+        == 0
+    )
     assert runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start"]).exit_code == 0
     assert (
         runner.invoke(
@@ -256,7 +260,10 @@ def test_answer_empty_text_rejected(tmp_path: Path) -> None:
         ).exit_code
         == 0
     )
-    assert runner.invoke(app, ["--cwd", str(tmp_path), "task", "activate", "t"]).exit_code == 0
+    assert (
+        runner.invoke(app, ["--cwd", str(tmp_path), "task", "activate", "t"]).exit_code
+        == 0
+    )
     assert runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start"]).exit_code == 0
     assert (
         runner.invoke(
@@ -292,7 +299,10 @@ def test_answer_whitespace_only_rejected(tmp_path: Path) -> None:
         ).exit_code
         == 0
     )
-    assert runner.invoke(app, ["--cwd", str(tmp_path), "task", "activate", "t"]).exit_code == 0
+    assert (
+        runner.invoke(app, ["--cwd", str(tmp_path), "task", "activate", "t"]).exit_code
+        == 0
+    )
     assert runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start"]).exit_code == 0
     assert (
         runner.invoke(

@@ -13,18 +13,23 @@ task -> plan -> approval -> implement -> validate -> done
 The supported command surface is organized as:
 
 **Core workflow:**
+
 - `task`, `plan`, `question`, `implement`, `validate`, `todo`
 
 **Context and decision-making:**
+
 - `intro`, `file`, `link`, `require`, `handoff`
 
 **Operations:**
+
 - `context`, `next-action`, `can`, `search`, `grep`, `symbols`, `deps`, `actor`, `view`
 
 **Repair and inspection:**
+
 - `lock`, `doctor`, `repair`, `reindex`
 
 **Project lifecycle:**
+
 - `init`, `status`, `export`, `import`, `snapshot`
 
 ## Install

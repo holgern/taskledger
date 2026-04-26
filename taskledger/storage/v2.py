@@ -438,10 +438,7 @@ def load_todos(workspace_root: Path, task_id: str) -> TodoCollection:
     paths = ensure_v2_layout(workspace_root)
     directory = task_todos_dir(paths, task_id)
     records = sorted(
-        [
-            _load_record(p, TaskTodo.from_dict)
-            for p in directory.glob("todo-*.md")
-        ],
+        [_load_record(p, TaskTodo.from_dict) for p in directory.glob("todo-*.md")],
         key=lambda t: t.id,
     )
     if records:
@@ -496,10 +493,7 @@ def load_links(workspace_root: Path, task_id: str) -> LinkCollection:
     paths = ensure_v2_layout(workspace_root)
     directory = task_links_dir(paths, task_id)
     records = sorted(
-        [
-            _load_record(p, FileLink.from_dict)
-            for p in directory.glob("link-*.md")
-        ],
+        [_load_record(p, FileLink.from_dict) for p in directory.glob("link-*.md")],
         key=lambda lk: lk.id or "",
     )
     if records:
@@ -790,7 +784,6 @@ def _legacy_slug_sidecar_path(
 def _write_yaml(path: Path, payload: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     atomic_write_text(path, yaml.safe_dump(payload, sort_keys=False))
-
 
 
 def _normalize_numeric_ref(ref: str, prefix: str) -> str:

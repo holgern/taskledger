@@ -10,6 +10,7 @@ from typer.testing import CliRunner
 
 from taskledger.cli import app
 from taskledger.domain.models import ActiveActorState, ActiveHarnessState
+from taskledger.errors import LaunchError
 from taskledger.services.actors import resolve_actor, resolve_harness
 from taskledger.storage.v2 import (
     clear_actor_state,
@@ -169,9 +170,14 @@ def test_harness_state_roundtrip(tmp_path: Path) -> None:
 
 def test_resolve_actor_uses_stored_when_no_env_vars(tmp_path: Path) -> None:
     _init_project(tmp_path)
-    save_actor_state(tmp_path, ActiveActorState(
-        actor_type="user", actor_name="stored-user", role="reviewer",
-    ))
+    save_actor_state(
+        tmp_path,
+        ActiveActorState(
+            actor_type="user",
+            actor_name="stored-user",
+            role="reviewer",
+        ),
+    )
 
     actor = resolve_actor(workspace_root=tmp_path)
     assert actor.actor_name == "stored-user"
@@ -180,9 +186,13 @@ def test_resolve_actor_uses_stored_when_no_env_vars(tmp_path: Path) -> None:
 
 def test_resolve_actor_env_overrides_stored(tmp_path: Path) -> None:
     _init_project(tmp_path)
-    save_actor_state(tmp_path, ActiveActorState(
-        actor_type="user", actor_name="stored-user",
-    ))
+    save_actor_state(
+        tmp_path,
+        ActiveActorState(
+            actor_type="user",
+            actor_name="stored-user",
+        ),
+    )
 
     env = {
         "TASKLEDGER_ACTOR_TYPE": "system",
@@ -196,9 +206,13 @@ def test_resolve_actor_env_overrides_stored(tmp_path: Path) -> None:
 
 def test_resolve_actor_explicit_overrides_all(tmp_path: Path) -> None:
     _init_project(tmp_path)
-    save_actor_state(tmp_path, ActiveActorState(
-        actor_type="user", actor_name="stored-user",
-    ))
+    save_actor_state(
+        tmp_path,
+        ActiveActorState(
+            actor_type="user",
+            actor_name="stored-user",
+        ),
+    )
 
     env = {
         "TASKLEDGER_ACTOR_TYPE": "system",
@@ -223,9 +237,13 @@ def test_resolve_actor_no_workspace_no_stored() -> None:
 
 def test_resolve_harness_uses_stored_when_no_env_vars(tmp_path: Path) -> None:
     _init_project(tmp_path)
-    save_harness_state(tmp_path, ActiveHarnessState(
-        name="stored-harness", kind="ci",
-    ))
+    save_harness_state(
+        tmp_path,
+        ActiveHarnessState(
+            name="stored-harness",
+            kind="ci",
+        ),
+    )
 
     harness = resolve_harness(workspace_root=tmp_path)
     assert harness.name == "stored-harness"
@@ -254,9 +272,13 @@ def test_resolve_harness_explicit_overrides_all(tmp_path: Path) -> None:
 
 def test_resolve_actor_after_clear(tmp_path: Path) -> None:
     _init_project(tmp_path)
-    save_actor_state(tmp_path, ActiveActorState(
-        actor_type="user", actor_name="to-clear",
-    ))
+    save_actor_state(
+        tmp_path,
+        ActiveActorState(
+            actor_type="user",
+            actor_name="to-clear",
+        ),
+    )
     clear_actor_state(tmp_path)
     actor = resolve_actor(workspace_root=tmp_path)
     assert actor.actor_name != "to-clear"
@@ -275,10 +297,21 @@ def test_resolve_harness_after_clear(tmp_path: Path) -> None:
 
 def test_cli_actor_set(tmp_path: Path) -> None:
     _init_project(tmp_path)
-    result = runner.invoke(app, [
-        "--cwd", str(tmp_path), "actor", "set",
-        "--type", "agent", "--name", "cli-agent", "--role", "implementer",
-    ])
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "actor",
+            "set",
+            "--type",
+            "agent",
+            "--name",
+            "cli-agent",
+            "--role",
+            "implementer",
+        ],
+    )
     assert result.exit_code == 0
     assert "Actor set: agent:cli-agent" in result.output
     assert "Role: implementer" in result.output
@@ -291,10 +324,20 @@ def test_cli_actor_set(tmp_path: Path) -> None:
 
 def test_cli_actor_set_json(tmp_path: Path) -> None:
     _init_project(tmp_path)
-    result = runner.invoke(app, [
-        "--json", "--cwd", str(tmp_path), "actor", "set",
-        "--type", "user", "--name", "json-user",
-    ])
+    result = runner.invoke(
+        app,
+        [
+            "--json",
+            "--cwd",
+            str(tmp_path),
+            "actor",
+            "set",
+            "--type",
+            "user",
+            "--name",
+            "json-user",
+        ],
+    )
     assert result.exit_code == 0
     assert '"actor_set"' in result.output
     assert '"json-user"' in result.output
@@ -302,10 +345,19 @@ def test_cli_actor_set_json(tmp_path: Path) -> None:
 
 def test_cli_actor_clear(tmp_path: Path) -> None:
     _init_project(tmp_path)
-    runner.invoke(app, [
-        "--cwd", str(tmp_path), "actor", "set",
-        "--type", "agent", "--name", "will-clear",
-    ])
+    runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "actor",
+            "set",
+            "--type",
+            "agent",
+            "--name",
+            "will-clear",
+        ],
+    )
     result = runner.invoke(app, ["--cwd", str(tmp_path), "actor", "clear"])
     assert result.exit_code == 0
     assert "Actor cleared." in result.output
@@ -321,23 +373,48 @@ def test_cli_actor_clear_empty(tmp_path: Path) -> None:
 
 def test_cli_actor_clear_json(tmp_path: Path) -> None:
     _init_project(tmp_path)
-    runner.invoke(app, [
-        "--cwd", str(tmp_path), "actor", "set",
-        "--type", "agent", "--name", "will-clear",
-    ])
-    result = runner.invoke(app, [
-        "--json", "--cwd", str(tmp_path), "actor", "clear",
-    ])
+    runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "actor",
+            "set",
+            "--type",
+            "agent",
+            "--name",
+            "will-clear",
+        ],
+    )
+    result = runner.invoke(
+        app,
+        [
+            "--json",
+            "--cwd",
+            str(tmp_path),
+            "actor",
+            "clear",
+        ],
+    )
     assert result.exit_code == 0
     assert '"actor_clear"' in result.output
 
 
 def test_cli_harness_set(tmp_path: Path) -> None:
     _init_project(tmp_path)
-    result = runner.invoke(app, [
-        "--cwd", str(tmp_path), "harness", "set",
-        "--name", "cli-harness", "--kind", "agent_harness",
-    ])
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "harness",
+            "set",
+            "--name",
+            "cli-harness",
+            "--kind",
+            "agent_harness",
+        ],
+    )
     assert result.exit_code == 0
     assert "Harness set: cli-harness (agent_harness)" in result.output
 
@@ -348,10 +425,18 @@ def test_cli_harness_set(tmp_path: Path) -> None:
 
 def test_cli_harness_set_json(tmp_path: Path) -> None:
     _init_project(tmp_path)
-    result = runner.invoke(app, [
-        "--json", "--cwd", str(tmp_path), "harness", "set",
-        "--name", "json-harness",
-    ])
+    result = runner.invoke(
+        app,
+        [
+            "--json",
+            "--cwd",
+            str(tmp_path),
+            "harness",
+            "set",
+            "--name",
+            "json-harness",
+        ],
+    )
     assert result.exit_code == 0
     assert '"harness_set"' in result.output
     assert '"json-harness"' in result.output
@@ -359,10 +444,17 @@ def test_cli_harness_set_json(tmp_path: Path) -> None:
 
 def test_cli_harness_clear(tmp_path: Path) -> None:
     _init_project(tmp_path)
-    runner.invoke(app, [
-        "--cwd", str(tmp_path), "harness", "set",
-        "--name", "will-clear",
-    ])
+    runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "harness",
+            "set",
+            "--name",
+            "will-clear",
+        ],
+    )
     result = runner.invoke(app, ["--cwd", str(tmp_path), "harness", "clear"])
     assert result.exit_code == 0
     assert "Harness cleared." in result.output
@@ -378,14 +470,30 @@ def test_cli_harness_clear_empty(tmp_path: Path) -> None:
 
 def test_cli_whoami_uses_stored(tmp_path: Path) -> None:
     _init_project(tmp_path)
-    runner.invoke(app, [
-        "--cwd", str(tmp_path), "actor", "set",
-        "--type", "agent", "--name", "stored-whoami",
-    ])
-    runner.invoke(app, [
-        "--cwd", str(tmp_path), "harness", "set",
-        "--name", "stored-harness-whoami",
-    ])
+    runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "actor",
+            "set",
+            "--type",
+            "agent",
+            "--name",
+            "stored-whoami",
+        ],
+    )
+    runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "harness",
+            "set",
+            "--name",
+            "stored-harness-whoami",
+        ],
+    )
 
     result = runner.invoke(app, ["--cwd", str(tmp_path), "actor", "whoami"])
     assert result.exit_code == 0
@@ -395,14 +503,30 @@ def test_cli_whoami_uses_stored(tmp_path: Path) -> None:
 
 def test_cli_whoami_json_uses_stored(tmp_path: Path) -> None:
     _init_project(tmp_path)
-    runner.invoke(app, [
-        "--cwd", str(tmp_path), "actor", "set",
-        "--type", "agent", "--name", "json-whoami",
-    ])
+    runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "actor",
+            "set",
+            "--type",
+            "agent",
+            "--name",
+            "json-whoami",
+        ],
+    )
 
-    result = runner.invoke(app, [
-        "--json", "--cwd", str(tmp_path), "actor", "whoami",
-    ])
+    result = runner.invoke(
+        app,
+        [
+            "--json",
+            "--cwd",
+            str(tmp_path),
+            "actor",
+            "whoami",
+        ],
+    )
     assert result.exit_code == 0
     assert '"json-whoami"' in result.output
 
@@ -412,13 +536,15 @@ def test_cli_whoami_json_uses_stored(tmp_path: Path) -> None:
 
 def test_active_actor_state_from_dict_rejects_bad_type() -> None:
     import pytest
-    with pytest.raises(Exception):
+
+    with pytest.raises(LaunchError):
         ActiveActorState.from_dict({"object_type": "wrong", "schema_version": 1})
 
 
 def test_active_harness_state_from_dict_rejects_bad_type() -> None:
     import pytest
-    with pytest.raises(Exception):
+
+    with pytest.raises(LaunchError):
         ActiveHarnessState.from_dict({"object_type": "wrong", "schema_version": 1})
 
 

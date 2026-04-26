@@ -118,7 +118,9 @@ def register_todo_v2_commands(app: typer.Typer) -> None:  # noqa: C901
         for todo in todos:
             status = "done" if todo.done else "open"
             lines.append(f"{todo.id}  {status}  {todo.text}")
-        emit_payload(ctx, payload, human="\n".join(lines) if todos else "TODOS\n(empty)")
+        emit_payload(
+            ctx, payload, human="\n".join(lines) if todos else "TODOS\n(empty)"
+        )
 
     @app.command("done")
     def done_command(

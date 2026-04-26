@@ -68,7 +68,9 @@ def test_json_failure_envelope_includes_structured_error(tmp_path: Path) -> None
             "Approval should fail while a question is open.",
         ],
     )
-    runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start", "--task", "question-blocked"])
+    runner.invoke(
+        app, ["--cwd", str(tmp_path), "plan", "start", "--task", "question-blocked"]
+    )
     runner.invoke(
         app,
         [
@@ -86,7 +88,10 @@ def test_json_failure_envelope_includes_structured_error(tmp_path: Path) -> None
         [
             "--cwd",
             str(tmp_path),
-            "plan", "propose", "--task", "question-blocked",
+            "plan",
+            "propose",
+            "--task",
+            "question-blocked",
             "--text",
             "## Goal\n\nAnswer the question first.\n",
         ],
@@ -98,7 +103,10 @@ def test_json_failure_envelope_includes_structured_error(tmp_path: Path) -> None
             "--cwd",
             str(tmp_path),
             "--json",
-            "plan", "approve", "--task", "question-blocked",
+            "plan",
+            "approve",
+            "--task",
+            "question-blocked",
             "--version",
             "1",
         ],

@@ -564,7 +564,7 @@ def _event_summary(evt: dict[str, object]) -> str:
         if isinstance(value, str) and value:
             return value
     parts = [
-        f"{k}={v}" for k, v in data.items() if isinstance(v, (str, int, float, bool))
+        f"{k}={v}" for k, v in data.items() if isinstance(v, str | int | float | bool)
     ]
     return " ".join(parts[:3])
 

@@ -258,9 +258,7 @@ def _import_standalone_collections(
             workspace_root,
             RequirementCollection(
                 task_id=tid,
-                requirements=tuple(
-                    DependencyRequirement.from_dict(i) for i in items
-                ),
+                requirements=tuple(DependencyRequirement.from_dict(i) for i in items),
             ),
         )
 
@@ -290,8 +288,7 @@ def _import_v2_payload(workspace_root: Path, payload: dict[str, object]) -> None
                 RequirementCollection(
                     task_id=task.id,
                     requirements=tuple(
-                        DependencyRequirement(task_id=r)
-                        for r in task.requirements
+                        DependencyRequirement(task_id=r) for r in task.requirements
                     ),
                 ),
             )

@@ -394,9 +394,7 @@ class FileLink:
             id=_optional_string(data.get("id")),
             task_id=_optional_string(data.get("task_id")),
             path=_string_value(data, "path"),
-            kind=normalize_file_link_kind(
-                _optional_string(data.get("kind")) or "code"
-            ),
+            kind=normalize_file_link_kind(_optional_string(data.get("kind")) or "code"),
             label=_optional_string(data.get("label")),
             required_for_validation=bool(data.get("required_for_validation", False)),
             target_type=_optional_string(data.get("target_type")),
@@ -640,9 +638,8 @@ class DependencyRequirement:
     def from_dict(cls, data: object) -> DependencyRequirement:
         if not isinstance(data, dict):
             raise LaunchError("Invalid dependency requirement: expected mapping.")
-        task_id = (
-            _optional_string(data.get("required_task_id"))
-            or _string_value(data, "task_id")
+        task_id = _optional_string(data.get("required_task_id")) or _string_value(
+            data, "task_id"
         )
         return cls(
             id=_optional_string(data.get("id")),

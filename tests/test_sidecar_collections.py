@@ -55,7 +55,10 @@ def test_todos_links_and_requirements_use_per_record_markdown(tmp_path: Path) ->
         [
             "--cwd",
             str(tmp_path),
-            "todo", "add", "--task", "sidecar-task",
+            "todo",
+            "add",
+            "--task",
+            "sidecar-task",
             "--text",
             "Write sidecar test.",
         ],
@@ -65,7 +68,10 @@ def test_todos_links_and_requirements_use_per_record_markdown(tmp_path: Path) ->
         [
             "--cwd",
             str(tmp_path),
-            "file", "add", "--task", "sidecar-task",
+            "file",
+            "add",
+            "--task",
+            "sidecar-task",
             "--path",
             "README.md",
             "--kind",
@@ -77,7 +83,11 @@ def test_todos_links_and_requirements_use_per_record_markdown(tmp_path: Path) ->
         [
             "--cwd",
             str(tmp_path),
-            "require", "add", "dependency-task", "--task", "sidecar-task",
+            "require",
+            "add",
+            "dependency-task",
+            "--task",
+            "sidecar-task",
         ],
     )
 
