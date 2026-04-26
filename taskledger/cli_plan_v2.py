@@ -17,6 +17,7 @@ from taskledger.api.plans import (
     run_planning_command,
     show_plan,
     start_planning,
+    upsert_plan,
 )
 from taskledger.cli_common import (
     TaskOption,
@@ -161,6 +162,41 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             f"for {payload['task_id']}",
         )
 
+    @app.command("upsert")
+    def upsert_command(
+        ctx: typer.Context,
+        task_ref: TaskOption = None,
+        from_answers: Annotated[bool, typer.Option("--from-answers")] = False,
+        text: Annotated[str | None, typer.Option("--text")] = None,
+        from_file: Annotated[Path | None, typer.Option("--file")] = None,
+        criterion: Annotated[list[str] | None, typer.Option("--criterion")] = None,
+        allow_open_questions: Annotated[
+            bool,
+            typer.Option("--allow-open-questions"),
+        ] = False,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = resolve_cli_task(state.cwd, task_ref)
+            payload = upsert_plan(
+                state.cwd,
+                task.id,
+                body=read_text_input(text=text, from_file=from_file),
+                criteria=tuple(criterion or ()),
+                from_answers=from_answers,
+                allow_open_questions=allow_open_questions,
+            )
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        operation = str(payload.get("operation", "upserted"))
+        emit_payload(
+            ctx,
+            payload,
+            human=f"{operation} plan v{payload['plan_version']} "
+            f"for {payload['task_id']}",
+        )
+
     @app.command("materialize-todos")
     def materialize_todos_command(
         ctx: typer.Context,
@@ -297,6 +333,32 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             ctx,
             payload,
             human=f"approved plan v{payload['plan_version']} for {payload['task_id']}",
+        )
+
+    @app.command("accept")
+    def accept_command(
+        ctx: typer.Context,
+        version: Annotated[int, typer.Option("--version")],
+        note: Annotated[str | None, typer.Option("--note")] = None,
+        task_ref: TaskOption = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = resolve_cli_task(state.cwd, task_ref)
+            payload = approve_plan(
+                state.cwd,
+                task.id,
+                version=version,
+                actor_type="user",
+                note=note,
+            )
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(
+            ctx,
+            payload,
+            human=f"accepted plan v{payload['plan_version']} for {payload['task_id']}",
         )
 
     @app.command("reject")

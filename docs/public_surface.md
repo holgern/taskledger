@@ -17,11 +17,11 @@ task -> plan -> approval -> implement -> validate -> done
 ### question subcommands
 
 - `question add`, `question list [--status STATUS]`, `question answers [--format markdown|json]`
-- `question answer`, `question dismiss`, `question open`, `question status`
+- `question answer`, `question answer-many`, `question dismiss`, `question open`, `question status`
 
 ### plan subcommands
 
-- `plan start`, `plan propose`, `plan approve`, `plan reject`, `plan show`, `plan diff`
+- `plan start`, `plan propose`, `plan upsert`, `plan approve`, `plan accept`, `plan reject`, `plan show`, `plan diff`
 - `plan regenerate --from-answers`, `plan materialize-todos`, `plan command -- ...`
 
 ### todo subcommands

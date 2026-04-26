@@ -8,8 +8,8 @@ taskledger task activate parser-fix --reason "Start planning"
 taskledger actor whoami
 taskledger plan start
 taskledger question add --text "Should legacy storage be removed?" --required-for-plan
-taskledger question answer q-0001 --text "No." --actor user
+taskledger question answer-many --text "q-0001: No." --actor user
 taskledger question status
 taskledger question answers
-taskledger plan regenerate --from-answers --file ./plan.md
+taskledger plan upsert --from-answers --file ./plan.md
 ```

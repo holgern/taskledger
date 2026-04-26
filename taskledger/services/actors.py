@@ -56,12 +56,13 @@ def resolve_actor(
     env_role = os.getenv("TASKLEDGER_ACTOR_ROLE")
     env_harness = os.getenv("TASKLEDGER_HARNESS")
     env_session_id = os.getenv("TASKLEDGER_SESSION_ID")
+    resolved_role = env_role or role
 
     if env_actor_type or env_actor_name:
         return ActorRef(
             actor_type=normalize_actor_type(env_actor_type or actor_type or "agent"),
             actor_name=env_actor_name or actor_name or "taskledger",
-            role=normalize_actor_role(env_role or role) if (env_role or role) else None,
+            role=normalize_actor_role(resolved_role) if resolved_role else None,
             tool=tool,
             session_id=env_session_id or session_id,
             harness_id=harness_id or env_harness,

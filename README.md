@@ -52,10 +52,10 @@ taskledger task create "Rewrite V2" --slug rewrite-v2 --description "Migrate to 
 taskledger task activate rewrite-v2 --reason "Start planning"
 taskledger plan start
 taskledger question add --text "Should exports include the new state?" --required-for-plan
-taskledger question answer q-0001 --text "Yes."
+taskledger question answer-many --text "q-0001: Yes."
 taskledger question status
-taskledger plan regenerate --from-answers --file ./plan.md
-taskledger plan approve --version 1 --actor user --note "Ready."
+taskledger plan upsert --from-answers --file ./plan.md
+taskledger plan accept --version 1 --note "Ready."
 
 taskledger context --for implementation --format markdown
 taskledger implement start

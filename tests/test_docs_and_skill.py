@@ -26,12 +26,10 @@ def test_skill_examples_exist() -> None:
         assert path.read_text(encoding="utf-8").strip()
 
 
-def test_packaged_skill_resources_exist() -> None:
-    package_skill = ROOT / "taskledger" / "skills" / "taskledger" / "SKILL.md"
-    assert package_skill.exists()
-    for name in ("planning-flow.md", "implementation-flow.md", "validation-flow.md"):
-        path = ROOT / "taskledger" / "skills" / "taskledger" / "examples" / name
-        assert path.exists()
+def test_skills_are_not_packaged_resources() -> None:
+    assert not (ROOT / "taskledger" / "skills").exists()
+    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert "skills/taskledger" not in pyproject
 
 
 def test_api_docs_mentions_all_task_first_command_groups() -> None:
@@ -79,6 +77,8 @@ def test_skill_contains_strict_agent_protocol() -> None:
         assert f"## {heading}" in skill
     assert "Do not implement before" in skill
     assert "taskledger context" in skill
+    assert "Do not ask the user to run `taskledger question answer`" in skill
+    assert "record the answers yourself" in skill
 
 
 def test_docs_do_not_reference_removed_commands() -> None:

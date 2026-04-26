@@ -7,6 +7,7 @@ import os
 import shlex
 import socket
 import subprocess
+from collections.abc import Mapping
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -888,6 +889,51 @@ def propose_plan(
     )
 
 
+def upsert_plan(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    body: str,
+    criteria: tuple[str, ...] = (),
+    from_answers: bool = False,
+    allow_open_questions: bool = False,
+) -> dict[str, object]:
+    task = resolve_task(workspace_root, task_ref)
+    questions = list_questions(workspace_root, task.id)
+    open_required = _required_open_question_ids(questions)
+    if open_required and not allow_open_questions:
+        raise _cli_error(
+            "Plan upsert is blocked by required open questions: "
+            + ", ".join(open_required),
+            EXIT_CODE_APPROVAL_REQUIRED,
+        )
+    latest_plan = _latest_plan_or_none(workspace_root, task.id)
+    stale_answers = (
+        _stale_answer_question_ids(questions, latest_plan)
+        if latest_plan is not None
+        else [
+            item.id
+            for item in questions
+            if item.status == "answered" and item.required_for_plan
+        ]
+    )
+    if from_answers or stale_answers:
+        payload = regenerate_plan_from_answers(
+            workspace_root,
+            task.id,
+            body=body,
+            criteria=criteria,
+            allow_open_questions=allow_open_questions,
+        )
+        payload["operation"] = "regenerated"
+        payload["command"] = "plan upsert"
+        return payload
+    payload = propose_plan(workspace_root, task.id, body=body, criteria=criteria)
+    payload["operation"] = "proposed"
+    payload["command"] = "plan upsert"
+    return payload
+
+
 def show_plan(
     workspace_root: Path, task_ref: str, *, version: int | None = None
 ) -> dict[str, object]:
@@ -1151,6 +1197,7 @@ def regenerate_plan_from_answers(
     task_ref: str,
     *,
     body: str,
+    criteria: tuple[str, ...] = (),
     allow_open_questions: bool = False,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
@@ -1187,7 +1234,7 @@ def regenerate_plan_from_answers(
         created_by=_default_actor(),
         supersedes=plans[-1].plan_version if plans else None,
         question_refs=tuple(open_required),
-        criteria=_criteria_from_plan_input(front_matter, ()),
+        criteria=_criteria_from_plan_input(front_matter, criteria),
         todos=_todos_from_plan_input(front_matter),
         generation_reason="after_questions",
         based_on_question_ids=tuple(item.id for item in answered),
@@ -1198,6 +1245,28 @@ def regenerate_plan_from_answers(
         previous = plans[-1]
         if previous.status == "proposed":
             overwrite_plan(workspace_root, replace(previous, status="superseded"))
+    run_to_finish: TaskRunRecord | None = None
+    lock_to_release = _current_lock(workspace_root, task.id)
+    if task.latest_planning_run is not None:
+        candidate_run = _optional_run(workspace_root, task, task.latest_planning_run)
+        if (
+            candidate_run is not None
+            and candidate_run.run_type == "planning"
+            and candidate_run.status == "running"
+            and lock_to_release is not None
+            and lock_to_release.stage == "planning"
+            and lock_to_release.run_id == candidate_run.run_id
+        ):
+            run_to_finish = candidate_run
+            save_run(
+                workspace_root,
+                replace(
+                    candidate_run,
+                    status="finished",
+                    finished_at=utc_now_iso(),
+                    summary=_summary_line(plan_body),
+                ),
+            )
     updated = replace(
         task,
         latest_plan_version=version,
@@ -1205,6 +1274,17 @@ def regenerate_plan_from_answers(
         updated_at=utc_now_iso(),
     )
     save_task(workspace_root, updated)
+    if run_to_finish is not None:
+        _release_lock(
+            workspace_root,
+            task=updated,
+            expected_stage="planning",
+            run_id=run_to_finish.run_id,
+            target_stage="plan_review",
+            event_name="stage.completed",
+            extra_data={"plan_version": version},
+            delete_only=True,
+        )
     _append_event(
         resolve_v2_paths(workspace_root).project_dir,
         updated.id,
@@ -1341,6 +1421,56 @@ def answer_question(
     return answered
 
 
+def answer_questions(
+    workspace_root: Path,
+    task_ref: str,
+    answers: Mapping[str, str],
+    *,
+    actor: ActorRef | None = None,
+    answer_source: str = "harness",
+) -> dict[str, object]:
+    task = resolve_task(workspace_root, task_ref)
+    if not answers:
+        raise _cli_error("At least one answer is required.", EXIT_CODE_BAD_INPUT)
+    known = {item.id: item for item in list_questions(workspace_root, task.id)}
+    unknown = [question_id for question_id in answers if question_id not in known]
+    if unknown:
+        raise _cli_error(
+            "Unknown question ids: " + ", ".join(unknown),
+            EXIT_CODE_MISSING,
+        )
+    empty = [question_id for question_id, text in answers.items() if not text.strip()]
+    if empty:
+        raise _cli_error(
+            "Answer text must not be empty for: " + ", ".join(empty),
+            EXIT_CODE_BAD_INPUT,
+        )
+    answered_ids: list[str] = []
+    answered_questions: list[dict[str, object]] = []
+    for question_id, text in answers.items():
+        question = answer_question(
+            workspace_root,
+            task.id,
+            question_id,
+            text=text,
+            actor=actor,
+            answer_source=answer_source,
+        )
+        answered_ids.append(question.id)
+        answered_questions.append(question.to_dict())
+    status = question_status(workspace_root, task.id)
+    return {
+        "kind": "question_answer_many",
+        "task_id": task.id,
+        "answered_question_ids": answered_ids,
+        "answered": answered_questions,
+        "required_open": status["required_open"],
+        "required_open_questions": status["required_open_questions"],
+        "plan_regeneration_needed": status["plan_regeneration_needed"],
+        "next_action": status["next_action"],
+    }
+
+
 def question_status(workspace_root: Path, task_ref: str) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
     questions = list_questions(workspace_root, task.id)
@@ -1362,10 +1492,10 @@ def question_status(workspace_root: Path, task_ref: str) -> dict[str, object]:
         "answered_since_latest_plan": answered_since_latest_plan,
         "plan_regeneration_needed": regeneration_needed,
         "next_action": (
-            "taskledger plan regenerate --from-answers --file plan.md"
+            "taskledger plan upsert --from-answers --file plan.md"
             if regeneration_needed
             else (
-                'taskledger question answer QUESTION_ID --text "..."'
+                "taskledger question answer-many --file answers.yaml"
                 if required_open
                 else "taskledger plan propose --file plan.md"
             )
@@ -2642,9 +2772,37 @@ def next_action(workspace_root: Path, task_ref: str) -> dict[str, object]:
     )
     action: str
     reason: str
-    blockers: list[dict[str, str]] = []
+    blockers: list[dict[str, object]] = []
     if active_stage == "planning":
-        action, reason = "plan-propose", "Planning is active; propose the next plan."
+        questions = list_questions(workspace_root, task.id)
+        open_questions = _required_open_question_ids(questions)
+        answered_questions = [
+            item.id
+            for item in questions
+            if item.status == "answered" and item.required_for_plan
+        ]
+        if open_questions:
+            action, reason = (
+                "question-answer",
+                "Required planning questions are open.",
+            )
+            blockers.append(
+                {
+                    "kind": "open_questions",
+                    "question_ids": open_questions,
+                    "message": "Required planning questions must be answered.",
+                }
+            )
+        elif answered_questions:
+            action, reason = (
+                "plan-regenerate",
+                "Answered planning questions should be reflected in the plan.",
+            )
+        else:
+            action, reason = (
+                "plan-propose",
+                "Planning is active; propose the next plan.",
+            )
     elif active_stage == "implementation":
         # During implementation, prioritize todos if any are open
         todo_report = _build_todo_gate_report(workspace_root, task)
@@ -2675,14 +2833,49 @@ def next_action(workspace_root: Path, task_ref: str) -> dict[str, object]:
     elif task.status_stage == "draft":
         action, reason = "plan", "Draft tasks need planning before work starts."
     elif task.status_stage == "plan_review":
-        action, reason = "plan-approve", "A proposed plan is waiting for review."
+        questions = list_questions(workspace_root, task.id)
+        open_questions = _required_open_question_ids(questions)
+        latest_plan = _latest_plan_or_none(workspace_root, task.id)
+        stale_answers = (
+            _stale_answer_question_ids(questions, latest_plan)
+            if latest_plan is not None
+            else []
+        )
+        if open_questions:
+            action, reason = (
+                "question-answer",
+                "Required planning questions are open.",
+            )
+            blockers.append(
+                {
+                    "kind": "open_questions",
+                    "question_ids": open_questions,
+                    "message": "Required planning questions must be answered.",
+                }
+            )
+        elif stale_answers:
+            action, reason = (
+                "plan-regenerate",
+                "Answered planning questions are not reflected in the latest plan.",
+            )
+            blockers.append(
+                {
+                    "kind": "stale_answers",
+                    "question_ids": stale_answers,
+                    "message": "Regenerate the plan from answered questions.",
+                }
+            )
+        else:
+            action, reason = "plan-approve", "A proposed plan is waiting for review."
     elif task.status_stage == "approved":
         action, reason = "implement", "The approved plan is ready for implementation."
         if task.accepted_plan_version is None:
             blockers.append(
                 {"kind": "approval", "message": "No accepted plan version is recorded."}
             )
-        blockers.extend(_dependency_blockers(workspace_root, task))
+        blockers.extend(
+            cast(list[dict[str, object]], _dependency_blockers(workspace_root, task))
+        )
     elif task.status_stage == "implemented":
         action, reason = "validate", "Implementation is complete and ready to validate."
         impl_run = _optional_run(workspace_root, task, task.latest_implementation_run)
@@ -2699,7 +2892,9 @@ def next_action(workspace_root: Path, task_ref: str) -> dict[str, object]:
             )
     elif task.status_stage == "failed_validation":
         action, reason = "implement", "Validation failed; return to implementation."
-        blockers.extend(_dependency_blockers(workspace_root, task))
+        blockers.extend(
+            cast(list[dict[str, object]], _dependency_blockers(workspace_root, task))
+        )
     elif task.status_stage == "done":
         action, reason = "none", "The task is complete."
     else:
@@ -2722,6 +2917,7 @@ def next_action(workspace_root: Path, task_ref: str) -> dict[str, object]:
         "action": action,
         "reason": reason,
         "blocking": blockers,
+        "next_command": _next_action_command(action),
     }
 
 
@@ -3137,7 +3333,8 @@ def _lock_conflict_message(task_id: str, lock: TaskLock) -> str:
     if lock_is_expired(lock):
         return (
             f"Task {task_id} has an expired {lock.stage} lock from {lock.run_id}. "
-            f'Break it explicitly with: taskledger lock break --task {task_id} --reason "..."'
+            "Break it explicitly with: "
+            f'taskledger lock break --task {task_id} --reason "..."'
         )
     return f"Task {task_id} is locked by {lock.run_id} for {lock.stage}."
 
@@ -3450,6 +3647,23 @@ def _stale_answer_question_ids(
     return [item.id for item in answered]
 
 
+def _next_action_command(action: str) -> str | None:
+    return {
+        "plan": "taskledger plan start",
+        "plan-propose": "taskledger plan upsert --file plan.md",
+        "question-answer": "taskledger question answer-many --file answers.yaml",
+        "plan-regenerate": "taskledger plan upsert --from-answers --file plan.md",
+        "plan-approve": "taskledger plan approve --version VERSION --actor user",
+        "implement": "taskledger implement start",
+        "todo-work": "taskledger implement checklist",
+        "implement-finish": "taskledger implement finish --summary SUMMARY",
+        "validate": "taskledger validate start",
+        "validate-finish": (
+            "taskledger validate finish --result passed --summary SUMMARY"
+        ),
+    }.get(action)
+
+
 def _normalize_todo_text(text: str) -> str:
     return " ".join(text.casefold().split())
 
@@ -3752,7 +3966,10 @@ def _stale_lock_error(task_id: str, lock: TaskLock) -> LaunchError:
     error.taskledger_exit_code = EXIT_CODE_STALE_LOCK_REQUIRES_BREAK
     error.taskledger_error_type = "StaleLockRequiresBreak"
     error.taskledger_remediation = [
-        f'taskledger lock break --task {task_id} --reason "recover stale {lock.stage} lock"'
+        (
+            f"taskledger lock break --task {task_id} "
+            f'--reason "recover stale {lock.stage} lock"'
+        )
     ]
     error.taskledger_data = {
         "task_id": task_id,

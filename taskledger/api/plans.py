@@ -10,11 +10,13 @@ from taskledger.services.tasks import (
     run_planning_command,
     show_plan,
     start_planning,
+    upsert_plan,
 )
 
 __all__ = [
     "start_planning",
     "propose_plan",
+    "upsert_plan",
     "list_plan_versions",
     "show_plan",
     "diff_plan",

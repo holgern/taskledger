@@ -25,9 +25,9 @@ Task-first workflow
    taskledger task activate rewrite-v2
    taskledger plan start
    taskledger question add --text "Should exports include v2?"
-   taskledger question answer q-0001 --text "Yes."
-   taskledger plan propose --criterion "Accepted workflow is implemented." --file ./plan.md
-   taskledger plan approve --version 1 --actor user --note "Ready."
+   taskledger question answer-many --text "q-0001: Yes."
+   taskledger plan upsert --from-answers --criterion "Accepted workflow is implemented." --file ./plan.md
+   taskledger plan accept --version 1 --note "Ready."
 
 All approval escape hatches require ``--reason``:
 

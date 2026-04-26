@@ -85,6 +85,7 @@ from taskledger.errors import (
 
 - `start_planning`
 - `propose_plan`
+- `upsert_plan`
 - `regenerate_plan_from_answers`
 - `materialize_plan_todos`
 - `list_plan_versions`
@@ -100,6 +101,7 @@ from taskledger.errors import (
 - `list_questions`
 - `list_open_questions`
 - `answer_question`
+- `answer_questions`
 - `dismiss_question`
 - `question_status`
 
@@ -196,7 +198,7 @@ structured `error` object on failure.
 Workflow additions:
 
 - `task create` creates a task. Use `task activate TASK_REF` to make it active.
-- `plan draft`, `plan regenerate --from-answers`, and
+- `plan draft`, `plan upsert --from-answers`, and
   `plan materialize-todos` support the question-answer-regenerate loop.
 - `question status` reports required open questions and whether regeneration is
   needed.

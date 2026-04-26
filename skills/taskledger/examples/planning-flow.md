@@ -5,9 +5,9 @@
 3. `taskledger --root /workspace actor whoami`
 4. `taskledger --root /workspace plan start`
 5. `taskledger --root /workspace question add --text "Should exports include the new state?" --required-for-plan`
-6. The agent stops until the user answers required questions.
-7. `taskledger --root /workspace question answer q-0001 --text "Yes." --actor user`
+6. The agent asks the question in harness chat and stops until the user answers.
+7. `taskledger --root /workspace question answer-many --text "q-0001: Yes." --actor user`
 8. `taskledger --root /workspace question status`
 9. `taskledger --root /workspace question answers`
-10. `taskledger --root /workspace plan regenerate --from-answers --file ./plan.md`
-11. `taskledger --root /workspace plan approve --version 1 --actor user --note "Ready."`
+10. `taskledger --root /workspace plan upsert --from-answers --file ./plan.md`
+11. `taskledger --root /workspace plan accept --version 1 --note "Ready."`

@@ -81,13 +81,14 @@ Questions capture missing decisions before approval:
    taskledger question add --text "Should the parser reject or normalize unmatched delimiters?" --required-for-plan
    taskledger question add --text "Which files must validation cover?"
    taskledger question open
-   taskledger question answer QUESTION_ID --text "Reject unmatched delimiters with a clear parse error."
+   taskledger question answer-many --text "q-0001: Reject unmatched delimiters with a clear parse error."
    taskledger question dismiss QUESTION_ID --reason "Validation files are already linked."
    taskledger question status
    taskledger question answers --format markdown
 
-Use ``question answer`` for decisions that should affect the plan. Use
-``question dismiss`` when the question is no longer relevant.
+Use ``question answer-many`` or ``question answer`` for decisions that should
+affect the plan. Use ``question dismiss`` when the question is no longer
+relevant.
 
 5. Propose A Plan
 -----------------
@@ -97,19 +98,19 @@ Write the plan body in a Markdown file and propose it:
 .. code-block:: bash
 
    taskledger plan draft
-   taskledger plan propose --file ./plan.md --criterion "Parser rejects unmatched delimiters." --criterion "Regression tests cover nested expressions."
+   taskledger plan upsert --file ./plan.md --criterion "Parser rejects unmatched delimiters." --criterion "Regression tests cover nested expressions."
    taskledger plan show --version 1
    taskledger plan diff --from 1 --to 1
 
-``plan propose`` ends the active planning run and creates a reviewable plan
+``plan upsert`` ends the active planning run and creates a reviewable plan
 version. Acceptance criteria become validation criteria such as ``ac-0001``.
 
 If answers changed after the plan was proposed, regenerate before approval:
 
 .. code-block:: bash
 
-   taskledger question answer QUESTION_ID --text "Reject unmatched delimiters and keep the original token offset."
-   taskledger plan regenerate --from-answers --file ./plan-v2.md
+   taskledger question answer-many --text "q-0001: Reject unmatched delimiters and keep the original token offset."
+   taskledger plan upsert --from-answers --file ./plan-v2.md
    taskledger plan show --version 2
 
 Regeneration keeps the durable answer snapshot aligned with the plan.
@@ -135,7 +136,7 @@ may also materialize structured plan todos:
 .. code-block:: bash
 
    taskledger plan materialize-todos --version 2 --dry-run
-   taskledger plan approve --version 2 --actor user --note "Ready to implement." --reason "Questions answered."
+   taskledger plan accept --version 2 --note "Ready to implement."
    taskledger todo list
    taskledger todo add --text "Add parser regression tests." --mandatory
    taskledger todo add --text "Update parser error message docs." --optional

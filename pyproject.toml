@@ -9,8 +9,6 @@ include = ["taskledger*"]
 [tool.setuptools.package-data]
 taskledger = [
     "py.typed",
-    "skills/taskledger/SKILL.md",
-    "skills/taskledger/examples/*.md",
 ]
 
 [tool.pytest.ini_options]

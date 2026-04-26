@@ -84,14 +84,16 @@ def test_task_first_subcommands_are_registered(tmp_path: Path) -> None:
         "plan": (
             "start",
             "propose",
+            "upsert",
             "list",
             "show",
             "diff",
             "approve",
+            "accept",
             "reject",
             "revise",
         ),
-        "question": ("add", "list", "open", "answer", "dismiss"),
+        "question": ("add", "list", "open", "answer", "answer-many", "dismiss"),
         "implement": (
             "start",
             "log",
