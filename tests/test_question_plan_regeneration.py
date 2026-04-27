@@ -506,11 +506,41 @@ def test_next_action_prefers_question_answer_while_planning_questions_are_open(
         runner.invoke(app, ["--cwd", str(tmp_path), "--json", "next-action"])
     )
 
-    assert payload["result"]["action"] == "question-answer"
-    assert payload["result"]["next_command"] == (
-        "taskledger question answer-many --file answers.yaml"
-    )
-    assert payload["result"]["blocking"][0]["kind"] == "open_questions"
+    result = payload["result"]
+    assert result["action"] == "question-answer"
+    assert result["next_command"] == 'taskledger question answer q-0001 --text "..."'
+    assert result["blocking"][0]["kind"] == "open_questions"
+    assert result["next_item"] == {
+        "kind": "question",
+        "id": "q-0001",
+        "text": "Which database?",
+        "status": "open",
+        "required_for_plan": True,
+        "plan_version": None,
+    }
+    assert result["commands"][0] == {
+        "kind": "answer",
+        "label": "Answer required question",
+        "command": 'taskledger question answer q-0001 --text "..."',
+        "primary": True,
+    }
+    assert result["progress"]["questions"] == {
+        "required_open": 1,
+        "required_open_ids": ["q-0001"],
+    }
+    assert set(result) >= {
+        "kind",
+        "task_id",
+        "status_stage",
+        "active_stage",
+        "action",
+        "reason",
+        "blocking",
+        "next_command",
+        "next_item",
+        "commands",
+        "progress",
+    }
 
 
 def test_next_action_prefers_regenerate_over_approve_for_stale_answers(
@@ -568,8 +598,30 @@ def test_next_action_prefers_regenerate_over_approve_for_stale_answers(
         runner.invoke(app, ["--cwd", str(tmp_path), "--json", "next-action"])
     )
 
-    assert payload["result"]["action"] == "plan-regenerate"
-    assert payload["result"]["next_command"] == (
+    result = payload["result"]
+    assert result["action"] == "plan-regenerate"
+    assert result["next_command"] == (
         "taskledger plan upsert --from-answers --file plan.md"
     )
-    assert payload["result"]["blocking"][0]["kind"] == "stale_answers"
+    assert result["blocking"][0]["kind"] == "stale_answers"
+    assert result["next_item"] == {
+        "kind": "answered_question",
+        "id": "q-0001",
+        "text": "Which database?",
+        "status": "answered",
+        "answer": "SQLite.",
+        "answered_at": result["next_item"]["answered_at"],
+        "required_for_plan": True,
+        "plan_version": None,
+    }
+    assert result["commands"][0] == {
+        "kind": "regenerate",
+        "label": "Regenerate plan from answers",
+        "command": "taskledger plan upsert --from-answers --file plan.md",
+        "primary": True,
+    }
+    assert result["progress"]["questions"] == {
+        "required_open": 0,
+        "required_open_ids": [],
+        "answered_since_latest_plan": ["q-0001"],
+    }

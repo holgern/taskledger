@@ -30,10 +30,24 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 1. Run `taskledger actor whoami`.
 2. Run `taskledger task active`.
 3. Run `taskledger next-action`.
+   - Treat this as the preferred fresh-context entrypoint.
+   - Inspect `next_item` before parsing prose.
+   - Run `next_command` when it is safe and appropriate.
+   - Do not invent question answers, evidence, or approval notes.
 4. Run `taskledger context --for planning|implementation|validation --format markdown`.
 5. Inspect `taskledger lock show` before active work.
 6. Use `taskledger can implement` or `taskledger can validate` before those stages.
 7. If a durable handoff exists, claim it with `taskledger handoff claim handoff-0001` before continuing and close it after the intended next action starts.
+
+Example human output:
+
+```text
+todo-work: Implementation is in progress; 1 todos remain.
+Next todo: todo-0001 -- Update next-action JSON payload.
+Command: taskledger todo show todo-0001
+Mark todo done after evidence exists: taskledger todo done todo-0001 --evidence "..."
+Progress: 0/1 todos done
+```
 
 ## Actor and harness protocol
 
@@ -176,6 +190,7 @@ taskledger question answer-many --text "q-0001: No."
 taskledger question status
 taskledger question answers
 taskledger question list --status answered
+taskledger next-action
 taskledger plan upsert --from-answers --file ./plan.md
 taskledger plan lint --version 1
 taskledger plan accept --version 1 --note "User approved in harness."

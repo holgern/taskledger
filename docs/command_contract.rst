@@ -45,6 +45,43 @@ Positional refs are reserved for the direct resource being changed or shown:
    taskledger handoff show HANDOFF_ID --task TASK_REF
    taskledger require add REQUIRED_TASK_REF --task TASK_REF
 
+``next-action`` result contract
+-------------------------------
+
+``taskledger next-action`` is the preferred fresh-context entrypoint for agents
+and operators. It should identify the next concrete question, todo, criterion,
+plan, dependency, or repair target instead of only naming a lifecycle bucket.
+
+Human output should stay concise but actionable:
+
+.. code-block:: text
+
+   todo-work: Implementation is in progress; 1 todos remain.
+   Next todo: todo-0001 -- Update next-action JSON payload.
+   Command: taskledger todo show todo-0001
+   Mark todo done after evidence exists: taskledger todo done todo-0001 --evidence "..."
+   Progress: 0/1 todos done
+
+JSON output preserves the existing fields:
+
+* ``kind``
+* ``task_id``
+* ``status_stage``
+* ``active_stage``
+* ``action``
+* ``reason``
+* ``blocking``
+* ``next_command``
+
+and may also include:
+
+* ``next_item`` for the concrete target
+* ``commands`` for ordered command hints with one primary command
+* ``progress`` for question, todo, or validation queues
+
+Agents should inspect ``next_item``, prefer ``next_command`` when it is safe,
+avoid inventing question answers, and never mark todos done without evidence.
+
 Focused context and handoff options
 -----------------------------------
 

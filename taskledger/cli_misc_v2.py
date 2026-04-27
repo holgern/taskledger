@@ -749,7 +749,65 @@ def emit_next_action_command(
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-    emit_payload(ctx, payload, human=f"{payload['action']}: {payload['reason']}")
+    emit_payload(ctx, payload, human=_next_action_human(payload))
+
+
+def _next_action_human(payload: dict[str, object]) -> str:
+    lines = [f"{payload['action']}: {payload['reason']}"]
+
+    next_item = payload.get("next_item")
+    if isinstance(next_item, dict):
+        kind = next_item.get("kind")
+        item_id = next_item.get("id")
+        text = next_item.get("text")
+        if kind and kind != "none":
+            label = f"Next {kind}:"
+            if item_id and text:
+                lines.append(f"{label} {item_id} -- {text}")
+            elif item_id:
+                lines.append(f"{label} {item_id}")
+
+    command = payload.get("next_command")
+    if command:
+        lines.append(f"Command: {command}")
+
+    commands = payload.get("commands")
+    if isinstance(commands, list):
+        for item in commands:
+            if not isinstance(item, dict) or item.get("primary"):
+                continue
+            command_label = item.get("label")
+            command_text = item.get("command")
+            if isinstance(command_label, str) and isinstance(command_text, str):
+                lines.append(f"{command_label}: {command_text}")
+
+    progress = payload.get("progress")
+    if isinstance(progress, dict):
+        todos = progress.get("todos")
+        if isinstance(todos, dict):
+            lines.append(
+                f"Progress: {todos.get('done', 0)}/{todos.get('total', 0)} todos done"
+            )
+        questions = progress.get("questions")
+        if isinstance(questions, dict) and questions.get("required_open") is not None:
+            lines.append(f"Open required questions: {questions.get('required_open')}")
+        validation = progress.get("validation")
+        if isinstance(validation, dict):
+            lines.append(
+                "Validation progress: "
+                f"{validation.get('satisfied', 0)}/"
+                f"{validation.get('total', 0)} satisfied"
+            )
+
+    blockers = payload.get("blocking")
+    if isinstance(blockers, list):
+        for blocker in blockers:
+            if isinstance(blocker, dict):
+                msg = blocker.get("message")
+                if msg:
+                    lines.append(f"Blocker: {msg}")
+
+    return "\n".join(lines)
 
 
 def emit_can_command(ctx: typer.Context, task_ref: str | None, action: str) -> None:

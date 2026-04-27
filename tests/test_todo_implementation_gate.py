@@ -627,6 +627,124 @@ class TestTodoObservability:
             assert t["mandatory"] is True
 
 
+class TestNextActionTodoOutput:
+    def test_next_action_includes_next_todo_payload_during_implementation(
+        self, tmp_path: Path
+    ) -> None:
+        _prepare_task_for_implementation(tmp_path)
+        for text in ("Implement the main feature.", "Add documentation."):
+            result = runner.invoke(
+                app,
+                [
+                    "--cwd",
+                    str(tmp_path),
+                    "todo",
+                    "add",
+                    "--text",
+                    text,
+                ],
+            )
+            assert result.exit_code == 0
+
+        result = runner.invoke(app, ["--cwd", str(tmp_path), "--json", "next-action"])
+        assert result.exit_code == 0, result.stdout
+        payload = _json(result)["result"]
+
+        assert payload["action"] == "todo-work"
+        assert payload["next_item"]["kind"] == "todo"
+        assert payload["next_item"]["id"] == "todo-0001"
+        assert payload["next_item"]["text"] == "Implement the main feature."
+        assert payload["next_item"]["mandatory"] is True
+        assert payload["next_item"]["done"] is False
+        assert payload["next_command"] == "taskledger todo show todo-0001"
+        assert payload["commands"][0] == {
+            "kind": "inspect",
+            "label": "Show next todo",
+            "command": "taskledger todo show todo-0001",
+            "primary": True,
+        }
+        assert any(
+            command["command"] == 'taskledger todo done todo-0001 --evidence "..."'
+            for command in payload["commands"]
+        )
+        assert payload["progress"]["todos"] == {
+            "total": 2,
+            "done": 0,
+            "open": 2,
+            "open_ids": ["todo-0001", "todo-0002"],
+        }
+
+    def test_next_action_human_output_names_next_todo(self, tmp_path: Path) -> None:
+        _prepare_task_for_implementation(tmp_path)
+        assert (
+            runner.invoke(
+                app,
+                [
+                    "--cwd",
+                    str(tmp_path),
+                    "todo",
+                    "add",
+                    "--text",
+                    "Implement the main feature.",
+                ],
+            ).exit_code
+            == 0
+        )
+
+        result = runner.invoke(app, ["--cwd", str(tmp_path), "next-action"])
+        assert result.exit_code == 0, result.stdout
+        assert (
+            "todo-work: Implementation is in progress; 1 todos remain." in result.stdout
+        )
+        assert "Next todo: todo-0001" in result.stdout
+        assert "Command: taskledger todo show todo-0001" in result.stdout
+        assert 'taskledger todo done todo-0001 --evidence "..."' in result.stdout
+        assert "Progress: 0/1 todos done" in result.stdout
+
+    def test_next_action_returns_implement_finish_when_todos_are_done(
+        self, tmp_path: Path
+    ) -> None:
+        _prepare_task_for_implementation(tmp_path)
+        added = runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "todo",
+                "add",
+                "--text",
+                "Implement the main feature.",
+            ],
+        )
+        assert added.exit_code == 0
+        todo_id = _json(added)["task"]["todos"][0]["id"]
+        done = runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "todo",
+                "done",
+                todo_id,
+            ],
+        )
+        assert done.exit_code == 0
+
+        result = runner.invoke(app, ["--cwd", str(tmp_path), "--json", "next-action"])
+        assert result.exit_code == 0, result.stdout
+        payload = _json(result)["result"]
+
+        assert payload["action"] == "implement-finish"
+        assert (
+            payload["next_command"] == "taskledger implement finish --summary SUMMARY"
+        )
+        assert payload["next_item"] == {
+            "kind": "task",
+            "id": "task-0001",
+            "status_stage": "implementing",
+        }
+
+
 class TestTodoBackwardCompatibility:
     """Test suite for backward compatibility with old todo format."""
 

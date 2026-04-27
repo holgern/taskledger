@@ -145,6 +145,26 @@ def render_dashboard_text(payload: dict[str, object]) -> str:  # noqa: C901
         reason = na.get("reason")
         if reason:
             lines.append(f"  {reason}")
+        next_item = na.get("next_item")
+        if isinstance(next_item, dict):
+            kind = next_item.get("kind")
+            item_id = next_item.get("id")
+            text = next_item.get("text")
+            if kind and item_id and text:
+                lines.append(f"  next {kind}: {item_id}  {text}")
+            elif kind and item_id:
+                lines.append(f"  next {kind}: {item_id}")
+        next_command = na.get("next_command")
+        if next_command:
+            lines.append(f"  command: {next_command}")
+        progress = na.get("progress")
+        if isinstance(progress, dict):
+            todos = progress.get("todos")
+            if isinstance(todos, dict):
+                lines.append(
+                    f"  progress: {todos.get('done', 0)}/"
+                    f"{todos.get('total', 0)} todos done"
+                )
         blockers = na.get("blocking")
         if isinstance(blockers, list | tuple) and len(blockers) > 0:
             for b in blockers:

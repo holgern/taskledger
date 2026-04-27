@@ -63,6 +63,9 @@ taskledger plan upsert --from-answers --file ./plan.md
 taskledger plan lint --version 1
 taskledger plan accept --version 1 --note "Ready."
 
+taskledger next-action
+taskledger --json next-action
+
 taskledger context --for implementation --format markdown
 taskledger implement start
 taskledger implement checklist
@@ -75,6 +78,52 @@ taskledger validate start
 taskledger validate status
 taskledger validate check --criterion ac-0001 --status pass --evidence "pytest -q tests/test_taskledger_v2_cli.py"
 taskledger validate finish --result passed --summary "Validated the rewrite."
+```
+
+`taskledger next-action` is the preferred fresh-context entrypoint. It stays
+read-only and points at the next concrete question, todo, criterion, or repair
+step.
+
+Human output example:
+
+```text
+todo-work: Implementation is in progress; 1 todos remain.
+Next todo: todo-0001 -- Update next-action JSON payload.
+Command: taskledger todo show todo-0001
+Mark todo done after evidence exists: taskledger todo done todo-0001 --evidence "..."
+Progress: 0/1 todos done
+```
+
+JSON result example:
+
+```json
+{
+  "kind": "task_next_action",
+  "action": "todo-work",
+  "next_command": "taskledger todo show todo-0001",
+  "next_item": {
+    "kind": "todo",
+    "id": "todo-0001",
+    "text": "Update next-action JSON payload."
+  },
+  "commands": [
+    {
+      "kind": "inspect",
+      "label": "Show next todo",
+      "command": "taskledger todo show todo-0001",
+      "primary": true
+    }
+  ],
+  "progress": {
+    "todos": {
+      "total": 1,
+      "done": 0,
+      "open": 1,
+      "open_ids": ["todo-0001"]
+    }
+  },
+  "blocking": []
+}
 ```
 
 ## Storage layout

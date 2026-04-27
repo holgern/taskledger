@@ -208,8 +208,23 @@ def test_render_dashboard_text_with_next_action() -> None:
         },
         "plan": None,
         "next_action": {
-            "action": "plan.start",
-            "reason": "No plan exists yet",
+            "action": "todo-work",
+            "reason": "Implementation is in progress; 1 todos remain.",
+            "next_command": "taskledger todo show todo-0001",
+            "next_item": {
+                "kind": "todo",
+                "id": "todo-0001",
+                "text": "Wire detailed next-action output.",
+            },
+            "commands": [
+                {
+                    "kind": "inspect",
+                    "label": "Show next todo",
+                    "command": "taskledger todo show todo-0001",
+                    "primary": True,
+                }
+            ],
+            "progress": {"todos": {"total": 3, "done": 2, "open": 1}},
             "blocking": [
                 {"message": "Missing requirement X"},
             ],
@@ -222,8 +237,11 @@ def test_render_dashboard_text_with_next_action() -> None:
         "lock": None,
     }
     text = render_dashboard_text(payload)
-    assert "Next action: plan.start" in text
-    assert "No plan exists yet" in text
+    assert "Next action: todo-work" in text
+    assert "Implementation is in progress; 1 todos remain." in text
+    assert "next todo: todo-0001  Wire detailed next-action output." in text
+    assert "command: taskledger todo show todo-0001" in text
+    assert "progress: 2/3 todos done" in text
     assert "blocker: Missing requirement X" in text
 
 

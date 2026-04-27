@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import yaml
 from typer.testing import CliRunner
 
 from taskledger.cli import app
@@ -898,8 +899,8 @@ def test_mandatory_todo_blocks_validation_completion(tmp_path: Path) -> None:
     assert len(payload["error"]["details"].get("open_mandatory_todos", [])) > 0
 
 
-def test_next_action_validation_includes_blockers(tmp_path: Path) -> None:
-    """Test that next-action reports validation blockers when stage is validation."""
+def test_next_action_validation_includes_next_missing_criterion(tmp_path: Path) -> None:
+    """Test that next-action reports the next concrete criterion during validation."""
     _prepare_validating_task(tmp_path)
 
     result = runner.invoke(
@@ -914,9 +915,142 @@ def test_next_action_validation_includes_blockers(tmp_path: Path) -> None:
         ],
     )
     assert result.exit_code == 0
-    data = _json(result)
-    assert data["result"]["action"] == "validate-finish"
-    assert len(data["result"].get("blocking", [])) > 0
-    assert any(
-        b.get("kind") == "criterion_missing" for b in data["result"].get("blocking", [])
+    data = _json(result)["result"]
+    assert data["action"] == "validate-check"
+    assert data["next_item"] == {
+        "kind": "criterion",
+        "id": "ac-0001",
+        "text": "Mandatory behavior is checked.",
+        "mandatory": True,
+        "latest_status": "not_run",
+        "satisfied": False,
+    }
+    assert data["next_command"] == (
+        'taskledger validate check --criterion ac-0001 --status pass --evidence "..."'
     )
+    assert data["commands"][0] == {
+        "kind": "check",
+        "label": "Record validation check",
+        "command": (
+            "taskledger validate check --criterion ac-0001 "
+            '--status pass --evidence "..."'
+        ),
+        "primary": True,
+    }
+    assert data["progress"]["validation"] == {
+        "total": 1,
+        "satisfied": 0,
+        "remaining": 1,
+        "blocking_ids": ["ac-0001"],
+    }
+    assert len(data.get("blocking", [])) > 0
+    assert any(b.get("kind") == "criterion_missing" for b in data.get("blocking", []))
+
+
+def test_next_action_validation_with_no_blockers_returns_finish(tmp_path: Path) -> None:
+    _prepare_validating_task(tmp_path)
+    checked = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "validate",
+            "check",
+            "--task",
+            "validation-gate",
+            "--criterion",
+            "ac-0001",
+            "--status",
+            "pass",
+            "--evidence",
+            "python -m pytest -q",
+        ],
+    )
+    assert checked.exit_code == 0, checked.stdout
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "next-action",
+            "--task",
+            "validation-gate",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    data = _json(result)["result"]
+    assert data["action"] == "validate-finish"
+    assert data["next_command"] == (
+        "taskledger validate finish --result passed --summary SUMMARY"
+    )
+    assert data["next_item"] == {
+        "kind": "task",
+        "id": "task-0001",
+        "status_stage": "implemented",
+    }
+    assert data["progress"]["validation"] == {
+        "total": 1,
+        "satisfied": 1,
+        "remaining": 0,
+        "blocking_ids": [],
+    }
+
+
+def test_next_action_with_expired_lock_returns_repair_hint(tmp_path: Path) -> None:
+    _init(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "create",
+                "stale-lock",
+                "--description",
+                "Exercise stale lock handling.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app, ["--cwd", str(tmp_path), "plan", "start", "--task", "stale-lock"]
+        ).exit_code
+        == 0
+    )
+
+    lock_path = tmp_path / ".taskledger" / "tasks" / "task-0001" / "lock.yaml"
+    lock_payload = yaml.safe_load(lock_path.read_text(encoding="utf-8"))
+    lock_payload["expires_at"] = "2000-01-01T00:00:00+00:00"
+    lock_path.write_text(
+        yaml.safe_dump(lock_payload, sort_keys=False), encoding="utf-8"
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "next-action",
+            "--task",
+            "stale-lock",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    data = _json(result)["result"]
+    assert data["next_item"] == {
+        "kind": "lock",
+        "id": lock_payload["lock_id"],
+        "task_id": "task-0001",
+        "stage": "planning",
+        "run_id": lock_payload["run_id"],
+        "expired": True,
+    }
+    assert data["next_command"] == (
+        'taskledger lock break --task task-0001 --reason "..."'
+    )
+    assert any(b.get("kind") == "lock" for b in data["blocking"])
