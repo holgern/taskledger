@@ -75,6 +75,7 @@ from taskledger.domain.states import (
 )
 from taskledger.errors import LaunchError, LockConflict, NoActiveTask
 from taskledger.ids import next_project_id, slugify_project_ref
+from taskledger.services.plan_lint import lint_plan
 from taskledger.storage.atomic import atomic_write_text
 from taskledger.storage.events import append_event, load_events, next_event_id
 from taskledger.storage.indexes import rebuild_v2_indexes
@@ -847,6 +848,17 @@ def propose_plan(
             item.id for item in questions if item.status == "answered"
         ),
         based_on_answer_hash=_answer_snapshot_hash(questions),
+        goal=_optional_front_matter_string(front_matter, "goal"),
+        files=_string_tuple_from_front_matter(front_matter, "files"),
+        test_commands=_string_tuple_from_front_matter(front_matter, "test_commands"),
+        expected_outputs=_string_tuple_from_front_matter(
+            front_matter, "expected_outputs"
+        ),
+        todos_waived_reason=(
+            _optional_front_matter_string(front_matter, "todos_waived_reason")
+            or _optional_front_matter_string(front_matter, "todo_waiver_reason")
+            or _optional_front_matter_string(front_matter, "no_todos_reason")
+        ),
     )
     save_plan(workspace_root, plan)
     finished_run = replace(
@@ -998,6 +1010,7 @@ def approve_plan(
     materialize_todos: bool = True,
     allow_open_questions: bool = False,
     allow_empty_todos: bool = False,
+    allow_lint_errors: bool = False,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
     _enforce_decision(
@@ -1060,6 +1073,21 @@ def approve_plan(
         allow_agent_approval=allow_agent_approval,
         reason=reason,
     )
+    lint_payload = lint_plan(workspace_root, task.id, version=version, strict=False)
+    if not lint_payload["passed"] and not allow_lint_errors:
+        lint_error = _cli_error(
+            "Plan approval is blocked by plan lint errors. "
+            "Run `taskledger plan lint --version ...`.",
+            EXIT_CODE_APPROVAL_REQUIRED,
+        )
+        lint_error.taskledger_error_code = "APPROVAL_REQUIRED"
+        lint_error.taskledger_data = {
+            **lint_error.taskledger_data,
+            "details": {"plan_lint": lint_payload},
+        }
+        raise lint_error
+    if allow_lint_errors and not (reason or "").strip():
+        raise _cli_error("--allow-lint-errors requires --reason.", EXIT_CODE_BAD_INPUT)
     approval_note = (note or reason or "").strip()
     for plan in list_plans(workspace_root, task.id):
         if plan.plan_version == target.plan_version:
@@ -1239,6 +1267,17 @@ def regenerate_plan_from_answers(
         generation_reason="after_questions",
         based_on_question_ids=tuple(item.id for item in answered),
         based_on_answer_hash=_answer_snapshot_hash(questions),
+        goal=_optional_front_matter_string(front_matter, "goal"),
+        files=_string_tuple_from_front_matter(front_matter, "files"),
+        test_commands=_string_tuple_from_front_matter(front_matter, "test_commands"),
+        expected_outputs=_string_tuple_from_front_matter(
+            front_matter, "expected_outputs"
+        ),
+        todos_waived_reason=(
+            _optional_front_matter_string(front_matter, "todos_waived_reason")
+            or _optional_front_matter_string(front_matter, "todo_waiver_reason")
+            or _optional_front_matter_string(front_matter, "no_todos_reason")
+        ),
     )
     save_plan(workspace_root, plan)
     if plans:
@@ -3675,6 +3714,27 @@ def _optional_front_matter_string(
 
 def _optional_string_value(value: object) -> str | None:
     return value if isinstance(value, str) and value.strip() else None
+
+
+def _string_tuple_from_front_matter(
+    front_matter: dict[str, object], key: str
+) -> tuple[str, ...]:
+    raw = front_matter.get(key)
+    if raw is None:
+        return ()
+    if not isinstance(raw, list):
+        raise _cli_error(
+            f"Plan front matter '{key}' must be a list.", EXIT_CODE_BAD_INPUT
+        )
+    items: list[str] = []
+    for item in raw:
+        if not isinstance(item, str) or not item.strip():
+            raise _cli_error(
+                f"Plan front matter '{key}' must contain non-empty strings.",
+                EXIT_CODE_BAD_INPUT,
+            )
+        items.append(item.strip())
+    return tuple(items)
 
 
 def _criterion_id(index: int) -> str:

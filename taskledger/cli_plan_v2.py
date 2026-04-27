@@ -8,6 +8,7 @@ import typer
 from taskledger.api.plans import (
     approve_plan,
     diff_plan,
+    lint_plan,
     list_plan_versions,
     materialize_plan_todos,
     propose_plan,
@@ -28,8 +29,10 @@ from taskledger.cli_common import (
     read_text_input,
     resolve_cli_task,
 )
+from taskledger.domain.states import EXIT_CODE_VALIDATION_FAILED
 from taskledger.errors import LaunchError
 from taskledger.services.actors import resolve_actor, resolve_harness
+from taskledger.services.plan_lint import PlanLintPayload
 
 
 def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
@@ -286,6 +289,29 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, payload, human=str(payload["diff"]))
 
+    @app.command("lint")
+    def lint_command(
+        ctx: typer.Context,
+        task_ref: TaskOption = None,
+        version: Annotated[int | None, typer.Option("--version")] = None,
+        strict: Annotated[bool, typer.Option("--strict")] = False,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = resolve_cli_task(state.cwd, task_ref)
+            payload = lint_plan(
+                state.cwd,
+                task.id,
+                version=version,
+                strict=strict,
+            )
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, payload, human=_render_plan_lint(payload))
+        if not payload["passed"]:
+            raise typer.Exit(code=EXIT_CODE_VALIDATION_FAILED)
+
     @app.command("approve")
     def approve_command(
         ctx: typer.Context,
@@ -307,6 +333,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             bool, typer.Option("--allow-open-questions")
         ] = False,
         allow_empty_todos: Annotated[bool, typer.Option("--allow-empty-todos")] = False,
+        allow_lint_errors: Annotated[bool, typer.Option("--allow-lint-errors")] = False,
         task_ref: TaskOption = None,
     ) -> None:
         state = cli_state_from_context(ctx)
@@ -325,6 +352,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
                 materialize_todos=not no_materialize_todos,
                 allow_open_questions=allow_open_questions,
                 allow_empty_todos=allow_empty_todos,
+                allow_lint_errors=allow_lint_errors,
             )
         except LaunchError as exc:
             emit_error(ctx, exc)
@@ -341,6 +369,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
         version: Annotated[int, typer.Option("--version")],
         note: Annotated[str | None, typer.Option("--note")] = None,
         task_ref: TaskOption = None,
+        allow_lint_errors: Annotated[bool, typer.Option("--allow-lint-errors")] = False,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
@@ -351,6 +380,8 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
                 version=version,
                 actor_type="user",
                 note=note,
+                allow_lint_errors=allow_lint_errors,
+                reason=note if allow_lint_errors else None,
             )
         except LaunchError as exc:
             emit_error(ctx, exc)
@@ -415,3 +446,33 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             payload,
             human=f"ran planning command exit={payload['exit_code']}",
         )
+
+
+def _render_plan_lint(payload: PlanLintPayload) -> str:
+    passed = payload["passed"]
+    task_id = payload["task_id"]
+    plan_id = payload["plan_id"]
+    summary = payload["summary"]
+    issues = payload["issues"]
+    assert isinstance(summary, dict)
+    assert isinstance(issues, list)
+
+    status_word = "PASSED" if passed else "FAILED"
+    header = f"PLAN LINT {status_word} {task_id} {plan_id}"
+    lines = [header]
+    errors = summary.get("errors", 0)
+    warnings = summary.get("warnings", 0)
+    assert isinstance(errors, int) and isinstance(warnings, int)
+    lines.append(f"errors: {errors}  warnings: {warnings}")
+    lines.append("")
+    for issue in issues:
+        assert isinstance(issue, dict)
+        sev = issue["severity"]
+        code = issue["code"]
+        location = issue["location"]
+        message = issue["message"]
+        assert isinstance(sev, str) and isinstance(code, str)
+        assert isinstance(location, str) and isinstance(message, str)
+        lines.append(f"[{sev}] {code} at {location}")
+        lines.append(f"  {message}")
+    return "\n".join(lines)

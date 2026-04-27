@@ -173,6 +173,7 @@ def test_no_ref_plan_implementation_validation_flow(tmp_path: Path) -> None:
                 "--note",
                 "Approved.",
                 "--allow-empty-todos",
+                "--allow-lint-errors",
                 "--reason",
                 "test",
             ],

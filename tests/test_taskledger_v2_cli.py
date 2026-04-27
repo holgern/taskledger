@@ -136,6 +136,7 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
                 "--note",
                 "Ready to implement.",
                 "--allow-empty-todos",
+                "--allow-lint-errors",
                 "--reason",
                 "test",
             ],

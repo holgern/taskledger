@@ -1,3 +1,4 @@
+from taskledger.services.plan_lint import lint_plan
 from taskledger.services.tasks import (
     approve_plan,
     diff_plan,
@@ -26,4 +27,5 @@ __all__ = [
     "reject_plan",
     "revise_plan",
     "run_planning_command",
+    "lint_plan",
 ]

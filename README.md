@@ -60,6 +60,7 @@ taskledger question add --text "Should exports include the new state?" --require
 taskledger question answer-many --text "q-0001: Yes."
 taskledger question status
 taskledger plan upsert --from-answers --file ./plan.md
+taskledger plan lint --version 1
 taskledger plan accept --version 1 --note "Ready."
 
 taskledger context --for implementation --format markdown

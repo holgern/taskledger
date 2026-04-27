@@ -21,7 +21,7 @@ task -> plan -> approval -> implement -> validate -> done
 
 ### plan subcommands
 
-- `plan start`, `plan propose`, `plan upsert`, `plan approve`, `plan accept`, `plan reject`, `plan show`, `plan diff`
+- `plan start`, `plan propose`, `plan upsert`, `plan lint`, `plan approve`, `plan accept`, `plan reject`, `plan show`, `plan diff`
 - `plan regenerate --from-answers`, `plan materialize-todos`, `plan command -- ...`
 
 ### todo subcommands

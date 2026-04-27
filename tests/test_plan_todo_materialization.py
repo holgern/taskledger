@@ -92,6 +92,9 @@ Ship the feature.
                 "user",
                 "--note",
                 "Approved.",
+                "--allow-lint-errors",
+                "--reason",
+                "test",
             ],
         )
     )

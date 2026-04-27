@@ -215,5 +215,6 @@ context_taskledger.index.json
 *.unpack.py
 workspace/
 .taskledger/
+.pi-lens/
 todo.md
 uv.lock

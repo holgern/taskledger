@@ -86,6 +86,7 @@ def _prepare_implementation(tmp_path: Path) -> None:
                 "--note",
                 "Proceed.",
                 "--allow-empty-todos",
+                "--allow-lint-errors",
                 "--reason",
                 "test",
             ],

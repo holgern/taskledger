@@ -91,6 +91,7 @@ def test_plan_approval_records_actor_metadata_and_criteria_ids(tmp_path: Path) -
             "--allow-empty-todos",
             "--reason",
             "test",
+            "--allow-lint-errors",
         ],
     )
     assert approve.exit_code == 0

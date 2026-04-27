@@ -40,6 +40,7 @@ COMMAND_METADATA: dict[str, tuple[str, str]] = {
     "plan show": (STABLE_FOR_AGENTS, "safe_read_only"),
     "plan list": (STABLE_FOR_AGENTS, "safe_read_only"),
     "plan diff": (STABLE_FOR_AGENTS, "safe_read_only"),
+    "plan lint": (STABLE_FOR_AGENTS, "safe_read_only"),
     "plan approve": (STABLE_FOR_AGENTS, "ledger_mutation"),
     "plan accept": (STABLE_FOR_AGENTS, "ledger_mutation"),
     "plan command": (STABLE_FOR_AGENTS, "ledger_mutation"),

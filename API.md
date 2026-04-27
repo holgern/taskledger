@@ -91,6 +91,7 @@ from taskledger.errors import (
 - `list_plan_versions`
 - `show_plan`
 - `diff_plan`
+- `lint_plan`
 - `approve_plan`
 - `reject_plan`
 - `revise_plan`

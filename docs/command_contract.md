@@ -70,6 +70,7 @@ Plan approval escape hatches require `--reason` to prevent silent bypass:
 | `--allow-empty-todos`    | Approve despite no todos in the plan             | Yes                   |
 | `--no-materialize-todos` | Skip materializing plan todos into the checklist | Yes                   |
 | `--allow-agent-approval` | Allow agent (non-user) approval                  | Yes (plus `--reason`) |
+| `--allow-lint-errors`    | Approve despite plan lint errors                 | Yes                   |
 
 Approval also requires `--note` for user approval. Agent approval additionally
 requires `--allow-agent-approval --reason "..."`.

@@ -23,7 +23,7 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 - Do not inline large source files into taskledger records by default; use `@path` references.
 - Do not import or call `taskledger.storage.*`, `taskledger.services.*`, or `taskledger.domain.*` from ad-hoc Python during normal task work. Use CLI commands or public `taskledger.api.*` only.
 - Do not use repair commands (`lock break`, `repair lock`, `repair task`, `repair index`) in the normal lifecycle. Use them only after `doctor`/`lock show` proves there is stale or corrupted state.
-- Do not pass approval escape hatches such as `--allow-empty-criteria`, `--allow-open-questions`, `--allow-empty-todos`, `--no-materialize-todos`, or `--allow-agent-approval` unless the user explicitly requested that bypass and gave a reason. All escape hatches require `--reason`.
+- Do not pass approval escape hatches such as `--allow-empty-criteria`, `--allow-open-questions`, `--allow-empty-todos`, `--no-materialize-todos`, `--allow-lint-errors`, or `--allow-agent-approval` unless the user explicitly requested that bypass and gave a reason. All escape hatches require `--reason`.
 
 ## Fresh context entry protocol
 
@@ -62,7 +62,8 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 13. For diagnostic commands needed to build the plan, preserve their output in a linked artifact or use `taskledger plan command -- ...`.
 14. A proposed plan must include concrete `acceptance_criteria` and `todos` in front matter unless the user explicitly says the task is trivial.
 15. After writing the plan, do not run `taskledger lock break`; planning locks are released by plan proposal/upsert. Run `taskledger next-action`.
-16. Record approval only with clear user intent such as approve, accept, go ahead, or start implementation: `taskledger plan approve --version N --actor user --note "User approved in harness: ..."` or `taskledger plan accept --version N --note "User approved in harness: ..."`.
+16. Before asking the user to approve, run `taskledger plan lint --version N` and fix lint errors. Do not ask for approval on plans with lint errors.
+17. Record approval only with clear user intent such as approve, accept, go ahead, or start implementation: `taskledger plan approve --version N --actor user --note "User approved in harness: ..."` or `taskledger plan accept --version N --note "User approved in harness: ..."`.
 
 The plan file should use version ids like `plan-v1`, `plan-v2` in references. Do not use zero-padded forms.
 
@@ -163,6 +164,7 @@ taskledger question status
 taskledger question answers
 taskledger question list --status answered
 taskledger plan upsert --from-answers --file ./plan.md
+taskledger plan lint --version 1
 taskledger plan accept --version 1 --note "User approved in harness."
 taskledger context --for implementation --format markdown
 taskledger implement change --path taskledger/services/tasks.py --kind edit --summary "Hardened validation gates."

@@ -474,6 +474,7 @@ Use PostgreSQL.
             "1",
             "--note",
             "Ready.",
+            "--allow-lint-errors",
         ],
     )
 

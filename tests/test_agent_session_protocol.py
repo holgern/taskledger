@@ -307,6 +307,7 @@ def test_allow_empty_criteria_with_reason_succeeds(tmp_path: Path) -> None:
             "user",
             "--note",
             "approved",
+            "--allow-lint-errors",
             "--reason",
             "testing escape hatch",
             "--allow-empty-criteria",
@@ -367,6 +368,7 @@ def test_plan_approval_empty_todos_with_reason_succeeds(tmp_path: Path) -> None:
             "--note",
             "approved",
             "--allow-empty-todos",
+            "--allow-lint-errors",
             "--reason",
             "trivial task",
         ],
@@ -513,6 +515,9 @@ def test_validate_finish_passed_blocks_unchecked_mandatory_criteria(
                 "user",
                 "--note",
                 "approved",
+                "--allow-lint-errors",
+                "--reason",
+                "test",
             ],
         ).exit_code
         == 0
@@ -650,6 +655,7 @@ def test_no_materialize_todos_with_reason_succeeds(tmp_path: Path) -> None:
             "--note",
             "approved",
             "--no-materialize-todos",
+            "--allow-lint-errors",
             "--reason",
             "trivial task; checklist not needed",
         ],
@@ -682,6 +688,9 @@ def test_todo_added_during_implementation_is_implementer_sourced(
                 "user",
                 "--note",
                 "approved",
+                "--allow-lint-errors",
+                "--reason",
+                "test",
             ],
         ).exit_code
         == 0

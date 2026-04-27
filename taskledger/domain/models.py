@@ -1000,6 +1000,11 @@ class PlanRecord:
     approved_at: str | None = None
     approved_by: ActorRef | None = None
     approval_note: str | None = None
+    goal: str | None = None
+    files: tuple[str, ...] = ()
+    test_commands: tuple[str, ...] = ()
+    expected_outputs: tuple[str, ...] = ()
+    todos_waived_reason: str | None = None
     schema_version: int = TASKLEDGER_SCHEMA_VERSION
     object_type: str = "plan"
 
@@ -1031,6 +1036,11 @@ class PlanRecord:
             ),
             "approval_note": self.approval_note,
             "body": self.body,
+            "goal": self.goal,
+            "files": list(self.files),
+            "test_commands": list(self.test_commands),
+            "expected_outputs": list(self.expected_outputs),
+            "todos_waived_reason": self.todos_waived_reason,
         }
 
     @classmethod
@@ -1072,6 +1082,11 @@ class PlanRecord:
             if data.get("approved_by") is not None
             else None,
             approval_note=_optional_string(data.get("approval_note")),
+            goal=_optional_string(data.get("goal")),
+            files=_string_tuple(data.get("files")),
+            test_commands=_string_tuple(data.get("test_commands")),
+            expected_outputs=_string_tuple(data.get("expected_outputs")),
+            todos_waived_reason=_optional_string(data.get("todos_waived_reason")),
             schema_version=_int_value(data, "schema_version"),
             object_type=_string_value(data, "object_type"),
         )

@@ -27,6 +27,7 @@ Task-first workflow
    taskledger question add --text "Should exports include v2?"
    taskledger question answer-many --text "q-0001: Yes."
    taskledger plan upsert --from-answers --criterion "Accepted workflow is implemented." --file ./plan.md
+   taskledger plan lint --version 1
    taskledger plan accept --version 1 --note "Ready."
 
 All approval escape hatches require ``--reason``:
@@ -35,6 +36,7 @@ All approval escape hatches require ``--reason``:
 
    taskledger plan approve --version 1 --actor user --note "Ready." --no-materialize-todos --reason "trivial task"
    taskledger plan approve --version 1 --actor user --note "Ready." --allow-empty-criteria --reason "no criteria needed"
+   taskledger plan approve --version 1 --actor user --note "Ready." --allow-lint-errors --reason "user accepted rough plan"
 
 Use ``plan command`` to record diagnostic commands during planning:
 
