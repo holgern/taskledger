@@ -11,6 +11,7 @@ from taskledger.domain.models import (
     PlanRecord,
     QuestionRecord,
     TaskEvent,
+    TaskHandoffRecord,
     TaskLock,
     TaskRecord,
     TaskRunRecord,
@@ -171,6 +172,49 @@ def test_plan_record_round_trips_acceptance_criteria_and_approval_metadata() -> 
     assert restored.approved_by is not None
     assert restored.approval_note == "Looks good."
     assert restored.plan_id == "plan-v7"
+
+
+def test_handoff_record_round_trips_focused_context_metadata() -> None:
+    handoff = TaskHandoffRecord(
+        handoff_id="handoff-0001",
+        task_id="task-0001",
+        mode="implementation",
+        context_for="implementer",
+        scope="todo",
+        todo_id="todo-0003",
+        context_format="markdown",
+        context_hash="sha256:abc123",
+        generated_at="2026-04-27T12:00:00+00:00",
+        context_body="# Context\n",
+    )
+
+    restored = TaskHandoffRecord.from_dict(handoff.to_dict())
+    assert restored.context_for == "implementer"
+    assert restored.scope == "todo"
+    assert restored.todo_id == "todo-0003"
+    assert restored.focus_run_id is None
+    assert restored.context_hash == "sha256:abc123"
+
+    legacy = TaskHandoffRecord.from_dict(
+        {
+            "schema_version": 1,
+            "object_type": "handoff",
+            "file_version": "v2",
+            "handoff_id": "handoff-0001",
+            "task_id": "task-0001",
+            "mode": "implementation",
+            "status": "open",
+            "created_at": "2026-04-27T12:00:00+00:00",
+            "created_by": {"actor_type": "agent", "actor_name": "taskledger"},
+        }
+    )
+    assert legacy.context_for is None
+    assert legacy.scope == "task"
+    assert legacy.todo_id is None
+    assert legacy.focus_run_id is None
+    assert legacy.context_format == "markdown"
+    assert legacy.context_hash is None
+    assert legacy.generated_at is None
 
 
 def test_validation_check_requires_criterion_id_unless_not_run() -> None:

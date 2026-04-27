@@ -34,6 +34,17 @@ ActorType = Literal["agent", "user", "system"]
 ActorRole = Literal["planner", "implementer", "validator", "reviewer", "operator"]
 HarnessKind = Literal["agent_harness", "manual", "ci", "unknown"]
 HandoffMode = Literal["planning", "implementation", "validation", "review", "full"]
+ContextFor = Literal[
+    "planner",
+    "implementer",
+    "validator",
+    "reviewer",
+    "spec-reviewer",
+    "code-reviewer",
+    "full",
+]
+ContextScope = Literal["task", "todo", "run"]
+ContextFormat = Literal["markdown", "json", "text"]
 HandoffStatus = Literal["open", "claimed", "closed", "cancelled"]
 LockPolicy = Literal["none", "retain", "release", "transfer"]
 TodoSource = Literal["user", "planner", "implementer", "plan"]
@@ -259,6 +270,40 @@ def normalize_handoff_mode(value: str) -> HandoffMode:
     if value not in {"planning", "implementation", "validation", "review", "full"}:
         raise LaunchError(f"Unsupported handoff mode: {value!r}")
     return cast(HandoffMode, value)
+
+
+def normalize_context_for(value: str) -> ContextFor:
+    normalized = {
+        "planning": "planner",
+        "implementation": "implementer",
+        "validation": "validator",
+        "review": "reviewer",
+        "spec": "spec-reviewer",
+        "code": "code-reviewer",
+    }.get(value, value)
+    if normalized not in {
+        "planner",
+        "implementer",
+        "validator",
+        "reviewer",
+        "spec-reviewer",
+        "code-reviewer",
+        "full",
+    }:
+        raise LaunchError(f"Unsupported context role: {value!r}")
+    return cast(ContextFor, normalized)
+
+
+def normalize_context_scope(value: str) -> ContextScope:
+    if value not in {"task", "todo", "run"}:
+        raise LaunchError(f"Unsupported context scope: {value!r}")
+    return cast(ContextScope, value)
+
+
+def normalize_context_format(value: str) -> ContextFormat:
+    if value not in {"markdown", "json", "text"}:
+        raise LaunchError(f"Unsupported context format: {value!r}")
+    return cast(ContextFormat, value)
 
 
 def normalize_handoff_status(value: str) -> HandoffStatus:

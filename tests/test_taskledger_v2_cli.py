@@ -24,6 +24,106 @@ def _init_project(tmp_path: Path) -> None:
     assert result.exit_code == 0
 
 
+def _prepare_focused_context_task(tmp_path: Path) -> str:
+    _init_project(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "create",
+                "focused-contexts",
+                "--description",
+                "Exercise focused worker contexts.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "task", "activate", "focused-contexts"],
+        ).exit_code
+        == 0
+    )
+    assert runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start"]).exit_code == 0
+    plan_text = """---
+goal: Render focused worker contexts.
+acceptance_criteria:
+  - id: ac-0001
+    text: Focused contexts render correctly.
+todos:
+  - id: todo-0001
+    text: Implement the focused context feature.
+    validation_hint: pytest tests/test_taskledger_v2_cli.py -q
+---
+
+# Plan
+
+Ship focused worker contexts.
+"""
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "plan",
+                "propose",
+                "--text",
+                plan_text,
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "plan",
+                "approve",
+                "--version",
+                "1",
+                "--actor",
+                "user",
+                "--note",
+                "Ready to implement.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "implement", "start"],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "implement",
+                "change",
+                "--path",
+                "taskledger/services/handoff.py",
+                "--kind",
+                "edit",
+                "--summary",
+                "Added focused worker context handling.",
+            ],
+        ).exit_code
+        == 0
+    )
+    return "run-0002"
+
+
 def _json(result) -> dict[str, object]:
     assert result.exit_code == 0, result.stdout
     payload = json.loads(result.stdout)
@@ -559,3 +659,131 @@ def test_expired_lock_requires_explicit_break_json_error(tmp_path: Path) -> None
     payload = json.loads(result.stdout)
     assert payload["ok"] is False
     assert payload["error"]["code"] == "STALE_LOCK_REQUIRES_BREAK"
+
+
+def test_context_for_implementer_todo_renders_focused_context(tmp_path: Path) -> None:
+    _prepare_focused_context_task(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "context",
+            "--for",
+            "implementer",
+            "--todo",
+            "todo-0001",
+            "--format",
+            "markdown",
+        ],
+    )
+
+    assert result.exit_code == 0, result.stdout
+    assert "Implementation Context" in result.stdout
+    assert "## Worker Role" in result.stdout
+    assert "role: implementer" in result.stdout
+    assert "scope: todo" in result.stdout
+    assert "focused_todo: todo-0001" in result.stdout
+    assert "## Focused Todo" in result.stdout
+    assert "todo-0001" in result.stdout
+    assert "[ ] todo-0001" not in result.stdout
+
+
+def test_context_for_spec_reviewer_run_renders_review_context(tmp_path: Path) -> None:
+    run_id = _prepare_focused_context_task(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "context",
+            "--for",
+            "spec-reviewer",
+            "--run",
+            run_id,
+            "--format",
+            "markdown",
+        ],
+    )
+
+    assert result.exit_code == 0, result.stdout
+    assert "Review Context" in result.stdout
+    assert "role: spec-reviewer" in result.stdout
+    assert "scope: run" in result.stdout
+    assert f"focused_run: {run_id}" in result.stdout
+    assert "## Spec Compliance Review" in result.stdout
+    assert "acceptance_criteria_findings" in result.stdout
+    assert "deviations_from_plan" in result.stdout
+
+
+def test_context_for_code_reviewer_run_renders_review_context(tmp_path: Path) -> None:
+    run_id = _prepare_focused_context_task(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "context",
+            "--for",
+            "code-reviewer",
+            "--run",
+            run_id,
+            "--format",
+            "markdown",
+        ],
+    )
+
+    assert result.exit_code == 0, result.stdout
+    assert "Review Context" in result.stdout
+    assert "role: code-reviewer" in result.stdout
+    assert "scope: run" in result.stdout
+    assert f"focused_run: {run_id}" in result.stdout
+    assert "## Code Quality Review" in result.stdout
+    assert "maintainability" in result.stdout
+    assert "test_coverage_gaps" in result.stdout
+
+
+def test_handoff_create_and_show_focused_todo_snapshot(tmp_path: Path) -> None:
+    _prepare_focused_context_task(tmp_path)
+
+    create_result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "handoff",
+            "create",
+            "--mode",
+            "implementation",
+            "--todo",
+            "todo-0001",
+        ],
+    )
+    payload = _json(create_result)
+    assert payload["result"]["mode"] == "implementation"
+    assert payload["result"]["context_for"] == "implementer"
+    assert payload["result"]["scope"] == "todo"
+    assert payload["result"]["todo_id"] == "todo-0001"
+    assert str(payload["result"]["context_hash"]).startswith("sha256:")
+
+    show_result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "handoff",
+            "show",
+            "handoff-0001",
+            "--format",
+            "markdown",
+        ],
+    )
+    assert show_result.exit_code == 0, show_result.stdout
+    assert "Implementation Context" in show_result.stdout
+    assert "## Worker Role" in show_result.stdout
+    assert "## Focused Todo" in show_result.stdout
+    assert "todo-0001" in show_result.stdout

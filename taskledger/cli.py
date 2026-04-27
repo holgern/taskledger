@@ -29,6 +29,7 @@ from taskledger.cli_common import (
     emit_error,
     emit_payload,
     launch_error_exit_code,
+    render_json,
     resolve_cli_task,
     resolve_workspace_root,
 )
@@ -120,9 +121,22 @@ def context_command(
         str,
         typer.Option(
             "--for",
-            help="Context mode: planning, implementation, validation, review, full.",
+            help=(
+                "Context role: planner, implementer, validator, "
+                "spec-reviewer, code-reviewer, reviewer, full."
+            ),
         ),
     ] = "full",
+    scope: Annotated[
+        str | None,
+        typer.Option("--scope", help="Context scope: task, todo, or run."),
+    ] = None,
+    todo_id: Annotated[
+        str | None, typer.Option("--todo", help="Focus on one todo id.")
+    ] = None,
+    focus_run_id: Annotated[
+        str | None, typer.Option("--run", help="Focus on one run id.")
+    ] = None,
     format_name: Annotated[str, typer.Option("--format")] = "markdown",
 ) -> None:
     state = ctx.obj
@@ -132,13 +146,23 @@ def context_command(
         payload = render_handoff(
             state.cwd,
             task.id,
-            mode=context_for,
+            context_for=context_for,
+            scope=scope,
+            todo_id=todo_id,
+            focus_run_id=focus_run_id,
             format_name=format_name,
         )
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-    emit_payload(ctx, payload, human=payload if isinstance(payload, str) else None)
+    human = (
+        payload
+        if isinstance(payload, str)
+        else render_json(payload)
+        if format_name == "json"
+        else None
+    )
+    emit_payload(ctx, payload, human=human)
 
 
 @app.callback()

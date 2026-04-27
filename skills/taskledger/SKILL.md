@@ -119,6 +119,19 @@ The plan file should use version ids like `plan-v1`, `plan-v2` in references. Do
 - Use `taskledger file add --path ... --kind code|test|doc|config|dir|other` for files that matter.
 - Store failed validation; do not hide it.
 
+## Fresh-worker context protocol
+
+Use focused contexts for one-worker tasks:
+
+- Implement one todo:
+  `taskledger context --for implementer --todo todo-0003`
+- Review spec compliance for an implementation run:
+  `taskledger context --for spec-reviewer --run run-0008`
+- Review code quality for an implementation run:
+  `taskledger context --for code-reviewer --run run-0008`
+- Store durable handoff context before switching harness:
+  `taskledger handoff create --mode implementation --todo todo-0003`
+
 ## Handoff protocol
 
 Use durable handoffs when switching harnesses or switching between human and agent work.
@@ -167,9 +180,13 @@ taskledger plan upsert --from-answers --file ./plan.md
 taskledger plan lint --version 1
 taskledger plan accept --version 1 --note "User approved in harness."
 taskledger context --for implementation --format markdown
+taskledger context --for implementer --todo todo-0003
+taskledger context --for spec-reviewer --run run-0008
+taskledger context --for code-reviewer --run run-0008
 taskledger implement change --path taskledger/services/tasks.py --kind edit --summary "Hardened validation gates."
 taskledger todo done todo-0001 --evidence "uv run pytest -q" --artifact tests/test_parser.py
 taskledger validate check --criterion ac-0001 --status pass --evidence "uv run pytest -q"
+taskledger handoff create --mode implementation --todo todo-0003 --intended-actor agent --intended-harness codex --summary "Ready for focused implementation."
 taskledger handoff create --mode validation --intended-actor agent --intended-harness codex --summary "Ready for validation."
 taskledger task dossier --format markdown
 ```

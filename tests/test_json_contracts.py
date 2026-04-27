@@ -119,3 +119,39 @@ def test_json_failure_envelope_includes_structured_error(tmp_path: Path) -> None
     assert payload["error"]["code"] == "WORKFLOW_REJECTION"
     assert payload["error"]["message"]
     assert payload["error"]["exit_code"] == 3
+
+
+def test_context_missing_todo_focus_returns_json_error(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+    runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "create",
+            "focus-error",
+            "--description",
+            "Need an active task for context errors.",
+        ],
+    )
+    runner.invoke(app, ["--cwd", str(tmp_path), "task", "activate", "focus-error"])
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "context",
+            "--for",
+            "implementer",
+            "--scope",
+            "todo",
+        ],
+    )
+
+    assert result.exit_code == 1
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is False
+    assert payload["error"]["message"] == "--scope todo requires --todo"

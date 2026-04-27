@@ -574,6 +574,10 @@ def register_handoff_v2_commands(app: typer.Typer) -> None:
     def create_command(
         ctx: typer.Context,
         mode: Annotated[str, typer.Option("--mode")],
+        context_for: Annotated[str | None, typer.Option("--for")] = None,
+        scope: Annotated[str | None, typer.Option("--scope")] = None,
+        todo_id: Annotated[str | None, typer.Option("--todo")] = None,
+        focus_run_id: Annotated[str | None, typer.Option("--run")] = None,
         intended_actor: Annotated[str | None, typer.Option("--intended-actor")] = None,
         intended_harness: Annotated[
             str | None, typer.Option("--intended-harness")
@@ -589,6 +593,10 @@ def register_handoff_v2_commands(app: typer.Typer) -> None:
                 state.cwd,
                 task.id,
                 mode=mode,
+                context_for=context_for,
+                scope=scope,
+                todo_id=todo_id,
+                focus_run_id=focus_run_id,
                 intended_actor_type=intended_actor,
                 intended_harness=intended_harness,
                 summary=summary,
@@ -675,11 +683,20 @@ def register_handoff_v2_commands(app: typer.Typer) -> None:
         state = cli_state_from_context(ctx)
         try:
             task = resolve_cli_task(state.cwd, task_ref)
-            payload = show_handoff(state.cwd, task.id, handoff_id)
+            payload = show_handoff(
+                state.cwd, task.id, handoff_id, format_name=format_name
+            )
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-        emit_payload(ctx, payload, human=str(payload))
+        human = (
+            payload
+            if isinstance(payload, str)
+            else render_json(payload)
+            if format_name == "json"
+            else None
+        )
+        emit_payload(ctx, payload, human=human)
 
     @app.command("plan-context")
     def plan_context_command(
@@ -847,7 +864,14 @@ def _emit_handoff(
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-    emit_payload(ctx, payload, human=payload if isinstance(payload, str) else None)
+    human = (
+        payload
+        if isinstance(payload, str)
+        else render_json(payload)
+        if format_name == "json"
+        else None
+    )
+    emit_payload(ctx, payload, human=human)
 
 
 def _expired_locks_human(payload: object) -> str:

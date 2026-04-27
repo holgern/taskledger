@@ -140,6 +140,21 @@ taskledger handoff claim handoff-0001
 taskledger handoff close handoff-0001 --reason "Implementation started."
 ```
 
+## Fresh-worker contexts
+
+Use focused contexts when handing one todo or one review run to a fresh worker:
+
+```bash
+taskledger context --for implementer --todo todo-0003
+taskledger context --for spec-reviewer --run run-0008
+taskledger context --for code-reviewer --run run-0008
+taskledger handoff create --mode implementation --todo todo-0003
+taskledger handoff show handoff-0001 --format markdown
+```
+
+`handoff create` now stores the generated Markdown context snapshot in the handoff
+record so another harness can continue from the exact same input.
+
 ## Multi-Actor Handoff Protocol
 
 The handoff protocol enables safe work transitions between human and agent actors across different harnesses:
@@ -161,13 +176,13 @@ The handoff protocol enables safe work transitions between human and agent actor
 $ taskledger actor whoami
 
 # Create a handoff
-$ taskledger handoff create --task task-0001 --mode implementation
+$ taskledger handoff create --task task-0001 --mode implementation --todo todo-0003
 
 # Claim it
 $ taskledger handoff claim handoff-0001 --task task-0001
 
 # Show details
-$ taskledger handoff show handoff-0001 --task task-0001
+$ taskledger handoff show handoff-0001 --task task-0001 --format text
 
 # Close when done
 $ taskledger handoff close handoff-0001 --task task-0001 --reason "Continued."

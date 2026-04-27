@@ -45,6 +45,28 @@ Positional refs are reserved for the direct resource being changed or shown:
    taskledger handoff show HANDOFF_ID --task TASK_REF
    taskledger require add REQUIRED_TASK_REF --task TASK_REF
 
+Focused context and handoff options
+-----------------------------------
+
+Focused worker contexts keep lifecycle ``mode`` separate from worker-role
+``--for``:
+
+.. code-block:: bash
+
+   taskledger context --for planner|implementer|validator|spec-reviewer|code-reviewer|reviewer|full [--scope task|todo|run] [--todo TODO_ID] [--run RUN_ID] [--format markdown|json|text] [--task TASK_REF]
+   taskledger handoff create --mode planning|implementation|validation|review|full [--for planner|implementer|validator|spec-reviewer|code-reviewer|reviewer|full] [--scope task|todo|run] [--todo TODO_ID] [--run RUN_ID] [--task TASK_REF]
+   taskledger handoff show HANDOFF_ID --format text|markdown|json [--task TASK_REF]
+
+Rules:
+
+* ``--todo`` implies ``--scope todo``.
+* ``--run`` implies ``--scope run``.
+* ``--scope todo`` requires ``--todo``.
+* ``--scope run`` requires ``--run``.
+* ``--for implementation|validation|planning|review|full`` remain accepted as
+  compatibility aliases.
+* ``handoff show --format markdown`` prints the stored snapshot body.
+
 Removed Pre-Release Aliases
 ---------------------------
 

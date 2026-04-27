@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from taskledger.domain.models import ActorRef, HarnessRef, TaskHandoffRecord
@@ -63,28 +64,14 @@ def claim_handoff(
 
     # Create new handoff with claim info
     released_lock_id = handoff.released_lock_id
-    updated = TaskHandoffRecord(
-        handoff_id=handoff.handoff_id,
-        task_id=handoff.task_id,
-        mode=handoff.mode,
+    updated = replace(
+        handoff,
         status="claimed",
-        created_at=handoff.created_at,
-        created_by=handoff.created_by,
-        created_from_harness=handoff.created_from_harness,
-        intended_actor_type=handoff.intended_actor_type,
-        intended_actor_name=handoff.intended_actor_name,
-        intended_harness=handoff.intended_harness,
-        source_run_id=handoff.source_run_id,
-        resumes_run_id=handoff.resumes_run_id,
         claim_run_id=new_run_id,
-        lock_policy=handoff.lock_policy,
         released_lock_id=released_lock_id,
         claimed_at=utc_now_iso(),
         claimed_by=resolved_actor,
         claimed_in_harness=resolved_harness,
-        summary=handoff.summary,
-        next_action=handoff.next_action,
-        context_body=handoff.context_body,
     )
 
     # Handle lock transfer if applicable
@@ -98,29 +85,7 @@ def claim_handoff(
                 workspace_root, task.id, lock.lock_id, resolved_actor, resolved_harness
             )
             released_lock_id = lock.lock_id
-            updated = TaskHandoffRecord(
-                handoff_id=updated.handoff_id,
-                task_id=updated.task_id,
-                mode=updated.mode,
-                status=updated.status,
-                created_at=updated.created_at,
-                created_by=updated.created_by,
-                created_from_harness=updated.created_from_harness,
-                intended_actor_type=updated.intended_actor_type,
-                intended_actor_name=updated.intended_actor_name,
-                intended_harness=updated.intended_harness,
-                source_run_id=updated.source_run_id,
-                resumes_run_id=updated.resumes_run_id,
-                claim_run_id=updated.claim_run_id,
-                lock_policy=updated.lock_policy,
-                released_lock_id=released_lock_id,
-                claimed_at=updated.claimed_at,
-                claimed_by=updated.claimed_by,
-                claimed_in_harness=updated.claimed_in_harness,
-                summary=updated.summary,
-                next_action=updated.next_action,
-                context_body=updated.context_body,
-            )
+            updated = replace(updated, released_lock_id=released_lock_id)
     elif handoff.lock_policy == "release" and handoff.source_run_id:
         task = resolve_task(workspace_root, task_id)
         lock = resolve_lock(workspace_root, task.id)
@@ -129,29 +94,7 @@ def claim_handoff(
 
             release_lock(workspace_root, task.id, lock.lock_id)
             released_lock_id = lock.lock_id
-            updated = TaskHandoffRecord(
-                handoff_id=updated.handoff_id,
-                task_id=updated.task_id,
-                mode=updated.mode,
-                status=updated.status,
-                created_at=updated.created_at,
-                created_by=updated.created_by,
-                created_from_harness=updated.created_from_harness,
-                intended_actor_type=updated.intended_actor_type,
-                intended_actor_name=updated.intended_actor_name,
-                intended_harness=updated.intended_harness,
-                source_run_id=updated.source_run_id,
-                resumes_run_id=updated.resumes_run_id,
-                claim_run_id=updated.claim_run_id,
-                lock_policy=updated.lock_policy,
-                released_lock_id=released_lock_id,
-                claimed_at=updated.claimed_at,
-                claimed_by=updated.claimed_by,
-                claimed_in_harness=updated.claimed_in_harness,
-                summary=updated.summary,
-                next_action=updated.next_action,
-                context_body=updated.context_body,
-            )
+            updated = replace(updated, released_lock_id=released_lock_id)
 
     save_handoff(workspace_root, updated)
     return updated
@@ -174,28 +117,10 @@ def close_handoff(
     resolved_actor = actor or resolve_actor()
     _ = resolved_actor  # used for actor resolution side-effect
 
-    updated = TaskHandoffRecord(
-        handoff_id=handoff.handoff_id,
-        task_id=handoff.task_id,
-        mode=handoff.mode,
+    updated = replace(
+        handoff,
         status="closed",
-        created_at=handoff.created_at,
-        created_by=handoff.created_by,
-        created_from_harness=handoff.created_from_harness,
-        intended_actor_type=handoff.intended_actor_type,
-        intended_actor_name=handoff.intended_actor_name,
-        intended_harness=handoff.intended_harness,
-        source_run_id=handoff.source_run_id,
-        resumes_run_id=handoff.resumes_run_id,
-        claim_run_id=handoff.claim_run_id,
-        lock_policy=handoff.lock_policy,
-        released_lock_id=handoff.released_lock_id,
-        claimed_at=handoff.claimed_at,
-        claimed_by=handoff.claimed_by,
-        claimed_in_harness=handoff.claimed_in_harness,
         summary=reason or handoff.summary,
-        next_action=handoff.next_action,
-        context_body=handoff.context_body,
     )
 
     save_handoff(workspace_root, updated)
@@ -219,28 +144,10 @@ def cancel_handoff(
     resolved_actor = actor or resolve_actor()
     _ = resolved_actor  # used for actor resolution side-effect
 
-    updated = TaskHandoffRecord(
-        handoff_id=handoff.handoff_id,
-        task_id=handoff.task_id,
-        mode=handoff.mode,
+    updated = replace(
+        handoff,
         status="cancelled",
-        created_at=handoff.created_at,
-        created_by=handoff.created_by,
-        created_from_harness=handoff.created_from_harness,
-        intended_actor_type=handoff.intended_actor_type,
-        intended_actor_name=handoff.intended_actor_name,
-        intended_harness=handoff.intended_harness,
-        source_run_id=handoff.source_run_id,
-        resumes_run_id=handoff.resumes_run_id,
-        claim_run_id=handoff.claim_run_id,
-        lock_policy=handoff.lock_policy,
-        released_lock_id=handoff.released_lock_id,
-        claimed_at=handoff.claimed_at,
-        claimed_by=handoff.claimed_by,
-        claimed_in_harness=handoff.claimed_in_harness,
         summary=reason or handoff.summary,
-        next_action=handoff.next_action,
-        context_body=handoff.context_body,
     )
 
     save_handoff(workspace_root, updated)

@@ -7,6 +7,9 @@ from taskledger.domain.states import (
     TASKLEDGER_SCHEMA_VERSION,
     TASKLEDGER_V2_FILE_VERSION,
     ActiveTaskStatusStage,
+    ContextFor,
+    ContextFormat,
+    ContextScope,
     FileLinkKind,
     PlanStatus,
     QuestionStatus,
@@ -17,6 +20,9 @@ from taskledger.domain.states import (
     ValidationResult,
     normalize_actor_role,
     normalize_actor_type,
+    normalize_context_for,
+    normalize_context_format,
+    normalize_context_scope,
     normalize_file_link_kind,
     normalize_handoff_mode,
     normalize_handoff_status,
@@ -138,6 +144,13 @@ class TaskHandoffRecord:
     handoff_id: str
     task_id: str
     mode: Literal["planning", "implementation", "validation", "review", "full"]
+    context_for: ContextFor | None = field(default=None)
+    scope: ContextScope = field(default="task")
+    todo_id: str | None = field(default=None)
+    focus_run_id: str | None = field(default=None)
+    context_format: ContextFormat = field(default="markdown")
+    context_hash: str | None = field(default=None)
+    generated_at: str | None = field(default=None)
 
     status: Literal["open", "claimed", "closed", "cancelled"] = field(default="open")
     lock_policy: Literal["none", "retain", "release", "transfer"] = field(
@@ -170,6 +183,13 @@ class TaskHandoffRecord:
             "handoff_id": self.handoff_id,
             "task_id": self.task_id,
             "mode": self.mode,
+            "context_for": self.context_for,
+            "scope": self.scope,
+            "todo_id": self.todo_id,
+            "focus_run_id": self.focus_run_id,
+            "context_format": self.context_format,
+            "context_hash": self.context_hash,
+            "generated_at": self.generated_at,
             "status": self.status,
             "created_at": self.created_at,
             "created_by": self.created_by.to_dict(),
@@ -206,6 +226,21 @@ class TaskHandoffRecord:
             handoff_id=_string_value(data, "handoff_id"),
             task_id=_string_value(data, "task_id"),
             mode=normalize_handoff_mode(_string_value(data, "mode")),
+            context_for=(
+                normalize_context_for(v)
+                if (v := _optional_string(data.get("context_for")))
+                else None
+            ),
+            scope=normalize_context_scope(
+                _optional_string(data.get("scope")) or "task"
+            ),
+            todo_id=_optional_string(data.get("todo_id")),
+            focus_run_id=_optional_string(data.get("focus_run_id")),
+            context_format=normalize_context_format(
+                _optional_string(data.get("context_format")) or "markdown"
+            ),
+            context_hash=_optional_string(data.get("context_hash")),
+            generated_at=_optional_string(data.get("generated_at")),
             status=normalize_handoff_status(
                 _optional_string(data.get("status")) or "open"
             ),

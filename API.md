@@ -149,6 +149,44 @@ from taskledger.errors import (
 - `close_handoff_api`
 - `cancel_handoff_api`
 
+Current focused-context signatures:
+
+```python
+render_handoff(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    mode: str | None = None,
+    context_for: str | None = None,
+    scope: str | None = None,
+    todo_id: str | None = None,
+    focus_run_id: str | None = None,
+    format_name: str = "markdown",
+) -> str | dict[str, object]
+
+create_handoff(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    mode: str,
+    context_for: str | None = None,
+    scope: str | None = None,
+    todo_id: str | None = None,
+    focus_run_id: str | None = None,
+    intended_actor_type: str | None = None,
+    intended_actor_name: str | None = None,
+    intended_harness: str | None = None,
+    summary: str | None = None,
+    next_action: str | None = None,
+    actor: ActorRef | None = None,
+    harness: HarnessRef | None = None,
+) -> dict[str, object]
+```
+
+Focused handoffs store the generated Markdown context snapshot in the handoff
+record body and return compact metadata, including `context_hash` and
+`context_path`.
+
 ### `taskledger.api.search`
 
 - `search_workspace`

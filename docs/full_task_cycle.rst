@@ -178,6 +178,14 @@ Use ``implement command`` when you want taskledger to record a command run as
 part of implementation. Use ``implement deviation`` when the implementation
 differs from the approved plan.
 
+Fresh-worker implementation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: bash
+
+   taskledger handoff create --mode implementation --todo todo-0003
+   taskledger context --for implementer --todo todo-0003
+
 8. Complete Implementation Todos
 --------------------------------
 
@@ -222,6 +230,14 @@ If a criterion is intentionally not validated, a user can waive it:
    taskledger validate waive --criterion ac-0003 --reason "Covered by upstream integration test." --actor user
 
 Waivers should be rare and explicit.
+
+Fresh-worker review
+~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: bash
+
+   taskledger context --for spec-reviewer --run run-0008
+   taskledger context --for code-reviewer --run run-0008
 
 10. Close The Task
 ------------------

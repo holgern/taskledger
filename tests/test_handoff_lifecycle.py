@@ -17,6 +17,8 @@ from taskledger.services.handoff_lifecycle import (
     claim_handoff,
     close_handoff,
 )
+from taskledger.services.tasks import add_todo
+from taskledger.storage.v2 import resolve_handoff
 
 
 def test_handoff_creation():
@@ -152,10 +154,13 @@ def test_handoff_modes():
         init_project(workspace)
         create_task(workspace, title="Test Task", description="Test", slug="task-0001")
 
-        modes = ["planning", "implementation", "validation", "review", "delivery"]
+        modes = ["planning", "implementation", "validation", "review", "full"]
         for mode in modes:
             result = create_handoff(workspace, "task-0001", mode=mode)
             assert result["mode"] == mode
+
+        with pytest.raises(LaunchError, match="Unsupported handoff mode"):
+            create_handoff(workspace, "task-0001", mode="delivery")
 
 
 def test_handoff_with_summary():
@@ -211,3 +216,85 @@ def test_handoff_lifecycle_sequence():
             workspace, "task-0001", handoff_id, reason="Work completed"
         )
         assert closed.status == "closed"
+
+
+def test_handoff_create_stores_generated_context_for_todo() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        workspace = Path(tmpdir)
+        init_project(workspace)
+        create_task(workspace, title="Test Task", description="Test", slug="task-0001")
+        add_todo(
+            workspace,
+            "task-0001",
+            text="Implement the focused todo",
+            mandatory=True,
+        )
+
+        result = create_handoff(
+            workspace,
+            "task-0001",
+            mode="implementation",
+            todo_id="todo-0001",
+        )
+
+        assert result["context_for"] == "implementer"
+        assert result["scope"] == "todo"
+        assert result["todo_id"] == "todo-0001"
+        assert str(result["context_hash"]).startswith("sha256:")
+
+        handoff = resolve_handoff(workspace, "task-0001", result["handoff_id"])
+        assert handoff.context_body
+        assert "## Focused Todo" in handoff.context_body
+        assert "todo-0001" in handoff.context_body
+
+
+def test_handoff_lifecycle_preserves_context_metadata_on_claim_close_cancel() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        workspace = Path(tmpdir)
+        init_project(workspace)
+        create_task(workspace, title="Test Task", description="Test", slug="task-0001")
+        add_todo(
+            workspace,
+            "task-0001",
+            text="Implement the focused todo",
+            mandatory=True,
+        )
+
+        created = create_handoff(
+            workspace,
+            "task-0001",
+            mode="implementation",
+            todo_id="todo-0001",
+        )
+        handoff_id = str(created["handoff_id"])
+
+        claim_handoff(workspace, "task-0001", handoff_id)
+        claimed = resolve_handoff(workspace, "task-0001", handoff_id)
+        assert claimed.context_for == "implementer"
+        assert claimed.scope == "todo"
+        assert claimed.todo_id == "todo-0001"
+        assert claimed.focus_run_id is None
+        assert claimed.context_hash == created["context_hash"]
+        assert claimed.context_body
+
+        close_handoff(workspace, "task-0001", handoff_id, reason="done")
+        closed = resolve_handoff(workspace, "task-0001", handoff_id)
+        assert closed.context_for == "implementer"
+        assert closed.scope == "todo"
+        assert closed.todo_id == "todo-0001"
+        assert closed.context_hash == created["context_hash"]
+        assert closed.context_body == claimed.context_body
+
+        second = create_handoff(
+            workspace,
+            "task-0001",
+            mode="implementation",
+            todo_id="todo-0001",
+        )
+        cancel_handoff(workspace, "task-0001", str(second["handoff_id"]), reason="skip")
+        cancelled = resolve_handoff(workspace, "task-0001", str(second["handoff_id"]))
+        assert cancelled.context_for == "implementer"
+        assert cancelled.scope == "todo"
+        assert cancelled.todo_id == "todo-0001"
+        assert cancelled.context_hash == second["context_hash"]
+        assert cancelled.context_body

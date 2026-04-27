@@ -833,6 +833,8 @@ def list_handoffs(workspace_root: Path, task_id: str) -> list[TaskHandoffRecord]
     for md_file in handoffs_dir.glob("*.md"):
         try:
             metadata, _ = read_markdown_front_matter(md_file)
+            metadata = dict(metadata)
+            metadata["context_body"] = ""
             handoff = TaskHandoffRecord.from_dict(metadata)
             result.append(handoff)
         except Exception:
@@ -847,7 +849,9 @@ def resolve_handoff(
     path = handoff_markdown_path(paths, task_id, handoff_ref)
     if not path.exists():
         raise LaunchError(f"Handoff not found: {handoff_ref}")
-    metadata, _ = read_markdown_front_matter(path)
+    metadata, body = read_markdown_front_matter(path)
+    metadata = dict(metadata)
+    metadata["context_body"] = body or str(metadata.get("context_body") or "")
     return TaskHandoffRecord.from_dict(metadata)
 
 
@@ -857,6 +861,7 @@ def save_handoff(workspace_root: Path, handoff: TaskHandoffRecord) -> Path:
     handoffs_dir.mkdir(parents=True, exist_ok=True)
     path = handoff_markdown_path(paths, handoff.task_id, handoff.handoff_id)
     metadata = handoff.to_dict()
+    metadata.pop("context_body", None)
     content = handoff.context_body or ""
     _write_markdown_record(path, metadata, content)
     return path

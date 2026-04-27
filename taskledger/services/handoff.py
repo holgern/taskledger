@@ -1,10 +1,20 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-from taskledger.domain.models import TaskRunRecord
+from taskledger.domain.models import CodeChangeRecord, TaskRunRecord, TaskTodo
 from taskledger.domain.policies import derive_active_stage
+from taskledger.domain.states import (
+    ContextFor,
+    ContextScope,
+    HandoffMode,
+    normalize_context_for,
+    normalize_context_format,
+    normalize_context_scope,
+    normalize_handoff_mode,
+)
 from taskledger.errors import LaunchError
 from taskledger.storage.locks import lock_is_expired, lock_status, read_lock
 from taskledger.storage.v2 import (
@@ -17,35 +27,137 @@ from taskledger.storage.v2 import (
     load_todos,
     resolve_introduction,
     resolve_plan,
+    resolve_run,
     resolve_task,
     resolve_v2_paths,
     task_lock_path,
 )
 
 
+@dataclass(frozen=True)
+class ContextRequest:
+    mode: HandoffMode
+    context_for: ContextFor
+    scope: ContextScope = "task"
+    todo_id: str | None = None
+    focus_run_id: str | None = None
+    format_name: str = "markdown"
+
+
 def render_handoff(
     workspace_root: Path,
     task_ref: str,
     *,
-    mode: str,
+    mode: str | None = None,
+    context_for: str | None = None,
+    scope: str | None = None,
+    todo_id: str | None = None,
+    focus_run_id: str | None = None,
     format_name: str = "markdown",
 ) -> str | dict[str, object]:
-    mode = _canonical_mode(mode)
-    payload = build_handoff_payload(workspace_root, task_ref, mode=mode)
-    if format_name == "json":
+    request = build_context_request(
+        mode=mode,
+        context_for=context_for,
+        scope=scope,
+        todo_id=todo_id,
+        focus_run_id=focus_run_id,
+        format_name=format_name,
+    )
+    payload = build_handoff_payload(
+        workspace_root,
+        task_ref,
+        mode=request.mode,
+        context_for=request.context_for,
+        scope=request.scope,
+        todo_id=request.todo_id,
+        focus_run_id=request.focus_run_id,
+        format_name=request.format_name,
+    )
+    if request.format_name == "json":
         return payload
-    if format_name not in {"markdown", "text"}:
-        raise LaunchError(f"Unsupported handoff format: {format_name}")
     return render_markdown_handoff(payload)
+
+
+def build_context_request(
+    *,
+    mode: str | None = None,
+    context_for: str | None = None,
+    scope: str | None = None,
+    todo_id: str | None = None,
+    focus_run_id: str | None = None,
+    format_name: str = "markdown",
+) -> ContextRequest:
+    resolved_format = normalize_context_format(format_name)
+    resolved_mode = normalize_handoff_mode(_canonical_mode(mode)) if mode else None
+    resolved_for = normalize_context_for(context_for) if context_for else None
+
+    if resolved_for is None and resolved_mode is None:
+        resolved_for = "full"
+        resolved_mode = "full"
+    elif resolved_for is None:
+        assert resolved_mode is not None
+        resolved_for = _default_context_for(resolved_mode)
+    else:
+        inferred_mode = _mode_for_context_for(resolved_for)
+        if resolved_mode is None:
+            resolved_mode = inferred_mode
+        elif resolved_mode != inferred_mode:
+            raise LaunchError(
+                "Context role "
+                f"{resolved_for!r} is incompatible with mode {resolved_mode!r}"
+            )
+
+    assert resolved_mode is not None
+    explicit_scope = normalize_context_scope(scope) if scope else None
+    resolved_scope = explicit_scope or "task"
+    if todo_id is not None:
+        if explicit_scope is not None and explicit_scope != "todo":
+            raise LaunchError("--todo implies --scope todo")
+        resolved_scope = "todo"
+    if focus_run_id is not None:
+        if explicit_scope is not None and explicit_scope != "run":
+            raise LaunchError("--run implies --scope run")
+        resolved_scope = "run"
+    if resolved_scope == "todo" and not todo_id:
+        raise LaunchError("--scope todo requires --todo")
+    if resolved_scope == "run" and not focus_run_id:
+        raise LaunchError("--scope run requires --run")
+    if (
+        resolved_for in {"spec-reviewer", "code-reviewer"}
+        and focus_run_id is None
+        and explicit_scope is None
+    ):
+        raise LaunchError(f"{resolved_for} context requires --run or --scope task")
+
+    return ContextRequest(
+        mode=resolved_mode,
+        context_for=resolved_for,
+        scope=resolved_scope,
+        todo_id=todo_id,
+        focus_run_id=focus_run_id,
+        format_name=resolved_format,
+    )
 
 
 def build_handoff_payload(
     workspace_root: Path,
     task_ref: str,
     *,
-    mode: str,
+    mode: str | None = None,
+    context_for: str | None = None,
+    scope: str | None = None,
+    todo_id: str | None = None,
+    focus_run_id: str | None = None,
+    format_name: str = "markdown",
 ) -> dict[str, object]:
-    mode = _canonical_mode(mode)
+    request = build_context_request(
+        mode=mode,
+        context_for=context_for,
+        scope=scope,
+        todo_id=todo_id,
+        focus_run_id=focus_run_id,
+        format_name=format_name,
+    )
     task = resolve_task(workspace_root, task_ref)
     intro = (
         resolve_introduction(workspace_root, task.introduction_ref)
@@ -55,6 +167,7 @@ def build_handoff_payload(
     plans = list_plans(workspace_root, task.id)
     questions = list_questions(workspace_root, task.id)
     runs = list_runs(workspace_root, task.id)
+    todos = list(load_todos(workspace_root, task.id).todos)
     changes = list_changes(workspace_root, task.id)
     accepted_plan = (
         resolve_plan(workspace_root, task.id, version=task.accepted_plan_version)
@@ -83,6 +196,7 @@ def build_handoff_payload(
             }
         )
 
+    focus = _resolve_focus(workspace_root, task.id, request, todos, runs, changes)
     open_questions = [item.to_dict() for item in questions if item.status == "open"]
     answered_questions = [
         item.to_dict() for item in questions if item.status == "answered"
@@ -97,17 +211,21 @@ def build_handoff_payload(
     ]
 
     validation_status_report = None
-    if mode in {"validation", "full"}:
+    if request.context_for in {"validator", "full"}:
         from taskledger.services.tasks import _build_validation_gate_report
 
         validation_status_report = _build_validation_gate_report(workspace_root, task)
 
     return {
         "kind": "task_handoff",
-        "mode": mode,
+        "mode": request.mode,
+        "context_for": request.context_for,
+        "scope": request.scope,
+        "context_format": request.format_name,
+        "focus": focus,
         "task": {**task.to_dict(), "active_stage": active_stage},
         "introduction": intro.to_dict() if intro is not None else None,
-        "guardrails": _guardrails_for_mode(mode),
+        "guardrails": _guardrails_for_context_for(request.context_for),
         "accepted_plan": accepted_plan.to_dict() if accepted_plan is not None else None,
         "plans": [plan.to_dict() for plan in plans],
         "questions": {
@@ -115,7 +233,8 @@ def build_handoff_payload(
             "answered": answered_questions,
             "dismissed": dismissed_questions,
         },
-        "todos": [todo.to_dict() for todo in load_todos(workspace_root, task.id).todos],
+        "todos": [todo.to_dict() for todo in todos],
+        "todo_summary": _todo_summary(todos, request.todo_id),
         "file_links": [
             item.to_dict() for item in load_links(workspace_root, task.id).links
         ],
@@ -128,13 +247,24 @@ def build_handoff_payload(
         "lock": lock.to_dict() if lock is not None else None,
         "lock_status": lock_status(lock),
         "changes": [change.to_dict() for change in changes],
+        "focused_changes": focus["focused_changes"],
         "validation_history": validation_history,
         "validation_status": validation_status_report,
+        "review_contract": (
+            {
+                "role": request.context_for,
+                "scope": request.scope,
+                "guardrails": _guardrails_for_context_for(request.context_for),
+            }
+            if request.context_for in {"reviewer", "spec-reviewer", "code-reviewer"}
+            else None
+        ),
     }
 
 
 def render_markdown_handoff(payload: dict[str, object]) -> str:
     mode = str(payload["mode"])
+    context_for = str(payload.get("context_for") or mode)
     task = payload["task"]
     assert isinstance(task, dict)
     title_prefix = {
@@ -145,6 +275,8 @@ def render_markdown_handoff(payload: dict[str, object]) -> str:
         "full": "Task Dossier",
     }.get(mode, "Task Context")
     lines = [f"# {title_prefix}: {task['title']}", ""]
+    _append_worker_role(lines, payload)
+    _append_worker_contract(lines, payload)
     _append_task_section(lines, task)
     _append_description(lines, task)
     _append_intro(lines, payload.get("introduction"))
@@ -152,20 +284,103 @@ def render_markdown_handoff(payload: dict[str, object]) -> str:
     _append_file_links(lines, payload["file_links"])
     _append_plans(lines, payload["plans"])
     _append_questions(lines, payload["questions"])
-    _append_guardrails(lines, payload["guardrails"])
-    if mode in {"full", "implementation", "validation", "review"}:
+    if context_for in {"planner"}:
+        _append_guardrails(lines, payload["guardrails"])
+        _append_required_commands(lines, payload.get("accepted_plan"))
+        _append_required_output(lines, context_for)
+        return "\n".join(lines).rstrip() + "\n"
+    if context_for in {
+        "implementer",
+        "validator",
+        "reviewer",
+        "spec-reviewer",
+        "code-reviewer",
+        "full",
+    }:
         _append_accepted_plan(lines, payload.get("accepted_plan"))
-    if mode in {"full", "implementation", "validation"}:
-        _append_todos(lines, payload["todos"])
-    if mode in {"full", "implementation"}:
+    if context_for == "implementer":
+        _append_acceptance_criteria(lines, payload.get("accepted_plan"))
+        if payload.get("scope") == "todo":
+            _append_focused_todo(lines, payload.get("focus"))
+            _append_other_todo_summary(lines, payload.get("todo_summary"))
+        else:
+            _append_todos(lines, payload["todos"])
         _append_lock_and_runs(lines, payload)
-    if mode in {"full", "validation"}:
+        _append_required_commands(lines, payload.get("accepted_plan"))
+        _append_required_output(lines, context_for)
+    elif context_for == "validator":
+        _append_todo_completion_summary(lines, payload.get("todo_summary"))
         _append_implementation_summary(lines, payload["runs"])
         _append_change_log(lines, payload["changes"])
         _append_validation_status(lines, payload.get("validation_status"))
         _append_validation_history(lines, payload["validation_history"])
-    _append_required_output(lines, mode)
+        _append_required_commands(lines, payload.get("accepted_plan"))
+        _append_required_output(lines, context_for)
+    elif context_for == "spec-reviewer":
+        _append_acceptance_criteria(lines, payload.get("accepted_plan"))
+        _append_focused_run(lines, payload.get("focus"))
+        _append_focused_changes(lines, payload.get("focused_changes"))
+        _append_plan_deviations(lines, payload.get("focus"))
+        _append_todo_updates(lines, payload.get("focus"))
+        _append_spec_review(lines)
+        _append_required_output(lines, context_for)
+    elif context_for == "code-reviewer":
+        _append_focused_run(lines, payload.get("focus"))
+        _append_focused_changes(lines, payload.get("focused_changes"))
+        _append_commands_already_run(lines, payload.get("focus"))
+        _append_code_quality_review(lines)
+        _append_required_output(lines, context_for)
+    elif context_for == "reviewer":
+        _append_focused_run(lines, payload.get("focus"))
+        _append_focused_changes(lines, payload.get("focused_changes"))
+        _append_required_output(lines, context_for)
+    elif context_for == "full":
+        _append_acceptance_criteria(lines, payload.get("accepted_plan"))
+        _append_todos(lines, payload["todos"])
+        _append_lock_and_runs(lines, payload)
+        _append_implementation_summary(lines, payload["runs"])
+        _append_change_log(lines, payload["changes"])
+        _append_validation_status(lines, payload.get("validation_status"))
+        _append_validation_history(lines, payload["validation_history"])
+        _append_required_commands(lines, payload.get("accepted_plan"))
+        _append_required_output(lines, context_for)
+    else:
+        _append_guardrails(lines, payload["guardrails"])
+        _append_required_output(lines, context_for)
     return "\n".join(lines).rstrip() + "\n"
+
+
+def _append_worker_role(lines: list[str], payload: dict[str, object]) -> None:
+    focus = payload.get("focus")
+    focused_todo = "none"
+    focused_run = "none"
+    if isinstance(focus, dict):
+        focused_todo = str(focus.get("todo_id") or "none")
+        focused_run = str(focus.get("focus_run_id") or "none")
+    lines.extend(
+        [
+            "## Worker Role",
+            "",
+            f"- role: {payload.get('context_for')}",
+            f"- lifecycle_mode: {payload.get('mode')}",
+            f"- scope: {payload.get('scope')}",
+            f"- focused_todo: {focused_todo}",
+            f"- focused_run: {focused_run}",
+            "",
+        ]
+    )
+
+
+def _append_worker_contract(lines: list[str], payload: dict[str, object]) -> None:
+    context_for = str(payload.get("context_for") or "full")
+    must_items, must_not_items = _worker_contract(context_for)
+    lines.extend(["## Worker Contract", "", "You must:"])
+    for item in must_items:
+        lines.append(f"- {item}")
+    lines.extend(["", "You must not:"])
+    for item in must_not_items:
+        lines.append(f"- {item}")
+    lines.append("")
 
 
 def _append_task_section(lines: list[str], task: dict[str, object]) -> None:
@@ -273,6 +488,20 @@ def _append_accepted_plan(lines: list[str], accepted_plan: object) -> None:
     lines.extend(["## Accepted Plan", "", str(accepted_plan.get("body") or ""), ""])
 
 
+def _append_acceptance_criteria(lines: list[str], accepted_plan: object) -> None:
+    if not isinstance(accepted_plan, dict):
+        return
+    criteria = accepted_plan.get("criteria")
+    lines.extend(["## Acceptance Criteria", ""])
+    if isinstance(criteria, list) and criteria:
+        for item in criteria:
+            if isinstance(item, dict):
+                lines.append(f"- {item['id']}: {item['text']}")
+    else:
+        lines.append("- none")
+    lines.append("")
+
+
 def _append_todos(lines: list[str], todos: object) -> None:
     if not isinstance(todos, list):
         return
@@ -288,6 +517,48 @@ def _append_todos(lines: list[str], todos: object) -> None:
             if isinstance(item, dict):
                 mark = "x" if item.get("done") else " "
                 lines.append(f"- [{mark}] {item['id']}: {item['text']}")
+    lines.append("")
+
+
+def _append_focused_todo(lines: list[str], focus: object) -> None:
+    lines.extend(["## Focused Todo", ""])
+    if not isinstance(focus, dict) or not isinstance(focus.get("todo"), dict):
+        lines.append("- none")
+        lines.append("")
+        return
+    todo = cast(dict[str, object], focus["todo"])
+    lines.append(f"- id: {todo['id']}")
+    lines.append(f"- text: {todo['text']}")
+    lines.append(f"- status: {todo['status']}")
+    if todo.get("validation_hint"):
+        lines.append(f"- validation_hint: {todo['validation_hint']}")
+    lines.append("")
+
+
+def _append_other_todo_summary(lines: list[str], summary: object) -> None:
+    lines.extend(["## Other Todo Summary", ""])
+    if not isinstance(summary, dict):
+        lines.append("- none")
+        lines.append("")
+        return
+    lines.append(f"- total: {summary.get('total', 0)}")
+    lines.append(f"- done: {summary.get('done', 0)}")
+    lines.append(f"- open: {summary.get('open', 0)}")
+    focused_index = summary.get("focused_index")
+    if focused_index is not None:
+        lines.append(f"- focused_index: {focused_index}")
+    lines.append("")
+
+
+def _append_todo_completion_summary(lines: list[str], summary: object) -> None:
+    lines.extend(["## Todo Completion Summary", ""])
+    if not isinstance(summary, dict):
+        lines.append("- none")
+        lines.append("")
+        return
+    lines.append(f"- total: {summary.get('total', 0)}")
+    lines.append(f"- done: {summary.get('done', 0)}")
+    lines.append(f"- open: {summary.get('open', 0)}")
     lines.append("")
 
 
@@ -310,6 +581,81 @@ def _append_lock_and_runs(lines: list[str], payload: dict[str, object]) -> None:
         )
     else:
         lines.append("- lock: none")
+    lines.append("")
+
+
+def _append_focused_run(lines: list[str], focus: object) -> None:
+    lines.extend(["## Focused Run", ""])
+    if not isinstance(focus, dict) or not isinstance(focus.get("run"), dict):
+        lines.append("- none")
+        lines.append("")
+        return
+    run = cast(dict[str, object], focus["run"])
+    lines.append(f"- run_id: {run['run_id']}")
+    lines.append(f"- run_type: {run['run_type']}")
+    lines.append(f"- status: {run['status']}")
+    lines.append(f"- based_on_plan: {run.get('based_on_plan') or 'none'}")
+    lines.append(f"- summary: {run.get('summary') or '(no summary)'}")
+    lines.append("")
+
+
+def _append_focused_changes(lines: list[str], changes: object) -> None:
+    if not isinstance(changes, list):
+        return
+    lines.extend(["## Focused Changes", ""])
+    for item in changes:
+        if isinstance(item, dict):
+            lines.append(f"- @{item['path']}: {item['summary']}")
+    if not changes:
+        lines.append("- none")
+    lines.append("")
+
+
+def _append_plan_deviations(lines: list[str], focus: object) -> None:
+    lines.extend(["## Plan Deviations", ""])
+    if not isinstance(focus, dict) or not isinstance(focus.get("run"), dict):
+        lines.append("- none")
+        lines.append("")
+        return
+    run = cast(dict[str, object], focus["run"])
+    deviations = run.get("deviations_from_plan")
+    if isinstance(deviations, list) and deviations:
+        for item in deviations:
+            lines.append(f"- {item}")
+    else:
+        lines.append("- none")
+    lines.append("")
+
+
+def _append_todo_updates(lines: list[str], focus: object) -> None:
+    lines.extend(["## Todo Updates from that run", ""])
+    if not isinstance(focus, dict) or not isinstance(focus.get("run"), dict):
+        lines.append("- none")
+        lines.append("")
+        return
+    run = cast(dict[str, object], focus["run"])
+    updates = run.get("todo_updates")
+    if isinstance(updates, list) and updates:
+        for item in updates:
+            lines.append(f"- {item}")
+    else:
+        lines.append("- none")
+    lines.append("")
+
+
+def _append_commands_already_run(lines: list[str], focus: object) -> None:
+    lines.extend(["## Commands already run", ""])
+    if not isinstance(focus, dict) or not isinstance(focus.get("run"), dict):
+        lines.append("- none")
+        lines.append("")
+        return
+    run = cast(dict[str, object], focus["run"])
+    evidence = run.get("evidence")
+    if isinstance(evidence, list) and evidence:
+        for item in evidence:
+            lines.append(f"- {item}")
+    else:
+        lines.append("- none")
     lines.append("")
 
 
@@ -354,14 +700,13 @@ def _append_validation_history(lines: list[str], history: object) -> None:
 
 
 def _append_validation_status(lines: list[str], status_report: object) -> None:
-    """Append current validation status to handoff before required output section."""
     if not isinstance(status_report, dict):
         return
 
     lines.extend(["## Validation Status", ""])
 
     can_finish = status_report.get("can_finish_passed", False)
-    lines.append(f"**Can Finish Passed:** {'✓ Yes' if can_finish else '✗ No'}")
+    lines.append(f"**Can Finish Passed:** {'yes' if can_finish else 'no'}")
     lines.append("")
 
     criteria = status_report.get("criteria", [])
@@ -373,11 +718,10 @@ def _append_validation_status(lines: list[str], status_report: object) -> None:
                 mandatory = criterion.get("mandatory", False)
                 satisfied = criterion.get("satisfied", False)
                 latest_status = criterion.get("latest_status", "unknown")
-
-                checkbox = "☒" if satisfied else "☐"
+                marker = "pass" if satisfied else "pending"
                 mandatory_marker = " (mandatory)" if mandatory else ""
                 lines.append(
-                    f"- {checkbox} {criterion_id}{mandatory_marker}: {latest_status}"
+                    f"- {criterion_id}{mandatory_marker}: {latest_status} [{marker}]"
                 )
         lines.append("")
 
@@ -392,57 +736,249 @@ def _append_validation_status(lines: list[str], status_report: object) -> None:
         lines.append("")
 
 
-def _append_required_output(lines: list[str], mode: str) -> None:
+def _append_required_commands(lines: list[str], accepted_plan: object) -> None:
+    lines.extend(["## Required Commands", ""])
+    if not isinstance(accepted_plan, dict):
+        lines.append("- none")
+        lines.append("")
+        return
+    commands = accepted_plan.get("test_commands")
+    if isinstance(commands, list) and commands:
+        for item in commands:
+            lines.append(f"- {item}")
+    else:
+        lines.append("- none")
+    lines.append("")
+
+
+def _append_spec_review(lines: list[str]) -> None:
+    lines.extend(
+        [
+            "## Spec Compliance Review",
+            "",
+            "- Check every acceptance criterion against the focused run evidence.",
+            "- Call out deviations_from_plan.",
+            "- Mark unclear items when evidence is missing.",
+            "",
+        ]
+    )
+
+
+def _append_code_quality_review(lines: list[str]) -> None:
+    lines.extend(
+        [
+            "## Code Quality Review",
+            "",
+            "- Check correctness and maintainability risks.",
+            "- Call out unsafe or brittle changes.",
+            "- Check test coverage gaps.",
+            "",
+        ]
+    )
+
+
+def _append_required_output(lines: list[str], context_for: str) -> None:
     section = {
-        "planning": [
+        "planner": [
             "plan body",
             "assumptions",
             "risks",
             "acceptance criteria",
             "open questions",
         ],
-        "implementation": [
+        "implementer": [
             "worklog entries",
             "code change records",
             "todo updates",
             "implementation summary",
         ],
-        "validation": [
+        "validator": [
             "structured checks",
             "evidence",
             "summary",
             "recommendation",
         ],
-        "review": ["approval decision"],
+        "reviewer": ["approval decision"],
+        "spec-reviewer": [
+            "overall_spec_result: pass|fail|blocked",
+            "acceptance_criteria_findings",
+            "todo_findings",
+            "deviations_from_plan",
+            "missing_evidence",
+            "recommended_next_action",
+        ],
+        "code-reviewer": [
+            "overall_code_quality: pass|fail|blocked",
+            "high_risk_issues",
+            "maintainability_issues",
+            "test_coverage_gaps",
+            "unsafe_or_brittle_changes",
+            "recommended_next_action",
+        ],
         "full": ["next action"],
-    }[mode]
+    }[context_for]
     lines.extend(["## Required Output", ""])
     for item in section:
         lines.append(f"- {item}")
     lines.append("")
 
 
-def _guardrails_for_mode(mode: str) -> list[str]:
-    if mode == "planning":
+def _guardrails_for_context_for(context_for: str) -> list[str]:
+    if context_for == "planner":
         return [
-            "Produce a reviewable plan body.",
-            "Call out assumptions and risks explicitly.",
-            "Do not start implementation in this context.",
+            "Produce a reviewable plan.",
+            "Ask required questions.",
+            "Do not implement.",
         ]
-    if mode == "implementation":
+    if context_for == "implementer":
         return [
-            "Implement only the accepted plan.",
-            "Log deviations explicitly.",
-            "Log every code change.",
-            "Do not validate in this context.",
+            "Implement only the accepted plan and focused todo.",
+            "Do not validate.",
+            "Log changes.",
+            "Mark todo done only with evidence.",
         ]
-    if mode == "validation":
+    if context_for == "validator":
         return [
             "Validate against the accepted plan and implementation log.",
-            "Store failed validation; do not hide it.",
-            "Report deviations from plan.",
+            "Record failed validation.",
+            "Do not modify implementation.",
+        ]
+    if context_for == "spec-reviewer":
+        return [
+            "Judge spec compliance only.",
+            "Do not rewrite code.",
+            "Avoid broad style advice unless it affects compliance.",
+        ]
+    if context_for == "code-reviewer":
+        return [
+            "Judge maintainability, correctness risks, testing, and safety.",
+            "Do not change validation state.",
+            "Do not approve task completion.",
         ]
     return ["Use this handoff as the source of truth for the next step."]
+
+
+def _worker_contract(context_for: str) -> tuple[list[str], list[str]]:
+    if context_for == "implementer":
+        return (
+            [
+                "implement only the focused todo when one is selected",
+                "preserve accepted plan constraints",
+                "log implementation changes",
+                "mark the focused todo done only with evidence",
+            ],
+            [
+                "validate the task",
+                "mark unrelated todos done",
+                "change the approved plan",
+            ],
+        )
+    if context_for == "validator":
+        return (
+            [
+                "validate against the accepted plan and implementation record",
+                "record failed and blocked validation explicitly",
+            ],
+            [
+                "modify implementation code",
+                "approve missing evidence implicitly",
+            ],
+        )
+    if context_for == "spec-reviewer":
+        return (
+            [
+                "judge whether the focused run satisfies the plan and "
+                "acceptance criteria",
+                "cite concrete evidence for pass, fail, or unclear findings",
+            ],
+            [
+                "rewrite code",
+                "change validation state",
+                "give broad style advice unrelated to compliance",
+            ],
+        )
+    if context_for == "code-reviewer":
+        return (
+            [
+                "judge maintainability, correctness risk, testing, and safety",
+                "cite concrete evidence for risky changes",
+            ],
+            [
+                "change validation state",
+                "approve task completion",
+            ],
+        )
+    if context_for == "planner":
+        return (
+            [
+                "produce a reviewable plan body",
+                "surface assumptions and open questions",
+            ],
+            ["start implementation"],
+        )
+    if context_for == "full":
+        return (
+            ["use this dossier as the durable source of truth"],
+            ["assume chat history"],
+        )
+    return (
+        ["use this handoff as the source of truth"],
+        ["ignore recorded state"],
+    )
+
+
+def _resolve_focus(
+    workspace_root: Path,
+    task_id: str,
+    request: ContextRequest,
+    todos: list[TaskTodo],
+    runs: list[TaskRunRecord],
+    changes: list[CodeChangeRecord],
+) -> dict[str, object]:
+    focused_todo = None
+    focused_run = None
+    focused_changes: list[dict[str, object]] = []
+
+    if request.scope == "todo":
+        normalized_todo_id = request.todo_id
+        for todo in todos:
+            if todo.id == normalized_todo_id:
+                focused_todo = todo
+                break
+        if focused_todo is None:
+            raise LaunchError(f"Todo not found: {request.todo_id}")
+    elif request.scope == "run":
+        assert request.focus_run_id is not None
+        focused_run = resolve_run(workspace_root, task_id, request.focus_run_id)
+        focused_changes = [
+            change.to_dict()
+            for change in changes
+            if change.implementation_run == focused_run.run_id
+        ]
+
+    return {
+        "todo_id": request.todo_id,
+        "todo": focused_todo.to_dict() if focused_todo is not None else None,
+        "focus_run_id": request.focus_run_id,
+        "run": focused_run.to_dict() if focused_run is not None else None,
+        "focused_changes": focused_changes,
+    }
+
+
+def _todo_summary(
+    todos: list[TaskTodo], focused_todo_id: str | None
+) -> dict[str, object]:
+    focused_index = None
+    for index, todo in enumerate(todos, start=1):
+        if todo.id == focused_todo_id:
+            focused_index = index
+            break
+    return {
+        "total": len(todos),
+        "done": sum(1 for todo in todos if todo.done),
+        "open": sum(1 for todo in todos if not todo.done and todo.status != "skipped"),
+        "focused_index": focused_index,
+    }
 
 
 def _latest_run(runs: list[TaskRunRecord], run_type: str) -> TaskRunRecord | None:
@@ -454,7 +990,37 @@ def _run_to_dict(run: TaskRunRecord | None) -> dict[str, object] | None:
     return run.to_dict() if run is not None else None
 
 
-def _canonical_mode(mode: str) -> str:
+def _default_context_for(mode: HandoffMode) -> ContextFor:
+    return cast(
+        ContextFor,
+        {
+            "planning": "planner",
+            "implementation": "implementer",
+            "validation": "validator",
+            "review": "reviewer",
+            "full": "full",
+        }[mode],
+    )
+
+
+def _mode_for_context_for(context_for: ContextFor) -> HandoffMode:
+    return cast(
+        HandoffMode,
+        {
+            "planner": "planning",
+            "implementer": "implementation",
+            "validator": "validation",
+            "reviewer": "review",
+            "spec-reviewer": "review",
+            "code-reviewer": "review",
+            "full": "full",
+        }[context_for],
+    )
+
+
+def _canonical_mode(mode: str | None) -> str:
+    if mode is None:
+        return "full"
     return {
         "plan-context": "planning",
         "implementation-context": "implementation",
