@@ -253,11 +253,13 @@ class ActiveTaskState:
     previous_task_id: str | None = None
     schema_version: int = TASKLEDGER_SCHEMA_VERSION
     object_type: str = "active_task"
+    file_version: str = TASKLEDGER_V2_FILE_VERSION
 
     def to_dict(self) -> dict[str, object]:
         return {
             "schema_version": self.schema_version,
             "object_type": self.object_type,
+            "file_version": self.file_version,
             "task_id": self.task_id,
             "activated_at": self.activated_at,
             "activated_by": self.activated_by.to_dict(),
@@ -278,6 +280,8 @@ class ActiveTaskState:
             previous_task_id=_optional_string(data.get("previous_task_id")),
             schema_version=_int_value(data, "schema_version"),
             object_type=_string_value(data, "object_type"),
+            file_version=_optional_string(data.get("file_version"))
+            or TASKLEDGER_V2_FILE_VERSION,
         )
 
 
@@ -292,11 +296,13 @@ class ActiveActorState:
     session_id: str | None = None
     schema_version: int = TASKLEDGER_SCHEMA_VERSION
     object_type: str = "active_actor"
+    file_version: str = TASKLEDGER_V2_FILE_VERSION
 
     def to_dict(self) -> dict[str, object]:
         return {
             "schema_version": self.schema_version,
             "object_type": self.object_type,
+            "file_version": self.file_version,
             "actor_type": self.actor_type,
             "actor_name": self.actor_name,
             "role": self.role,
@@ -320,6 +326,8 @@ class ActiveActorState:
             session_id=_optional_string(data.get("session_id")),
             schema_version=_int_value(data, "schema_version"),
             object_type=_string_value(data, "object_type"),
+            file_version=_optional_string(data.get("file_version"))
+            or TASKLEDGER_V2_FILE_VERSION,
         )
 
 
@@ -330,11 +338,13 @@ class ActiveHarnessState:
     session_id: str | None = None
     schema_version: int = TASKLEDGER_SCHEMA_VERSION
     object_type: str = "active_harness"
+    file_version: str = TASKLEDGER_V2_FILE_VERSION
 
     def to_dict(self) -> dict[str, object]:
         return {
             "schema_version": self.schema_version,
             "object_type": self.object_type,
+            "file_version": self.file_version,
             "name": self.name,
             "kind": self.kind,
             "session_id": self.session_id,
@@ -352,6 +362,8 @@ class ActiveHarnessState:
             session_id=_optional_string(data.get("session_id")),
             schema_version=_int_value(data, "schema_version"),
             object_type=_string_value(data, "object_type"),
+            file_version=_optional_string(data.get("file_version"))
+            or TASKLEDGER_V2_FILE_VERSION,
         )
 
 
@@ -390,6 +402,7 @@ class FileLink:
     def from_dict(cls, data: object) -> FileLink:
         if not isinstance(data, dict):
             raise LaunchError("Invalid file link: expected mapping.")
+        _require_sidecar_contract(data, expected_object_type="link")
         return cls(
             id=_optional_string(data.get("id")),
             task_id=_optional_string(data.get("task_id")),
@@ -469,6 +482,9 @@ class TaskTodo:
     def from_dict(cls, data: object) -> TaskTodo:
         if not isinstance(data, dict):
             raise LaunchError("Invalid todo: expected mapping.")
+
+        # Enforce version compatibility for v2 records
+        _require_sidecar_contract(data, expected_object_type="todo")
 
         # Handle backward compatibility: infer status from done field if not present
         status_raw = _optional_string(data.get("status"))
@@ -638,6 +654,7 @@ class DependencyRequirement:
     def from_dict(cls, data: object) -> DependencyRequirement:
         if not isinstance(data, dict):
             raise LaunchError("Invalid dependency requirement: expected mapping.")
+        _require_sidecar_contract(data, expected_object_type="requirement")
         task_id = _optional_string(data.get("required_task_id")) or _string_value(
             data, "task_id"
         )
@@ -1599,4 +1616,32 @@ def _require_v2_file_version(data: dict[str, object]) -> None:
         raise LaunchError(
             "Unsupported file version: "
             f"expected {TASKLEDGER_V2_FILE_VERSION}, got {version!r}."
+        )
+
+
+def _require_sidecar_contract(
+    data: dict[str, object], *, expected_object_type: str
+) -> None:
+    """Enforce version compatibility for sidecar models read from v2 files.
+
+    When schema_version or object_type are present, validate them.
+    When absent (legacy YAML sidecar reads), skip enforcement.
+    """
+    version = data.get("schema_version")
+    if isinstance(version, int) and version > TASKLEDGER_SCHEMA_VERSION:
+        raise LaunchError(
+            f"Record schema too new: {version} "
+            f"(current max: {TASKLEDGER_SCHEMA_VERSION}). "
+            "Please upgrade taskledger."
+        )
+    obj_type = _optional_string(data.get("object_type"))
+    if obj_type is not None and obj_type != expected_object_type:
+        raise LaunchError(
+            f"Invalid object_type: expected {expected_object_type!r}, got {obj_type!r}."
+        )
+    file_ver = _optional_string(data.get("file_version"))
+    if file_ver is not None and file_ver != TASKLEDGER_V2_FILE_VERSION:
+        raise LaunchError(
+            "Unsupported file version: "
+            f"expected {TASKLEDGER_V2_FILE_VERSION}, got {file_ver!r}."
         )

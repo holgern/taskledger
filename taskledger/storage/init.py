@@ -5,8 +5,13 @@ from pathlib import Path
 from taskledger.errors import LaunchError
 from taskledger.models import ProjectPaths
 from taskledger.storage.common import write_text
+from taskledger.storage.meta import StorageMeta, write_storage_meta
 from taskledger.storage.paths import project_paths_for_root, resolve_taskledger_root
 from taskledger.storage.project_config import DEFAULT_PROJECT_TOML
+
+
+def _storage_yaml_path(workspace_root: Path) -> Path:
+    return resolve_taskledger_root(workspace_root) / "storage.yaml"
 
 
 def init_project_state(workspace_root: Path) -> tuple[ProjectPaths, list[str]]:
@@ -40,6 +45,16 @@ def init_project_state(workspace_root: Path) -> tuple[ProjectPaths, list[str]]:
             continue
         write_text(path, contents)
         created.append(str(path))
+    # Write storage.yaml
+    storage_path = _storage_yaml_path(workspace_root)
+    if not storage_path.exists():
+        try:
+            from taskledger._version import __version__ as tl_version
+        except ImportError:
+            tl_version = "0.1.0"
+        meta = StorageMeta(created_with_taskledger=tl_version)
+        write_storage_meta(workspace_root, meta)
+        created.append(str(storage_path))
     return paths, created
 
 

@@ -91,6 +91,10 @@ def _setup_project(tmp_path: Path) -> None:
     ensure_v2_layout(tmp_path)
     task = _task()
     save_task(tmp_path, task)
+    # Ensure storage.yaml exists for doctor schema checks
+    from taskledger.storage.meta import StorageMeta, write_storage_meta
+
+    write_storage_meta(tmp_path, StorageMeta(created_with_taskledger="test"))
 
 
 def test_inspect_healthy_project(tmp_path: Path) -> None:

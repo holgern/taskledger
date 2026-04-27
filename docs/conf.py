@@ -5,8 +5,8 @@ from importlib import metadata
 sys.path.insert(0, os.path.abspath(".."))
 
 project = "taskledger"
-copyright = "2026, The taskledger Authors"
-author = "The taskledger Authors"
+copyright = "2026, Taskledger Contributors"
+author = "Taskledger Contributors"
 
 try:
     release = metadata.version("taskledger")

@@ -86,3 +86,37 @@ inferred from the active lock:
 | No active lock    | `user`          |
 
 Plan-materialized todos always use `source=plan`.
+
+## Storage Compatibility
+
+Taskledger stores workspace state under `.taskledger/`.
+
+Taskledger uses:
+
+- a workspace storage layout version in `.taskledger/storage.yaml`
+- per-record `schema_version`
+- per-record `object_type`
+- per-file `file_version` for durable Markdown/YAML/JSON record files
+
+Taskledger does not silently rewrite storage during read-only commands.
+
+If the installed taskledger version can read but not write an older workspace,
+it reports that migration is required.
+
+To migrate:
+
+```bash
+taskledger migrate status
+taskledger migrate plan
+taskledger migrate apply --backup
+```
+
+Indexes under `.taskledger/indexes/` are derived caches. They may be plain JSON
+arrays with no version metadata. They can be rebuilt with:
+
+```bash
+taskledger reindex
+```
+
+A newer storage version than the installed taskledger supports is rejected with
+a clear error.

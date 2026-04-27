@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import cast
 
 from taskledger.domain.policies import derive_active_stage
+from taskledger.domain.states import TASKLEDGER_STORAGE_LAYOUT_VERSION
 from taskledger.storage.events import load_events
 from taskledger.storage.locks import lock_is_expired
 from taskledger.storage.v2 import (
@@ -275,6 +276,31 @@ def inspect_v2_schema(workspace_root: Path) -> dict[str, object]:
         for item in cast(list[str], payload["errors"])
         if "schema" in item.lower() or "version" in item.lower()
     ]
+    # Check storage.yaml layout version
+    try:
+        from taskledger.storage.meta import read_storage_meta
+
+        meta = read_storage_meta(workspace_root)
+        if meta is None:
+            schema_errors.append(
+                "Missing storage.yaml."
+                " Run 'taskledger init' or 'taskledger migrate apply'."
+            )
+        elif meta.storage_layout_version > TASKLEDGER_STORAGE_LAYOUT_VERSION:
+            schema_errors.append(
+                f"Storage layout {meta.storage_layout_version} is newer than "
+                f"supported {TASKLEDGER_STORAGE_LAYOUT_VERSION}. Upgrade taskledger."
+            )
+        elif meta.storage_layout_version < TASKLEDGER_STORAGE_LAYOUT_VERSION:
+            schema_errors.append(
+                f"Storage layout {meta.storage_layout_version}"
+                " requires migration to"
+                f" {TASKLEDGER_STORAGE_LAYOUT_VERSION}."
+                " Run 'taskledger migrate apply --backup'."
+            )
+    except Exception as exc:
+        schema_errors.append(f"Cannot read storage.yaml: {exc}")
+
     return {
         "kind": "taskledger_schema_inspection",
         "healthy": not schema_errors,

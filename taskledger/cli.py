@@ -33,6 +33,7 @@ from taskledger.cli_common import (
     resolve_workspace_root,
 )
 from taskledger.cli_implement_v2 import register_implement_v2_commands
+from taskledger.cli_migrate_v2 import migrate_app
 from taskledger.cli_misc_v2 import (
     emit_can_command,
     emit_doctor_command,
@@ -93,6 +94,7 @@ app.add_typer(lock_app, name="lock")
 app.add_typer(handoff_app, name="handoff")
 app.add_typer(doctor_app, name="doctor")
 app.add_typer(repair_app, name="repair")
+app.add_typer(migrate_app, name="migrate")
 app.add_typer(actors_app, name="actor")
 app.add_typer(harness_app, name="harness")
 

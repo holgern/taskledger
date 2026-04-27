@@ -19,7 +19,8 @@ python_files = "test_*.py"
 [project]
 name = "taskledger"
 description = "Durable project-state storage and CLI for coding workflows"
-authors = [{name = "The taskledger Authors"}]
+authors = [{name = "Taskledger Contributors"}]
+maintainers = [{name = "Holger Nahrstaedt"}]
 requires-python = ">=3.10"
 readme = "README.md"
 license = "Apache-2.0"
@@ -27,13 +28,13 @@ keywords = ["cli", "durable-state", "project-state", "developer-tools", "workflo
 dependencies = [
     "typer",
     "PyYAML",
-    "types-PyYAML",
     'tomli; python_version < "3.11"',
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS :: MacOS X",
     "Programming Language :: Python",
@@ -43,7 +44,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development",
-    "Topic :: Utilities"
+    "Topic :: Utilities",
 ]
 
 dynamic=["version"]
@@ -64,6 +65,7 @@ dev = [
     "pytest",
     "ruff",
     "twine",
+    "types-PyYAML",
 ]
 rich = [
     "rich",

@@ -116,4 +116,7 @@ COMMAND_METADATA: dict[str, tuple[str, str]] = {
     "repair lock": (REPAIR, "ledger_mutation"),
     "repair task": (REPAIR, "ledger_mutation"),
     "repair task-dirs": (REPAIR, "ledger_mutation"),
+    "migrate status": (STABLE_FOR_AGENTS, "safe_read_only"),
+    "migrate plan": (STABLE_FOR_AGENTS, "safe_read_only"),
+    "migrate apply": (REPAIR, "ledger_mutation"),
 }
