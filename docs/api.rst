@@ -96,6 +96,7 @@ Run API
 -------
 
 - ``start_implementation``
+- ``restart_implementation``
 - ``log_implementation``
 - ``add_implementation_deviation``
 - ``add_implementation_artifact``

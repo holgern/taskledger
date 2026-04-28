@@ -27,6 +27,7 @@ when explicitly targeting another task.
 
    taskledger plan start
    taskledger plan start --task task-0001
+   taskledger implement restart --task task-0001 --summary "Fix validation findings."
    taskledger implement finish --task task-0001 --summary "Implemented."
    taskledger validate status --task task-0001
 
@@ -81,6 +82,9 @@ and may also include:
 
 Agents should inspect ``next_item``, prefer ``next_command`` when it is safe,
 avoid inventing question answers, and never mark todos done without evidence.
+
+When a task is in ``failed_validation``, ``next-action`` should direct agents
+back to implementation with ``taskledger implement restart --summary SUMMARY``.
 
 Human monitoring UI
 -------------------

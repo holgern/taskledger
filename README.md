@@ -88,6 +88,26 @@ taskledger validate check --criterion ac-0001 --status pass --evidence "pytest -
 taskledger validate finish --result passed --summary "Validated the rewrite."
 ```
 
+If validation finds an implementation bug, keep the accepted plan and restart
+implementation explicitly:
+
+```bash
+taskledger validate finish --result failed --summary "Parser edge case still fails."
+taskledger next-action
+taskledger context --for implementation --format markdown
+taskledger implement restart --summary "Fix failed validation findings."
+```
+
+If validation finds an implementation bug, keep the accepted plan and restart
+implementation explicitly:
+
+```bash
+taskledger validate finish --result failed --summary "Parser edge case still fails."
+taskledger next-action
+taskledger context --for implementation --format markdown
+taskledger implement restart --summary "Fix failed validation findings."
+```
+
 `taskledger next-action` is the preferred fresh-context entrypoint. It stays
 read-only and points at the next concrete question, todo, criterion, or repair
 step.

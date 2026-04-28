@@ -1644,6 +1644,129 @@ def start_implementation(
     )
 
 
+def restart_implementation(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    summary: str,
+    actor: ActorRef | None = None,
+    harness: HarnessRef | None = None,
+) -> dict[str, object]:
+    task = resolve_task(workspace_root, task_ref)
+    if task.status_stage != "failed_validation":
+        raise _cli_error(
+            "Implementation restart requires failed_validation state.",
+            EXIT_CODE_INVALID_TRANSITION,
+        )
+    if task.accepted_plan_version is None:
+        raise _cli_error(
+            "Implementation restart requires an accepted plan version.",
+            EXIT_CODE_APPROVAL_REQUIRED,
+        )
+    try:
+        accepted_plan = resolve_plan(
+            workspace_root,
+            task.id,
+            version=task.accepted_plan_version,
+        )
+    except LaunchError as exc:
+        raise _cli_error(
+            "Implementation restart requires a stored accepted plan record.",
+            EXIT_CODE_APPROVAL_REQUIRED,
+        ) from exc
+    if accepted_plan.status != "accepted":
+        raise _cli_error(
+            "Implementation restart requires an accepted plan record.",
+            EXIT_CODE_APPROVAL_REQUIRED,
+        )
+    if task.latest_validation_run is None:
+        raise _cli_error(
+            "Implementation restart requires a failed validation run.",
+            EXIT_CODE_INVALID_TRANSITION,
+        )
+    validation_run = _require_run(workspace_root, task, task.latest_validation_run)
+    if (
+        validation_run.run_type != "validation"
+        or validation_run.status not in {"failed", "blocked"}
+        or validation_run.result not in {"failed", "blocked"}
+    ):
+        raise _cli_error(
+            (
+                "Implementation restart requires the latest validation run "
+                "to be failed or blocked."
+            ),
+            EXIT_CODE_INVALID_TRANSITION,
+        )
+    if task.latest_implementation_run is None:
+        raise _cli_error(
+            "Implementation restart requires a previous implementation run.",
+            EXIT_CODE_INVALID_TRANSITION,
+        )
+    previous_run = _require_run(workspace_root, task, task.latest_implementation_run)
+    if previous_run.run_type != "implementation":
+        raise _cli_error(
+            "Implementation restart requires a previous implementation run.",
+            EXIT_CODE_INVALID_TRANSITION,
+        )
+    restart_summary = summary.strip()
+    if not restart_summary:
+        raise _cli_error(
+            "Implementation restart requires a non-empty summary.",
+            EXIT_CODE_BAD_INPUT,
+        )
+    _ensure_dependencies_done(workspace_root, task)
+    run = _start_run(
+        workspace_root,
+        task,
+        run_type="implementation",
+        stage="implementing",
+        actor=actor,
+        harness=harness,
+    )
+    restarted = replace(
+        run,
+        resumes_run_id=previous_run.run_id,
+        worklog=(
+            f"Restart summary: {restart_summary}",
+            (
+                "Restarted after "
+                f"validation run {validation_run.run_id} "
+                f"({validation_run.result})."
+            ),
+            *run.worklog,
+        ),
+    )
+    save_run(workspace_root, restarted)
+    updated = replace(
+        resolve_task(workspace_root, task.id),
+        latest_implementation_run=restarted.run_id,
+        status_stage="implementing",
+        updated_at=utc_now_iso(),
+    )
+    save_task(workspace_root, updated)
+    _append_event(
+        resolve_v2_paths(workspace_root).project_dir,
+        updated.id,
+        "implementation.started",
+        {
+            "run_id": restarted.run_id,
+            "restart": True,
+            "summary": restart_summary,
+            "after_validation_run": validation_run.run_id,
+            "resumes_run_id": previous_run.run_id,
+        },
+    )
+    rebuild_v2_indexes(resolve_v2_paths(workspace_root))
+    return _lifecycle_payload(
+        "implement restart",
+        replace(updated, status_stage=task.status_stage),
+        warnings=[],
+        changed=True,
+        run=restarted,
+        lock=_require_lock(workspace_root, updated.id),
+    )
+
+
 def log_implementation(
     workspace_root: Path,
     task_ref: str,

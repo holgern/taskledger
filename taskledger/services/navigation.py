@@ -225,7 +225,10 @@ def next_action(workspace_root: Path, task_ref: str) -> dict[str, object]:
                 }
             )
     elif task.status_stage == "failed_validation":
-        action, reason = "implement", "Validation failed; return to implementation."
+        action, reason = (
+            "implement-restart",
+            "Validation failed; restart implementation.",
+        )
         next_item = _task_next_item(task)
         blockers.extend(
             cast(list[dict[str, object]], _dependency_blockers(workspace_root, task))
@@ -309,6 +312,71 @@ def can_perform(workspace_root: Path, task_ref: str, action: str) -> dict[str, o
         if task.accepted_plan_version is None:
             blocking.append(
                 {"kind": "approval", "message": "No accepted plan version."}
+            )
+        blocking.extend(_dependency_blockers(workspace_root, task))
+        if lock is not None:
+            blocking.append(
+                {
+                    "kind": "lock",
+                    "message": (
+                        f"Task has an active {lock.stage} lock from {lock.run_id}."
+                    ),
+                }
+            )
+    elif action == "implement-restart":
+        validation_run = _optional_run(workspace_root, task, task.latest_validation_run)
+        implementation_run = _optional_run(
+            workspace_root,
+            task,
+            task.latest_implementation_run,
+        )
+        ok = (
+            task.status_stage == "failed_validation"
+            and task.accepted_plan_version is not None
+            and validation_run is not None
+            and validation_run.run_type == "validation"
+            and validation_run.status in {"failed", "blocked"}
+            and validation_run.result in {"failed", "blocked"}
+            and implementation_run is not None
+            and implementation_run.run_type == "implementation"
+            and not _dependency_blockers(workspace_root, task)
+            and lock is None
+            and active_stage is None
+        )
+        reason = (
+            "Implementation restart is ready."
+            if ok
+            else (
+                "Implementation restart requires failed_validation state, "
+                "an accepted plan, recorded failed validation, a previous "
+                "implementation run, no conflicting lock, and completed dependencies."
+            )
+        )
+        if task.accepted_plan_version is None:
+            blocking.append(
+                {"kind": "approval", "message": "No accepted plan version."}
+            )
+        if (
+            validation_run is None
+            or validation_run.run_type != "validation"
+            or validation_run.status not in {"failed", "blocked"}
+            or validation_run.result not in {"failed", "blocked"}
+        ):
+            blocking.append(
+                {
+                    "kind": "validation",
+                    "message": "No failed validation run is available for restart.",
+                }
+            )
+        if (
+            implementation_run is None
+            or implementation_run.run_type != "implementation"
+        ):
+            blocking.append(
+                {
+                    "kind": "implementation",
+                    "message": "No previous implementation run is available.",
+                }
             )
         blocking.extend(_dependency_blockers(workspace_root, task))
         if lock is not None:
@@ -650,6 +718,7 @@ def _next_action_command(action: str) -> str | None:
         "plan-regenerate": "taskledger plan upsert --from-answers --file plan.md",
         "plan-approve": "taskledger plan approve --version VERSION --actor user",
         "implement": "taskledger implement start",
+        "implement-restart": "taskledger implement restart --summary SUMMARY",
         "todo-work": "taskledger implement checklist",
         "implement-finish": "taskledger implement finish --summary SUMMARY",
         "validate": "taskledger validate start",
@@ -709,6 +778,7 @@ def _commands_for_next_item(
             "plan-regenerate": "Regenerate plan from answers",
             "plan-approve": "Approve plan",
             "implement": "Start implementation",
+            "implement-restart": "Restart implementation",
             "todo-work": "Show implementation checklist",
             "implement-finish": "Finish implementation",
             "validate": "Start validation",
@@ -722,6 +792,7 @@ def _commands_for_next_item(
             "plan-regenerate": "regenerate",
             "plan-approve": "approve",
             "implement": "start",
+            "implement-restart": "restart",
             "todo-work": "context",
             "implement-finish": "finish",
             "validate": "start",
@@ -827,12 +898,14 @@ def _commands_for_next_item(
         return []
     label = {
         "implement": "Start implementation",
+        "implement-restart": "Restart implementation",
         "implement-finish": "Finish implementation",
         "validate": "Start validation",
         "validate-finish": "Finish validation",
     }.get(action, "Show next action")
     kind_name = {
         "implement": "start",
+        "implement-restart": "restart",
         "implement-finish": "finish",
         "validate": "start",
         "validate-finish": "finish",

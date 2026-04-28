@@ -226,6 +226,17 @@ validation stage:
    taskledger validate show
    taskledger validate finish --result passed --summary "Parser fix validated with regression tests."
 
+If validation finds a bug
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: bash
+
+   taskledger validate check --criterion ac-0002 --status fail --evidence "pytest tests/test_parser.py -q"
+   taskledger validate finish --result failed --summary "ac-0002 failed."
+   taskledger next-action
+   taskledger context --for implementation --format markdown
+   taskledger implement restart --summary "Fix ac-0002 validation failure."
+
 If a criterion is intentionally not validated, a user can waive it:
 
 .. code-block:: bash

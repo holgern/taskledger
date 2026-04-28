@@ -11,3 +11,11 @@ taskledger implement change --path taskledger/parser.py --kind edit --summary "N
 taskledger todo done todo-0001 --evidence "pytest -q tests/test_parser.py" --artifact tests/test_parser.py
 taskledger implement finish --summary "Implemented the approved parser changes."
 ```
+
+If validation already failed and the plan is still correct:
+
+```bash
+taskledger next-action
+taskledger context --for implementation --format markdown
+taskledger implement restart --summary "Fix failed validation findings."
+```

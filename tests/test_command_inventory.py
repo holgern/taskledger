@@ -27,6 +27,7 @@ def test_registered_commands_have_inventory_metadata() -> None:
 def test_inventory_marks_core_and_repair_commands() -> None:
     assert COMMAND_METADATA["task create"][0] == STABLE_FOR_AGENTS
     assert COMMAND_METADATA["plan approve"][0] == STABLE_FOR_AGENTS
+    assert COMMAND_METADATA["implement restart"][0] == STABLE_FOR_AGENTS
     assert COMMAND_METADATA["serve"][0] == HUMAN_ORIENTED
     assert COMMAND_METADATA["lock break"][0] == REPAIR
     assert COMMAND_METADATA["doctor"][0] == REPAIR

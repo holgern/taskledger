@@ -17,6 +17,9 @@ task -> plan -> approval -> implement -> validate -> done
 `serve` is a human-oriented, read-only localhost dashboard. Agents should keep
 using the CLI and JSON command surface for automation.
 
+The supported implementation lifecycle includes `implement restart --summary ...`
+when a task is in `failed_validation`.
+
 ### question subcommands
 
 - `question add`, `question list [--status STATUS]`, `question answers [--format markdown|json]`
@@ -43,6 +46,10 @@ using the CLI and JSON command surface for automation.
 - `taskledger.api.locks`
 - `taskledger.api.handoff`
 - `taskledger.api.search`
+
+`taskledger.api.task_runs` includes the public lifecycle helpers
+`start_implementation`, `restart_implementation`, `start_validation`, and
+`finish_validation`.
 
 ## Removed Legacy Surfaces
 

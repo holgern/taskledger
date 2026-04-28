@@ -113,6 +113,7 @@ from taskledger.errors import (
 ### `taskledger.api.task_runs`
 
 - `start_implementation`
+- `restart_implementation`
 - `log_implementation`
 - `add_implementation_deviation`
 - `add_implementation_artifact`
@@ -246,6 +247,8 @@ Workflow additions:
   `plan materialize-todos` support the question-answer-regenerate loop.
 - `question status` reports required open questions and whether regeneration is
   needed.
+- `implement restart --summary ...` starts a new implementation run from
+  `failed_validation` while preserving the prior failed validation history.
 - `todo done` records evidence with `--evidence`, `--artifact`, and `--change`.
 - `handoff create|list|show|claim|close|cancel` are available on the main
   task-first handoff command group.

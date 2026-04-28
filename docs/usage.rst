@@ -132,6 +132,26 @@ Use ``plan command`` to record diagnostic commands during planning:
    taskledger validate check --criterion ac-0001 --status pass --evidence "pytest -q tests/test_taskledger_v2_cli.py"
    taskledger validate finish --result passed --summary "Validated the rewrite."
 
+If validation finds an implementation bug and the accepted plan is still
+correct, restart implementation instead of replanning:
+
+.. code-block:: bash
+
+   taskledger validate finish --result failed --summary "Parser edge case still fails."
+   taskledger next-action
+   taskledger context --for implementation --format markdown
+   taskledger implement restart --summary "Fix failed validation findings."
+
+If validation finds an implementation bug and the accepted plan is still
+correct, restart implementation instead of replanning:
+
+.. code-block:: bash
+
+   taskledger validate finish --result failed --summary "Parser edge case still fails."
+   taskledger next-action
+   taskledger context --for implementation --format markdown
+   taskledger implement restart --summary "Fix failed validation findings."
+
 Machine-readable output
 -----------------------
 

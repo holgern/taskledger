@@ -11,6 +11,11 @@
 9. `taskledger --root /workspace todo done todo-0001 --evidence "uv run pytest -q" --artifact tests/test_storage.py`
 10. `taskledger --root /workspace implement finish --summary "Implemented the approved plan."`
 
+If `taskledger next-action` returns `implement-restart` after failed validation,
+continue with:
+
+11. `taskledger --root /workspace implement restart --summary "Fix failed validation findings."`
+
 Example `next-action` output:
 
 ```text

@@ -6,6 +6,7 @@ from taskledger.domain.policies import (
     implementation_mutation_decision,
     plan_propose_decision,
 )
+from taskledger.domain.states import can_transition
 
 
 def _actor() -> ActorRef:
@@ -92,3 +93,7 @@ def test_implementation_mutation_allows_active_implementation_without_status_fli
     )
 
     assert decision.ok is True
+
+
+def test_failed_validation_can_transition_back_to_implementing() -> None:
+    assert can_transition("failed_validation", "implementing") is True

@@ -10,6 +10,7 @@ from taskledger.api.task_runs import (
     add_implementation_deviation,
     finish_implementation,
     log_implementation,
+    restart_implementation,
     run_implementation_command,
     scan_changes,
     show_task_run,
@@ -79,6 +80,58 @@ def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             ctx,
             payload,
             human=f"started implementation {payload['run_id']}",
+        )
+
+    @app.command("restart")
+    def restart_command(
+        ctx: typer.Context,
+        summary: Annotated[str, typer.Option("--summary")],
+        task_ref: TaskOption = None,
+        actor: Annotated[
+            str | None,
+            typer.Option("--actor", help="Actor type: user, agent, or system."),
+        ] = None,
+        actor_name: Annotated[
+            str | None,
+            typer.Option("--actor-name", help="Actor name."),
+        ] = None,
+        actor_role: Annotated[
+            str | None,
+            typer.Option("--actor-role", help="Actor role in task lifecycle."),
+        ] = None,
+        harness: Annotated[
+            str | None,
+            typer.Option("--harness", help="Harness name."),
+        ] = None,
+        session_id: Annotated[
+            str | None,
+            typer.Option("--session-id", help="Session identifier."),
+        ] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = resolve_cli_task(state.cwd, task_ref)
+            resolved_actor = resolve_actor(
+                actor_type=actor,
+                actor_name=actor_name,
+                role=actor_role,
+                session_id=session_id,
+            )
+            resolved_harness = resolve_harness(name=harness, session_id=session_id)
+            payload = restart_implementation(
+                state.cwd,
+                task.id,
+                summary=summary,
+                actor=resolved_actor,
+                harness=resolved_harness,
+            )
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(
+            ctx,
+            payload,
+            human=f"restarted implementation {payload['run_id']}",
         )
 
     @app.command("log")

@@ -413,6 +413,255 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
     }
 
 
+def test_failed_validation_restarts_implementation(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "create",
+                "Validation restart",
+                "--slug",
+                "validation-restart",
+                "--description",
+                "Exercise failed validation recovery.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "task", "activate", "validation-restart"],
+        ).exit_code
+        == 0
+    )
+    assert runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start"]).exit_code == 0
+
+    plan_text = """---
+goal: Exercise failed validation restart.
+acceptance_criteria:
+  - id: ac-0001
+    text: Restarting implementation after failed validation works.
+todos:
+  - id: todo-0001
+    text: Implement the initial version.
+    validation_hint: pytest tests/test_taskledger_v2_cli.py -q
+---
+
+# Plan
+
+Ship the initial implementation, fail validation, and restart implementation.
+"""
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "plan",
+                "propose",
+                "--text",
+                plan_text,
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "plan",
+                "approve",
+                "--version",
+                "1",
+                "--actor",
+                "user",
+                "--note",
+                "Ready to implement.",
+            ],
+        ).exit_code
+        == 0
+    )
+
+    start = _json(
+        runner.invoke(app, ["--cwd", str(tmp_path), "--json", "implement", "start"])
+    )
+    first_implementation_run = start["result"]["run_id"]
+
+    todo_list = _json(
+        runner.invoke(app, ["--cwd", str(tmp_path), "--json", "todo", "list"])
+    )
+    todo_id = todo_list["result"]["todos"][0]["id"]
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "todo",
+                "done",
+                todo_id,
+                "--evidence",
+                "Initial implementation recorded.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "implement",
+                "finish",
+                "--summary",
+                "Initial implementation complete.",
+            ],
+        ).exit_code
+        == 0
+    )
+
+    validation_start = _json(
+        runner.invoke(app, ["--cwd", str(tmp_path), "--json", "validate", "start"])
+    )
+    validation_run_id = validation_start["result"]["run_id"]
+
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "validate",
+                "check",
+                "--criterion",
+                "ac-0001",
+                "--status",
+                "fail",
+                "--evidence",
+                "pytest failed",
+            ],
+        ).exit_code
+        == 0
+    )
+    failed_validation = _json(
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "--json",
+                "validate",
+                "finish",
+                "--result",
+                "failed",
+                "--summary",
+                "Bug found during validation.",
+            ],
+        )
+    )
+    assert failed_validation["result"]["status_stage"] == "failed_validation"
+    assert failed_validation["result"]["active_stage"] is None
+
+    next_action = _json(
+        runner.invoke(app, ["--cwd", str(tmp_path), "--json", "next-action"])
+    )["result"]
+    assert next_action["action"] == "implement-restart"
+    assert (
+        next_action["next_command"] == "taskledger implement restart --summary SUMMARY"
+    )
+    assert next_action["next_item"] == {
+        "kind": "task",
+        "id": "task-0001",
+        "status_stage": "failed_validation",
+    }
+    assert next_action["commands"][0] == {
+        "kind": "restart",
+        "label": "Restart implementation",
+        "command": "taskledger implement restart --summary SUMMARY",
+        "primary": True,
+    }
+
+    can_restart = _json(
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "--json", "can", "implement-restart"],
+        )
+    )
+    assert can_restart["result"]["ok"] is True
+
+    restart = _json(
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "--json",
+                "implement",
+                "restart",
+                "--summary",
+                "Fix failed validation findings.",
+            ],
+        )
+    )
+    assert restart["command"] == "implement.restart"
+    restart_result = restart["result"]
+    assert restart_result["status_stage"] == "failed_validation"
+    assert restart_result["active_stage"] == "implementation"
+    assert restart_result["run_id"] != first_implementation_run
+    assert restart_result["run"]["resumes_run_id"] == first_implementation_run
+    assert restart_result["run"]["worklog"][:2] == [
+        "Restart summary: Fix failed validation findings.",
+        "Restarted after validation run run-0003 (failed).",
+    ]
+
+    validate_show = _json(
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "--json",
+                "validate",
+                "show",
+                "--run",
+                validation_run_id,
+            ],
+        )
+    )
+    assert validate_show["result"]["run"]["status"] == "failed"
+    assert validate_show["result"]["run"]["result"] == "failed"
+
+    task_show = _json(
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "--json",
+                "task",
+                "show",
+                "--task",
+                "validation-restart",
+            ],
+        )
+    )
+    assert task_show["result"]["task"]["status_stage"] == "implementing"
+    assert (
+        task_show["result"]["task"]["latest_implementation_run"]
+        == restart_result["run_id"]
+    )
+    assert task_show["result"]["task"]["latest_validation_run"] == validation_run_id
+
+
 def test_v2_lock_break_and_expired_lock_report(tmp_path: Path) -> None:
     _init_project(tmp_path)
     runner.invoke(

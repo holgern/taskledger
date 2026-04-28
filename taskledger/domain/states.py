@@ -146,7 +146,9 @@ ALLOWED_STAGE_TRANSITIONS: dict[TaskStatusStage, frozenset[TaskStatusStage]] = {
     "implementing": frozenset({"implemented", "cancelled"}),
     "implemented": frozenset({"done", "failed_validation", "cancelled"}),
     "validating": frozenset({"done", "failed_validation", "cancelled"}),
-    "failed_validation": frozenset({"approved", "plan_review", "cancelled"}),
+    "failed_validation": frozenset(
+        {"implementing", "approved", "plan_review", "cancelled"}
+    ),
     "done": frozenset(),
     "cancelled": frozenset(),
 }

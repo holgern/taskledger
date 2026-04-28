@@ -33,6 +33,8 @@ If validation fails and needs to return to implementation:
 
 ```bash
 taskledger validate finish --result failed --summary "Parser implementation does not handle edge cases correctly."
+taskledger next-action
+taskledger context --for implementation --format markdown
+taskledger implement restart --summary "Fix failed validation findings."
 taskledger handoff create --mode implementation --intended-actor agent --intended-harness codex --summary "Fix failed validation."
-taskledger handoff implementation-context --format markdown  # Prepare context for next implementation attempt
 ```

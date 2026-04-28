@@ -56,6 +56,7 @@ COMMAND_METADATA: dict[str, tuple[str, str]] = {
     "question status": (STABLE_FOR_AGENTS, "safe_read_only"),
     "question answers": (STABLE_FOR_AGENTS, "safe_read_only"),
     "implement start": (STABLE_FOR_AGENTS, "ledger_mutation"),
+    "implement restart": (STABLE_FOR_AGENTS, "ledger_mutation"),
     "implement log": (STABLE_FOR_AGENTS, "ledger_mutation"),
     "implement change": (STABLE_FOR_AGENTS, "ledger_mutation"),
     "implement scan-changes": (STABLE_FOR_AGENTS, "ledger_mutation"),

@@ -85,6 +85,7 @@ The plan file should use version ids like `plan-v1`, `plan-v2` in references. Do
 
 1. `taskledger context --for implementation --format markdown`
 2. `taskledger implement start`
+   - If validation already failed and the plan is still correct, prefer `taskledger implement restart --summary "Fix failed validation findings."`
 3. `taskledger implement checklist` - review the mandatory and optional todo checklist before starting.
 4. If no todos exist, create a concrete checklist: `taskledger todo add --text "..."`. Todo source is inferred automatically from the active lock: `implementer` during implementation, `planner` during planning, `user` otherwise.
 5. Work one todo at a time:
@@ -114,7 +115,7 @@ The plan file should use version ids like `plan-v1`, `plan-v2` in references. Do
 
 - If validation fails, record the failure and do not hide it.
 - Run `taskledger validate status` to inspect all blocking issues before finishing.
-- Use `taskledger handoff validation-context` to prepare context for agent continuation after validation failure.
+- If validation fails because implementation has a bug, finish validation as failed, run `taskledger next-action`, then restart implementation with `taskledger implement restart`. Use implementation context or an implementation handoff for the next actor.
 
 ### Waiver Rules
 
@@ -198,6 +199,7 @@ taskledger context --for implementation --format markdown
 taskledger context --for implementer --todo todo-0003
 taskledger context --for spec-reviewer --run run-0008
 taskledger context --for code-reviewer --run run-0008
+taskledger implement restart --summary "Fix failed validation findings."
 taskledger implement change --path taskledger/services/tasks.py --kind edit --summary "Hardened validation gates."
 taskledger todo done todo-0001 --evidence "uv run pytest -q" --artifact tests/test_parser.py
 taskledger validate check --criterion ac-0001 --status pass --evidence "uv run pytest -q"
