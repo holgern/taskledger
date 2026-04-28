@@ -184,4 +184,4 @@ def _taskledger_dir_setting(taskledger_dir: Path) -> str:
         resolved = taskledger_dir
     else:
         resolved = taskledger_dir.resolve()
-    return str(resolved)
+    return resolved.as_posix()

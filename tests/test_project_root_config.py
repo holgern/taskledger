@@ -63,7 +63,7 @@ def test_init_with_external_taskledger_dir_uses_directory_directly(
 
     assert result.exit_code == 0, result.stdout
     config_text = (workspace / "taskledger.toml").read_text(encoding="utf-8")
-    assert str(storage) in config_text
+    assert storage.as_posix() in config_text
     assert (storage / "storage.yaml").exists()
     assert (storage / "tasks").is_dir()
     assert not (storage / ".taskledger").exists()
@@ -174,11 +174,11 @@ def test_dot_taskledger_toml_wins_and_doctor_warns(tmp_path: Path) -> None:
     _write_storage_root(hidden_storage)
     _write_storage_root(canonical_storage)
     (workspace / ".taskledger.toml").write_text(
-        f'config_version = 1\ntaskledger_dir = "{hidden_storage}"\n',
+        f'config_version = 1\ntaskledger_dir = "{hidden_storage.as_posix()}"\n',
         encoding="utf-8",
     )
     (workspace / "taskledger.toml").write_text(
-        f'config_version = 1\ntaskledger_dir = "{canonical_storage}"\n',
+        f'config_version = 1\ntaskledger_dir = "{canonical_storage.as_posix()}"\n',
         encoding="utf-8",
     )
 

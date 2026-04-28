@@ -2662,7 +2662,7 @@ def break_lock(
         {
             "lock_id": lock.lock_id,
             "reason": reason,
-            "audit_path": str(audit_path.relative_to(paths.project_dir)),
+            "audit_path": audit_path.relative_to(paths.project_dir).as_posix(),
         },
     )
     _append_event(
@@ -2672,7 +2672,7 @@ def break_lock(
         {
             "lock_id": lock.lock_id,
             "reason": reason,
-            "audit_path": str(audit_path.relative_to(paths.project_dir)),
+            "audit_path": audit_path.relative_to(paths.project_dir).as_posix(),
         },
     )
     remove_lock(lock_path)
@@ -2686,7 +2686,7 @@ def break_lock(
         "warnings": [],
         "lock": broken_lock.to_dict(),
         "reason": reason,
-        "audit_path": str(audit_path.relative_to(paths.project_dir)),
+        "audit_path": audit_path.relative_to(paths.project_dir).as_posix(),
     }
 
 

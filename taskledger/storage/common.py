@@ -56,14 +56,14 @@ def read_text(path: Path) -> str:
 
 
 def relative_to_project(paths: ProjectPaths, target: Path) -> str:
-    return str(target.relative_to(paths.project_dir))
+    return target.relative_to(paths.project_dir).as_posix()
 
 
 def relative_to_workspace(paths: ProjectPaths, target: Path) -> str:
     try:
-        return str(target.relative_to(paths.workspace_root))
+        return target.relative_to(paths.workspace_root).as_posix()
     except ValueError:
-        return str(target)
+        return target.as_posix()
 
 
 def summarize_text(text: str) -> str | None:
