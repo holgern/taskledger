@@ -124,6 +124,12 @@ def serve_task_summaries(workspace_root: Path) -> dict[str, object]:
                     if task.id in active_locks
                     else None
                 ),
+                "created_at": task.created_at,
+                "updated_at": task.updated_at,
+                "description_summary": task.description_summary,
+                "priority": task.priority,
+                "labels": list(task.labels),
+                "owner": task.owner,
                 "accepted_plan_version": task.accepted_plan_version,
                 "latest_plan_version": task.latest_plan_version,
             }

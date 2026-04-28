@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+# ruff: noqa: E501
 import hashlib
 import json
 import socket
@@ -8,6 +9,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from textwrap import dedent
 from urllib.parse import parse_qs, urlparse
 
 from taskledger.errors import LaunchError
@@ -72,482 +74,1111 @@ class DashboardServerHandle:
 
 
 def render_index_html(*, refresh_ms: int, task_ref: str | None) -> str:
-    return f"""<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Taskledger dashboard</title>
-  <style>
-    :root {{ color-scheme: light dark; }}
-    * {{ box-sizing: border-box; }}
-    body {{ margin: 0; font-family: system-ui, sans-serif; }}
-    main {{
-      display: grid;
-      grid-template-columns: 20rem minmax(0, 1fr);
-      min-height: 100vh;
-    }}
-    aside {{ border-right: 1px solid #c9c9c9; padding: 1rem; }}
-    #content {{ padding: 1rem; display: grid; gap: 1rem; }}
-    #status {{
-      font-size: 0.9rem;
-      color: #555;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-    }}
-    section {{ border: 1px solid #c9c9c9; border-radius: 0.5rem; padding: 1rem; }}
-    h1, h2 {{ margin: 0 0 0.75rem 0; }}
-    pre {{ margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }}
-    button {{
-      width: 100%;
-      text-align: left;
-      border: 1px solid #c9c9c9;
-      border-radius: 0.375rem;
-      padding: 0.5rem 0.75rem;
-      background: transparent;
-      cursor: pointer;
-      margin-bottom: 0.5rem;
-    }}
-    button[data-active="true"] {{ border-color: #2563eb; }}
-  </style>
-</head>
-<body>
-  <main>
-    <aside>
-      <h1>Tasks</h1>
-      <div id="tasks"></div>
-    </aside>
-    <div id="content">
-      <section>
-        <h2>Status</h2>
-        <pre id="status">Waiting for first refresh.</pre>
-      </section>
-      <div id="panels"></div>
-    </div>
-  </main>
-  <script>
-    const refreshMs = {json.dumps(refresh_ms)};
-    const defaultTaskRef = {_safe_script_literal(task_ref)};
-    let selectedTaskRef = defaultTaskRef ?? "active";
-    let refreshTimer = null;
-    let refreshInFlight = false;
-    let lastUpdatedText = "never";
-    let renderedTasksRevision = null;
-    let renderedTasksSelection = null;
+    return "\n".join(
+        [
+            "<!doctype html>",
+            '<html lang="en">',
+            "<head>",
+            '  <meta charset="utf-8">',
+            '  <meta name="viewport" content="width=device-width, initial-scale=1">',
+            "  <title>Taskledger dashboard</title>",
+            _render_dashboard_css(),
+            "</head>",
+            _render_dashboard_body(),
+            _render_dashboard_script(refresh_ms, task_ref),
+            "</html>",
+        ]
+    )
 
-    const endpointState = {{
-      tasks: {{
-        key: null,
-        etag: null,
-        payload: null,
-        error: null,
-        lastRequestedAt: 0,
-      }},
-      project: {{
-        key: null,
-        etag: null,
-        payload: null,
-        error: null,
-        lastRequestedAt: 0,
-      }},
-      dashboard: {{
-        key: null,
-        etag: null,
-        payload: null,
-        error: null,
-        lastRequestedAt: 0,
-      }},
-      events: {{
-        key: null,
-        etag: null,
-        payload: null,
-        error: null,
-        lastRequestedAt: 0,
-      }},
-    }};
 
-    function apiTaskRef() {{
-      return selectedTaskRef === "active" ? "active" : selectedTaskRef;
-    }}
+def _render_dashboard_css() -> str:
+    return dedent(
+        """\
+        <style>
+          :root {
+            color-scheme: light dark;
+            --bg: #f6f7f9;
+            --panel: #ffffff;
+            --panel-muted: #f1f5f9;
+            --panel-strong: #e8eef8;
+            --text: #0f172a;
+            --muted: #64748b;
+            --border: #d7dde6;
+            --accent: #2563eb;
+            --accent-soft: rgba(37, 99, 235, 0.12);
+            --success: #15803d;
+            --warning: #b45309;
+            --danger: #b91c1c;
+            --radius: 14px;
+            --shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+          }
 
-    function endpointPath(name) {{
-      if (name === "tasks") return "/api/tasks";
-      if (name === "project") return "/api/project";
-      const taskRef = encodeURIComponent(apiTaskRef());
-      if (name === "dashboard") return "/api/dashboard?task=" + taskRef;
-      return "/api/events?task=" + taskRef + "&limit=50";
-    }}
+          @media (prefers-color-scheme: dark) {
+            :root {
+              --bg: #0b1020;
+              --panel: #111827;
+              --panel-muted: #182235;
+              --panel-strong: #1f2d44;
+              --text: #e5e7eb;
+              --muted: #9ca3af;
+              --border: #263244;
+              --accent-soft: rgba(96, 165, 250, 0.18);
+              --shadow: none;
+            }
+          }
 
-    function endpointCadence(name) {{
-      if (name === "tasks") return Math.max(refreshMs * 5, 5000);
-      if (name === "project") return Math.max(refreshMs * 15, 15000);
-      return refreshMs;
-    }}
+          * { box-sizing: border-box; }
+          html, body { min-height: 100%; }
+          body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            line-height: 1.5;
+          }
+          button, input {
+            font: inherit;
+            color: inherit;
+          }
+          code, pre, .mono {
+            font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+          }
+          pre {
+            margin: 0;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+          }
+          button {
+            border: none;
+            background: none;
+            padding: 0;
+          }
+          button:focus-visible,
+          input:focus-visible,
+          summary:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+          }
+          .app-header {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            align-items: flex-start;
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border);
+            background: color-mix(in srgb, var(--bg) 92%, transparent);
+            backdrop-filter: blur(8px);
+          }
+          .eyebrow {
+            margin: 0 0 0.35rem 0;
+            color: var(--muted);
+            font-size: 0.8rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+          }
+          .app-header h1 {
+            margin: 0;
+            font-size: 1.6rem;
+          }
+          .app-subtitle,
+          .status-detail {
+            margin: 0.35rem 0 0 0;
+            color: var(--muted);
+            max-width: 52rem;
+          }
+          .header-meta {
+            display: grid;
+            gap: 0.75rem;
+            min-width: 16rem;
+          }
+          .meta-card,
+          .card {
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--panel);
+            box-shadow: var(--shadow);
+          }
+          .meta-card {
+            padding: 0.75rem 0.9rem;
+          }
+          .meta-label {
+            display: block;
+            color: var(--muted);
+            font-size: 0.8rem;
+            margin-bottom: 0.25rem;
+          }
+          .dashboard-layout {
+            display: grid;
+            grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr) minmax(18rem, 22rem);
+            gap: 1rem;
+            padding: 1rem 1.25rem 1.5rem;
+            align-items: start;
+          }
+          .sidebar-sticky,
+          .rail-sticky {
+            position: sticky;
+            top: 6.75rem;
+            display: grid;
+            gap: 1rem;
+          }
+          .main-column,
+          .hero-grid,
+          .metric-grid,
+          .section-stack,
+          .rail-sticky {
+            display: grid;
+            gap: 1rem;
+          }
+          .main-column {
+            min-width: 0;
+          }
+          .metric-grid {
+            grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+          }
+          .card {
+            padding: 1rem;
+            min-width: 0;
+          }
+          .muted-card {
+            background: var(--panel-muted);
+          }
+          .card-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.75rem;
+            align-items: flex-start;
+            margin-bottom: 0.9rem;
+          }
+          .card-header h2,
+          .card-header h3 {
+            margin: 0;
+            font-size: 1rem;
+          }
+          .hero-card {
+            padding: 1.15rem;
+          }
+          .hero-title {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+            margin-bottom: 0.6rem;
+          }
+          .hero-title h2 {
+            margin: 0;
+            font-size: 1.35rem;
+          }
+          .hero-meta,
+          .mini-meta,
+          .metric-value,
+          .list-grid,
+          .timeline {
+            display: grid;
+            gap: 0.65rem;
+          }
+          .hero-meta {
+            grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+          }
+          .meta-row {
+            padding: 0.75rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: var(--panel-muted);
+          }
+          .meta-row strong,
+          .metric-number {
+            display: block;
+            font-size: 1.1rem;
+            margin-top: 0.2rem;
+          }
+          .muted {
+            color: var(--muted);
+          }
+          .badge-row,
+          .filter-row,
+          .pill-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+          }
+          .badge,
+          .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            line-height: 1;
+            padding: 0.38rem 0.65rem;
+            border: 1px solid var(--border);
+            background: var(--panel-muted);
+            color: var(--text);
+          }
+          .chip {
+            cursor: pointer;
+          }
+          .chip[data-active="true"],
+          .task-card[data-active="true"] {
+            border-color: var(--accent);
+            background: var(--accent-soft);
+          }
+          .badge-success { color: var(--success); }
+          .badge-warning { color: var(--warning); }
+          .badge-danger { color: var(--danger); }
+          .badge-info { color: var(--accent); }
+          .badge-muted { color: var(--muted); }
+          .search-stack {
+            display: grid;
+            gap: 0.65rem;
+          }
+          .search-stack label {
+            font-size: 0.85rem;
+            color: var(--muted);
+          }
+          .task-search {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--panel);
+            padding: 0.8rem 0.9rem;
+          }
+          .task-list {
+            display: grid;
+            gap: 0.7rem;
+          }
+          .task-card {
+            width: 100%;
+            text-align: left;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: var(--panel);
+            box-shadow: var(--shadow);
+            padding: 0.9rem;
+            cursor: pointer;
+          }
+          .task-card:hover {
+            border-color: var(--accent);
+          }
+          .task-title {
+            margin: 0.4rem 0 0.3rem 0;
+            font-size: 0.96rem;
+            font-weight: 650;
+          }
+          .meta-line {
+            color: var(--muted);
+            font-size: 0.82rem;
+          }
+          .summary-line {
+            margin-top: 0.55rem;
+            color: var(--muted);
+            font-size: 0.85rem;
+          }
+          .empty-state {
+            border: 1px dashed var(--border);
+            border-radius: 14px;
+            padding: 0.9rem;
+            color: var(--muted);
+            background: var(--panel-muted);
+          }
+          .command-row {
+            display: flex;
+            gap: 0.65rem;
+            align-items: center;
+            flex-wrap: wrap;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--panel-muted);
+            padding: 0.7rem 0.8rem;
+          }
+          .copy-button {
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--panel);
+            padding: 0.45rem 0.7rem;
+            cursor: pointer;
+          }
+          .progress-block {
+            display: grid;
+            gap: 0.4rem;
+          }
+          .progress-track {
+            position: relative;
+            height: 0.7rem;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: var(--panel-strong);
+            overflow: hidden;
+          }
+          .progress-fill {
+            position: absolute;
+            inset: 0 auto 0 0;
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), #60a5fa);
+            border-radius: inherit;
+          }
+          .criteria-grid,
+          .change-grid {
+            display: grid;
+            gap: 0.75rem;
+            grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+          }
+          .item-card,
+          .timeline-item {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--panel-muted);
+            padding: 0.85rem;
+          }
+          .todo-next {
+            border-color: var(--accent);
+            background: var(--accent-soft);
+          }
+          .item-title {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.65rem;
+            align-items: flex-start;
+            margin-bottom: 0.45rem;
+          }
+          .item-title strong {
+            display: block;
+          }
+          ul.clean-list {
+            margin: 0;
+            padding-left: 1.1rem;
+            display: grid;
+            gap: 0.35rem;
+          }
+          details {
+            border-top: 1px solid var(--border);
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+          }
+          summary {
+            cursor: pointer;
+            color: var(--muted);
+          }
+          .section-subtitle {
+            margin: -0.3rem 0 0.8rem 0;
+            color: var(--muted);
+          }
+          .raw-payload details + details {
+            margin-top: 0.75rem;
+          }
+          @media (max-width: 1200px) {
+            .dashboard-layout {
+              grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr);
+            }
+            .right-rail {
+              grid-column: 1 / -1;
+            }
+            .rail-sticky {
+              position: static;
+              grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+            }
+          }
+          @media (max-width: 900px) {
+            .app-header {
+              position: static;
+              flex-direction: column;
+            }
+            .header-meta {
+              min-width: 0;
+              width: 100%;
+              grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+            }
+            .dashboard-layout {
+              grid-template-columns: 1fr;
+            }
+            .sidebar-sticky,
+            .rail-sticky {
+              position: static;
+            }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            * {
+              scroll-behavior: auto;
+            }
+          }
+        </style>
+        """
+    ).strip()
 
-    async function getJson(name, path) {{
-      const state = endpointState[name];
-      if (state.key !== path) {{
-        state.key = path;
-        state.etag = null;
-        state.payload = null;
-        state.error = null;
-      }}
-      const headers = {{}};
-      if (state.etag) {{
-        headers["If-None-Match"] = state.etag;
-      }}
-      const response = await fetch(path, {{ headers }});
-      if (response.status === 304 && state.payload) {{
-        return state.payload;
-      }}
-      const payload = await response.json();
-      if (!response.ok) {{
-        throw new Error(payload?.error?.message || ("HTTP " + response.status));
-      }}
-      state.etag = response.headers.get("ETag");
-      state.payload = payload;
-      return payload;
-    }}
 
-    function appendSection(container, title, text) {{
-      const section = document.createElement("section");
-      const heading = document.createElement("h2");
-      const pre = document.createElement("pre");
-      heading.textContent = title;
-      pre.textContent = text;
-      section.append(heading, pre);
-      container.append(section);
-    }}
+def _render_dashboard_body() -> str:
+    return dedent(
+        """\
+        <body>
+          <header class="app-header">
+            <div>
+              <p class="eyebrow">Taskledger</p>
+              <h1>Taskledger dashboard</h1>
+              <p id="status-headline" class="app-subtitle">Waiting for first refresh.</p>
+              <p id="status-detail" class="status-detail">The dashboard will load the selected task automatically.</p>
+            </div>
+            <div class="header-meta">
+              <div class="meta-card">
+                <span class="meta-label">Selected task</span>
+                <strong id="selected-task-label">active</strong>
+              </div>
+              <div class="meta-card">
+                <span class="meta-label">Last refresh</span>
+                <strong id="last-updated-label">never</strong>
+              </div>
+            </div>
+          </header>
+          <div class="dashboard-layout">
+            <aside aria-label="Tasks">
+              <div class="sidebar-sticky">
+                <section class="card muted-card">
+                  <div class="search-stack">
+                    <label for="task-search">Search tasks</label>
+                    <input
+                      id="task-search"
+                      class="task-search"
+                      type="search"
+                      placeholder="Filter by title, task id, or slug"
+                    >
+                    <nav id="task-filters" class="filter-row" aria-label="Task filters"></nav>
+                  </div>
+                </section>
+                <div id="tasks" class="task-list"></div>
+              </div>
+            </aside>
+            <main class="main-column">
+              <div id="hero-slot" class="hero-grid"></div>
+              <section id="metric-grid" class="metric-grid" aria-label="Progress overview"></section>
+              <div id="sections" class="section-stack"></div>
+            </main>
+            <aside class="right-rail" aria-label="Current work">
+              <div id="rail-content" class="rail-sticky"></div>
+            </aside>
+          </div>
+        """
+    ).strip()
 
-    function setStatus(text) {{
-      const node = document.getElementById("status");
-      if (node) {{
-        node.textContent = text;
-      }}
-    }}
 
-    function endpointMessage(name, emptyText) {{
-      const state = endpointState[name];
-      if (state.payload) {{
-        return null;
-      }}
-      if (state.error) {{
-        return emptyText + "\\nError: " + state.error;
-      }}
-      return emptyText;
-    }}
+def _render_dashboard_script(refresh_ms: int, task_ref: str | None) -> str:
+    script = dedent(
+        """\
+        <script>
+          const refreshMs = __REFRESH_MS__;
+          const defaultTaskRef = __DEFAULT_TASK_REF__;
+          let selectedTaskRef = defaultTaskRef ?? "active";
+          let refreshTimer = null;
+          let refreshInFlight = false;
+          let lastUpdatedText = "never";
+          let taskSearchQuery = "";
+          let taskStageFilter = "all";
 
-    function endpointOrFallback(name, emptyText) {{
-      return endpointMessage(name, emptyText) || emptyText;
-    }}
+          const STAGE_FILTERS = [
+            { value: "all", label: "All" },
+            { value: "active", label: "Active" },
+            { value: "draft", label: "Draft" },
+            { value: "review", label: "Review" },
+            { value: "approved", label: "Approved" },
+            { value: "implementation", label: "Implementing" },
+            { value: "validation", label: "Validating" },
+            { value: "failed", label: "Failed" },
+            { value: "done", label: "Done" },
+            { value: "cancelled", label: "Cancelled" },
+          ];
 
-    function formatTaskButton(task) {{
-      const title = task.title || task.slug || task.id;
-      return (
-        title + "\\n" + task.id + "  " +
-        task.status_stage + " / " +
-        (task.active_stage || "none")
-      );
-    }}
+          const endpointState = {
+            tasks: { key: null, etag: null, payload: null, error: null, lastRequestedAt: 0 },
+            project: { key: null, etag: null, payload: null, error: null, lastRequestedAt: 0 },
+            dashboard: { key: null, etag: null, payload: null, error: null, lastRequestedAt: 0 },
+            events: { key: null, etag: null, payload: null, error: null, lastRequestedAt: 0 },
+          };
 
-    function formatHeader(project, dash) {{
-      const task = dash?.task || {{}};
-      const active = project?.active_task || {{}};
-      const lock = dash?.lock || null;
-      return [
-        "Workspace: " + (project?.workspace_root || "-"),
-        "Project dir: " + (project?.project_dir || "-"),
-        "Active task: " + (
-          (active.slug || task.slug || "-") +
-          " (" + (active.task_id || task.id || "-") + ")"
-        ),
-        "Stage: " + (task.status_stage || "-"),
-        "Active stage: " + (task.active_stage || "none"),
-        "Lock: " + (lock ? (lock.stage + " (" + lock.run_id + ")") : "none"),
-        "Health: " + (project?.health || "unknown"),
-      ].join("\\n");
-    }}
+          function apiTaskRef() {
+            return selectedTaskRef === "active" ? "active" : selectedTaskRef;
+          }
 
-    function formatPlans(plans) {{
-      if (!plans || plans.length === 0) return "No plans.";
-      return plans.map((plan) => {{
-        const criteria = (plan.criteria || [])
-          .map((item) => "- " + item.id + ": " + item.text)
-          .join("\\n");
-        const todos = (plan.todos || [])
-          .map((item) => "- " + item.id + ": " + item.text)
-          .join("\\n");
-        const tests = (plan.test_commands || [])
-          .map((item) => "- " + item)
-          .join("\\n");
-        const outputs = (plan.expected_outputs || [])
-          .map((item) => "- " + item)
-          .join("\\n");
-        return [
-          "v" + plan.plan_version + "  " + plan.status,
-          "Goal: " + (plan.goal || "-"),
-          criteria ? "Criteria:\\n" + criteria : "Criteria: none",
-          todos ? "Todos:\\n" + todos : "Todos: none",
-          tests ? "Tests:\\n" + tests : "Tests: none",
-          outputs ? "Expected outputs:\\n" + outputs : "Expected outputs: none",
-          plan.body || "",
-        ].join("\\n");
-      }}).join("\\n\\n");
-    }}
+          function endpointPath(name) {
+            if (name === "tasks") return "/api/tasks";
+            if (name === "project") return "/api/project";
+            const taskRef = encodeURIComponent(apiTaskRef());
+            if (name === "dashboard") return "/api/dashboard?task=" + taskRef;
+            return "/api/events?task=" + taskRef + "&limit=50";
+          }
 
-    function formatQuestions(questions) {{
-      if (!questions) {{
-        return endpointOrFallback("dashboard", "Loading questions...");
-      }}
-      const items = questions.items || [];
-      const lines = [
-        "Open: " + (questions.open || 0) + " / Total: " + (questions.total || 0),
-      ];
-      if (items.length === 0) {{
-        lines.push("No questions.");
-      }} else {{
-        for (const item of items) {{
-          lines.push("- " + item.id + " [" + item.status + "] " + item.question);
-        }}
-      }}
-      return lines.join("\\n");
-    }}
+          function endpointCadence(name) {
+            if (name === "tasks") return Math.max(refreshMs * 5, 5000);
+            if (name === "project") return Math.max(refreshMs * 15, 15000);
+            return refreshMs;
+          }
 
-    function formatTodos(todos) {{
-      if (!todos) {{
-        return endpointOrFallback("dashboard", "Loading todos...");
-      }}
-      const items = todos.items || [];
-      const lines = [
-        "Done: " + (todos.done || 0) + " / Total: " + (todos.total || 0),
-      ];
-      if (items.length === 0) {{
-        lines.push("No todos.");
-      }} else {{
-        for (const item of items) {{
-          lines.push(
-            "- [" + (item.done ? "x" : " ") + "] " + item.id + " " + item.text
-          );
-        }}
-      }}
-      return lines.join("\\n");
-    }}
+          async function getJson(name, path) {
+            const state = endpointState[name];
+            if (state.key !== path) {
+              state.key = path;
+              state.etag = null;
+              state.payload = null;
+              state.error = null;
+            }
+            const headers = {};
+            if (state.etag) {
+              headers["If-None-Match"] = state.etag;
+            }
+            const response = await fetch(path, { headers });
+            if (response.status === 304 && state.payload) {
+              return state.payload;
+            }
+            const payload = await response.json();
+            if (!response.ok) {
+              throw new Error(payload?.error?.message || ("HTTP " + response.status));
+            }
+            state.etag = response.headers.get("ETag");
+            state.payload = payload;
+            return payload;
+          }
 
-    function formatRuns(runs) {{
-      if (!runs) {{
-        return endpointOrFallback("dashboard", "Loading runs...");
-      }}
-      if (runs.length === 0) return "No runs.";
-      return runs.map((run) => {{
-        return [
-          run.run_id + "  " + run.run_type + "  " + run.status +
-            (run.result ? " [" + run.result + "]" : ""),
-          "Started: " + (run.started_at || "-"),
-          "Finished: " + (run.finished_at || "-"),
-          "Summary: " + (run.summary || "-"),
-        ].join("\\n");
-      }}).join("\\n\\n");
-    }}
+          function h(tag, attrs = {}, children = []) {
+            const node = document.createElement(tag);
+            for (const [key, value] of Object.entries(attrs || {})) {
+              if (value === null || value === undefined || value === false) continue;
+              if (key === "class") node.className = String(value);
+              else if (key === "text") node.textContent = String(value);
+              else if (key === "style") node.setAttribute("style", String(value));
+              else if (key === "htmlFor") node.htmlFor = String(value);
+              else if (key === "value") node.value = String(value);
+              else if (key.startsWith("aria-") || key.startsWith("data-") || key === "role" || key === "type" || key === "placeholder" || key === "id") {
+                node.setAttribute(key, String(value));
+              } else {
+                node[key] = value;
+              }
+            }
+            const list = Array.isArray(children) ? children : [children];
+            for (const child of list) {
+              if (child === null || child === undefined) continue;
+              node.append(child && child.nodeType ? child : document.createTextNode(String(child)));
+            }
+            return node;
+          }
 
-    function formatChanges(changes) {{
-      if (!changes) {{
-        return endpointOrFallback("dashboard", "Loading changes...");
-      }}
-      if (changes.length === 0) return "No changes.";
-      return changes.map((change) => {{
-        return (
-          change.change_id + "  " + change.path + "  (" + change.kind + ")\\n" +
-          (change.summary || "")
-        );
-      }}).join("\\n\\n");
-    }}
+          function clearNode(node) {
+            if (node) node.replaceChildren();
+          }
 
-    function formatValidation(validation) {{
-      if (!validation) {{
-        return endpointOrFallback("dashboard", "Loading validation...");
-      }}
-      const criteria = (validation.criteria || []).map((item) => {{
-        return "- " + item.id + " [" + item.latest_status + "] " + item.text;
-      }}).join("\\n");
-      const blockers = (validation.blockers || [])
-        .map((item) => "- " + item.message)
-        .join("\\n");
-      return [
-        "Run: " + (validation.run_id || "none"),
-        "Can finish: " + (validation.can_finish_passed ? "yes" : "no"),
-        criteria ? "Criteria:\\n" + criteria : "Criteria: none",
-        blockers ? "Blockers:\\n" + blockers : "Blockers: none",
-      ].join("\\n");
-    }}
+          function emptyState(text) {
+            return h("div", { class: "empty-state", text });
+          }
 
-    function formatEvents(events) {{
-      if (!events) {{
-        return endpointOrFallback("events", "Loading events...");
-      }}
-      const items = events.items || [];
-      if (items.length === 0) return "No events.";
-      return items.map((event) => {{
-        const actor = event.actor?.actor_name || event.actor?.actor_type || "unknown";
-        return event.ts + "  " + event.event + "  " + actor;
-      }}).join("\\n");
-    }}
+          function titleCase(value) {
+            return String(value || "").replace(/[_-]+/g, " ").replace(/\\b\\w/g, (letter) => letter.toUpperCase());
+          }
 
-    function renderTasks() {{
-      const tasksPayload = endpointState.tasks.payload;
-      if (!tasksPayload) {{
-        return;
-      }}
-      const currentTaskId = endpointState.dashboard.payload?.task?.id || null;
-      const selectionKey = String(selectedTaskRef) + "|" + String(currentTaskId);
-      if (
-        tasksPayload.revision === renderedTasksRevision &&
-        selectionKey === renderedTasksSelection
-      ) {{
-        return;
-      }}
-      renderedTasksRevision = tasksPayload.revision || null;
-      renderedTasksSelection = selectionKey;
-      const tasksNode = document.getElementById("tasks");
-      tasksNode.replaceChildren();
-      for (const task of tasksPayload.tasks || []) {{
-        const button = document.createElement("button");
-        button.textContent = formatTaskButton(task);
-        button.dataset.active = String(
-          task.id === selectedTaskRef ||
-          task.slug === selectedTaskRef ||
-          task.id === currentTaskId
-        );
-        button.addEventListener("click", () => {{
-          selectedTaskRef = task.id;
-          renderedTasksSelection = null;
-          renderTasks();
-          refreshSelection().catch(renderError);
-        }});
-        tasksNode.append(button);
-      }}
-    }}
+          function formatTimestamp(value) {
+            if (!value) return "Unknown";
+            const parsed = new Date(value);
+            if (Number.isNaN(parsed.getTime())) return String(value);
+            return parsed.toLocaleString();
+          }
 
-    function renderPanels() {{
-      const panels = document.getElementById("panels");
-      const project = endpointState.project.payload;
-      const dashboard = endpointState.dashboard.payload;
-      const events = endpointState.events.payload;
-      panels.replaceChildren();
+          function toneForStage(task) {
+            const stage = task?.status_stage;
+            const activeStage = task?.active_stage;
+            if (activeStage === "validation" || stage === "plan_review") return "warning";
+            if (stage === "failed_validation") return "danger";
+            if (stage === "done") return "success";
+            if (stage === "cancelled") return "muted";
+            if (activeStage || stage === "approved" || stage === "implemented") return "info";
+            return "muted";
+          }
 
-      appendSection(
-        panels,
-        "Workspace",
-        project || dashboard
-          ? formatHeader(project, dashboard)
-          : endpointOrFallback("project", "Loading project summary...")
-      );
-      appendSection(
-        panels,
-        "Next action",
-        dashboard
-          ? JSON.stringify(dashboard.next_action || {{}}, null, 2)
-          : endpointOrFallback("dashboard", "Loading dashboard...")
-      );
-      appendSection(
-        panels,
-        "Plans",
-        dashboard
-          ? formatPlans(dashboard.plans || [])
-          : endpointOrFallback("dashboard", "Loading plans...")
-      );
-      appendSection(panels, "Questions", formatQuestions(dashboard?.questions));
-      appendSection(panels, "Todos", formatTodos(dashboard?.todos));
-      appendSection(panels, "Runs", formatRuns(dashboard?.runs));
-      appendSection(panels, "Changes", formatChanges(dashboard?.changes));
-      appendSection(panels, "Validation", formatValidation(dashboard?.validation));
-      appendSection(panels, "Events", formatEvents(events));
-    }}
+          function toneForStatus(status) {
+            if (status === "pass" || status === "done" || status === "finished" || status === "accepted") return "success";
+            if (status === "fail" || status === "failed" || status === "failed_validation") return "danger";
+            if (status === "warn" || status === "plan_review" || status === "running") return "warning";
+            if (status === "not_run" || status === "open" || status === "draft" || status === "superseded") return "muted";
+            return "info";
+          }
 
-    function render() {{
-      renderTasks();
-      renderPanels();
-      const errors = Object.entries(endpointState)
-        .filter(([, state]) => Boolean(state.error))
-        .map(([name, state]) => name + " error: " + state.error);
-      const status = [
-        refreshInFlight ? "Refreshing..." : "Idle",
-        "Selected task: " + apiTaskRef(),
-        "Last updated: " + lastUpdatedText,
-      ].concat(errors);
-      setStatus(status.join("\\n"));
-    }}
+          function badge(label, tone = "muted") {
+            return h("span", { class: "badge badge-" + tone, text: label || "-" });
+          }
 
-    function shouldRefresh(name, now) {{
-      const state = endpointState[name];
-      const path = endpointPath(name);
-      if (state.key !== path) {{
-        return true;
-      }}
-      if (state.payload === null) {{
-        return true;
-      }}
-      return (now - state.lastRequestedAt) >= endpointCadence(name);
-    }}
+          function jsonDetails(summary, payload) {
+            const details = h("details");
+            details.append(h("summary", { text: summary }), h("pre", { text: JSON.stringify(payload ?? {}, null, 2) }));
+            return details;
+          }
 
-    async function refreshEndpoint(name, now) {{
-      const state = endpointState[name];
-      state.lastRequestedAt = now;
-      try {{
-        await getJson(name, endpointPath(name));
-        state.error = null;
-      }} catch (error) {{
-        state.error = String(error);
-      }}
-    }}
+          function copyCommand(command) {
+            if (!command) return;
+            navigator.clipboard?.writeText(command).catch(() => undefined);
+          }
 
-    async function refresh() {{
-      if (refreshInFlight) {{
-        return;
-      }}
-      refreshInFlight = true;
-      render();
-      try {{
-        const now = Date.now();
-        const work = [];
-        for (const name of ["project", "tasks", "dashboard", "events"]) {{
-          if (shouldRefresh(name, now)) {{
-            work.push(refreshEndpoint(name, now));
-          }}
-        }}
-        await Promise.allSettled(work);
-        lastUpdatedText = new Date().toLocaleTimeString();
-        render();
-      }} finally {{
-        refreshInFlight = false;
-        render();
-      }}
-    }}
+          function commandRow(command) {
+            if (!command) return emptyState("No command available.");
+            const button = h("button", { class: "copy-button", type: "button", text: "Copy" });
+            button.addEventListener("click", () => copyCommand(command));
+            return h("div", { class: "command-row" }, [h("code", { text: command }), button]);
+          }
 
-    async function refreshSelection() {{
-      endpointState.dashboard.lastRequestedAt = 0;
-      endpointState.events.lastRequestedAt = 0;
-      endpointState.dashboard.etag = null;
-      endpointState.events.etag = null;
-      await refresh();
-    }}
+          function progressBar(done, total) {
+            const safeDone = Number(done || 0);
+            const safeTotal = Number(total || 0);
+            const pct = safeTotal > 0 ? Math.round((safeDone / safeTotal) * 100) : 0;
+            const track = h(
+              "div",
+              {
+                class: "progress-track",
+                role: "progressbar",
+                "aria-valuenow": pct,
+                "aria-valuemin": 0,
+                "aria-valuemax": 100,
+                "aria-label": pct + "% complete",
+              },
+              [h("div", { class: "progress-fill", style: "width:" + pct + "%" })]
+            );
+            return h("div", { class: "progress-block" }, [
+              h("strong", { text: safeDone + " / " + safeTotal }),
+              track,
+              h("span", { class: "muted", text: pct + "% complete" }),
+            ]);
+          }
 
-    function scheduleRefresh(delay = refreshMs) {{
-      clearTimeout(refreshTimer);
-      refreshTimer = setTimeout(() => {{
-        refresh().catch(renderError).finally(() => scheduleRefresh());
-      }}, delay);
-    }}
+          function endpointMessage(name, emptyText) {
+            const state = endpointState[name];
+            if (state.payload) return null;
+            if (state.error) return emptyText + " Error: " + state.error;
+            return emptyText;
+          }
 
-    function renderError(error) {{
-      setStatus("Error: " + String(error));
-      renderPanels();
-    }}
+          function endpointOrFallback(name, emptyText) {
+            return endpointMessage(name, emptyText) || emptyText;
+          }
 
-    refresh().catch(renderError).finally(() => scheduleRefresh());
-  </script>
-</body>
-</html>
-"""
+          function renderTaskFilters() {
+            const container = document.getElementById("task-filters");
+            clearNode(container);
+            for (const filter of STAGE_FILTERS) {
+              const button = h("button", {
+                class: "chip",
+                type: "button",
+                text: filter.label,
+                "data-active": String(taskStageFilter === filter.value),
+              });
+              button.addEventListener("click", () => {
+                taskStageFilter = filter.value;
+                renderTasks();
+              });
+              container.append(button);
+            }
+          }
+
+          function taskMatchesFilter(task) {
+            if (taskStageFilter === "all") return true;
+            if (taskStageFilter === "active") return Boolean(task.active_stage);
+            if (taskStageFilter === "review") return task.status_stage === "plan_review";
+            if (taskStageFilter === "implementation") return task.active_stage === "implementation" || task.status_stage === "implemented";
+            if (taskStageFilter === "validation") return task.active_stage === "validation" || task.status_stage === "validating";
+            if (taskStageFilter === "failed") return task.status_stage === "failed_validation";
+            return task.status_stage === taskStageFilter;
+          }
+
+          function sortedTasks(tasks) {
+            return [...(tasks || [])].sort((left, right) => {
+              const leftStamp = left.updated_at || left.created_at || "";
+              const rightStamp = right.updated_at || right.created_at || "";
+              if (leftStamp || rightStamp) {
+                return String(rightStamp).localeCompare(String(leftStamp));
+              }
+              return String(right.id || "").localeCompare(String(left.id || ""));
+            });
+          }
+
+          function renderTaskCard(task, currentTaskId) {
+            const selected = Boolean(task.id === selectedTaskRef || task.slug === selectedTaskRef || task.id === currentTaskId);
+            const button = h("button", { class: "task-card", type: "button", "data-active": String(selected) });
+            button.setAttribute("aria-current", selected ? "true" : "false");
+            button.addEventListener("click", () => {
+              selectedTaskRef = task.id;
+              render();
+              refreshSelection().catch(renderError);
+            });
+            const idLabel = [task.id, task.slug].filter(Boolean).join(" · ");
+            const planLabel = task.accepted_plan_version
+              ? "plan v" + task.accepted_plan_version + " accepted"
+              : task.latest_plan_version
+                ? "plan v" + task.latest_plan_version + " proposed"
+                : "no plan";
+            const activeLabel = task.active_stage ? "active: " + task.active_stage : "active: none";
+            button.append(
+              h("div", { class: "badge-row" }, [
+                badge(task.active_stage ? titleCase(task.active_stage) : titleCase(task.status_stage || "draft"), toneForStage(task)),
+                task.priority ? badge("priority " + task.priority, "info") : null,
+              ]),
+              h("p", { class: "task-title", text: task.title || task.slug || task.id }),
+              h("div", { class: "meta-line mono", text: idLabel || "-" }),
+              h("div", { class: "meta-line", text: activeLabel }),
+              h("div", { class: "meta-line", text: planLabel }),
+              task.description_summary ? h("div", { class: "summary-line", text: task.description_summary }) : null
+            );
+            return button;
+          }
+
+          function renderTasks() {
+            renderTaskFilters();
+            const tasksNode = document.getElementById("tasks");
+            clearNode(tasksNode);
+            const tasksPayload = endpointState.tasks.payload;
+            if (!tasksPayload) {
+              tasksNode.append(emptyState(endpointOrFallback("tasks", "Loading tasks...")));
+              return;
+            }
+            const currentTaskId = endpointState.dashboard.payload?.task?.id || null;
+            const query = taskSearchQuery.trim().toLowerCase();
+            const tasks = sortedTasks(tasksPayload.tasks).filter((task) => {
+              const haystack = [task.title, task.slug, task.id].join(" ").toLowerCase();
+              return (!query || haystack.includes(query)) && taskMatchesFilter(task);
+            });
+            if (tasks.length === 0) {
+              tasksNode.append(emptyState("No tasks match the current search or filter."));
+              return;
+            }
+            for (const task of tasks) {
+              tasksNode.append(renderTaskCard(task, currentTaskId));
+            }
+          }
+
+          function renderHero(project, dashboard) {
+            const slot = document.getElementById("hero-slot");
+            clearNode(slot);
+            if (!dashboard) {
+              slot.append(emptyState(endpointOrFallback("dashboard", "Loading dashboard summary...")));
+              return;
+            }
+            const task = dashboard.task || {};
+            const lock = dashboard.lock;
+            const activeTask = project?.active_task || {};
+            const hero = h("section", { class: "card hero-card active-task-hero" });
+            hero.append(
+              h("div", { class: "hero-title" }, [
+                h("h2", { text: task.title || task.slug || task.id || "Active task" }),
+                badge(task.status_stage || "unknown", toneForStage(task)),
+                task.active_stage ? badge("active " + task.active_stage, "info") : badge("no active lock", "muted"),
+              ]),
+              h("p", { class: "section-subtitle", text: task.description_summary || "Human-focused read-only review of the selected task." }),
+              h("div", { class: "hero-meta" }, [
+                h("div", { class: "meta-row" }, [h("span", { class: "muted", text: "Task reference" }), h("strong", { class: "mono", text: [task.id, task.slug].filter(Boolean).join(" · ") || "-" })]),
+                h("div", { class: "meta-row" }, [h("span", { class: "muted", text: "Lock state" }), h("strong", { text: lock ? lock.stage + " · " + lock.run_id : "No active lock" })]),
+                h("div", { class: "meta-row" }, [h("span", { class: "muted", text: "Plan status" }), h("strong", { text: dashboard.plan ? "v" + dashboard.plan.version + " · " + dashboard.plan.status : "No plan proposed" })]),
+                h("div", { class: "meta-row" }, [h("span", { class: "muted", text: "Project focus" }), h("strong", { text: activeTask.task_id ? (activeTask.slug || activeTask.task_id) + " · " + (project?.health || "not_checked") : project?.health || "not_checked" })]),
+              ]),
+              h("div", { class: "pill-row" }, [
+                task.owner ? badge("owner " + task.owner, "info") : null,
+                ...(task.labels || []).map((label) => badge(label, "muted")),
+                task.created_at ? badge("created " + formatTimestamp(task.created_at), "muted") : null,
+                task.updated_at ? badge("updated " + formatTimestamp(task.updated_at), "muted") : null,
+              ])
+            );
+            slot.append(hero);
+          }
+
+          function renderMetrics(dashboard, events) {
+            const grid = document.getElementById("metric-grid");
+            clearNode(grid);
+            if (!dashboard) {
+              grid.append(emptyState(endpointOrFallback("dashboard", "Loading progress overview...")));
+              return;
+            }
+            const validationCriteria = dashboard.validation?.criteria || [];
+            const passedValidation = validationCriteria.filter((item) => item.satisfied).length;
+            const cards = [
+              { title: "Todos", detail: (dashboard.todos?.done || 0) + " complete of " + (dashboard.todos?.total || 0), body: progressBar(dashboard.todos?.done || 0, dashboard.todos?.total || 0) },
+              { title: "Questions", detail: (dashboard.questions?.open || 0) + " open of " + (dashboard.questions?.total || 0), body: progressBar((dashboard.questions?.total || 0) - (dashboard.questions?.open || 0), dashboard.questions?.total || 0) },
+              { title: "Validation", detail: passedValidation + " satisfied of " + validationCriteria.length, body: progressBar(passedValidation, validationCriteria.length) },
+              { title: "Plan", detail: dashboard.plan ? "v" + dashboard.plan.version + " · " + dashboard.plan.status : "No plan", body: h("div", { class: "metric-value" }, [badge(dashboard.plan ? dashboard.plan.status : "none", toneForStatus(dashboard.plan?.status || "none"))]) },
+              { title: "Runs", detail: (dashboard.runs || []).length + " recorded", body: h("div", { class: "metric-value" }, [h("strong", { class: "metric-number", text: dashboard.runs?.[0] ? dashboard.runs[0].run_id + " · " + dashboard.runs[0].status : "No runs" })]) },
+              { title: "Events", detail: (events?.items || []).length + " recent entries", body: h("div", { class: "metric-value" }, [h("strong", { class: "metric-number", text: String((events?.items || []).length) }), h("span", { class: "muted", text: "Recent activity tail" })]) },
+            ];
+            for (const metric of cards) {
+              grid.append(h("section", { class: "card" }, [h("div", { class: "card-header" }, [h("h2", { text: metric.title }), h("span", { class: "muted", text: metric.detail })]), metric.body]));
+            }
+          }
+
+          function appendCard(container, title, children, className = "") {
+            const section = h("section", { class: ("card " + className).trim() });
+            section.append(h("div", { class: "card-header" }, [h("h2", { text: title })]));
+            const list = Array.isArray(children) ? children : [children];
+            for (const child of list) {
+              if (child) section.append(child);
+            }
+            container.append(section);
+          }
+
+          function renderOverview(project, dashboard) {
+            if (!project && !dashboard) return emptyState(endpointOrFallback("project", "Loading workspace summary..."));
+            return h("div", { class: "list-grid" }, [
+              h("div", { class: "item-card" }, [h("div", { class: "item-title" }, [h("strong", { text: "Workspace" })]), h("div", { class: "mini-meta" }, [h("span", { class: "muted", text: "Workspace root" }), h("code", { text: project?.workspace_root || "-" }), h("span", { class: "muted", text: "Project dir" }), h("code", { text: project?.project_dir || "-" })])]),
+              h("div", { class: "item-card" }, [h("div", { class: "item-title" }, [h("strong", { text: "Selected task state" })]), h("div", { class: "mini-meta" }, [h("span", { class: "muted", text: "Stage" }), h("span", { text: dashboard?.task?.status_stage || "-" }), h("span", { class: "muted", text: "Active stage" }), h("span", { text: dashboard?.task?.active_stage || "none" }), h("span", { class: "muted", text: "Health" }), h("span", { text: project?.health || "unknown" })])]),
+            ]);
+          }
+
+          function renderNextAction(nextAction) {
+            if (!nextAction) return emptyState(endpointOrFallback("dashboard", "Loading next action..."));
+            const blockers = nextAction.blocking || [];
+            const nextItem = nextAction.next_item;
+            const card = h("section", { class: "card next-action-card" });
+            card.append(h("div", { class: "card-header" }, [h("h2", { text: "Next action" }), badge(nextAction.action || "none", toneForStatus(nextAction.action || "none"))]), h("p", { class: "section-subtitle", text: nextAction.reason || "No next action available." }), commandRow(nextAction.next_command));
+            if (nextItem) {
+              card.append(h("div", { class: "item-card" }, [h("div", { class: "item-title" }, [h("strong", { text: "Next item" }), nextItem.id ? h("code", { text: nextItem.id }) : null]), h("div", { class: "mini-meta" }, [nextItem.text ? h("span", { text: nextItem.text }) : null, nextItem.kind ? h("span", { class: "muted", text: "Kind: " + nextItem.kind }) : null])]));
+            }
+            if (blockers.length > 0) {
+              card.append(h("div", { class: "list-grid" }, [h("h3", { text: "Blockers" }), h("ul", { class: "clean-list" }, blockers.map((blocker) => h("li", { text: blocker.message || blocker.kind || "Blocking issue" }))) ]));
+            }
+            if (nextAction.progress && Object.keys(nextAction.progress).length > 0) {
+              card.append(jsonDetails("Progress payload", nextAction.progress));
+            }
+            card.append(jsonDetails("Raw next action payload", nextAction));
+            return card;
+          }
+
+          function renderQuestionsSection(questions) {
+            if (!questions) return emptyState(endpointOrFallback("dashboard", "Loading questions..."));
+            if (!questions.items || questions.items.length === 0) return h("p", { class: "section-subtitle", text: "No planning questions are recorded." });
+            return h("div", { class: "list-grid" }, questions.items.map((item) => h("div", { class: "item-card" }, [h("div", { class: "item-title" }, [h("strong", { text: item.question || item.text || item.id }), badge(item.status || "open", toneForStatus(item.status || "open"))]), h("code", { text: item.id || "-" }), item.answer ? h("p", { text: item.answer }) : null])));
+          }
+
+          function renderPlanSection(plans) {
+            if (!plans || plans.length === 0) return emptyState("No plans have been proposed yet.");
+            const latest = plans[plans.length - 1];
+            const body = h("div", { class: "list-grid" }, [h("p", { class: "section-subtitle", text: "Latest plan v" + latest.plan_version + " · " + (latest.status || "unknown") })]);
+            if (latest.goal) body.append(h("p", { text: latest.goal }));
+            if (latest.criteria?.length) {
+              body.append(h("div", { class: "criteria-grid" }, latest.criteria.map((criterion) => h("div", { class: "item-card" }, [h("div", { class: "item-title" }, [h("strong", { text: criterion.text || criterion.id }), criterion.id ? h("code", { text: criterion.id }) : null]), badge(criterion.mandatory === false ? "optional" : "mandatory", criterion.mandatory === false ? "muted" : "info")]))));
+            }
+            if (latest.todos?.length) {
+              body.append(h("div", { class: "list-grid" }, latest.todos.map((todo) => h("div", { class: "item-card" }, [h("div", { class: "item-title" }, [h("strong", { text: todo.text || todo.id }), todo.id ? h("code", { text: todo.id }) : null]), todo.validation_hint ? commandRow(todo.validation_hint) : null]))));
+            }
+            if (latest.test_commands?.length) {
+              body.append(h("div", { class: "list-grid" }, [h("h3", { text: "Test commands" }), ...latest.test_commands.map((command) => commandRow(command))]));
+            }
+            if (latest.expected_outputs?.length) {
+              body.append(h("ul", { class: "clean-list" }, latest.expected_outputs.map((item) => h("li", { text: item }))));
+            }
+            if (latest.body) body.append(jsonDetails("Expanded plan body", latest.body));
+            if (plans.length > 1) {
+              const details = h("details");
+              details.append(h("summary", { text: "Previous versions" }), ...plans.slice(0, -1).reverse().map((plan) => h("div", { class: "item-card" }, [h("div", { class: "item-title" }, [h("strong", { text: "v" + plan.plan_version }), badge(plan.status || "unknown", toneForStatus(plan.status || "unknown"))]), plan.goal ? h("p", { text: plan.goal }) : null, plan.body ? h("pre", { text: plan.body }) : null])));
+              body.append(details);
+            }
+            return body;
+          }
+
+          function renderTodosSection(todos, nextAction) {
+            if (!todos) return emptyState(endpointOrFallback("dashboard", "Loading todos..."));
+            const highlightedTodoId = nextAction?.next_item?.kind === "todo" ? nextAction.next_item.id : null;
+            const items = [...(todos.items || [])].sort((left, right) => Number(Boolean(left.done)) - Number(Boolean(right.done)));
+            const todoCards = items.map((todo) => {
+              const done = Boolean(todo.done || todo.status === "done");
+              const card = h("div", { class: "item-card" + (todo.id === highlightedTodoId ? " todo-next" : "") }, [h("div", { class: "item-title" }, [h("strong", { text: todo.text || todo.id }), badge(done ? "done" : todo.status || "open", toneForStatus(done ? "done" : todo.status || "open"))]), h("code", { text: todo.id || "-" })]);
+              const lines = [];
+              if (todo.evidence) lines.push("Evidence: " + todo.evidence);
+              if (todo.source) lines.push("Source: " + todo.source);
+              if (todo.active_at) lines.push("Active at: " + todo.active_at);
+              if (lines.length > 0) {
+                const details = h("details");
+                details.append(h("summary", { text: "Details" }), h("ul", { class: "clean-list" }, lines.map((line) => h("li", { text: line }))));
+                card.append(details);
+              }
+              return card;
+            });
+            return h("div", { class: "list-grid" }, [
+              h("p", { class: "section-subtitle", text: (todos.done || 0) + " done of " + (todos.total || 0) + " total" }),
+              progressBar(todos.done || 0, todos.total || 0),
+              items.length === 0 ? emptyState("No todos are recorded.") : h("div", { class: "list-grid" }, todoCards),
+            ]);
+          }
+
+          function renderValidationSection(validation) {
+            if (!validation) return emptyState(endpointOrFallback("dashboard", "Loading validation..."));
+            const parts = [h("p", { class: "section-subtitle", text: validation.run_id ? "Validation run " + validation.run_id + " · " + (validation.can_finish_passed ? "ready to finish" : "checks remain") : "No validation run recorded" })];
+            if ((validation.blockers || []).length > 0) {
+              parts.push(h("div", { class: "item-card" }, [h("div", { class: "item-title" }, [h("strong", { text: "Blockers" })]), h("ul", { class: "clean-list" }, validation.blockers.map((blocker) => h("li", { text: blocker.message || blocker.ref || blocker.kind || "Blocking issue" }))) ]));
+            }
+            parts.push((validation.criteria || []).length === 0 ? emptyState("No validation criteria were found.") : h("div", { class: "criteria-grid" }, validation.criteria.map((criterion) => {
+              const card = h("div", { class: "item-card" }, [h("div", { class: "item-title" }, [h("strong", { text: criterion.text || criterion.id }), badge(criterion.latest_status || "not_run", toneForStatus(criterion.latest_status || "not_run"))]), h("code", { text: criterion.id || "-" }), criterion.has_waiver ? badge("waived", "warning") : null, criterion.evidence?.length ? h("ul", { class: "clean-list" }, criterion.evidence.map((item) => h("li", { text: item }))) : h("p", { class: "muted", text: "No evidence recorded." })]);
+              if (criterion.history?.length || criterion.blockers?.length) {
+                const details = h("details");
+                details.append(h("summary", { text: "History and blockers" }), criterion.history?.length ? h("ul", { class: "clean-list" }, criterion.history.map((item) => h("li", { text: (item.check_id || "check") + " · " + (item.status || "unknown") }))) : null, criterion.blockers?.length ? h("ul", { class: "clean-list" }, criterion.blockers.map((item) => h("li", { text: item.message || item.kind || "blocker" }))) : null);
+                card.append(details);
+              }
+              return card;
+            })));
+            return h("div", { class: "list-grid" }, parts);
+          }
+
+          function renderRunsSection(runs) {
+            if (!runs) return emptyState(endpointOrFallback("dashboard", "Loading runs..."));
+            if (runs.length === 0) return emptyState("No implementation or validation runs are recorded.");
+            return h("div", { class: "timeline" }, runs.map((run) => {
+              const card = h("div", { class: "timeline-item" }, [h("div", { class: "item-title" }, [h("strong", { text: run.run_id + " · " + titleCase(run.run_type || "run") }), badge(run.result || run.status || "unknown", toneForStatus(run.result || run.status || "unknown"))]), h("p", { text: run.summary || "No summary recorded." }), h("div", { class: "mini-meta" }, [h("span", { class: "muted", text: "Started" }), h("span", { text: formatTimestamp(run.started_at) }), h("span", { class: "muted", text: "Finished" }), h("span", { text: run.finished_at ? formatTimestamp(run.finished_at) : "In progress" })])]);
+              card.append(jsonDetails("Run details", run));
+              return card;
+            }));
+          }
+
+          function renderChangesSection(changes) {
+            if (!changes) return emptyState(endpointOrFallback("dashboard", "Loading changes..."));
+            if (changes.length === 0) return emptyState("No implementation changes are recorded.");
+            return h("div", { class: "change-grid" }, changes.map((change) => {
+              const card = h("div", { class: "item-card" }, [h("div", { class: "item-title" }, [h("strong", { text: change.summary || change.path || change.change_id }), badge(change.kind || "change", "info")]), h("code", { text: change.path || change.change_id || "-" })]);
+              card.append(jsonDetails("Change metadata", change));
+              return card;
+            }));
+          }
+
+          function renderEventsSection(events) {
+            if (!events) return emptyState(endpointOrFallback("events", "Loading events..."));
+            if (!events.items || events.items.length === 0) return emptyState("No recent events are available.");
+            return h("div", { class: "timeline" }, events.items.map((event) => {
+              const actor = event.actor?.actor_name || event.actor?.actor_type || "unknown";
+              const card = h("div", { class: "timeline-item" }, [h("div", { class: "item-title" }, [h("strong", { text: event.event || "event" }), h("span", { class: "muted mono", text: formatTimestamp(event.ts) })]), h("p", { text: actor })]);
+              card.append(jsonDetails("Event payload", event));
+              return card;
+            }));
+          }
+
+          function renderRawSection(project, dashboard, events) {
+            const card = h("section", { class: "card raw-payload" });
+            card.append(h("div", { class: "card-header" }, [h("h2", { text: "Raw payload" })]), h("p", { class: "section-subtitle", text: "Debug payloads stay available without dominating the main dashboard." }), jsonDetails("Project payload", project || {}), jsonDetails("Dashboard payload", dashboard || {}), jsonDetails("Events payload", events || {}));
+            return card;
+          }
+
+          function renderSections() {
+            const project = endpointState.project.payload;
+            const dashboard = endpointState.dashboard.payload;
+            const events = endpointState.events.payload;
+            renderHero(project, dashboard);
+            renderMetrics(dashboard, events);
+            const rail = document.getElementById("rail-content");
+            clearNode(rail);
+            rail.append(renderNextAction(dashboard?.next_action));
+            const sections = document.getElementById("sections");
+            clearNode(sections);
+            appendCard(sections, "Overview", renderOverview(project, dashboard));
+            appendCard(sections, "Plan", renderPlanSection(dashboard?.plans));
+            appendCard(sections, "Questions", renderQuestionsSection(dashboard?.questions));
+            appendCard(sections, "Todos", renderTodosSection(dashboard?.todos, dashboard?.next_action));
+            appendCard(sections, "Validation", renderValidationSection(dashboard?.validation));
+            appendCard(sections, "Runs", renderRunsSection(dashboard?.runs));
+            appendCard(sections, "Changes", renderChangesSection(dashboard?.changes));
+            appendCard(sections, "Events", renderEventsSection(events));
+            sections.append(renderRawSection(project, dashboard, events));
+          }
+
+          function setStatus() {
+            const errors = Object.entries(endpointState).filter(([, state]) => Boolean(state.error)).map(([name, state]) => name + " error: " + state.error);
+            const headline = document.getElementById("status-headline");
+            const detail = document.getElementById("status-detail");
+            const selected = document.getElementById("selected-task-label");
+            const updated = document.getElementById("last-updated-label");
+            if (headline) {
+              headline.textContent = refreshInFlight ? "Refreshing dashboard data..." : "Showing a read-only review of the selected task.";
+            }
+            if (detail) {
+              detail.textContent = errors.length > 0 ? errors.join(" · ") : "Polling dashboard and events every " + refreshMs + "ms with slower project and task refresh cadences.";
+            }
+            if (selected) {
+              selected.textContent = endpointState.dashboard.payload?.task?.slug || apiTaskRef();
+            }
+            if (updated) {
+              updated.textContent = lastUpdatedText;
+            }
+          }
+
+          function render() {
+            renderTasks();
+            renderSections();
+            setStatus();
+          }
+
+          function shouldRefresh(name, now) {
+            const state = endpointState[name];
+            const path = endpointPath(name);
+            if (state.key !== path) return true;
+            if (state.payload === null) return true;
+            return (now - state.lastRequestedAt) >= endpointCadence(name);
+          }
+
+          async function refreshEndpoint(name, now) {
+            const state = endpointState[name];
+            state.lastRequestedAt = now;
+            try {
+              await getJson(name, endpointPath(name));
+              state.error = null;
+            } catch (error) {
+              state.error = String(error);
+            }
+          }
+
+          async function refresh() {
+            if (refreshInFlight) return;
+            refreshInFlight = true;
+            render();
+            try {
+              const now = Date.now();
+              const work = [];
+              for (const name of ["project", "tasks", "dashboard", "events"]) {
+                if (shouldRefresh(name, now)) {
+                  work.push(refreshEndpoint(name, now));
+                }
+              }
+              await Promise.allSettled(work);
+              lastUpdatedText = new Date().toLocaleTimeString();
+              render();
+            } finally {
+              refreshInFlight = false;
+              render();
+            }
+          }
+
+          async function refreshSelection() {
+            endpointState.dashboard.lastRequestedAt = 0;
+            endpointState.events.lastRequestedAt = 0;
+            endpointState.dashboard.etag = null;
+            endpointState.events.etag = null;
+            await refresh();
+          }
+
+          function scheduleRefresh(delay = refreshMs) {
+            clearTimeout(refreshTimer);
+            refreshTimer = setTimeout(() => {
+              refresh().catch(renderError).finally(() => scheduleRefresh());
+            }, delay);
+          }
+
+          function renderError(error) {
+            endpointState.dashboard.error = String(error);
+            setStatus();
+            renderSections();
+          }
+
+          function setupControls() {
+            const search = document.getElementById("task-search");
+            search?.addEventListener("input", (event) => {
+              taskSearchQuery = event.target?.value || "";
+              renderTasks();
+            });
+          }
+
+          setupControls();
+          refresh().catch(renderError).finally(() => scheduleRefresh());
+        </script>
+        """
+    )
+    return (
+        script.replace("__REFRESH_MS__", json.dumps(refresh_ms))
+        .replace("__DEFAULT_TASK_REF__", _safe_script_literal(task_ref))
+        .strip()
+    )
 
 
 def launch_dashboard_server(config: DashboardServerConfig) -> DashboardServerHandle:

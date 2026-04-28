@@ -157,7 +157,9 @@ JSON result example:
 ## Human monitoring UI
 
 `taskledger serve` starts a read-only local dashboard for humans monitoring task
-state. The MVP binds to localhost only, refreshes with read-only JSON polling,
+state. It now emphasizes the active task, next action, progress, blockers, and
+compact task browsing while staying local-only, read-only, and dependency-free.
+The MVP still binds to localhost only, refreshes with read-only JSON polling,
 and exposes no browser mutation endpoints.
 
 ```bash

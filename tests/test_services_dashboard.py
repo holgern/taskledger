@@ -149,6 +149,19 @@ def test_serve_task_summaries_reads_tasks_and_locks_once(
     assert calls == {"tasks": 1, "locks": 1}
 
 
+def test_serve_task_summaries_include_display_metadata(tmp_path: Path) -> None:
+    task = _create_task_and_activate(tmp_path)
+
+    payload = serve_task_summaries(tmp_path)
+    item = payload["tasks"][0]
+
+    assert item["id"] == task.id
+    assert item["description_summary"] == "A test task for dashboard"
+    assert "updated_at" in item
+    assert item["labels"] == []
+    assert item["owner"] is None
+
+
 def test_serve_dashboard_snapshot_loads_selected_task_collections_once(
     tmp_path: Path,
     monkeypatch,

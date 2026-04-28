@@ -57,8 +57,10 @@ avoid inventing question answers, and only mark todos done after evidence exists
 Human monitoring UI
 -------------------
 
-``taskledger serve`` starts a read-only localhost dashboard for a human operator.
-The MVP refreshes with JSON polling and exposes no browser write actions.
+``taskledger serve`` starts a read-only localhost dashboard for a human
+operator. It emphasizes the active task, next action, progress, blockers, and
+compact task browsing while continuing to refresh with JSON polling and expose
+no browser write actions.
 
 .. code-block:: bash
 

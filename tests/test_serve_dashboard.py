@@ -318,6 +318,33 @@ def test_dashboard_refresh_loop_does_not_use_set_interval() -> None:
     assert "endpointOrFallback" in html
 
 
+def test_dashboard_html_has_human_layout_sections() -> None:
+    html = render_index_html(refresh_ms=1000, task_ref=None)
+
+    assert "active-task-hero" in html
+    assert "next-action-card" in html
+    assert "metric-grid" in html
+    assert "task-search" in html
+    assert "raw-payload" in html
+    assert "command-row" in html
+
+
+def test_dashboard_html_does_not_emit_broken_todo_renderer_tokens() -> None:
+    html = render_index_html(refresh_ms=1000, task_ref=None)
+
+    assert "const todoCards = items.map((todo) => {" in html
+    assert "}))]));" not in html
+
+
+def test_dashboard_html_has_accessible_landmarks() -> None:
+    html = render_index_html(refresh_ms=1000, task_ref=None)
+
+    assert "<header" in html
+    assert 'aria-label="Tasks"' in html
+    assert "aria-current" in html
+    assert "progressbar" in html
+
+
 def test_launch_dashboard_server_defaults_to_loopback_and_reports_bound_port(
     tmp_path: Path,
 ) -> None:
@@ -355,6 +382,11 @@ def test_dashboard_api_routes_return_expected_payloads(tmp_path: Path) -> None:
     assert project_payload["health"] == "not_checked"
     assert tasks_payload["kind"] == "tasks"
     assert tasks_payload["tasks"][0]["id"] == "task-0001"
+    assert (
+        tasks_payload["tasks"][0]["description_summary"]
+        == "Exercise the serve dashboard payload."
+    )
+    assert tasks_payload["tasks"][0]["labels"] == []
     assert dash_payload["kind"] == "dashboard"
     assert dash_payload["task"]["id"] == "task-0001"
     assert dash_payload["task"]["active_stage"] == "validation"
