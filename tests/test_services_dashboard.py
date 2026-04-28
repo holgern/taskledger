@@ -322,6 +322,8 @@ def test_render_dashboard_text_with_next_action() -> None:
                 "kind": "todo",
                 "id": "todo-0001",
                 "text": "Wire detailed next-action output.",
+                "validation_hint": "pytest tests/test_services_dashboard.py -q",
+                "done_command_hint": 'taskledger todo done todo-0001 --evidence "..."',
             },
             "commands": [
                 {
@@ -347,6 +349,8 @@ def test_render_dashboard_text_with_next_action() -> None:
     assert "Next action: todo-work" in text
     assert "Implementation is in progress; 1 todos remain." in text
     assert "next todo: todo-0001  Wire detailed next-action output." in text
+    assert "validation: pytest tests/test_services_dashboard.py -q" in text
+    assert 'when done: taskledger todo done todo-0001 --evidence "..."' in text
     assert "command: taskledger todo show todo-0001" in text
     assert "progress: 2/3 todos done" in text
     assert "blocker: Missing requirement X" in text

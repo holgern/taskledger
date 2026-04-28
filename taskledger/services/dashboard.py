@@ -159,6 +159,12 @@ def render_dashboard_text(payload: dict[str, object]) -> str:  # noqa: C901
                 lines.append(f"  next {kind}: {item_id}  {text}")
             elif kind and item_id:
                 lines.append(f"  next {kind}: {item_id}")
+            validation_hint = next_item.get("validation_hint")
+            if isinstance(validation_hint, str) and validation_hint:
+                lines.append(f"  validation: {validation_hint}")
+            done_command = next_item.get("done_command_hint")
+            if isinstance(done_command, str) and done_command:
+                lines.append(f"  when done: {done_command}")
         next_command = na.get("next_command")
         if next_command:
             lines.append(f"  command: {next_command}")

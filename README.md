@@ -132,7 +132,9 @@ JSON result example:
   "next_item": {
     "kind": "todo",
     "id": "todo-0001",
-    "text": "Update next-action JSON payload."
+    "text": "Update next-action JSON payload.",
+    "validation_hint": "Run: pytest tests/test_todo_implementation_gate.py -q; Expected: pass",
+    "done_command_hint": "taskledger todo done todo-0001 --evidence \"...\""
   },
   "commands": [
     {
@@ -140,6 +142,12 @@ JSON result example:
       "label": "Show next todo",
       "command": "taskledger todo show todo-0001",
       "primary": true
+    },
+    {
+      "kind": "complete",
+      "label": "Mark todo done after evidence exists",
+      "command": "taskledger todo done todo-0001 --evidence \"...\"",
+      "primary": false
     }
   ],
   "progress": {
@@ -153,6 +161,28 @@ JSON result example:
   "blocking": []
 }
 ```
+
+## Compact implementation loop
+
+For routine same-session implementation, prefer `next-action` and the single next
+todo over broad generated context:
+
+```bash
+taskledger --json next-action
+taskledger --json todo next
+taskledger todo show todo-0003
+# implement only that todo
+pytest tests/...
+taskledger todo done todo-0003 --evidence "pytest tests/... passed"
+taskledger --json next-action
+```
+
+Rules for agents:
+
+- Prefer `next-action` and `todo next` over generated context during normal work.
+- Use the todo `validation_hint` before marking a todo done.
+- Record concise evidence with `todo done`.
+- Do not create handoffs or context bundles unless the user asked to switch harness or session.
 
 ## Human monitoring UI
 
@@ -168,8 +198,10 @@ taskledger serve --open
 taskledger serve --task rewrite-v2 --refresh-ms 2000
 ```
 
-Agents should keep using `taskledger next-action`, `taskledger context`, and
-`--json` commands as the canonical automation interface.
+Agents should keep using `taskledger next-action`, `taskledger todo next`, and
+`--json` commands as the canonical automation interface for routine same-session
+work. Reach for `context` or handoffs when the task actually needs a broader
+fresh-context transfer.
 
 ## Storage layout
 

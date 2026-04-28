@@ -21,6 +21,8 @@ from taskledger.services.tasks import (
     _optional_run,
     _task_active_stage,
     _task_with_sidecars,
+    _todo_command_hints,
+    _todo_done_command,
 )
 from taskledger.services.validation import build_validation_gate_report
 from taskledger.storage.locks import lock_is_expired
@@ -534,6 +536,7 @@ def _todo_next_item(todo: TaskTodo) -> dict[str, object]:
         "source": todo.source,
         "done": todo.done,
         "validation_hint": todo.validation_hint,
+        "done_command_hint": _todo_done_command(todo.id),
     }
 
 
@@ -830,17 +833,7 @@ def _commands_for_next_item(
         ]
     if item_kind == "todo" and isinstance(item_id, str):
         return [
-            _command(
-                "inspect",
-                "Show next todo",
-                f"taskledger todo show {item_id}",
-                primary=True,
-            ),
-            _command(
-                "complete",
-                "Mark todo done after evidence exists",
-                f'taskledger todo done {item_id} --evidence "..."',
-            ),
+            *_todo_command_hints(item_id),
             _command(
                 "context",
                 "Show implementation checklist",

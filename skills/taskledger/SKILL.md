@@ -100,6 +100,29 @@ The plan file should use version ids like `plan-v1`, `plan-v2` in references. Do
 
 **Critical**: `implement finish` will block until all non-skipped todos are done. Use `todo status` to verify readiness.
 
+## Compact implementation loop
+
+For routine same-session implementation, prefer the next action and the single
+next todo over a broad generated context read:
+
+```bash
+taskledger --json next-action
+taskledger --json todo next
+taskledger todo show todo-0003
+# implement only that todo
+pytest tests/...
+taskledger todo done todo-0003 --evidence "pytest tests/... passed"
+taskledger --json next-action
+```
+
+Rules for agents:
+
+1. Prefer `next-action` and `todo next` over generated context during normal work.
+2. Use `validation_hint` before marking a todo done.
+3. Mark a todo done only after evidence exists.
+4. Record concise evidence.
+5. Do not create handoffs or context bundles unless the user explicitly asked to switch harness or session.
+
 ## Validation protocol
 
 1. `taskledger context --for validation --format markdown`

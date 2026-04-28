@@ -194,6 +194,22 @@ Fresh-worker implementation
 
 Mark mandatory todos done with evidence:
 
+Compact same-session loop:
+
+.. code-block:: bash
+
+   taskledger --json next-action
+   taskledger --json todo next
+   taskledger todo show todo-0003
+   # implement only that todo
+   pytest tests/test_parser.py -q
+   taskledger todo done todo-0003 --evidence "pytest tests/test_parser.py -q"
+   taskledger --json next-action
+
+Prefer this loop over broad generated context during normal work. Use
+``validation_hint`` before marking a todo done. Create a handoff or wider
+context only when the task needs a harness or session switch.
+
 .. code-block:: bash
 
    taskledger todo next

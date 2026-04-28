@@ -2193,29 +2193,18 @@ def next_todo(workspace_root: Path, task_ref: str) -> dict[str, object]:
     # Prefer active todos first, then first open todo
     for todo in todos:
         if not todo.done and hasattr(todo, "status") and todo.status == "active":
-            return {
-                "kind": "next_todo",
-                "task_id": task.id,
-                "next_todo_id": todo.id,
-                "next_todo": todo.to_dict(),
-                "can_finish_implementation": False,
-            }
+            return _next_todo_payload(task.id, todo)
 
     for todo in todos:
         if not todo.done:
-            return {
-                "kind": "next_todo",
-                "task_id": task.id,
-                "next_todo_id": todo.id,
-                "next_todo": todo.to_dict(),
-                "can_finish_implementation": False,
-            }
+            return _next_todo_payload(task.id, todo)
 
     return {
         "kind": "next_todo",
         "task_id": task.id,
         "next_todo_id": None,
         "next_todo": None,
+        "commands": [],
         "can_finish_implementation": True,
     }
 
@@ -3378,6 +3367,18 @@ def _todo_next_item(todo: TaskTodo) -> dict[str, object]:
         "source": todo.source,
         "done": todo.done,
         "validation_hint": todo.validation_hint,
+        "done_command_hint": _todo_done_command(todo.id),
+    }
+
+
+def _next_todo_payload(task_id: str, todo: TaskTodo) -> dict[str, object]:
+    return {
+        "kind": "next_todo",
+        "task_id": task_id,
+        "next_todo_id": todo.id,
+        "next_todo": todo.to_dict(),
+        "commands": _todo_command_hints(todo.id),
+        "can_finish_implementation": False,
     }
 
 
@@ -3433,6 +3434,26 @@ def _command(
         "command": command,
         "primary": primary,
     }
+
+
+def _todo_done_command(todo_id: str) -> str:
+    return f'taskledger todo done {todo_id} --evidence "..."'
+
+
+def _todo_command_hints(todo_id: str) -> list[dict[str, object]]:
+    return [
+        _command(
+            "inspect",
+            "Show next todo",
+            f"taskledger todo show {todo_id}",
+            primary=True,
+        ),
+        _command(
+            "complete",
+            "Mark todo done after evidence exists",
+            _todo_done_command(todo_id),
+        ),
+    ]
 
 
 def _first_question_by_ids(
@@ -3671,17 +3692,7 @@ def _commands_for_next_item(
         ]
     if item_kind == "todo" and isinstance(item_id, str):
         return [
-            _command(
-                "inspect",
-                "Show next todo",
-                f"taskledger todo show {item_id}",
-                primary=True,
-            ),
-            _command(
-                "complete",
-                "Mark todo done after evidence exists",
-                f'taskledger todo done {item_id} --evidence "..."',
-            ),
+            *_todo_command_hints(item_id),
             _command(
                 "context",
                 "Show implementation checklist",

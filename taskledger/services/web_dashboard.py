@@ -921,22 +921,28 @@ def _render_dashboard_script(refresh_ms: int, task_ref: str | None) -> str:
             ]);
           }
 
-          function renderNextAction(nextAction) {
+          function renderNextAction(dashboard) {
+            const nextAction = dashboard?.next_action;
             if (!nextAction) return emptyState(endpointOrFallback("dashboard", "Loading next action..."));
+            const task = dashboard?.task || {};
             const blockers = nextAction.blocking || [];
             const nextItem = nextAction.next_item;
+            const todoProgress = nextAction.progress?.todos || {};
             const card = h("section", { class: "card next-action-card" });
-            card.append(h("div", { class: "card-header" }, [h("h2", { text: "Next action" }), badge(nextAction.action || "none", toneForStatus(nextAction.action || "none"))]), h("p", { class: "section-subtitle", text: nextAction.reason || "No next action available." }), commandRow(nextAction.next_command));
+            card.append(h("div", { class: "card-header" }, [h("h2", { text: "Do next" }), badge(nextAction.action || "none", toneForStatus(nextAction.action || "none"))]), h("p", { class: "section-subtitle", text: nextAction.reason || "No next action available." }));
+            card.append(h("div", { class: "item-card" }, [h("div", { class: "item-title" }, [h("strong", { text: task.title || task.slug || "Selected task" }), task.id ? h("code", { text: task.id }) : null]), h("div", { class: "mini-meta" }, [h("span", { class: "muted", text: "Stage" }), h("span", { text: task.status_stage || "-" }), h("span", { class: "muted", text: "Active" }), h("span", { text: task.active_stage || "none" })])]));
+            if (nextAction.next_command) {
+              card.append(h("div", { class: "item-card" }, [h("div", { class: "item-title" }, [h("strong", { text: "Inspect" })]), commandRow(nextAction.next_command)]));
+            }
             if (nextItem) {
-              card.append(h("div", { class: "item-card" }, [h("div", { class: "item-title" }, [h("strong", { text: "Next item" }), nextItem.id ? h("code", { text: nextItem.id }) : null]), h("div", { class: "mini-meta" }, [nextItem.text ? h("span", { text: nextItem.text }) : null, nextItem.kind ? h("span", { class: "muted", text: "Kind: " + nextItem.kind }) : null])]));
+              card.append(h("div", { class: "item-card" }, [h("div", { class: "item-title" }, [h("strong", { text: nextItem.id || "Next item" }), nextItem.kind ? badge(nextItem.kind, "info") : null]), nextItem.text ? h("p", { text: nextItem.text }) : null, nextItem.validation_hint ? h("div", { class: "mini-meta" }, [h("span", { class: "muted", text: "Validation" })]) : null, nextItem.validation_hint ? commandRow(nextItem.validation_hint) : null, nextItem.done_command_hint ? h("div", { class: "mini-meta" }, [h("span", { class: "muted", text: "When done" })]) : null, nextItem.done_command_hint ? commandRow(nextItem.done_command_hint) : null]));
+            }
+            if (Object.keys(todoProgress).length > 0) {
+              card.append(h("div", { class: "item-card" }, [h("div", { class: "item-title" }, [h("strong", { text: "Todo progress" })]), h("p", { text: String(todoProgress.done || 0) + "/" + String(todoProgress.total || 0) + " done" })]));
             }
             if (blockers.length > 0) {
               card.append(h("div", { class: "list-grid" }, [h("h3", { text: "Blockers" }), h("ul", { class: "clean-list" }, blockers.map((blocker) => h("li", { text: blocker.message || blocker.kind || "Blocking issue" }))) ]));
             }
-            if (nextAction.progress && Object.keys(nextAction.progress).length > 0) {
-              card.append(jsonDetails("Progress payload", nextAction.progress));
-            }
-            card.append(jsonDetails("Raw next action payload", nextAction));
             return card;
           }
 
@@ -1060,7 +1066,7 @@ def _render_dashboard_script(refresh_ms: int, task_ref: str | None) -> str:
             renderMetrics(dashboard, events);
             const rail = document.getElementById("rail-content");
             clearNode(rail);
-            rail.append(renderNextAction(dashboard?.next_action));
+            rail.append(renderNextAction(dashboard));
             const sections = document.getElementById("sections");
             clearNode(sections);
             appendCard(sections, "Overview", renderOverview(project, dashboard));

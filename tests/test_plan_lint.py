@@ -177,6 +177,25 @@ todos:
 Do the work later.
 """
 
+_NO_TODO_HINTS_PLAN = """\
+---
+goal: Wire compact execution hints.
+files:
+  - taskledger/services/plan_lint.py
+expected_outputs:
+  - plan lint emits a warning
+acceptance_criteria:
+  - id: ac-0001
+    text: A warning is emitted.
+todos:
+  - text: Update `taskledger/services/plan_lint.py` to emit a warning.
+---
+
+## Goal
+
+Wire compact execution hints.
+"""
+
 
 class TestPlanLintPasses:
     def test_plan_lint_passes_for_executable_plan(self, tmp_path: Path) -> None:
@@ -368,6 +387,61 @@ class TestPlanLintWarnings:
         placeholder_issues = [i for i in res["issues"] if i["code"] == "placeholder"]
         assert len(placeholder_issues) >= 1
         assert placeholder_issues[0]["severity"] == "error"
+
+    def test_plan_lint_warns_when_todos_lack_validation_hints_and_no_tests(
+        self, tmp_path: Path
+    ) -> None:
+        _init_project(tmp_path)
+        _create_task(tmp_path, "todo-hints")
+        _start_planning(tmp_path, "todo-hints")
+        _propose_plan(tmp_path, _NO_TODO_HINTS_PLAN, slug="todo-hints")
+
+        result = runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "--json", "plan", "lint", "--task", "todo-hints"],
+        )
+        assert result.exit_code == 0, result.output
+        payload = _json(result)
+        res = payload["result"]
+        hint_issues = [
+            issue
+            for issue in res["issues"]
+            if issue["code"] == "missing_todo_validation_hint"
+        ]
+        assert len(hint_issues) == 1
+        assert hint_issues[0]["severity"] == "warning"
+
+    def test_plan_lint_strict_errors_when_todos_lack_validation_hints_and_no_tests(
+        self, tmp_path: Path
+    ) -> None:
+        _init_project(tmp_path)
+        _create_task(tmp_path, "todo-hints-strict")
+        _start_planning(tmp_path, "todo-hints-strict")
+        _propose_plan(tmp_path, _NO_TODO_HINTS_PLAN, slug="todo-hints-strict")
+
+        result = runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "--json",
+                "plan",
+                "lint",
+                "--task",
+                "todo-hints-strict",
+                "--strict",
+            ],
+        )
+        assert result.exit_code == EXIT_CODE_VALIDATION_FAILED
+        payload = _json(result)
+        res = payload["result"]
+        hint_issues = [
+            issue
+            for issue in res["issues"]
+            if issue["code"] == "missing_todo_validation_hint"
+        ]
+        assert len(hint_issues) == 1
+        assert hint_issues[0]["severity"] == "error"
 
 
 class TestPlanLintVersioning:

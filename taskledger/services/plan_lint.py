@@ -212,6 +212,28 @@ def _run_lint_rules(plan: PlanRecord, strict: bool) -> list[PlanLintIssue]:
             )
         )
 
+    # 9. missing_todo_validation_hint
+    if (
+        plan.todos
+        and not _has_test_command(plan)
+        and not _todos_have_validation_hints(plan)
+    ):
+        sev = "error" if strict else "warning"
+        issues.append(
+            PlanLintIssue(
+                severity=sev,
+                code="missing_todo_validation_hint",
+                location="plan.todos",
+                message=(
+                    "Plan todos should include validation_hint or the plan should "
+                    "define test_commands."
+                ),
+                hint=(
+                    "Add validation_hint to each todo or add plan-level test_commands."
+                ),
+            )
+        )
+
     return issues
 
 
@@ -367,3 +389,9 @@ def _has_expected_output(plan: PlanRecord) -> bool:
         if todo.validation_hint and todo.validation_hint.strip():
             return True
     return False
+
+
+def _todos_have_validation_hints(plan: PlanRecord) -> bool:
+    return any(
+        todo.validation_hint and todo.validation_hint.strip() for todo in plan.todos
+    )

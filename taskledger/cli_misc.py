@@ -61,6 +61,42 @@ from taskledger.storage.task_store import (
 )
 
 
+def _todo_status_label(todo: dict[str, object]) -> str:
+    status = todo.get("status")
+    if isinstance(status, str) and status.strip():
+        return status
+    return "done" if todo.get("done") else "open"
+
+
+def _todo_done_command_hint(todo: dict[str, object]) -> str | None:
+    if todo.get("done") or todo.get("status") == "done":
+        return None
+    todo_id = todo.get("id")
+    if not isinstance(todo_id, str) or not todo_id:
+        return None
+    return f'taskledger todo done {todo_id} --evidence "..."'
+
+
+def _todo_detail_lines(todo: dict[str, object]) -> list[str]:
+    lines: list[str] = []
+    text = todo.get("text")
+    if isinstance(text, str) and text.strip():
+        lines.append(text.strip())
+    validation_hint = todo.get("validation_hint")
+    if isinstance(validation_hint, str) and validation_hint.strip():
+        if lines:
+            lines.append("")
+        lines.append("Validation hint:")
+        lines.append(validation_hint.strip())
+    done_command = _todo_done_command_hint(todo)
+    if done_command is not None:
+        if lines:
+            lines.append("")
+        lines.append("Done command:")
+        lines.append(done_command)
+    return lines
+
+
 def register_todo_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     @app.command("add")
     def add_command(
@@ -168,7 +204,8 @@ def register_todo_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         todo = payload["todo"]
         assert isinstance(todo, dict)
-        emit_payload(ctx, payload, human=f"{todo['id']}  {todo['text']}")
+        lines = [f"{todo['id']}  {_todo_status_label(todo)}", *_todo_detail_lines(todo)]
+        emit_payload(ctx, payload, human="\n".join(lines))
 
     @app.command("status")
     def status_command(
@@ -223,7 +260,8 @@ def register_todo_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             human = "No unfinished todos. Ready to finish implementation."
         else:
             next_todo_obj = cast(dict[str, object], payload.get("next_todo", {}))
-            human = f"Next todo: {next_todo_id}  {next_todo_obj.get('text', '')}"
+            lines = [f"Next todo: {next_todo_id}", *_todo_detail_lines(next_todo_obj)]
+            human = "\n".join(lines)
 
         emit_payload(ctx, payload, human=human)
 

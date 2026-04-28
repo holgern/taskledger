@@ -22,6 +22,10 @@ def _make_runner() -> CliRunner:
 
 
 runner = _make_runner()
+_PLANNED_TODO_VALIDATION_HINT = (
+    "Run: pytest tests/test_todo_implementation_gate.py::"
+    "TestTodoObservability -q; Expected: pass"
+)
 
 
 def _json(result) -> dict[str, object]:
@@ -119,6 +123,105 @@ def _prepare_task_for_implementation(
     )
 
     # Start implementation
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "implement", "start", "--task", task_id],
+        ).exit_code
+        == 0
+    )
+
+
+def _prepare_task_with_planned_todo(
+    tmp_path: Path, task_id: str = "planned-todo"
+) -> None:
+    _init(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "create",
+                task_id,
+                "--description",
+                "Task with a planned todo.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "task", "activate", task_id],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "plan", "start", "--task", task_id],
+        ).exit_code
+        == 0
+    )
+    plan_text = f"""---
+goal: Expose compact todo hints.
+files:
+  - taskledger/services/navigation.py
+test_commands:
+  - pytest tests/test_todo_implementation_gate.py -q
+expected_outputs:
+  - pytest exits 0
+acceptance_criteria:
+  - id: ac-0001
+    text: Compact todo hints are exposed.
+todos:
+  - id: todo-0001
+    text: Update `taskledger/services/navigation.py` to expose compact todo hints.
+    validation_hint: "{_PLANNED_TODO_VALIDATION_HINT}"
+---
+
+# Plan
+
+Ship compact todo hints.
+"""
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "plan",
+                "propose",
+                "--task",
+                task_id,
+                "--text",
+                plan_text,
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "plan",
+                "approve",
+                "--task",
+                task_id,
+                "--version",
+                "1",
+                "--actor",
+                "user",
+                "--note",
+                "Looks good.",
+            ],
+        ).exit_code
+        == 0
+    )
     assert (
         runner.invoke(
             app,
@@ -626,6 +729,76 @@ class TestTodoObservability:
         for t in listed.get("result", {}).get("todos", []):
             assert t["mandatory"] is True
 
+    def test_todo_next_json_includes_command_hints(self, tmp_path: Path) -> None:
+        _prepare_task_for_implementation(tmp_path)
+        assert (
+            runner.invoke(
+                app,
+                [
+                    "--cwd",
+                    str(tmp_path),
+                    "todo",
+                    "add",
+                    "--text",
+                    "Implement the main feature.",
+                ],
+            ).exit_code
+            == 0
+        )
+
+        result = runner.invoke(app, ["--cwd", str(tmp_path), "--json", "todo", "next"])
+        assert result.exit_code == 0, result.stdout
+        payload = _json(result)["result"]
+
+        assert payload["next_todo_id"] == "todo-0001"
+        assert payload["next_todo"]["text"] == "Implement the main feature."
+        assert payload["commands"] == [
+            {
+                "kind": "inspect",
+                "label": "Show next todo",
+                "command": "taskledger todo show todo-0001",
+                "primary": True,
+            },
+            {
+                "kind": "complete",
+                "label": "Mark todo done after evidence exists",
+                "command": 'taskledger todo done todo-0001 --evidence "..."',
+                "primary": False,
+            },
+        ]
+
+    def test_todo_next_human_output_shows_validation_hint_and_done_command(
+        self, tmp_path: Path
+    ) -> None:
+        _prepare_task_with_planned_todo(tmp_path)
+
+        result = runner.invoke(app, ["--cwd", str(tmp_path), "todo", "next"])
+        assert result.exit_code == 0, result.stdout
+        assert "Next todo: todo-0001" in result.stdout
+        assert "Validation hint:" in result.stdout
+        assert _PLANNED_TODO_VALIDATION_HINT in result.stdout
+        assert "Done command:" in result.stdout
+        assert 'taskledger todo done todo-0001 --evidence "..."' in result.stdout
+
+    def test_todo_show_human_output_shows_validation_hint_and_done_command(
+        self, tmp_path: Path
+    ) -> None:
+        _prepare_task_with_planned_todo(tmp_path)
+
+        result = runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "todo", "show", "todo-0001"],
+        )
+        assert result.exit_code == 0, result.stdout
+        assert "todo-0001  open" in result.stdout
+        assert (
+            "Update `taskledger/services/navigation.py` to expose compact todo hints."
+            in result.stdout
+        )
+        assert "Validation hint:" in result.stdout
+        assert "Done command:" in result.stdout
+        assert 'taskledger todo done todo-0001 --evidence "..."' in result.stdout
+
 
 class TestNextActionTodoOutput:
     def test_next_action_includes_next_todo_payload_during_implementation(
@@ -656,6 +829,10 @@ class TestNextActionTodoOutput:
         assert payload["next_item"]["text"] == "Implement the main feature."
         assert payload["next_item"]["mandatory"] is True
         assert payload["next_item"]["done"] is False
+        assert (
+            payload["next_item"]["done_command_hint"]
+            == 'taskledger todo done todo-0001 --evidence "..."'
+        )
         assert payload["next_command"] == "taskledger todo show todo-0001"
         assert payload["commands"][0] == {
             "kind": "inspect",
@@ -673,6 +850,22 @@ class TestNextActionTodoOutput:
             "open": 2,
             "open_ids": ["todo-0001", "todo-0002"],
         }
+
+    def test_next_action_includes_validation_hint_when_available(
+        self, tmp_path: Path
+    ) -> None:
+        _prepare_task_with_planned_todo(tmp_path)
+
+        result = runner.invoke(app, ["--cwd", str(tmp_path), "--json", "next-action"])
+        assert result.exit_code == 0, result.stdout
+        payload = _json(result)["result"]
+
+        assert payload["next_item"]["id"] == "todo-0001"
+        assert payload["next_item"]["validation_hint"] == _PLANNED_TODO_VALIDATION_HINT
+        assert (
+            payload["next_item"]["done_command_hint"]
+            == 'taskledger todo done todo-0001 --evidence "..."'
+        )
 
     def test_next_action_human_output_names_next_todo(self, tmp_path: Path) -> None:
         _prepare_task_for_implementation(tmp_path)

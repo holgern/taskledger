@@ -323,10 +323,19 @@ def test_dashboard_html_has_human_layout_sections() -> None:
 
     assert "active-task-hero" in html
     assert "next-action-card" in html
+    assert "Do next" in html
     assert "metric-grid" in html
     assert "task-search" in html
     assert "raw-payload" in html
     assert "command-row" in html
+
+
+def test_dashboard_html_uses_compact_do_next_copy() -> None:
+    html = render_index_html(refresh_ms=1000, task_ref=None)
+
+    assert "When done" in html
+    assert "Todo progress" in html
+    assert "Raw next action payload" not in html
 
 
 def test_dashboard_html_does_not_emit_broken_todo_renderer_tokens() -> None:
