@@ -40,6 +40,7 @@ def _paths(tmp_path: Path) -> ProjectPaths:
         stages_dir=project_dir / "stages",
         stage_index_path=project_dir / "stages" / "index.json",
         runs_dir=project_dir / "runs",
+        taskledger_dir=project_dir,
     )
 
 

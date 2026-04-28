@@ -128,6 +128,7 @@ class ProjectPaths:
     stages_dir: Path
     stage_index_path: Path
     runs_dir: Path
+    taskledger_dir: Path
 
 
 @dataclass(slots=True, frozen=True)

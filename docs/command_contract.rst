@@ -121,3 +121,16 @@ These aliases are intentionally not registered:
 Use ``task create``, ``task deactivate``, ``implement change``,
 ``validate check``, ``file add``, ``file remove``, ``link add``, and
 ``link remove`` instead.
+
+Storage Compatibility
+---------------------
+
+Taskledger keeps project-local configuration in ``taskledger.toml`` at the
+workspace root. ``.taskledger.toml`` is also read as a local override when it
+exists.
+
+The resolved ``taskledger_dir`` defaults to ``.taskledger/`` beside that config
+file, but ``taskledger init --taskledger-dir /path/to/state`` may point durable
+state elsewhere. Commands resolve config files upward from the starting
+directory and keep ``--root`` scoped to the source workspace, not the storage
+root.

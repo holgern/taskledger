@@ -20,11 +20,14 @@ Run this once per workspace:
 .. code-block:: bash
 
    taskledger init
+   taskledger init --taskledger-dir /mnt/cloud/taskledger/project-a
    taskledger doctor
    taskledger status --full
 
-``init`` creates ``.taskledger/``. ``doctor`` checks integrity. ``status --full``
-shows the current task, counts, health, and lock state.
+``init`` writes ``taskledger.toml`` in the workspace root and points it at the
+default ``.taskledger/`` storage root unless ``--taskledger-dir`` chooses an
+external location. ``doctor`` checks integrity. ``status --full`` shows the
+current task, counts, health, and resolved storage paths.
 
 2. Create And Activate A Task
 -----------------------------

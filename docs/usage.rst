@@ -15,6 +15,11 @@ Initialize state
 .. code-block:: bash
 
    taskledger init
+   taskledger init --taskledger-dir /mnt/cloud/taskledger/project-a
+
+``taskledger init`` writes ``taskledger.toml`` in the workspace root. The config
+defaults to ``taskledger_dir = ".taskledger"``, but ``--taskledger-dir`` can
+store durable taskledger state outside the source tree.
 
 Task-first workflow
 -------------------
@@ -124,14 +129,18 @@ Machine-readable output
 
 .. code-block:: json
 
-   {
-     "ok": true,
-     "command": "status",
-     "result": {
-       "kind": "taskledger_status",
-       "counts": {
-         "tasks": 1,
-         "introductions": 0,
+    {
+      "ok": true,
+      "command": "status",
+      "result": {
+        "kind": "taskledger_status",
+        "workspace_root": "/workspace",
+        "config_path": "/workspace/taskledger.toml",
+        "taskledger_dir": "/workspace/.taskledger",
+        "project_dir": "/workspace/.taskledger",
+        "counts": {
+          "tasks": 1,
+          "introductions": 0,
          "plans": 1,
          "questions": 1,
          "runs": 2,
@@ -140,9 +149,20 @@ Machine-readable output
        },
        "active_task": null,
        "healthy": true
-     },
-     "events": []
-   }
+      },
+      "events": []
+    }
+
+Cloud-backed storage
+--------------------
+
+Use one storage root per source project:
+
+.. code-block:: bash
+
+   taskledger init --taskledger-dir /mnt/cloud/taskledger/project-a
+
+Do not point two unrelated repositories at the same ``taskledger_dir``.
 
 Integrity and recovery
 ----------------------

@@ -1,8 +1,10 @@
 # taskledger
 
-`taskledger` is a task-first durable state layer for staged coding work. It stores
+`taskledger` is a task-first durable state layer for staged coding work. It keeps
+project-local configuration in `taskledger.toml` at the workspace root and stores
 plans, approval state, implementation logs, validation results, locks, and
-fresh-context handoffs under `.taskledger/`.
+fresh-context handoffs under a configurable `taskledger_dir` (default:
+`.taskledger/` beside that config file).
 
 ## Canonical workflow
 
@@ -45,9 +47,15 @@ Initialize durable state in the current workspace:
 
 ```bash
 taskledger init
+# or keep storage outside the source repo
+taskledger init --taskledger-dir /mnt/cloud/taskledger/my-repo
 # or point at another workspace explicitly
 taskledger --root /path/to/repo init
 ```
+
+`init` writes `taskledger.toml` in the workspace root. By default that config
+points at `.taskledger/`, but `--taskledger-dir` can move durable state to an
+external directory without nesting another `.taskledger` inside it.
 
 Create and activate a task, ask required planning questions, regenerate the
 plan from answers, approve it, implement todos with evidence, and validate it:
@@ -128,9 +136,11 @@ JSON result example:
 
 ## Storage layout
 
-`taskledger` keeps durable records under `.taskledger/`:
+`taskledger` keeps project-local configuration in the workspace root and durable
+records under the configured storage root:
 
 ```text
+taskledger.toml
 .taskledger/
   intros/
   tasks/
@@ -141,6 +151,23 @@ JSON result example:
 Markdown files are canonical. Task, plan, and run listings scan those records
 directly. JSON files under `.taskledger/indexes/` are optional derived caches or
 registries and are not required for task correctness.
+
+You can also point `taskledger.toml` at an external storage root:
+
+```bash
+taskledger init --taskledger-dir /mnt/cloud/taskledger/project-a
+```
+
+```text
+/home/me/src/project-a/taskledger.toml
+/mnt/cloud/taskledger/project-a/storage.yaml
+/mnt/cloud/taskledger/project-a/tasks/
+/mnt/cloud/taskledger/project-a/events/
+/mnt/cloud/taskledger/project-a/indexes/
+```
+
+Use one `taskledger_dir` per source project. Do not share one storage directory
+across unrelated repositories.
 
 ## JSON output
 
@@ -161,6 +188,10 @@ Example status payload:
   "command": "status",
   "result": {
     "kind": "taskledger_status",
+    "workspace_root": "/home/me/src/project-a",
+    "config_path": "/home/me/src/project-a/taskledger.toml",
+    "taskledger_dir": "/home/me/src/project-a/.taskledger",
+    "project_dir": "/home/me/src/project-a/.taskledger",
     "counts": {
       "tasks": 1,
       "introductions": 0,

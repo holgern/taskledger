@@ -13,7 +13,7 @@ from taskledger.exchange import (
 from taskledger.services.doctor_v2 import inspect_v2_project
 from taskledger.storage.init import init_project_state
 from taskledger.storage.locks import lock_is_expired
-from taskledger.storage.paths import resolve_taskledger_root
+from taskledger.storage.paths import resolve_project_paths
 from taskledger.storage.v2 import (
     list_changes,
     list_introductions,
@@ -27,20 +27,32 @@ from taskledger.storage.v2 import (
 )
 
 
-def init_project(workspace_root: Path) -> dict[str, object]:
-    paths, created = init_project_state(workspace_root)
+def init_project(
+    workspace_root: Path,
+    *,
+    taskledger_dir: Path | None = None,
+) -> dict[str, object]:
+    paths, created = init_project_state(workspace_root, taskledger_dir=taskledger_dir)
     return {
         "kind": "taskledger_init",
         "root": str(paths.project_dir),
+        "project_dir": str(paths.project_dir),
+        "workspace_root": str(paths.workspace_root),
+        "config_path": str(paths.config_path),
+        "taskledger_dir": str(paths.taskledger_dir),
         "created": created,
-        "canonical_root": str(resolve_taskledger_root(workspace_root)),
     }
 
 
 def project_status_summary(workspace_root: Path) -> dict[str, object]:
     doctor = inspect_v2_project(workspace_root)
+    paths = resolve_project_paths(workspace_root)
     return {
         "kind": "taskledger_status",
+        "workspace_root": str(paths.workspace_root),
+        "config_path": str(paths.config_path),
+        "taskledger_dir": str(paths.taskledger_dir),
+        "project_dir": str(paths.project_dir),
         "counts": _project_counts(workspace_root),
         "healthy": bool(doctor["healthy"]),
         "active_task": _active_task_status(workspace_root),
@@ -51,9 +63,13 @@ def project_status(workspace_root: Path) -> dict[str, object]:
     doctor = inspect_v2_project(workspace_root)
     tasks = list_tasks(workspace_root)
     locks = load_active_locks(workspace_root)
+    paths = resolve_project_paths(workspace_root)
     return {
         "kind": "taskledger_status",
-        "project_dir": str(resolve_taskledger_root(workspace_root)),
+        "workspace_root": str(paths.workspace_root),
+        "config_path": str(paths.config_path),
+        "taskledger_dir": str(paths.taskledger_dir),
+        "project_dir": str(paths.project_dir),
         "counts": _project_counts(workspace_root),
         "healthy": bool(doctor["healthy"]),
         "active_task": _active_task_status(workspace_root),

@@ -8,6 +8,7 @@ from typing import Annotated, Any
 import typer
 
 from taskledger.errors import LaunchError, TaskledgerError
+from taskledger.storage.paths import discover_workspace_root
 from taskledger.storage.v2 import TaskRecord, resolve_task_or_active
 
 
@@ -29,7 +30,7 @@ EvidenceOption = Annotated[list[str] | None, typer.Option("--evidence")]
 
 
 def resolve_workspace_root(cwd: Path | None) -> Path:
-    return (cwd or Path.cwd()).expanduser().resolve()
+    return discover_workspace_root((cwd or Path.cwd()).expanduser().resolve())
 
 
 def cli_state_from_context(ctx: typer.Context) -> CLIState:

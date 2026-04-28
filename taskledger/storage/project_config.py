@@ -24,7 +24,33 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
     tomllib = importlib.import_module("tomli")
 
-DEFAULT_PROJECT_TOML = f"""# Project-local taskledger overrides.
+LOCATION_CONFIG_KEYS = frozenset({"config_version", "taskledger_dir"})
+WORKFLOW_CONFIG_KEYS = frozenset(
+    {
+        "default_memory_update_mode",
+        "default_file_render_mode",
+        "default_save_run_reports",
+        "default_source_max_chars",
+        "default_total_source_max_chars",
+        "default_source_head_lines",
+        "default_source_tail_lines",
+        "default_context_order",
+        "workflow_schema",
+        "project_context",
+        "artifact_rules",
+        "default_artifact_order",
+    }
+)
+SUPPORTED_PROJECT_CONFIG_KEYS = LOCATION_CONFIG_KEYS | WORKFLOW_CONFIG_KEYS
+
+
+def render_default_taskledger_toml(taskledger_dir: str = ".taskledger") -> str:
+    return f"""# Project-local taskledger configuration.
+# This file lives in the source project root.
+config_version = 1
+taskledger_dir = {taskledger_dir!r}
+
+# Project-local taskledger overrides.
 # The source-budget settings below are the active composition defaults.
 # Lower them for stricter prompts, or raise them when a run needs more context.
 # Supported keys:
@@ -42,19 +68,28 @@ DEFAULT_PROJECT_TOML = f"""# Project-local taskledger overrides.
 """
 
 
+DEFAULT_TASKLEDGER_TOML = render_default_taskledger_toml()
+DEFAULT_PROJECT_TOML = DEFAULT_TASKLEDGER_TOML
+
+
 def load_project_config_overrides(paths: ProjectPaths) -> dict[str, object]:
-    text = read_text(paths.config_path).strip()
+    data = load_project_config_document(paths.config_path)
+    return {key: value for key, value in data.items() if key in WORKFLOW_CONFIG_KEYS}
+
+
+def load_project_config_document(path: Path) -> dict[str, object]:
+    if not path.exists():
+        return {}
+    text = read_text(path).strip()
     if not text:
         return {}
     try:
         data = tomllib.loads(text)
     except Exception as exc:  # pragma: no cover - tomllib type varies by runtime
-        raise LaunchError(f"Invalid project config {paths.config_path}: {exc}") from exc
+        raise LaunchError(f"Invalid project config {path}: {exc}") from exc
     if not isinstance(data, dict):
-        raise LaunchError(
-            f"Invalid project config {paths.config_path}: expected a TOML table."
-        )
-    _validate_project_config_overrides(data, paths.config_path)
+        raise LaunchError(f"Invalid project config {path}: expected a TOML table.")
+    _validate_project_config_overrides(data, path)
     return data
 
 
@@ -160,21 +195,16 @@ def merge_project_config(
 
 def _validate_project_config_overrides(data: dict[str, object], path: Path) -> None:
     for key in data:
-        if key not in {
-            "default_memory_update_mode",
-            "default_file_render_mode",
-            "default_save_run_reports",
-            "default_source_max_chars",
-            "default_total_source_max_chars",
-            "default_source_head_lines",
-            "default_source_tail_lines",
-            "default_context_order",
-            "workflow_schema",
-            "project_context",
-            "artifact_rules",
-            "default_artifact_order",
-        }:
+        if key not in SUPPORTED_PROJECT_CONFIG_KEYS:
             raise LaunchError(f"Unsupported project config key '{key}' in {path}")
+    config_version = data.get("config_version")
+    if config_version is not None and config_version != 1:
+        raise LaunchError(f"Project config key 'config_version' must be 1 in {path}")
+    taskledger_dir = data.get("taskledger_dir")
+    if taskledger_dir is not None and not isinstance(taskledger_dir, str):
+        raise LaunchError(
+            f"Project config key 'taskledger_dir' must be a string in {path}"
+        )
     artifact_rules = data.get("artifact_rules")
     if artifact_rules is not None:
         if not isinstance(artifact_rules, dict):

@@ -155,3 +155,25 @@ def test_context_missing_todo_focus_returns_json_error(tmp_path: Path) -> None:
     payload = json.loads(result.stdout)
     assert payload["ok"] is False
     assert payload["error"]["message"] == "--scope todo requires --todo"
+
+
+def test_status_json_reports_workspace_and_storage_paths(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "status",
+        ],
+    )
+
+    assert result.exit_code == 0, result.stdout
+    payload = json.loads(result.stdout)
+    status = payload["result"]
+    assert status["workspace_root"] == str(tmp_path)
+    assert status["config_path"] == str(tmp_path / "taskledger.toml")
+    assert status["taskledger_dir"] == str(tmp_path / ".taskledger")
+    assert status["project_dir"] == str(tmp_path / ".taskledger")

@@ -7,6 +7,13 @@ from taskledger.domain.policies import derive_active_stage
 from taskledger.domain.states import TASKLEDGER_STORAGE_LAYOUT_VERSION
 from taskledger.storage.events import load_events
 from taskledger.storage.locks import lock_is_expired
+from taskledger.storage.paths import (
+    DEFAULT_TASKLEDGER_DIR_NAME,
+    PROJECT_CONFIG_FILENAMES,
+    load_project_locator,
+    resolve_project_paths,
+)
+from taskledger.storage.project_config import load_project_config_document
 from taskledger.storage.v2 import (
     ensure_v2_layout,
     list_changes,
@@ -25,13 +32,60 @@ from taskledger.storage.v2 import (
 
 
 def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
+    resolved_paths = resolve_project_paths(workspace_root)
+    locator = load_project_locator(workspace_root)
+    errors: list[str] = []
+    warnings: list[str] = []
+    repair_hints: list[str] = []
+    config_candidates = [
+        resolved_paths.workspace_root / filename
+        for filename in PROJECT_CONFIG_FILENAMES
+    ]
+    if all(candidate.exists() for candidate in config_candidates):
+        warnings.append(
+            "Both taskledger.toml and .taskledger.toml exist; using .taskledger.toml."
+        )
+    if (
+        locator.source == "legacy"
+        and (resolved_paths.taskledger_dir / "project.toml").exists()
+    ):
+        warnings.append(
+            "Legacy config location: .taskledger/project.toml. "
+            "Move it to taskledger.toml before release."
+        )
+    if resolved_paths.config_path.exists():
+        try:
+            load_project_config_document(resolved_paths.config_path)
+        except Exception as exc:
+            errors.append(str(exc))
+    if not resolved_paths.taskledger_dir.exists():
+        errors.append(
+            "Configured taskledger_dir does not exist: "
+            f"{resolved_paths.taskledger_dir}."
+        )
+    storage_meta_path = resolved_paths.taskledger_dir / "storage.yaml"
+    if resolved_paths.taskledger_dir.exists() and not storage_meta_path.exists():
+        errors.append(
+            f"Missing storage.yaml in taskledger_dir: {resolved_paths.taskledger_dir}."
+        )
+    nested_storage_dir = resolved_paths.taskledger_dir / DEFAULT_TASKLEDGER_DIR_NAME
+    if (
+        resolved_paths.taskledger_dir
+        != resolved_paths.workspace_root / DEFAULT_TASKLEDGER_DIR_NAME
+        and nested_storage_dir.exists()
+    ):
+        warnings.append(
+            "Configured taskledger_dir contains a nested .taskledger directory."
+        )
+        repair_hints.append(
+            "Move taskledger state to the configured root and remove the nested "
+            ".taskledger directory."
+        )
+
     ensure_v2_layout(workspace_root)
     tasks = list_tasks(workspace_root)
     task_map = {task.id: task for task in tasks}
     locks = load_active_locks(workspace_root)
-    errors: list[str] = []
-    warnings: list[str] = []
-    repair_hints: list[str] = []
     broken_links: list[dict[str, object]] = []
     expired_locks: list[dict[str, object]] = []
 

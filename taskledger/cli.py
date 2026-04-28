@@ -191,14 +191,27 @@ def main(
         raise typer.BadParameter(
             "Use either --cwd or --root, not both with different values."
         )
-    ctx.obj = CLIState(cwd=resolve_workspace_root(root or cwd), json_output=json_output)
+    raw_cwd = (root or cwd or Path.cwd()).expanduser().resolve()
+    try:
+        resolved_cwd = resolve_workspace_root(raw_cwd)
+    except LaunchError as exc:
+        ctx.obj = CLIState(cwd=raw_cwd, json_output=json_output)
+        emit_error(ctx, exc)
+        raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+    ctx.obj = CLIState(cwd=resolved_cwd, json_output=json_output)
 
 
 @app.command("init")
-def init_command(ctx: typer.Context) -> None:
+def init_command(
+    ctx: typer.Context,
+    taskledger_dir: Annotated[
+        Path | None,
+        typer.Option("--taskledger-dir", help="Durable taskledger storage root."),
+    ] = None,
+) -> None:
     state = ctx.obj
     assert isinstance(state, CLIState)
-    payload = init_project(state.cwd)
+    payload = init_project(state.cwd, taskledger_dir=taskledger_dir)
     emit_payload(
         ctx,
         payload,

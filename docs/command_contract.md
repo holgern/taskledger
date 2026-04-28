@@ -147,11 +147,18 @@ Plan-materialized todos always use `source=plan`.
 
 ## Storage Compatibility
 
-Taskledger stores workspace state under `.taskledger/`.
+Taskledger stores project-local configuration in `taskledger.toml` at the
+workspace root. `.taskledger.toml` is also read as a local override file when it
+exists.
+
+The resolved `taskledger_dir` defaults to `.taskledger/` beside the config file,
+but `taskledger init --taskledger-dir /path/to/state` may point it elsewhere.
+Commands resolve config files upward from the starting directory and keep
+`--root` scoped to the source workspace, not the storage root.
 
 Taskledger uses:
 
-- a workspace storage layout version in `.taskledger/storage.yaml`
+- a workspace storage layout version in `taskledger_dir/storage.yaml`
 - per-record `schema_version`
 - per-record `object_type`
 - per-file `file_version` for durable Markdown/YAML/JSON record files
@@ -169,7 +176,8 @@ taskledger migrate plan
 taskledger migrate apply --backup
 ```
 
-Indexes under `.taskledger/indexes/` are optional derived caches or registries.
+Indexes under `taskledger_dir/indexes/` are optional derived caches or
+registries.
 Task, plan, and run commands must continue to work from canonical Markdown/YAML
 records even when task/run/plan JSON cache files are absent. The remaining
 derived caches may be plain JSON arrays with no version metadata and can be
