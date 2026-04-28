@@ -99,18 +99,18 @@ def _render_dashboard_css() -> str:
             color-scheme: light dark;
             --bg: #f6f7f9;
             --panel: #ffffff;
-            --panel-muted: #f1f5f9;
+            --panel-muted: #f7f9fc;
             --panel-strong: #e8eef8;
             --text: #0f172a;
             --muted: #64748b;
-            --border: #d7dde6;
+            --border: #dde4ee;
             --accent: #2563eb;
             --accent-soft: rgba(37, 99, 235, 0.12);
             --success: #15803d;
             --warning: #b45309;
             --danger: #b91c1c;
             --radius: 14px;
-            --shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+            --shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
           }
 
           @media (prefers-color-scheme: dark) {
@@ -189,10 +189,13 @@ def _render_dashboard_css() -> str:
             color: var(--muted);
             max-width: 52rem;
           }
+          .header-tools,
           .header-meta {
             display: grid;
             gap: 0.75rem;
-            min-width: 16rem;
+          }
+          .header-tools {
+            min-width: min(100%, 28rem);
           }
           .meta-card,
           .card {
@@ -204,16 +207,47 @@ def _render_dashboard_css() -> str:
           .meta-card {
             padding: 0.75rem 0.9rem;
           }
+          .meta-card strong {
+            display: block;
+            margin-top: 0.15rem;
+          }
           .meta-label {
             display: block;
             color: var(--muted);
             font-size: 0.8rem;
             margin-bottom: 0.25rem;
           }
+          .header-controls {
+            display: flex;
+            gap: 0.65rem;
+            flex-wrap: wrap;
+          }
+          .action-button,
+          .copy-button {
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--panel);
+            padding: 0.55rem 0.8rem;
+            cursor: pointer;
+          }
+          .action-button-primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+          }
+          .status-live {
+            color: var(--success);
+          }
+          .status-paused {
+            color: var(--warning);
+          }
+          .status-refreshing {
+            color: var(--accent);
+          }
           .dashboard-layout {
             display: grid;
             grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr) minmax(18rem, 22rem);
-            gap: 1rem;
+            gap: 1.1rem;
             padding: 1rem 1.25rem 1.5rem;
             align-items: start;
           }
@@ -223,6 +257,9 @@ def _render_dashboard_css() -> str:
             top: 6.75rem;
             display: grid;
             gap: 1rem;
+          }
+          .sidebar-sticky {
+            max-height: calc(100vh - 7.75rem);
           }
           .main-column,
           .hero-grid,
@@ -239,7 +276,7 @@ def _render_dashboard_css() -> str:
             grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
           }
           .card {
-            padding: 1rem;
+            padding: 1.05rem;
             min-width: 0;
           }
           .muted-card {
@@ -259,6 +296,10 @@ def _render_dashboard_css() -> str:
           }
           .hero-card {
             padding: 1.15rem;
+          }
+          .next-action-card {
+            border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+            box-shadow: 0 14px 30px rgba(37, 99, 235, 0.12);
           }
           .hero-title {
             display: flex;
@@ -314,7 +355,7 @@ def _render_dashboard_css() -> str:
             line-height: 1;
             padding: 0.38rem 0.65rem;
             border: 1px solid var(--border);
-            background: var(--panel-muted);
+            background: color-mix(in srgb, var(--panel-muted) 75%, transparent);
             color: var(--text);
           }
           .chip {
@@ -348,6 +389,8 @@ def _render_dashboard_css() -> str:
           .task-list {
             display: grid;
             gap: 0.7rem;
+            overflow: auto;
+            padding-right: 0.15rem;
           }
           .task-card {
             width: 100%;
@@ -392,13 +435,6 @@ def _render_dashboard_css() -> str:
             border-radius: 12px;
             background: var(--panel-muted);
             padding: 0.7rem 0.8rem;
-          }
-          .copy-button {
-            border-radius: 10px;
-            border: 1px solid var(--border);
-            background: var(--panel);
-            padding: 0.45rem 0.7rem;
-            cursor: pointer;
           }
           .progress-block {
             display: grid;
@@ -457,6 +493,17 @@ def _render_dashboard_css() -> str:
             margin-top: 0.75rem;
             padding-top: 0.75rem;
           }
+          .section-details {
+            border-top: none;
+            margin-top: 0;
+            padding-top: 0;
+          }
+          .section-details summary {
+            font-weight: 600;
+          }
+          .collapsible-card .section-subtitle:first-of-type {
+            margin-top: 0.7rem;
+          }
           summary {
             cursor: pointer;
             color: var(--muted);
@@ -464,6 +511,14 @@ def _render_dashboard_css() -> str:
           .section-subtitle {
             margin: -0.3rem 0 0.8rem 0;
             color: var(--muted);
+          }
+          .stack-gap {
+            display: grid;
+            gap: 0.9rem;
+          }
+          .debug-json {
+            max-height: 20rem;
+            overflow: auto;
           }
           .raw-payload details + details {
             margin-top: 0.75rem;
@@ -485,6 +540,7 @@ def _render_dashboard_css() -> str:
               position: static;
               flex-direction: column;
             }
+            .header-tools,
             .header-meta {
               min-width: 0;
               width: 100%;
@@ -496,6 +552,10 @@ def _render_dashboard_css() -> str:
             .sidebar-sticky,
             .rail-sticky {
               position: static;
+              max-height: none;
+            }
+            .task-list {
+              max-height: none;
             }
           }
           @media (prefers-reduced-motion: reduce) {
@@ -519,14 +579,24 @@ def _render_dashboard_body() -> str:
               <p id="status-headline" class="app-subtitle">Waiting for first refresh.</p>
               <p id="status-detail" class="status-detail">The dashboard will load the selected task automatically.</p>
             </div>
-            <div class="header-meta">
-              <div class="meta-card">
-                <span class="meta-label">Selected task</span>
-                <strong id="selected-task-label">active</strong>
+            <div class="header-tools">
+              <div class="header-meta">
+                <div class="meta-card">
+                  <span class="meta-label">Selected task</span>
+                  <strong id="selected-task-label">active</strong>
+                </div>
+                <div class="meta-card">
+                  <span class="meta-label">Last refresh</span>
+                  <strong id="last-updated-label">never</strong>
+                </div>
+                <div class="meta-card">
+                  <span class="meta-label">Review status</span>
+                  <strong id="live-status-label" class="status-live">Live</strong>
+                </div>
               </div>
-              <div class="meta-card">
-                <span class="meta-label">Last refresh</span>
-                <strong id="last-updated-label">never</strong>
+              <div class="header-controls">
+                <button id="toggle-polling-button" class="action-button" type="button">Pause updates</button>
+                <button id="refresh-now-button" class="action-button action-button-primary" type="button">Refresh now</button>
               </div>
             </div>
           </header>
@@ -570,9 +640,11 @@ def _render_dashboard_script(refresh_ms: int, task_ref: str | None) -> str:
           let selectedTaskRef = defaultTaskRef ?? "active";
           let refreshTimer = null;
           let refreshInFlight = false;
+          let pollingPaused = false;
           let lastUpdatedText = "never";
           let taskSearchQuery = "";
           let taskStageFilter = "all";
+          const openDetailsKeys = new Set();
 
           const STAGE_FILTERS = [
             { value: "all", label: "All" },
@@ -626,15 +698,20 @@ def _render_dashboard_script(refresh_ms: int, task_ref: str | None) -> str:
             }
             const response = await fetch(path, { headers });
             if (response.status === 304 && state.payload) {
-              return state.payload;
+              return { payload: state.payload, changed: false };
             }
             const payload = await response.json();
             if (!response.ok) {
               throw new Error(payload?.error?.message || ("HTTP " + response.status));
             }
+            const previousPayload = state.payload;
+            const previousRevision = previousPayload?.revision;
             state.etag = response.headers.get("ETag");
             state.payload = payload;
-            return payload;
+            return {
+              payload,
+              changed: previousPayload === null || payload?.revision !== previousRevision,
+            };
           }
 
           function h(tag, attrs = {}, children = []) {
@@ -652,7 +729,7 @@ def _render_dashboard_script(refresh_ms: int, task_ref: str | None) -> str:
                 node[key] = value;
               }
             }
-            const list = Array.isArray(children) ? children : [children];
+            const list = (Array.isArray(children) ? children : [children]).flat(Infinity);
             for (const child of list) {
               if (child === null || child === undefined) continue;
               node.append(child && child.nodeType ? child : document.createTextNode(String(child)));
@@ -666,6 +743,31 @@ def _render_dashboard_script(refresh_ms: int, task_ref: str | None) -> str:
 
           function emptyState(text) {
             return h("div", { class: "empty-state", text });
+          }
+
+          function rememberDetailsState(root = document) {
+            for (const node of root.querySelectorAll("details[data-detail-key]")) {
+              const key = node.getAttribute("data-detail-key");
+              if (!key) continue;
+              if (node.open) openDetailsKeys.add(key);
+              else openDetailsKeys.delete(key);
+            }
+          }
+
+          function bindDetailsState(details, key, openByDefault = false) {
+            details.setAttribute("data-detail-key", key);
+            details.open = openDetailsKeys.has(key) ? true : openByDefault;
+            details.addEventListener("toggle", () => {
+              if (details.open) openDetailsKeys.add(key);
+              else openDetailsKeys.delete(key);
+            });
+            return details;
+          }
+
+          function replaceContentPreservingDetails(container, children) {
+            if (!container) return;
+            rememberDetailsState(container);
+            container.replaceChildren(...children.filter(Boolean));
           }
 
           function titleCase(value) {
@@ -702,10 +804,26 @@ def _render_dashboard_script(refresh_ms: int, task_ref: str | None) -> str:
             return h("span", { class: "badge badge-" + tone, text: label || "-" });
           }
 
-          function jsonDetails(summary, payload) {
-            const details = h("details");
-            details.append(h("summary", { text: summary }), h("pre", { text: JSON.stringify(payload ?? {}, null, 2) }));
+          function dashboardTaskKey() {
+            return endpointState.dashboard.payload?.task?.id || apiTaskRef();
+          }
+
+          function lazyJsonDetails(summary, getPayload, key) {
+            const details = bindDetailsState(h("details"), key);
+            const pre = h("pre", { class: "debug-json", text: "Open to render payload." });
+            const renderPayload = () => {
+              if (!details.open) return;
+              pre.textContent = JSON.stringify(getPayload() ?? {}, null, 2);
+              details.dataset.rendered = "true";
+            };
+            details.append(h("summary", { text: summary }), pre);
+            details.addEventListener("toggle", renderPayload);
+            queueMicrotask(renderPayload);
             return details;
+          }
+
+          function jsonDetails(summary, payload, key) {
+            return lazyJsonDetails(summary, () => payload ?? {}, key || summary);
           }
 
           function copyCommand(command) {
@@ -754,6 +872,28 @@ def _render_dashboard_script(refresh_ms: int, task_ref: str | None) -> str:
             return endpointMessage(name, emptyText) || emptyText;
           }
 
+          function cardSection(title, children, className = "") {
+            const section = h("section", { class: ("card " + className).trim() });
+            section.append(h("div", { class: "card-header" }, [h("h2", { text: title })]));
+            const list = (Array.isArray(children) ? children : [children]).flat(Infinity);
+            for (const child of list) {
+              if (child) section.append(child);
+            }
+            return section;
+          }
+
+          function collapsibleCard(title, children, key, className = "") {
+            const section = h("section", { class: ("card collapsible-card " + className).trim() });
+            const details = bindDetailsState(h("details", { class: "section-details" }), key);
+            details.append(h("summary", { text: title }));
+            const list = (Array.isArray(children) ? children : [children]).flat(Infinity);
+            for (const child of list) {
+              if (child) details.append(child);
+            }
+            section.append(details);
+            return section;
+          }
+
           function renderTaskFilters() {
             const container = document.getElementById("task-filters");
             clearNode(container);
@@ -799,7 +939,6 @@ def _render_dashboard_script(refresh_ms: int, task_ref: str | None) -> str:
             button.setAttribute("aria-current", selected ? "true" : "false");
             button.addEventListener("click", () => {
               selectedTaskRef = task.id;
-              render();
               refreshSelection().catch(renderError);
             });
             const idLabel = [task.id, task.slug].filter(Boolean).join(" · ");
@@ -848,11 +987,8 @@ def _render_dashboard_script(refresh_ms: int, task_ref: str | None) -> str:
           }
 
           function renderHero(project, dashboard) {
-            const slot = document.getElementById("hero-slot");
-            clearNode(slot);
             if (!dashboard) {
-              slot.append(emptyState(endpointOrFallback("dashboard", "Loading dashboard summary...")));
-              return;
+              return emptyState(endpointOrFallback("dashboard", "Loading dashboard summary..."));
             }
             const task = dashboard.task || {};
             const lock = dashboard.lock;
@@ -878,15 +1014,12 @@ def _render_dashboard_script(refresh_ms: int, task_ref: str | None) -> str:
                 task.updated_at ? badge("updated " + formatTimestamp(task.updated_at), "muted") : null,
               ])
             );
-            slot.append(hero);
+            return hero;
           }
 
           function renderMetrics(dashboard, events) {
-            const grid = document.getElementById("metric-grid");
-            clearNode(grid);
             if (!dashboard) {
-              grid.append(emptyState(endpointOrFallback("dashboard", "Loading progress overview...")));
-              return;
+              return [emptyState(endpointOrFallback("dashboard", "Loading progress overview..."))];
             }
             const validationCriteria = dashboard.validation?.criteria || [];
             const passedValidation = validationCriteria.filter((item) => item.satisfied).length;
@@ -894,23 +1027,9 @@ def _render_dashboard_script(refresh_ms: int, task_ref: str | None) -> str:
               { title: "Todos", detail: (dashboard.todos?.done || 0) + " complete of " + (dashboard.todos?.total || 0), body: progressBar(dashboard.todos?.done || 0, dashboard.todos?.total || 0) },
               { title: "Questions", detail: (dashboard.questions?.open || 0) + " open of " + (dashboard.questions?.total || 0), body: progressBar((dashboard.questions?.total || 0) - (dashboard.questions?.open || 0), dashboard.questions?.total || 0) },
               { title: "Validation", detail: passedValidation + " satisfied of " + validationCriteria.length, body: progressBar(passedValidation, validationCriteria.length) },
-              { title: "Plan", detail: dashboard.plan ? "v" + dashboard.plan.version + " · " + dashboard.plan.status : "No plan", body: h("div", { class: "metric-value" }, [badge(dashboard.plan ? dashboard.plan.status : "none", toneForStatus(dashboard.plan?.status || "none"))]) },
-              { title: "Runs", detail: (dashboard.runs || []).length + " recorded", body: h("div", { class: "metric-value" }, [h("strong", { class: "metric-number", text: dashboard.runs?.[0] ? dashboard.runs[0].run_id + " · " + dashboard.runs[0].status : "No runs" })]) },
-              { title: "Events", detail: (events?.items || []).length + " recent entries", body: h("div", { class: "metric-value" }, [h("strong", { class: "metric-number", text: String((events?.items || []).length) }), h("span", { class: "muted", text: "Recent activity tail" })]) },
+              { title: "Recent activity", detail: (events?.items || []).length + " recent entries", body: h("div", { class: "metric-value" }, [h("strong", { class: "metric-number", text: String((events?.items || []).length) }), h("span", { class: "muted", text: "Recent event tail" })]) },
             ];
-            for (const metric of cards) {
-              grid.append(h("section", { class: "card" }, [h("div", { class: "card-header" }, [h("h2", { text: metric.title }), h("span", { class: "muted", text: metric.detail })]), metric.body]));
-            }
-          }
-
-          function appendCard(container, title, children, className = "") {
-            const section = h("section", { class: ("card " + className).trim() });
-            section.append(h("div", { class: "card-header" }, [h("h2", { text: title })]));
-            const list = Array.isArray(children) ? children : [children];
-            for (const child of list) {
-              if (child) section.append(child);
-            }
-            container.append(section);
+            return cards.map((metric) => h("section", { class: "card" }, [h("div", { class: "card-header" }, [h("h2", { text: metric.title }), h("span", { class: "muted", text: metric.detail })]), metric.body]));
           }
 
           function renderOverview(project, dashboard) {
@@ -954,6 +1073,7 @@ def _render_dashboard_script(refresh_ms: int, task_ref: str | None) -> str:
 
           function renderPlanSection(plans) {
             if (!plans || plans.length === 0) return emptyState("No plans have been proposed yet.");
+            const taskKey = dashboardTaskKey();
             const latest = plans[plans.length - 1];
             const body = h("div", { class: "list-grid" }, [h("p", { class: "section-subtitle", text: "Latest plan v" + latest.plan_version + " · " + (latest.status || "unknown") })]);
             if (latest.goal) body.append(h("p", { text: latest.goal }));
@@ -969,9 +1089,9 @@ def _render_dashboard_script(refresh_ms: int, task_ref: str | None) -> str:
             if (latest.expected_outputs?.length) {
               body.append(h("ul", { class: "clean-list" }, latest.expected_outputs.map((item) => h("li", { text: item }))));
             }
-            if (latest.body) body.append(jsonDetails("Expanded plan body", latest.body));
+            if (latest.body) body.append(jsonDetails("Expanded plan body", latest.body, "plan.body." + taskKey + ".v" + latest.plan_version));
             if (plans.length > 1) {
-              const details = h("details");
+              const details = bindDetailsState(h("details"), "plan.previous_versions." + taskKey);
               details.append(h("summary", { text: "Previous versions" }), ...plans.slice(0, -1).reverse().map((plan) => h("div", { class: "item-card" }, [h("div", { class: "item-title" }, [h("strong", { text: "v" + plan.plan_version }), badge(plan.status || "unknown", toneForStatus(plan.status || "unknown"))]), plan.goal ? h("p", { text: plan.goal }) : null, plan.body ? h("pre", { text: plan.body }) : null])));
               body.append(details);
             }
@@ -982,6 +1102,7 @@ def _render_dashboard_script(refresh_ms: int, task_ref: str | None) -> str:
             if (!todos) return emptyState(endpointOrFallback("dashboard", "Loading todos..."));
             const highlightedTodoId = nextAction?.next_item?.kind === "todo" ? nextAction.next_item.id : null;
             const items = [...(todos.items || [])].sort((left, right) => Number(Boolean(left.done)) - Number(Boolean(right.done)));
+            const taskKey = dashboardTaskKey();
             const todoCards = items.map((todo) => {
               const done = Boolean(todo.done || todo.status === "done");
               const card = h("div", { class: "item-card" + (todo.id === highlightedTodoId ? " todo-next" : "") }, [h("div", { class: "item-title" }, [h("strong", { text: todo.text || todo.id }), badge(done ? "done" : todo.status || "open", toneForStatus(done ? "done" : todo.status || "open"))]), h("code", { text: todo.id || "-" })]);
@@ -990,7 +1111,7 @@ def _render_dashboard_script(refresh_ms: int, task_ref: str | None) -> str:
               if (todo.source) lines.push("Source: " + todo.source);
               if (todo.active_at) lines.push("Active at: " + todo.active_at);
               if (lines.length > 0) {
-                const details = h("details");
+                const details = bindDetailsState(h("details"), "todo." + taskKey + "." + (todo.id || todo.text || "todo") + ".details");
                 details.append(h("summary", { text: "Details" }), h("ul", { class: "clean-list" }, lines.map((line) => h("li", { text: line }))));
                 card.append(details);
               }
@@ -1005,6 +1126,7 @@ def _render_dashboard_script(refresh_ms: int, task_ref: str | None) -> str:
 
           function renderValidationSection(validation) {
             if (!validation) return emptyState(endpointOrFallback("dashboard", "Loading validation..."));
+            const taskKey = dashboardTaskKey();
             const parts = [h("p", { class: "section-subtitle", text: validation.run_id ? "Validation run " + validation.run_id + " · " + (validation.can_finish_passed ? "ready to finish" : "checks remain") : "No validation run recorded" })];
             if ((validation.blockers || []).length > 0) {
               parts.push(h("div", { class: "item-card" }, [h("div", { class: "item-title" }, [h("strong", { text: "Blockers" })]), h("ul", { class: "clean-list" }, validation.blockers.map((blocker) => h("li", { text: blocker.message || blocker.ref || blocker.kind || "Blocking issue" }))) ]));
@@ -1012,7 +1134,7 @@ def _render_dashboard_script(refresh_ms: int, task_ref: str | None) -> str:
             parts.push((validation.criteria || []).length === 0 ? emptyState("No validation criteria were found.") : h("div", { class: "criteria-grid" }, validation.criteria.map((criterion) => {
               const card = h("div", { class: "item-card" }, [h("div", { class: "item-title" }, [h("strong", { text: criterion.text || criterion.id }), badge(criterion.latest_status || "not_run", toneForStatus(criterion.latest_status || "not_run"))]), h("code", { text: criterion.id || "-" }), criterion.has_waiver ? badge("waived", "warning") : null, criterion.evidence?.length ? h("ul", { class: "clean-list" }, criterion.evidence.map((item) => h("li", { text: item }))) : h("p", { class: "muted", text: "No evidence recorded." })]);
               if (criterion.history?.length || criterion.blockers?.length) {
-                const details = h("details");
+                const details = bindDetailsState(h("details"), "validation." + taskKey + "." + (criterion.id || "criterion") + ".history");
                 details.append(h("summary", { text: "History and blockers" }), criterion.history?.length ? h("ul", { class: "clean-list" }, criterion.history.map((item) => h("li", { text: (item.check_id || "check") + " · " + (item.status || "unknown") }))) : null, criterion.blockers?.length ? h("ul", { class: "clean-list" }, criterion.blockers.map((item) => h("li", { text: item.message || item.kind || "blocker" }))) : null);
                 card.append(details);
               }
@@ -1024,9 +1146,10 @@ def _render_dashboard_script(refresh_ms: int, task_ref: str | None) -> str:
           function renderRunsSection(runs) {
             if (!runs) return emptyState(endpointOrFallback("dashboard", "Loading runs..."));
             if (runs.length === 0) return emptyState("No implementation or validation runs are recorded.");
+            const taskKey = dashboardTaskKey();
             return h("div", { class: "timeline" }, runs.map((run) => {
               const card = h("div", { class: "timeline-item" }, [h("div", { class: "item-title" }, [h("strong", { text: run.run_id + " · " + titleCase(run.run_type || "run") }), badge(run.result || run.status || "unknown", toneForStatus(run.result || run.status || "unknown"))]), h("p", { text: run.summary || "No summary recorded." }), h("div", { class: "mini-meta" }, [h("span", { class: "muted", text: "Started" }), h("span", { text: formatTimestamp(run.started_at) }), h("span", { class: "muted", text: "Finished" }), h("span", { text: run.finished_at ? formatTimestamp(run.finished_at) : "In progress" })])]);
-              card.append(jsonDetails("Run details", run));
+              card.append(jsonDetails("Run details", run, "run." + taskKey + "." + (run.run_id || "run") + ".details"));
               return card;
             }));
           }
@@ -1034,9 +1157,10 @@ def _render_dashboard_script(refresh_ms: int, task_ref: str | None) -> str:
           function renderChangesSection(changes) {
             if (!changes) return emptyState(endpointOrFallback("dashboard", "Loading changes..."));
             if (changes.length === 0) return emptyState("No implementation changes are recorded.");
+            const taskKey = dashboardTaskKey();
             return h("div", { class: "change-grid" }, changes.map((change) => {
               const card = h("div", { class: "item-card" }, [h("div", { class: "item-title" }, [h("strong", { text: change.summary || change.path || change.change_id }), badge(change.kind || "change", "info")]), h("code", { text: change.path || change.change_id || "-" })]);
-              card.append(jsonDetails("Change metadata", change));
+              card.append(jsonDetails("Change metadata", change, "change." + taskKey + "." + (change.change_id || change.path || "change") + ".metadata"));
               return card;
             }));
           }
@@ -1044,40 +1168,64 @@ def _render_dashboard_script(refresh_ms: int, task_ref: str | None) -> str:
           function renderEventsSection(events) {
             if (!events) return emptyState(endpointOrFallback("events", "Loading events..."));
             if (!events.items || events.items.length === 0) return emptyState("No recent events are available.");
-            return h("div", { class: "timeline" }, events.items.map((event) => {
+            const taskKey = dashboardTaskKey();
+            return h("div", { class: "timeline" }, events.items.map((event, index) => {
               const actor = event.actor?.actor_name || event.actor?.actor_type || "unknown";
               const card = h("div", { class: "timeline-item" }, [h("div", { class: "item-title" }, [h("strong", { text: event.event || "event" }), h("span", { class: "muted mono", text: formatTimestamp(event.ts) })]), h("p", { text: actor })]);
-              card.append(jsonDetails("Event payload", event));
+              card.append(jsonDetails("Event payload", event, "event." + taskKey + "." + (event.event_id || event.ts || String(index)) + ".payload"));
               return card;
             }));
           }
 
+          function renderRecentEventsCard(events) {
+            return cardSection("Recent events", [
+              h("p", { class: "section-subtitle", text: "Recent activity stays visible while secondary detail stays collapsed." }),
+              renderEventsSection(events),
+            ]);
+          }
+
           function renderRawSection(project, dashboard, events) {
-            const card = h("section", { class: "card raw-payload" });
-            card.append(h("div", { class: "card-header" }, [h("h2", { text: "Raw payload" })]), h("p", { class: "section-subtitle", text: "Debug payloads stay available without dominating the main dashboard." }), jsonDetails("Project payload", project || {}), jsonDetails("Dashboard payload", dashboard || {}), jsonDetails("Events payload", events || {}));
-            return card;
+            const taskKey = dashboardTaskKey();
+            return collapsibleCard(
+              "Debug / raw payload",
+              [
+                h("p", { class: "section-subtitle", text: "Debug payloads stay available without dominating the main dashboard." }),
+                h("div", { class: "raw-payload stack-gap" }, [
+                  lazyJsonDetails("Project payload", () => project || {}, "raw.project"),
+                  lazyJsonDetails("Dashboard payload", () => dashboard || {}, "raw.dashboard." + taskKey),
+                  lazyJsonDetails("Events payload", () => events || {}, "raw.events." + taskKey),
+                ]),
+              ],
+              "section.debug." + taskKey,
+              "raw-payload",
+            );
           }
 
           function renderSections() {
             const project = endpointState.project.payload;
             const dashboard = endpointState.dashboard.payload;
             const events = endpointState.events.payload;
-            renderHero(project, dashboard);
-            renderMetrics(dashboard, events);
+            const taskKey = dashboardTaskKey();
+            const heroSlot = document.getElementById("hero-slot");
+            heroSlot?.replaceChildren(renderHero(project, dashboard));
+            const metricGrid = document.getElementById("metric-grid");
+            metricGrid?.replaceChildren(...renderMetrics(dashboard, events));
             const rail = document.getElementById("rail-content");
-            clearNode(rail);
-            rail.append(renderNextAction(dashboard));
+            replaceContentPreservingDetails(rail, [
+              renderNextAction(dashboard),
+              renderRecentEventsCard(events),
+            ]);
             const sections = document.getElementById("sections");
-            clearNode(sections);
-            appendCard(sections, "Overview", renderOverview(project, dashboard));
-            appendCard(sections, "Plan", renderPlanSection(dashboard?.plans));
-            appendCard(sections, "Questions", renderQuestionsSection(dashboard?.questions));
-            appendCard(sections, "Todos", renderTodosSection(dashboard?.todos, dashboard?.next_action));
-            appendCard(sections, "Validation", renderValidationSection(dashboard?.validation));
-            appendCard(sections, "Runs", renderRunsSection(dashboard?.runs));
-            appendCard(sections, "Changes", renderChangesSection(dashboard?.changes));
-            appendCard(sections, "Events", renderEventsSection(events));
-            sections.append(renderRawSection(project, dashboard, events));
+            replaceContentPreservingDetails(sections, [
+              cardSection("Current summary", renderOverview(project, dashboard)),
+              cardSection("Todos", renderTodosSection(dashboard?.todos, dashboard?.next_action)),
+              collapsibleCard("Plan", renderPlanSection(dashboard?.plans), "section.plan." + taskKey),
+              collapsibleCard("Questions", renderQuestionsSection(dashboard?.questions), "section.questions." + taskKey),
+              collapsibleCard("Validation", renderValidationSection(dashboard?.validation), "section.validation-card." + taskKey),
+              collapsibleCard("Runs", renderRunsSection(dashboard?.runs), "section.runs." + taskKey),
+              collapsibleCard("Changes", renderChangesSection(dashboard?.changes), "section.changes." + taskKey),
+              renderRawSection(project, dashboard, events),
+            ]);
           }
 
           function setStatus() {
@@ -1086,11 +1234,23 @@ def _render_dashboard_script(refresh_ms: int, task_ref: str | None) -> str:
             const detail = document.getElementById("status-detail");
             const selected = document.getElementById("selected-task-label");
             const updated = document.getElementById("last-updated-label");
+            const liveStatus = document.getElementById("live-status-label");
+            const toggleButton = document.getElementById("toggle-polling-button");
+            const refreshButton = document.getElementById("refresh-now-button");
+            const reviewState = refreshInFlight ? "Refreshing" : (pollingPaused ? "Paused" : "Live");
             if (headline) {
-              headline.textContent = refreshInFlight ? "Refreshing dashboard data..." : "Showing a read-only review of the selected task.";
+              headline.textContent = reviewState === "Paused"
+                ? "Dashboard updates are paused for focused review."
+                : reviewState === "Refreshing"
+                  ? "Refreshing dashboard data..."
+                  : "Showing a read-only review of the selected task.";
             }
             if (detail) {
-              detail.textContent = errors.length > 0 ? errors.join(" · ") : "Polling dashboard and events every " + refreshMs + "ms with slower project and task refresh cadences.";
+              detail.textContent = errors.length > 0
+                ? errors.join(" · ")
+                : pollingPaused
+                  ? "Automatic polling is paused. Use Refresh now to fetch current task state on demand."
+                  : "Polling dashboard and events every " + refreshMs + "ms with slower project and task refresh cadences.";
             }
             if (selected) {
               selected.textContent = endpointState.dashboard.payload?.task?.slug || apiTaskRef();
@@ -1098,12 +1258,28 @@ def _render_dashboard_script(refresh_ms: int, task_ref: str | None) -> str:
             if (updated) {
               updated.textContent = lastUpdatedText;
             }
+            if (liveStatus) {
+              liveStatus.textContent = reviewState;
+              liveStatus.className = reviewState === "Paused"
+                ? "status-paused"
+                : reviewState === "Refreshing"
+                  ? "status-refreshing"
+                  : "status-live";
+            }
+            if (toggleButton) {
+              toggleButton.textContent = pollingPaused ? "Resume updates" : "Pause updates";
+            }
+            if (refreshButton) {
+              refreshButton.disabled = refreshInFlight;
+            }
           }
 
-          function render() {
-            renderTasks();
-            renderSections();
+          function togglePolling() {
+            pollingPaused = !pollingPaused;
             setStatus();
+            if (!pollingPaused) {
+              refresh().catch(renderError);
+            }
           }
 
           function shouldRefresh(name, now) {
@@ -1118,45 +1294,70 @@ def _render_dashboard_script(refresh_ms: int, task_ref: str | None) -> str:
             const state = endpointState[name];
             state.lastRequestedAt = now;
             try {
-              await getJson(name, endpointPath(name));
+              const result = await getJson(name, endpointPath(name));
               state.error = null;
+              return result.changed;
             } catch (error) {
+              const previousError = state.error;
               state.error = String(error);
+              return state.payload === null || state.error !== previousError;
             }
           }
 
           async function refresh() {
             if (refreshInFlight) return;
             refreshInFlight = true;
-            render();
+            const changed = new Set();
+            setStatus();
             try {
               const now = Date.now();
               const work = [];
               for (const name of ["project", "tasks", "dashboard", "events"]) {
                 if (shouldRefresh(name, now)) {
-                  work.push(refreshEndpoint(name, now));
+                  work.push(
+                    refreshEndpoint(name, now).then((didChange) => {
+                      if (didChange) changed.add(name);
+                    })
+                  );
                 }
               }
               await Promise.allSettled(work);
               lastUpdatedText = new Date().toLocaleTimeString();
-              render();
             } finally {
               refreshInFlight = false;
-              render();
+              if (changed.has("tasks")) renderTasks();
+              if (changed.has("project") || changed.has("dashboard") || changed.has("events")) {
+                renderSections();
+              }
+              setStatus();
             }
           }
 
           async function refreshSelection() {
-            endpointState.dashboard.lastRequestedAt = 0;
-            endpointState.events.lastRequestedAt = 0;
+            endpointState.dashboard.key = null;
             endpointState.dashboard.etag = null;
+            endpointState.dashboard.payload = null;
+            endpointState.dashboard.error = null;
+            endpointState.dashboard.lastRequestedAt = 0;
+            endpointState.events.key = null;
+            endpointState.events.payload = null;
+            endpointState.events.lastRequestedAt = 0;
             endpointState.events.etag = null;
+            endpointState.events.error = null;
+            renderTasks();
+            renderSections();
+            setStatus();
             await refresh();
           }
 
           function scheduleRefresh(delay = refreshMs) {
             clearTimeout(refreshTimer);
             refreshTimer = setTimeout(() => {
+              if (pollingPaused) {
+                setStatus();
+                scheduleRefresh();
+                return;
+              }
               refresh().catch(renderError).finally(() => scheduleRefresh());
             }, delay);
           }
@@ -1173,9 +1374,18 @@ def _render_dashboard_script(refresh_ms: int, task_ref: str | None) -> str:
               taskSearchQuery = event.target?.value || "";
               renderTasks();
             });
+            document.getElementById("toggle-polling-button")?.addEventListener("click", () => {
+              togglePolling();
+            });
+            document.getElementById("refresh-now-button")?.addEventListener("click", () => {
+              refresh().catch(renderError);
+            });
           }
 
           setupControls();
+          renderTasks();
+          renderSections();
+          setStatus();
           refresh().catch(renderError).finally(() => scheduleRefresh());
         </script>
         """

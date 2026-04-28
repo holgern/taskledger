@@ -330,6 +330,47 @@ def test_dashboard_html_has_human_layout_sections() -> None:
     assert "command-row" in html
 
 
+def test_dashboard_preserves_details_state_helpers() -> None:
+    html = render_index_html(refresh_ms=1000, task_ref=None)
+
+    assert "openDetailsKeys" in html
+    assert "rememberDetailsState" in html
+    assert "bindDetailsState" in html
+    assert "data-detail-key" in html
+
+
+def test_dashboard_refresh_tracks_changed_endpoints() -> None:
+    html = render_index_html(refresh_ms=1000, task_ref=None)
+
+    assert "const changed = new Set();" in html
+    assert "return { payload: state.payload, changed: false }" in html
+    assert "return result.changed;" in html
+    assert 'if (changed.has("tasks")) renderTasks();' in html
+    assert (
+        'if (changed.has("project") || changed.has("dashboard")'
+        ' || changed.has("events"))' in html
+    )
+    assert "renderSections();" in html
+
+
+def test_dashboard_has_pause_and_manual_refresh_controls() -> None:
+    html = render_index_html(refresh_ms=1000, task_ref=None)
+
+    assert "pollingPaused" in html
+    assert "Pause updates" in html
+    assert "Refresh now" in html
+    assert "Review status" in html
+
+
+def test_dashboard_prioritizes_human_review_surface() -> None:
+    html = render_index_html(refresh_ms=1000, task_ref=None)
+
+    assert "Current summary" in html
+    assert "Recent events" in html
+    assert "Debug / raw payload" in html
+    assert "Recent activity stays visible" in html
+
+
 def test_dashboard_html_uses_compact_do_next_copy() -> None:
     html = render_index_html(refresh_ms=1000, task_ref=None)
 

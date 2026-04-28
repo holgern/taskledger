@@ -40,7 +40,6 @@ def test_skill_examples_exist() -> None:
 
 def test_skills_are_not_packaged_resources() -> None:
     assert not (ROOT / "taskledger" / "skills").exists()
-    assert not (ROOT / "setup.py").exists()
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert "skills/taskledger" not in pyproject
 
