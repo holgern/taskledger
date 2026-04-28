@@ -166,7 +166,7 @@ def test_relative_to_workspace(tmp_path: Path) -> None:
 def test_relative_to_workspace_outside_root(tmp_path: Path) -> None:
     ps = _paths(tmp_path)
     outside = Path("/some/other/path")
-    assert relative_to_workspace(ps, outside) == str(outside)
+    assert relative_to_workspace(ps, outside) == outside.as_posix()
 
 
 # -- summarize_text --
