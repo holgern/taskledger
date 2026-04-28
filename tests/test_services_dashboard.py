@@ -10,7 +10,12 @@ from taskledger.domain.models import (
     TaskTodo,
     TodoCollection,
 )
+from taskledger.services import serve_read_model
 from taskledger.services.dashboard import dashboard, render_dashboard_text
+from taskledger.services.serve_read_model import (
+    serve_dashboard_snapshot,
+    serve_task_summaries,
+)
 from taskledger.storage.task_store import (
     ensure_v2_layout,
     save_active_task_state,
@@ -103,6 +108,91 @@ def test_dashboard_next_action(tmp_path: Path) -> None:
     na = result["next_action"]
     assert isinstance(na, dict)
     assert "action" in na
+
+
+def test_serve_dashboard_snapshot_omits_events_by_default(tmp_path: Path) -> None:
+    _create_task_and_activate(tmp_path)
+
+    result = serve_dashboard_snapshot(tmp_path, ref="task-0001")
+
+    assert result["kind"] == "dashboard"
+    assert "events" not in result
+
+
+def test_serve_task_summaries_reads_tasks_and_locks_once(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _create_task_and_activate(tmp_path)
+    calls = {"tasks": 0, "locks": 0}
+    original_list_tasks = serve_read_model.list_tasks
+    original_load_active_locks = serve_read_model.load_active_locks
+
+    def counted_list_tasks(workspace_root: Path):
+        calls["tasks"] += 1
+        return original_list_tasks(workspace_root)
+
+    def counted_load_active_locks(workspace_root: Path):
+        calls["locks"] += 1
+        return original_load_active_locks(workspace_root)
+
+    monkeypatch.setattr(serve_read_model, "list_tasks", counted_list_tasks)
+    monkeypatch.setattr(
+        serve_read_model,
+        "load_active_locks",
+        counted_load_active_locks,
+    )
+
+    result = serve_task_summaries(tmp_path)
+
+    assert result["kind"] == "tasks"
+    assert calls == {"tasks": 1, "locks": 1}
+
+
+def test_serve_dashboard_snapshot_loads_selected_task_collections_once(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _create_task_and_activate(tmp_path)
+    counts = {
+        "plans": 0,
+        "questions": 0,
+        "runs": 0,
+        "changes": 0,
+        "todos": 0,
+        "requirements": 0,
+    }
+
+    def wrap(name: str):
+        original = getattr(serve_read_model, name)
+
+        def counted(*args, **kwargs):
+            counts[name.removeprefix("list_").removeprefix("load_")] += 1
+            return original(*args, **kwargs)
+
+        return counted
+
+    monkeypatch.setattr(serve_read_model, "list_plans", wrap("list_plans"))
+    monkeypatch.setattr(serve_read_model, "list_questions", wrap("list_questions"))
+    monkeypatch.setattr(serve_read_model, "list_runs", wrap("list_runs"))
+    monkeypatch.setattr(serve_read_model, "list_changes", wrap("list_changes"))
+    monkeypatch.setattr(serve_read_model, "load_todos", wrap("load_todos"))
+    monkeypatch.setattr(
+        serve_read_model,
+        "load_requirements",
+        wrap("load_requirements"),
+    )
+
+    serve_dashboard_snapshot(tmp_path, ref="task-0001")
+
+    assert counts == {
+        "plans": 1,
+        "questions": 1,
+        "runs": 1,
+        "changes": 1,
+        "todos": 1,
+        "requirements": 1,
+    }
 
 
 # -- render_dashboard_text tests --

@@ -7,7 +7,7 @@ import pytest
 
 from taskledger.domain.models import ActorRef, TaskEvent
 from taskledger.errors import LaunchError
-from taskledger.storage.events import append_event, load_events
+from taskledger.storage.events import append_event, load_events, load_recent_events
 
 
 def test_load_events_sorts_by_timestamp_and_event_id(tmp_path: Path) -> None:
@@ -75,3 +75,55 @@ def test_load_events_rejects_duplicate_event_ids(tmp_path: Path) -> None:
 
     with pytest.raises(LaunchError, match="Duplicate event id"):
         load_events(events_dir)
+
+
+def test_load_recent_events_returns_chronological_task_tail(tmp_path: Path) -> None:
+    events_dir = tmp_path / "events"
+    actor = ActorRef(actor_type="agent", actor_name="taskledger")
+    append_event(
+        events_dir,
+        TaskEvent(
+            ts="2026-04-24T08:44:00+00:00",
+            event="plan.started",
+            task_id="task-1",
+            actor=actor,
+            event_id="evt-20260424T084400Z-000001",
+        ),
+    )
+    append_event(
+        events_dir,
+        TaskEvent(
+            ts="2026-04-24T08:45:00+00:00",
+            event="plan.approved",
+            task_id="task-2",
+            actor=actor,
+            event_id="evt-20260424T084500Z-000002",
+        ),
+    )
+    append_event(
+        events_dir,
+        TaskEvent(
+            ts="2026-04-24T08:46:00+00:00",
+            event="implement.started",
+            task_id="task-1",
+            actor=actor,
+            event_id="evt-20260424T084600Z-000003",
+        ),
+    )
+    append_event(
+        events_dir,
+        TaskEvent(
+            ts="2026-04-24T08:47:00+00:00",
+            event="implement.finished",
+            task_id="task-1",
+            actor=actor,
+            event_id="evt-20260424T084700Z-000004",
+        ),
+    )
+
+    events = load_recent_events(events_dir, task_id="task-1", limit=2)
+
+    assert [event.event_id for event in events] == [
+        "evt-20260424T084600Z-000003",
+        "evt-20260424T084700Z-000004",
+    ]

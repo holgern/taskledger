@@ -263,8 +263,18 @@ def _running_server(
         thread.join(timeout=1)
 
 
-def _request(handle: DashboardServerHandle, path: str, *, method: str = "GET"):
-    return Request(f"{handle.url.rstrip('/')}{path}", method=method)
+def _request(
+    handle: DashboardServerHandle,
+    path: str,
+    *,
+    method: str = "GET",
+    headers: dict[str, str] | None = None,
+):
+    return Request(
+        f"{handle.url.rstrip('/')}{path}",
+        method=method,
+        headers=headers or {},
+    )
 
 
 def _load_json(handle: DashboardServerHandle, path: str) -> dict[str, object]:
@@ -294,6 +304,18 @@ def test_render_index_html_escapes_task_ref_and_refresh_interval() -> None:
     assert "const refreshMs = 750;" in html
     assert "\\u003c/script\\u003e\\u003cimg" in html
     assert '</script><img src=x onerror="boom">' not in html
+
+
+def test_dashboard_refresh_loop_does_not_use_set_interval() -> None:
+    html = render_index_html(refresh_ms=1000, task_ref=None)
+
+    assert "setInterval" not in html
+    assert "setTimeout" in html
+    assert "refreshInFlight" in html
+    assert "Promise.allSettled" in html
+    assert "Math.max(refreshMs * 5, 5000)" in html
+    assert "Math.max(refreshMs * 15, 15000)" in html
+    assert "endpointOrFallback" in html
 
 
 def test_launch_dashboard_server_defaults_to_loopback_and_reports_bound_port(
@@ -329,7 +351,8 @@ def test_dashboard_api_routes_return_expected_payloads(tmp_path: Path) -> None:
         events_payload = _load_json(handle, "/api/events?task=active&limit=2")
 
     assert "Taskledger dashboard" in root
-    assert project_payload["kind"] == "project"
+    assert project_payload["kind"] == "serve_project"
+    assert project_payload["health"] == "not_checked"
     assert tasks_payload["kind"] == "tasks"
     assert tasks_payload["tasks"][0]["id"] == "task-0001"
     assert dash_payload["kind"] == "dashboard"
@@ -340,6 +363,7 @@ def test_dashboard_api_routes_return_expected_payloads(tmp_path: Path) -> None:
     assert dash_payload["validation"]["kind"] == "validation_status"
     assert dash_payload["lock"]["stage"] == "validating"
     assert dash_payload["revision"]
+    assert "events" not in dash_payload
     assert len(events_payload["items"]) == 2
     assert events_payload["items"][-1]["event"] == "validate.started"
 
@@ -362,6 +386,110 @@ def test_dashboard_rejects_non_get_requests(tmp_path: Path) -> None:
     assert status == 405
     assert payload["ok"] is False
     assert payload["error"]["type"] == "MethodNotAllowed"
+
+
+def test_serve_tasks_route_does_not_call_full_project_status(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _build_workspace(tmp_path)
+
+    def fail(*args, **kwargs):
+        raise AssertionError("full project_status must not be used by /api/tasks")
+
+    monkeypatch.setattr("taskledger.api.project.project_status", fail)
+
+    with _running_server(tmp_path) as handle:
+        payload = _load_json(handle, "/api/tasks")
+
+    assert payload["kind"] == "tasks"
+
+
+def test_serve_project_route_does_not_call_full_project_status_summary(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _build_workspace(tmp_path)
+
+    def fail(*args, **kwargs):
+        raise AssertionError(
+            "full project_status_summary must not be used by /api/project"
+        )
+
+    monkeypatch.setattr("taskledger.api.project.project_status_summary", fail)
+
+    with _running_server(tmp_path) as handle:
+        payload = _load_json(handle, "/api/project")
+
+    assert payload["kind"] == "serve_project"
+
+
+def test_default_serve_polling_routes_do_not_call_inspect_v2_project(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _build_workspace(tmp_path)
+
+    def fail(*args, **kwargs):
+        raise AssertionError("default serve polling routes must not run doctor")
+
+    monkeypatch.setattr("taskledger.services.doctor.inspect_v2_project", fail)
+
+    with _running_server(tmp_path) as handle:
+        _load_json(handle, "/api/project")
+        _load_json(handle, "/api/tasks")
+        _load_json(handle, "/api/dashboard?task=active")
+        _load_json(handle, "/api/events?task=active&limit=2")
+
+
+def test_events_route_uses_recent_event_tail_not_full_event_load(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _build_workspace(tmp_path)
+
+    def fail(*args, **kwargs):
+        raise AssertionError("serve /api/events must not call full load_events")
+
+    monkeypatch.setattr("taskledger.storage.events.load_events", fail)
+
+    with _running_server(tmp_path) as handle:
+        payload = _load_json(handle, "/api/events?task=active&limit=2")
+
+    assert payload["kind"] == "events"
+    assert len(payload["items"]) == 2
+
+
+def test_dashboard_api_does_not_duplicate_events(tmp_path: Path) -> None:
+    _build_workspace(tmp_path)
+
+    with _running_server(tmp_path) as handle:
+        payload = _load_json(handle, "/api/dashboard?task=active")
+
+    assert "events" not in payload
+
+
+def test_dashboard_endpoint_supports_etag_not_modified(tmp_path: Path) -> None:
+    _build_workspace(tmp_path)
+
+    with _running_server(tmp_path) as handle:
+        with urlopen(
+            _request(handle, "/api/dashboard?task=active"),
+            timeout=5,
+        ) as first:
+            etag = first.headers["ETag"]
+            first.read()
+        with pytest.raises(HTTPError) as exc_info:
+            urlopen(
+                _request(
+                    handle,
+                    "/api/dashboard?task=active",
+                    headers={"If-None-Match": etag},
+                ),
+                timeout=5,
+            )
+
+    assert exc_info.value.code == 304
 
 
 @pytest.mark.parametrize("fail_on", ["headers", "write"])

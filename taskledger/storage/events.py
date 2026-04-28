@@ -42,6 +42,38 @@ def load_events(events_dir: Path) -> list[TaskEvent]:
     return sorted(events, key=lambda item: (item.ts, item.event_id))
 
 
+def load_recent_events(
+    events_dir: Path,
+    *,
+    task_id: str | None = None,
+    limit: int = 50,
+) -> list[TaskEvent]:
+    if limit <= 0 or not events_dir.exists():
+        return []
+    matches: list[TaskEvent] = []
+    for path in sorted(events_dir.glob("*.ndjson"), reverse=True):
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except OSError as exc:
+            raise LaunchError(f"Failed to read event log {path}: {exc}") from exc
+        for line in reversed(lines):
+            if not line.strip():
+                continue
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise LaunchError(f"Failed to read event log {path}: {exc}") from exc
+            if not isinstance(payload, dict):
+                continue
+            event = TaskEvent.from_dict(payload)
+            if task_id is not None and event.task_id != task_id:
+                continue
+            matches.append(event)
+            if len(matches) >= limit:
+                return list(reversed(matches))
+    return list(reversed(matches))
+
+
 def next_event_id(events_dir: Path, timestamp: str) -> str:
     sequence = len(load_events(events_dir)) + 1
     normalized = (
@@ -55,3 +87,12 @@ def next_event_id(events_dir: Path, timestamp: str) -> str:
 
 def event_log_path(events_dir: Path, timestamp: str) -> Path:
     return events_dir / f"{timestamp[:10]}.ndjson"
+
+
+__all__ = [
+    "append_event",
+    "event_log_path",
+    "load_events",
+    "load_recent_events",
+    "next_event_id",
+]

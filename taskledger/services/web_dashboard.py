@@ -4,16 +4,24 @@ import hashlib
 import json
 import socket
 import webbrowser
+from collections.abc import Callable
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from taskledger.api.project import project_status, project_status_summary
 from taskledger.errors import LaunchError
-from taskledger.services.dashboard import dashboard
-from taskledger.services.tasks import list_events
-from taskledger.storage.task_store import resolve_task_or_active
+from taskledger.services.serve_read_model import (
+    serve_dashboard_snapshot,
+    serve_project_summary,
+    serve_task_events,
+    serve_task_summaries,
+)
+from taskledger.storage.task_store import (
+    resolve_task_or_active,
+    resolve_v2_paths,
+    task_dir,
+)
 
 
 @dataclass(slots=True, frozen=True)
@@ -26,12 +34,20 @@ class DashboardServerConfig:
     open_browser: bool = False
 
 
+@dataclass(slots=True)
+class CachedResponse:
+    revision: str
+    body: bytes
+    content_type: str
+
+
 class _DashboardHTTPServer(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
     workspace_root: Path
     default_task_ref: str | None
     refresh_ms: int
+    cache: dict[str, CachedResponse]
 
 
 @dataclass(slots=True)
@@ -73,6 +89,12 @@ def render_index_html(*, refresh_ms: int, task_ref: str | None) -> str:
     }}
     aside {{ border-right: 1px solid #c9c9c9; padding: 1rem; }}
     #content {{ padding: 1rem; display: grid; gap: 1rem; }}
+    #status {{
+      font-size: 0.9rem;
+      color: #555;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }}
     section {{ border: 1px solid #c9c9c9; border-radius: 0.5rem; padding: 1rem; }}
     h1, h2 {{ margin: 0 0 0.75rem 0; }}
     pre {{ margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }}
@@ -95,24 +117,96 @@ def render_index_html(*, refresh_ms: int, task_ref: str | None) -> str:
       <h1>Tasks</h1>
       <div id="tasks"></div>
     </aside>
-    <div id="content"></div>
+    <div id="content">
+      <section>
+        <h2>Status</h2>
+        <pre id="status">Waiting for first refresh.</pre>
+      </section>
+      <div id="panels"></div>
+    </div>
   </main>
   <script>
     const refreshMs = {json.dumps(refresh_ms)};
     const defaultTaskRef = {_safe_script_literal(task_ref)};
     let selectedTaskRef = defaultTaskRef ?? "active";
+    let refreshTimer = null;
+    let refreshInFlight = false;
+    let lastUpdatedText = "never";
+    let renderedTasksRevision = null;
+    let renderedTasksSelection = null;
 
-    async function getJson(path) {{
-      const response = await fetch(path);
+    const endpointState = {{
+      tasks: {{
+        key: null,
+        etag: null,
+        payload: null,
+        error: null,
+        lastRequestedAt: 0,
+      }},
+      project: {{
+        key: null,
+        etag: null,
+        payload: null,
+        error: null,
+        lastRequestedAt: 0,
+      }},
+      dashboard: {{
+        key: null,
+        etag: null,
+        payload: null,
+        error: null,
+        lastRequestedAt: 0,
+      }},
+      events: {{
+        key: null,
+        etag: null,
+        payload: null,
+        error: null,
+        lastRequestedAt: 0,
+      }},
+    }};
+
+    function apiTaskRef() {{
+      return selectedTaskRef === "active" ? "active" : selectedTaskRef;
+    }}
+
+    function endpointPath(name) {{
+      if (name === "tasks") return "/api/tasks";
+      if (name === "project") return "/api/project";
+      const taskRef = encodeURIComponent(apiTaskRef());
+      if (name === "dashboard") return "/api/dashboard?task=" + taskRef;
+      return "/api/events?task=" + taskRef + "&limit=50";
+    }}
+
+    function endpointCadence(name) {{
+      if (name === "tasks") return Math.max(refreshMs * 5, 5000);
+      if (name === "project") return Math.max(refreshMs * 15, 15000);
+      return refreshMs;
+    }}
+
+    async function getJson(name, path) {{
+      const state = endpointState[name];
+      if (state.key !== path) {{
+        state.key = path;
+        state.etag = null;
+        state.payload = null;
+        state.error = null;
+      }}
+      const headers = {{}};
+      if (state.etag) {{
+        headers["If-None-Match"] = state.etag;
+      }}
+      const response = await fetch(path, {{ headers }});
+      if (response.status === 304 && state.payload) {{
+        return state.payload;
+      }}
       const payload = await response.json();
       if (!response.ok) {{
         throw new Error(payload?.error?.message || ("HTTP " + response.status));
       }}
+      state.etag = response.headers.get("ETag");
+      state.payload = payload;
       return payload;
-    }}
-
-    function apiTaskRef() {{
-      return selectedTaskRef === "active" ? "active" : selectedTaskRef;
     }}
 
     function appendSection(container, title, text) {{
@@ -125,6 +219,28 @@ def render_index_html(*, refresh_ms: int, task_ref: str | None) -> str:
       container.append(section);
     }}
 
+    function setStatus(text) {{
+      const node = document.getElementById("status");
+      if (node) {{
+        node.textContent = text;
+      }}
+    }}
+
+    function endpointMessage(name, emptyText) {{
+      const state = endpointState[name];
+      if (state.payload) {{
+        return null;
+      }}
+      if (state.error) {{
+        return emptyText + "\\nError: " + state.error;
+      }}
+      return emptyText;
+    }}
+
+    function endpointOrFallback(name, emptyText) {{
+      return endpointMessage(name, emptyText) || emptyText;
+    }}
+
     function formatTaskButton(task) {{
       const title = task.title || task.slug || task.id;
       return (
@@ -135,12 +251,12 @@ def render_index_html(*, refresh_ms: int, task_ref: str | None) -> str:
     }}
 
     function formatHeader(project, dash) {{
-      const task = dash.task || {{}};
-      const active = project.status?.active_task || {{}};
-      const lock = dash.lock;
+      const task = dash?.task || {{}};
+      const active = project?.active_task || {{}};
+      const lock = dash?.lock || null;
       return [
-        "Workspace: " + (project.status?.workspace_root || "-"),
-        "Project dir: " + (project.status?.project_dir || "-"),
+        "Workspace: " + (project?.workspace_root || "-"),
+        "Project dir: " + (project?.project_dir || "-"),
         "Active task: " + (
           (active.slug || task.slug || "-") +
           " (" + (active.task_id || task.id || "-") + ")"
@@ -148,7 +264,7 @@ def render_index_html(*, refresh_ms: int, task_ref: str | None) -> str:
         "Stage: " + (task.status_stage || "-"),
         "Active stage: " + (task.active_stage || "none"),
         "Lock: " + (lock ? (lock.stage + " (" + lock.run_id + ")") : "none"),
-        "Health: " + (project.status?.healthy ? "healthy" : "issues detected"),
+        "Health: " + (project?.health || "unknown"),
       ].join("\\n");
     }}
 
@@ -180,10 +296,12 @@ def render_index_html(*, refresh_ms: int, task_ref: str | None) -> str:
     }}
 
     function formatQuestions(questions) {{
-      const items = questions?.items || [];
+      if (!questions) {{
+        return endpointOrFallback("dashboard", "Loading questions...");
+      }}
+      const items = questions.items || [];
       const lines = [
-        "Open: " + (questions?.open || 0) +
-          " / Total: " + (questions?.total || 0),
+        "Open: " + (questions.open || 0) + " / Total: " + (questions.total || 0),
       ];
       if (items.length === 0) {{
         lines.push("No questions.");
@@ -196,9 +314,12 @@ def render_index_html(*, refresh_ms: int, task_ref: str | None) -> str:
     }}
 
     function formatTodos(todos) {{
-      const items = todos?.items || [];
+      if (!todos) {{
+        return endpointOrFallback("dashboard", "Loading todos...");
+      }}
+      const items = todos.items || [];
       const lines = [
-        "Done: " + (todos?.done || 0) + " / Total: " + (todos?.total || 0),
+        "Done: " + (todos.done || 0) + " / Total: " + (todos.total || 0),
       ];
       if (items.length === 0) {{
         lines.push("No todos.");
@@ -213,7 +334,10 @@ def render_index_html(*, refresh_ms: int, task_ref: str | None) -> str:
     }}
 
     function formatRuns(runs) {{
-      if (!runs || runs.length === 0) return "No runs.";
+      if (!runs) {{
+        return endpointOrFallback("dashboard", "Loading runs...");
+      }}
+      if (runs.length === 0) return "No runs.";
       return runs.map((run) => {{
         return [
           run.run_id + "  " + run.run_type + "  " + run.status +
@@ -226,7 +350,10 @@ def render_index_html(*, refresh_ms: int, task_ref: str | None) -> str:
     }}
 
     function formatChanges(changes) {{
-      if (!changes || changes.length === 0) return "No changes.";
+      if (!changes) {{
+        return endpointOrFallback("dashboard", "Loading changes...");
+      }}
+      if (changes.length === 0) return "No changes.";
       return changes.map((change) => {{
         return (
           change.change_id + "  " + change.path + "  (" + change.kind + ")\\n" +
@@ -236,7 +363,9 @@ def render_index_html(*, refresh_ms: int, task_ref: str | None) -> str:
     }}
 
     function formatValidation(validation) {{
-      if (!validation) return "No validation status.";
+      if (!validation) {{
+        return endpointOrFallback("dashboard", "Loading validation...");
+      }}
       const criteria = (validation.criteria || []).map((item) => {{
         return "- " + item.id + " [" + item.latest_status + "] " + item.text;
       }}).join("\\n");
@@ -252,7 +381,10 @@ def render_index_html(*, refresh_ms: int, task_ref: str | None) -> str:
     }}
 
     function formatEvents(events) {{
-      const items = events?.items || [];
+      if (!events) {{
+        return endpointOrFallback("events", "Loading events...");
+      }}
+      const items = events.items || [];
       if (items.length === 0) return "No events.";
       return items.map((event) => {{
         const actor = event.actor?.actor_name || event.actor?.actor_type || "unknown";
@@ -260,70 +392,158 @@ def render_index_html(*, refresh_ms: int, task_ref: str | None) -> str:
       }}).join("\\n");
     }}
 
-    function render(tasksPayload, projectPayload, dashPayload, eventsPayload) {{
+    function renderTasks() {{
+      const tasksPayload = endpointState.tasks.payload;
+      if (!tasksPayload) {{
+        return;
+      }}
+      const currentTaskId = endpointState.dashboard.payload?.task?.id || null;
+      const selectionKey = String(selectedTaskRef) + "|" + String(currentTaskId);
+      if (
+        tasksPayload.revision === renderedTasksRevision &&
+        selectionKey === renderedTasksSelection
+      ) {{
+        return;
+      }}
+      renderedTasksRevision = tasksPayload.revision || null;
+      renderedTasksSelection = selectionKey;
       const tasksNode = document.getElementById("tasks");
-      const contentNode = document.getElementById("content");
       tasksNode.replaceChildren();
-      contentNode.replaceChildren();
-
       for (const task of tasksPayload.tasks || []) {{
         const button = document.createElement("button");
         button.textContent = formatTaskButton(task);
         button.dataset.active = String(
-          task.id === dashPayload.task?.id || task.slug === selectedTaskRef
+          task.id === selectedTaskRef ||
+          task.slug === selectedTaskRef ||
+          task.id === currentTaskId
         );
         button.addEventListener("click", () => {{
           selectedTaskRef = task.id;
-          refresh().catch(renderError);
+          renderedTasksSelection = null;
+          renderTasks();
+          refreshSelection().catch(renderError);
         }});
         tasksNode.append(button);
       }}
-
-      appendSection(
-        contentNode,
-        "Workspace",
-        formatHeader(projectPayload, dashPayload)
-      );
-      appendSection(
-        contentNode,
-        "Next action",
-        JSON.stringify(dashPayload.next_action || {{}}, null, 2)
-      );
-      appendSection(contentNode, "Plans", formatPlans(dashPayload.plans || []));
-      appendSection(contentNode, "Questions", formatQuestions(dashPayload.questions));
-      appendSection(contentNode, "Todos", formatTodos(dashPayload.todos));
-      appendSection(contentNode, "Runs", formatRuns(dashPayload.runs || []));
-      appendSection(contentNode, "Changes", formatChanges(dashPayload.changes || []));
-      appendSection(
-        contentNode,
-        "Validation",
-        formatValidation(dashPayload.validation)
-      );
-      appendSection(contentNode, "Events", formatEvents(eventsPayload));
     }}
 
-    function renderError(error) {{
-      const contentNode = document.getElementById("content");
-      contentNode.replaceChildren();
-      appendSection(contentNode, "Dashboard error", String(error));
+    function renderPanels() {{
+      const panels = document.getElementById("panels");
+      const project = endpointState.project.payload;
+      const dashboard = endpointState.dashboard.payload;
+      const events = endpointState.events.payload;
+      panels.replaceChildren();
+
+      appendSection(
+        panels,
+        "Workspace",
+        project || dashboard
+          ? formatHeader(project, dashboard)
+          : endpointOrFallback("project", "Loading project summary...")
+      );
+      appendSection(
+        panels,
+        "Next action",
+        dashboard
+          ? JSON.stringify(dashboard.next_action || {{}}, null, 2)
+          : endpointOrFallback("dashboard", "Loading dashboard...")
+      );
+      appendSection(
+        panels,
+        "Plans",
+        dashboard
+          ? formatPlans(dashboard.plans || [])
+          : endpointOrFallback("dashboard", "Loading plans...")
+      );
+      appendSection(panels, "Questions", formatQuestions(dashboard?.questions));
+      appendSection(panels, "Todos", formatTodos(dashboard?.todos));
+      appendSection(panels, "Runs", formatRuns(dashboard?.runs));
+      appendSection(panels, "Changes", formatChanges(dashboard?.changes));
+      appendSection(panels, "Validation", formatValidation(dashboard?.validation));
+      appendSection(panels, "Events", formatEvents(events));
+    }}
+
+    function render() {{
+      renderTasks();
+      renderPanels();
+      const errors = Object.entries(endpointState)
+        .filter(([, state]) => Boolean(state.error))
+        .map(([name, state]) => name + " error: " + state.error);
+      const status = [
+        refreshInFlight ? "Refreshing..." : "Idle",
+        "Selected task: " + apiTaskRef(),
+        "Last updated: " + lastUpdatedText,
+      ].concat(errors);
+      setStatus(status.join("\\n"));
+    }}
+
+    function shouldRefresh(name, now) {{
+      const state = endpointState[name];
+      const path = endpointPath(name);
+      if (state.key !== path) {{
+        return true;
+      }}
+      if (state.payload === null) {{
+        return true;
+      }}
+      return (now - state.lastRequestedAt) >= endpointCadence(name);
+    }}
+
+    async function refreshEndpoint(name, now) {{
+      const state = endpointState[name];
+      state.lastRequestedAt = now;
+      try {{
+        await getJson(name, endpointPath(name));
+        state.error = null;
+      }} catch (error) {{
+        state.error = String(error);
+      }}
     }}
 
     async function refresh() {{
-      const taskRef = encodeURIComponent(apiTaskRef());
-      const [tasksPayload, projectPayload, dashPayload, eventsPayload] =
-        await Promise.all([
-          getJson("/api/tasks"),
-          getJson("/api/project"),
-          getJson("/api/dashboard?task=" + taskRef),
-          getJson("/api/events?task=" + taskRef + "&limit=50"),
-        ]);
-      render(tasksPayload, projectPayload, dashPayload, eventsPayload);
+      if (refreshInFlight) {{
+        return;
+      }}
+      refreshInFlight = true;
+      render();
+      try {{
+        const now = Date.now();
+        const work = [];
+        for (const name of ["project", "tasks", "dashboard", "events"]) {{
+          if (shouldRefresh(name, now)) {{
+            work.push(refreshEndpoint(name, now));
+          }}
+        }}
+        await Promise.allSettled(work);
+        lastUpdatedText = new Date().toLocaleTimeString();
+        render();
+      }} finally {{
+        refreshInFlight = false;
+        render();
+      }}
     }}
 
-    refresh().catch(renderError);
-    setInterval(() => {{
-      refresh().catch(renderError);
-    }}, refreshMs);
+    async function refreshSelection() {{
+      endpointState.dashboard.lastRequestedAt = 0;
+      endpointState.events.lastRequestedAt = 0;
+      endpointState.dashboard.etag = null;
+      endpointState.events.etag = null;
+      await refresh();
+    }}
+
+    function scheduleRefresh(delay = refreshMs) {{
+      clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => {{
+        refresh().catch(renderError).finally(() => scheduleRefresh());
+      }}, delay);
+    }}
+
+    function renderError(error) {{
+      setStatus("Error: " + String(error));
+      renderPanels();
+    }}
+
+    refresh().catch(renderError).finally(() => scheduleRefresh());
   </script>
 </body>
 </html>
@@ -370,6 +590,7 @@ def _create_server(config: DashboardServerConfig) -> _DashboardHTTPServer:
     server.workspace_root = config.workspace_root
     server.default_task_ref = config.task_ref
     server.refresh_ms = config.refresh_ms
+    server.cache = {}
     return server
 
 
@@ -391,49 +612,48 @@ class _DashboardRequestHandler(BaseHTTPRequestHandler):
                 )
                 return
             if parsed.path == "/api/project":
-                self._send_json(
+                revision = _storage_revision_for_project(self.server.workspace_root)
+                self._send_cached_json(
                     200,
-                    {
-                        "kind": "project",
-                        "status": project_status_summary(self.server.workspace_root),
-                    },
+                    revision,
+                    lambda: serve_project_summary(self.server.workspace_root),
                 )
                 return
             if parsed.path == "/api/tasks":
-                project = project_status(self.server.workspace_root)
-                raw_tasks = project.get("tasks", [])
-                tasks = raw_tasks if isinstance(raw_tasks, list) else []
-                self._send_json(
+                revision = _storage_revision_for_tasks(self.server.workspace_root)
+                self._send_cached_json(
                     200,
-                    {"kind": "tasks", "tasks": tasks},
+                    revision,
+                    lambda: serve_task_summaries(self.server.workspace_root),
                 )
                 return
             if parsed.path == "/api/dashboard":
-                payload = dashboard(
-                    self.server.workspace_root,
-                    ref=_task_ref_from_query(query, self.server.default_task_ref),
+                task_ref = _task_ref_from_query(query, self.server.default_task_ref)
+                revision = _storage_revision_for_dashboard(
+                    self.server.workspace_root, task_ref
                 )
-                payload["revision"] = _revision_for_payload(payload)
-                self._send_json(200, payload)
+                self._send_cached_json(
+                    200,
+                    revision,
+                    lambda: serve_dashboard_snapshot(
+                        self.server.workspace_root,
+                        ref=task_ref,
+                    ),
+                )
                 return
             if parsed.path == "/api/events":
-                limit = _limit_from_query(query)
-                task = resolve_task_or_active(
-                    self.server.workspace_root,
-                    _task_ref_from_query(query, self.server.default_task_ref),
+                task_ref = _task_ref_from_query(query, self.server.default_task_ref)
+                revision = _storage_revision_for_events(
+                    self.server.workspace_root, task_ref
                 )
-                events = [
-                    item
-                    for item in list_events(self.server.workspace_root)
-                    if item.get("task_id") == task.id
-                ]
-                self._send_json(
+                self._send_cached_json(
                     200,
-                    {
-                        "kind": "events",
-                        "task_id": task.id,
-                        "items": events[-limit:],
-                    },
+                    revision,
+                    lambda: serve_task_events(
+                        self.server.workspace_root,
+                        ref=task_ref,
+                        limit=_limit_from_query(query),
+                    ),
                 )
                 return
             self._send_api_error(404, "NotFound", f"Unknown path: {parsed.path}")
@@ -487,6 +707,47 @@ class _DashboardRequestHandler(BaseHTTPRequestHandler):
             content_type="application/json",
         )
 
+    def _send_cached_json(
+        self,
+        status: int,
+        revision: str,
+        payload_factory: Callable[[], dict[str, object]],
+    ) -> None:
+        if self.headers.get("If-None-Match") == revision:
+            try:
+                self.send_response(304)
+                self.send_header("ETag", revision)
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+            except _CLIENT_DISCONNECT_ERRORS:
+                return
+            return
+
+        cache_key = f"{self.path}:{revision}"
+        cached = self.server.cache.get(cache_key)
+        if cached is None:
+            payload = payload_factory()
+            payload["revision"] = revision
+            cached = CachedResponse(
+                revision=revision,
+                body=(json.dumps(payload, sort_keys=True).encode("utf-8") + b"\n"),
+                content_type="application/json",
+            )
+            if len(self.server.cache) > 128:
+                self.server.cache.clear()
+            self.server.cache[cache_key] = cached
+
+        try:
+            self.send_response(status)
+            self.send_header("Content-Type", cached.content_type)
+            self.send_header("Content-Length", str(len(cached.body)))
+            self.send_header("ETag", revision)
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            self.wfile.write(cached.body)
+        except _CLIENT_DISCONNECT_ERRORS:
+            return
+
     def _send_api_error(self, status: int, error_type: str, message: str) -> None:
         self._send_json(
             status,
@@ -530,10 +791,72 @@ def _first_query_value(query: dict[str, list[str]], name: str) -> str | None:
     return values[0].strip() or None
 
 
-def _revision_for_payload(payload: dict[str, object]) -> str:
-    return hashlib.sha256(
-        json.dumps(payload, sort_keys=True).encode("utf-8")
-    ).hexdigest()
+def _storage_revision_for_project(workspace_root: Path) -> str:
+    paths = resolve_v2_paths(workspace_root)
+    return _revision_for_paths(
+        paths.project_dir,
+        [paths.active_task_path, *sorted(paths.tasks_dir.glob("task-*/task.md"))],
+    )
+
+
+def _storage_revision_for_tasks(workspace_root: Path) -> str:
+    paths = resolve_v2_paths(workspace_root)
+    return _revision_for_paths(
+        paths.project_dir,
+        [
+            *sorted(paths.tasks_dir.glob("task-*/task.md")),
+            *sorted(paths.tasks_dir.glob("task-*/lock.yaml")),
+        ],
+    )
+
+
+def _storage_revision_for_dashboard(
+    workspace_root: Path,
+    task_ref: str | None,
+) -> str:
+    task = resolve_task_or_active(workspace_root, task_ref)
+    paths = resolve_v2_paths(workspace_root)
+    bundle = task_dir(paths, task.id)
+    return _revision_for_paths(
+        paths.project_dir,
+        [bundle / "lock.yaml", *sorted(bundle.rglob("*.md"))],
+    )
+
+
+def _storage_revision_for_events(
+    workspace_root: Path,
+    task_ref: str | None,
+) -> str:
+    resolve_task_or_active(workspace_root, task_ref)
+    paths = resolve_v2_paths(workspace_root)
+    return _revision_for_paths(
+        paths.project_dir,
+        sorted(paths.events_dir.glob("*.ndjson")),
+    )
+
+
+def _revision_for_paths(project_dir: Path, paths: list[Path]) -> str:
+    parts: list[str] = []
+    seen: set[Path] = set()
+    for path in sorted(paths, key=lambda item: str(item)):
+        if path in seen:
+            continue
+        seen.add(path)
+        if path.exists():
+            stat = path.stat()
+            parts.append(
+                f"{_relative_path(project_dir, path)}:{stat.st_mtime_ns}:{stat.st_size}"
+            )
+        else:
+            parts.append(f"{_relative_path(project_dir, path)}:missing")
+    return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
+
+
+def _relative_path(project_dir: Path, path: Path) -> str:
+    try:
+        return str(path.relative_to(project_dir))
+    except ValueError:
+        return str(path)
 
 
 def _safe_script_literal(value: str | None) -> str:
