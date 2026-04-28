@@ -109,7 +109,7 @@ Use ``plan command`` to record diagnostic commands during planning:
    taskledger context --for implementation --format markdown
    taskledger implement start
    taskledger implement log --message "Started implementation."
-   taskledger implement change --path taskledger/storage/v2.py --kind edit --summary "Updated storage semantics."
+   taskledger implement change --path taskledger/storage/task_store.py --kind edit --summary "Updated storage semantics."
    taskledger implement finish --summary "Implemented the approved plan."
 
    taskledger context --for validation --format markdown

@@ -7,7 +7,7 @@ from typer.testing import CliRunner
 
 from taskledger.cli import app
 from taskledger.storage.indexes import rebuild_v2_indexes
-from taskledger.storage.v2 import ensure_v2_layout, resolve_v2_paths
+from taskledger.storage.task_store import ensure_v2_layout, resolve_v2_paths
 
 
 def _make_runner() -> CliRunner:

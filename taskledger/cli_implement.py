@@ -27,7 +27,7 @@ from taskledger.cli_common import (
 )
 from taskledger.errors import LaunchError
 from taskledger.services.actors import resolve_actor, resolve_harness
-from taskledger.storage.v2 import load_todos
+from taskledger.storage.task_store import load_todos
 
 
 def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901

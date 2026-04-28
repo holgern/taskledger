@@ -14,7 +14,7 @@ from taskledger.services.tasks import (
     validation_status,
     waive_criterion,
 )
-from taskledger.storage.v2 import list_changes, list_runs
+from taskledger.storage.task_store import list_changes, list_runs
 
 __all__ = [
     "start_implementation",

@@ -11,7 +11,7 @@ from taskledger.services.handoff import (
     render_handoff,
     render_markdown_handoff,
 )
-from taskledger.storage.v2 import (
+from taskledger.storage.task_store import (
     handoff_markdown_path,
     list_handoffs,
     resolve_handoff,

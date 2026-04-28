@@ -5,7 +5,7 @@ from hashlib import sha256
 from pathlib import Path
 
 from taskledger.errors import LaunchError
-from taskledger.models import ProjectPaths
+from taskledger.storage.paths import ProjectPaths
 
 
 def load_json_array(path: Path, label: str) -> list[dict[str, object]]:

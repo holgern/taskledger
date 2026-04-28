@@ -7,9 +7,9 @@ from pathlib import Path
 import pytest
 
 from taskledger.errors import LaunchError
-from taskledger.models import ProjectRepo
 from taskledger.storage.init import init_project_state
 from taskledger.storage.repos import (
+    ProjectRepo,
     add_repo,
     clear_default_execution_repo,
     load_repos,

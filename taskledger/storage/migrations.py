@@ -40,6 +40,13 @@ class MigrationNeeded:
     target_version: int
 
 
+@dataclass(frozen=True)
+class MigrationScanIssue:
+    path: Path
+    object_type: str
+    message: str
+
+
 LAYOUT_MIGRATIONS: tuple[LayoutMigration, ...] = ()
 
 RECORD_MIGRATIONS: tuple[RecordMigration, ...] = ()
@@ -69,34 +76,43 @@ def required_layout_migrations(current: int, target: int) -> list[LayoutMigratio
 def scan_records_for_migration(
     workspace_root: Path,
 ) -> list[MigrationNeeded]:
+    needed, _issues = inspect_records_for_migration(workspace_root)
+    return needed
+
+
+def inspect_records_for_migration(
+    workspace_root: Path,
+) -> tuple[list[MigrationNeeded], list[MigrationScanIssue]]:
     """Scan all durable records for pending schema migrations.
 
-    Returns a list of records whose schema_version is below the current target.
+    Returns records whose schema_version is below the current target and any
+    malformed Markdown/frontmatter records encountered during the scan.
     """
-    from taskledger.storage.v2 import resolve_v2_paths
+    from taskledger.storage.task_store import resolve_v2_paths
 
     paths = resolve_v2_paths(workspace_root)
     needed: list[MigrationNeeded] = []
+    issues: list[MigrationScanIssue] = []
     if not paths.tasks_dir.exists():
-        return needed
+        return needed, issues
 
     for task_dir in sorted(paths.tasks_dir.glob("task-*")):
         if not task_dir.is_dir():
             continue
-        _scan_dir(task_dir / "plans", "plan", needed)
-        _scan_dir(task_dir / "questions", "question", needed)
-        _scan_dir(task_dir / "runs", "run", needed)
-        _scan_dir(task_dir / "changes", "change", needed)
-        _scan_dir(task_dir / "todos", "todo", needed)
-        _scan_dir(task_dir / "links", "link", needed)
-        _scan_dir(task_dir / "requirements", "requirement", needed)
-        _scan_dir(task_dir / "handoffs", "handoff", needed)
+        _scan_dir(task_dir / "plans", "plan", needed, issues)
+        _scan_dir(task_dir / "questions", "question", needed, issues)
+        _scan_dir(task_dir / "runs", "run", needed, issues)
+        _scan_dir(task_dir / "changes", "change", needed, issues)
+        _scan_dir(task_dir / "todos", "todo", needed, issues)
+        _scan_dir(task_dir / "links", "link", needed, issues)
+        _scan_dir(task_dir / "requirements", "requirement", needed, issues)
+        _scan_dir(task_dir / "handoffs", "handoff", needed, issues)
 
         task_md = task_dir / "task.md"
         if task_md.exists():
-            _scan_file(task_md, "task", needed)
+            _scan_file(task_md, "task", needed, issues)
 
-    return needed
+    return needed, issues
 
 
 def apply_layout_migrations(
@@ -146,23 +162,32 @@ def _scan_dir(
     directory: Path,
     object_type: str,
     needed: list[MigrationNeeded],
+    issues: list[MigrationScanIssue],
 ) -> None:
     if not directory.exists():
         return
     for md_file in sorted(directory.glob("*.md")):
-        _scan_file(md_file, object_type, needed)
+        _scan_file(md_file, object_type, needed, issues)
 
 
 def _scan_file(
     path: Path,
     default_object_type: str,
     needed: list[MigrationNeeded],
+    issues: list[MigrationScanIssue],
 ) -> None:
     from taskledger.storage.frontmatter import read_markdown_front_matter
 
     try:
         metadata, _ = read_markdown_front_matter(path)
-    except Exception:
+    except Exception as exc:
+        issues.append(
+            MigrationScanIssue(
+                path=path,
+                object_type=default_object_type,
+                message=f"Cannot parse {default_object_type} record {path}: {exc}",
+            )
+        )
         return
     version = metadata.get("schema_version")
     if not isinstance(version, int):

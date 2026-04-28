@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -177,3 +179,26 @@ def test_status_json_reports_workspace_and_storage_paths(tmp_path: Path) -> None
     assert status["config_path"] == str(tmp_path / "taskledger.toml")
     assert status["taskledger_dir"] == str(tmp_path / ".taskledger")
     assert status["project_dir"] == str(tmp_path / ".taskledger")
+
+
+def test_python_m_taskledger_uses_canonical_json_command_names(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "taskledger",
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "status",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stdout
+    payload = json.loads(result.stdout)
+    assert payload["command"] == "status"

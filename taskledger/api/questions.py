@@ -6,7 +6,7 @@ from taskledger.services.tasks import (
     list_open_questions,
     question_status,
 )
-from taskledger.storage.v2 import list_questions
+from taskledger.storage.task_store import list_questions
 
 __all__ = [
     "add_question",

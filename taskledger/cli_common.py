@@ -9,7 +9,7 @@ import typer
 
 from taskledger.errors import LaunchError, TaskledgerError
 from taskledger.storage.paths import discover_workspace_root
-from taskledger.storage.v2 import TaskRecord, resolve_task_or_active
+from taskledger.storage.task_store import TaskRecord, resolve_task_or_active
 
 
 @dataclass(slots=True, frozen=True)
@@ -147,8 +147,12 @@ def _success_envelope(
 def _operation_name(ctx: typer.Context) -> str:
     root_name = ctx.find_root().info_name
     parts = ctx.command_path.split()
-    if root_name and parts and parts[0] == root_name:
-        parts = parts[1:]
+    if root_name:
+        root_parts = root_name.split()
+        if parts[: len(root_parts)] == root_parts:
+            parts = parts[len(root_parts) :]
+        elif parts and parts[0] == Path(root_name).name:
+            parts = parts[1:]
     return ".".join(parts) if parts else "taskledger"
 
 

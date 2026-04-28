@@ -8,7 +8,7 @@ from typer.testing import CliRunner
 from taskledger.api.tasks import activate_task, create_task, deactivate_task
 from taskledger.cli import app
 from taskledger.errors import NoActiveTask
-from taskledger.storage.v2 import load_active_task_state, resolve_active_task
+from taskledger.storage.task_store import load_active_task_state, resolve_active_task
 
 
 def _make_runner() -> CliRunner:

@@ -12,7 +12,7 @@ from taskledger.cli import app
 from taskledger.domain.models import ActiveActorState, ActiveHarnessState
 from taskledger.errors import LaunchError
 from taskledger.services.actors import resolve_actor, resolve_harness
-from taskledger.storage.v2 import (
+from taskledger.storage.task_store import (
     clear_actor_state,
     clear_harness_state,
     load_actor_state,

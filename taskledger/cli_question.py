@@ -25,7 +25,7 @@ from taskledger.cli_common import (
 )
 from taskledger.domain.models import ActorRef
 from taskledger.errors import LaunchError
-from taskledger.storage.v2 import list_questions
+from taskledger.storage.task_store import list_questions
 
 _QUESTION_ANSWER_RE = re.compile(r"^(q-\d+):\s*(.+)$")
 

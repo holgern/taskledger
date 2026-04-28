@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from taskledger.storage.common import write_json
-from taskledger.storage.v2 import (
+from taskledger.storage.task_store import (
     V2Paths,
     list_introductions,
     list_tasks,

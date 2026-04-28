@@ -18,7 +18,7 @@ from taskledger.services.handoff_lifecycle import (
     close_handoff,
 )
 from taskledger.services.tasks import add_todo
-from taskledger.storage.v2 import resolve_handoff
+from taskledger.storage.task_store import resolve_handoff
 
 
 def test_handoff_creation():
@@ -145,6 +145,22 @@ def test_handoff_list():
         handoffs = list_all_handoffs(workspace, "task-0001")
 
         assert len(handoffs) == 3
+
+
+def test_handoff_list_raises_for_malformed_record() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        workspace = Path(tmpdir)
+        init_project(workspace)
+        create_task(workspace, title="Test Task", description="Test", slug="task-0001")
+        handoff_dir = workspace / ".taskledger" / "tasks" / "task-0001" / "handoffs"
+        handoff_dir.mkdir(parents=True, exist_ok=True)
+        (handoff_dir / "handoff-0001.md").write_text(
+            "---\nobject_type: handoff\ncontext_hash: [\n---\n",
+            encoding="utf-8",
+        )
+
+        with pytest.raises(LaunchError, match="Malformed handoff record"):
+            list_all_handoffs(workspace, "task-0001")
 
 
 def test_handoff_modes():

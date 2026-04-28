@@ -66,7 +66,7 @@ Examples:
 - lifecycle gate bug -> `taskledger/domain/policies.py` or `taskledger/services/tasks.py` plus lifecycle/policy tests
 - task-first CLI bug -> relevant `taskledger/cli_*_v2.py` plus CLI contract tests
 - JSON envelope bug -> `taskledger/cli_common.py` plus JSON contract tests
-- storage layout bug -> `taskledger/storage/v2.py` plus storage/layout tests
+- storage layout bug -> `taskledger/storage/task_store.py` plus storage/layout tests
 - lock behavior bug -> policies, task service, or lock storage plus lock tests
 - docs or skill drift -> docs, skill files, command example tests, and docs/skill tests
 
@@ -101,20 +101,20 @@ Use the owning layer before editing.
 
 - `taskledger/cli.py` — root Typer app, global options, command groups, top-level commands
 - `taskledger/cli_common.py` — CLI state, JSON envelopes, human rendering, error/exit-code mapping
-- `taskledger/cli_task_v2.py` — `task ...`
-- `taskledger/cli_plan_v2.py` — `plan ...`
-- `taskledger/cli_question_v2.py` — `question ...`
-- `taskledger/cli_implement_v2.py` — `implement ...`
-- `taskledger/cli_validate_v2.py` — `validate ...`
-- `taskledger/cli_misc_v2.py` — todo, intro, file, link, require, lock, handoff, doctor/repair helpers
+- `taskledger/cli_task.py` — `task ...`
+- `taskledger/cli_plan.py` — `plan ...`
+- `taskledger/cli_question.py` — `question ...`
+- `taskledger/cli_implement.py` — `implement ...`
+- `taskledger/cli_validate.py` — `validate ...`
+- `taskledger/cli_misc.py` — todo, intro, file, link, require, lock, handoff, doctor/repair helpers
 - `taskledger/api/*.py` — public API wrappers
 - `taskledger/services/tasks.py` — core lifecycle service operations
 - `taskledger/services/handoff.py` and `taskledger/services/handoff_lifecycle.py` — handoff rendering and state changes
-- `taskledger/services/doctor_v2.py` — integrity inspection
+- `taskledger/services/doctor.py` — integrity inspection
 - `taskledger/domain/models.py` — persisted domain records and serialization
 - `taskledger/domain/policies.py` — gate decisions and permission checks
 - `taskledger/domain/states.py` — status/stage normalization and transitions
-- `taskledger/storage/v2.py` — canonical v2 task bundle layout
+- `taskledger/storage/task_store.py` — canonical v2 task bundle layout
 - `taskledger/storage/*.py` — storage-specific modules
 - `taskledger/errors.py` — public exception taxonomy and exit codes
 - `taskledger/command_inventory.py` — registered command metadata

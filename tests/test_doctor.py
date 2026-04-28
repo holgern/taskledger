@@ -1,4 +1,4 @@
-"""Tests for taskledger.services.doctor_v2."""
+"""Tests for taskledger.services.doctor."""
 
 from __future__ import annotations
 
@@ -17,13 +17,13 @@ from taskledger.domain.models import (
     TaskTodo,
     TodoCollection,
 )
-from taskledger.services.doctor_v2 import (
+from taskledger.services.doctor import (
     inspect_v2_indexes,
     inspect_v2_locks,
     inspect_v2_project,
     inspect_v2_schema,
 )
-from taskledger.storage.v2 import (
+from taskledger.storage.task_store import (
     ensure_v2_layout,
     save_active_task_state,
     save_change,
@@ -115,6 +115,39 @@ def test_inspect_project_with_active_task(tmp_path: Path) -> None:
     result = inspect_v2_project(tmp_path)
     assert result["counts"]["active_task"] == 1
     assert result["healthy"] is True
+
+
+def test_inspect_project_reports_malformed_handoff_record(tmp_path: Path) -> None:
+    _setup_project(tmp_path)
+    paths = ensure_v2_layout(tmp_path)
+    handoff_dir = paths.tasks_dir / "task-0001" / "handoffs"
+    handoff_dir.mkdir(parents=True, exist_ok=True)
+    (handoff_dir / "handoff-0001.md").write_text(
+        "---\nobject_type: handoff\ncontext_hash: [\n---\n",
+        encoding="utf-8",
+    )
+
+    result = inspect_v2_project(tmp_path)
+
+    assert result["healthy"] is False
+    assert any("handoff-0001.md" in error for error in result["errors"])
+
+
+def test_inspect_project_warns_for_unsupported_legacy_sidecar(tmp_path: Path) -> None:
+    _setup_project(tmp_path)
+    paths = ensure_v2_layout(tmp_path)
+    (paths.tasks_dir / "task-0001" / "todos.yaml").write_text(
+        "schema_version: 1\nobject_type: todos\ntask_id: task-0001\ntodos: []\n",
+        encoding="utf-8",
+    )
+
+    result = inspect_v2_project(tmp_path)
+
+    assert any(
+        "Unsupported pre-release legacy sidecar retained" in w
+        for w in result["warnings"]
+    )
+    assert any("one-off migration script" in hint for hint in result["repair_hints"])
 
 
 def test_inspect_project_active_task_missing(tmp_path: Path) -> None:
@@ -258,7 +291,7 @@ def test_inspect_lock_without_running_run(tmp_path: Path) -> None:
     task = _task()
     save_task(tmp_path, task)
     paths = ensure_v2_layout(tmp_path)
-    from taskledger.storage.v2 import task_lock_path
+    from taskledger.storage.task_store import task_lock_path
 
     lock = _lock(stage="planning", run_id="run-0001")
     _write_lock_yaml(task_lock_path(paths, task.id), lock)
@@ -344,7 +377,7 @@ def test_inspect_validation_run_references_non_impl_run(tmp_path: Path) -> None:
 
 def test_inspect_lock_references_missing_task(tmp_path: Path) -> None:
     paths = ensure_v2_layout(tmp_path)
-    from taskledger.storage.v2 import task_lock_path
+    from taskledger.storage.task_store import task_lock_path
 
     lock = _lock(task_id="task-9999", stage="planning", run_id="run-0001")
     _write_lock_yaml(task_lock_path(paths, "task-9999"), lock)
@@ -358,7 +391,7 @@ def test_inspect_lock_references_non_running_run(tmp_path: Path) -> None:
     run = _run(run_id="run-0001", status="finished")
     save_run(tmp_path, run)
     paths = ensure_v2_layout(tmp_path)
-    from taskledger.storage.v2 import task_lock_path
+    from taskledger.storage.task_store import task_lock_path
 
     lock = _lock(stage="planning", run_id=run.run_id)
     _write_lock_yaml(task_lock_path(paths, task.id), lock)
@@ -372,7 +405,7 @@ def test_inspect_lock_stage_run_type_mismatch(tmp_path: Path) -> None:
     run = _run(run_id="run-0001", run_type="implementation", status="running")
     save_run(tmp_path, run)
     paths = ensure_v2_layout(tmp_path)
-    from taskledger.storage.v2 import task_lock_path
+    from taskledger.storage.task_store import task_lock_path
 
     lock = _lock(stage="planning", run_id=run.run_id)
     _write_lock_yaml(task_lock_path(paths, task.id), lock)
@@ -386,7 +419,7 @@ def test_inspect_expired_lock(tmp_path: Path) -> None:
     run = _run(run_id="run-0001", run_type="planning", status="running")
     save_run(tmp_path, run)
     paths = ensure_v2_layout(tmp_path)
-    from taskledger.storage.v2 import task_lock_path
+    from taskledger.storage.task_store import task_lock_path
 
     lock = _lock(
         stage="planning",
@@ -402,7 +435,7 @@ def test_inspect_lock_references_missing_run(tmp_path: Path) -> None:
     task = _task()
     save_task(tmp_path, task)
     paths = ensure_v2_layout(tmp_path)
-    from taskledger.storage.v2 import task_lock_path
+    from taskledger.storage.task_store import task_lock_path
 
     lock = _lock(stage="planning", run_id="run-9999")
     _write_lock_yaml(task_lock_path(paths, task.id), lock)

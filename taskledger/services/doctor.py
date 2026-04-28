@@ -7,6 +7,7 @@ from taskledger.domain.policies import derive_active_stage
 from taskledger.domain.states import TASKLEDGER_STORAGE_LAYOUT_VERSION
 from taskledger.storage.events import load_events
 from taskledger.storage.locks import lock_is_expired
+from taskledger.storage.migrations import inspect_records_for_migration
 from taskledger.storage.paths import (
     DEFAULT_TASKLEDGER_DIR_NAME,
     PROJECT_CONFIG_FILENAMES,
@@ -14,9 +15,10 @@ from taskledger.storage.paths import (
     resolve_project_paths,
 )
 from taskledger.storage.project_config import load_project_config_document
-from taskledger.storage.v2 import (
+from taskledger.storage.task_store import (
     ensure_v2_layout,
     list_changes,
+    list_handoffs_with_errors,
     list_plans,
     list_questions,
     list_runs,
@@ -132,6 +134,8 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
                 broken_links.append(
                     {"task_id": task.id, "kind": "requirement", "ref": requirement}
                 )
+        _handoffs, handoff_errors = list_handoffs_with_errors(workspace_root, task.id)
+        errors.extend(handoff_errors)
         if task.accepted_plan_version is not None and not any(
             plan.plan_version == task.accepted_plan_version for plan in plans
         ):
@@ -269,16 +273,26 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
                     f"Legacy slug sidecar directory retained: {child.name}/"
                 )
 
-    # Detect legacy YAML sidecars that should be migrated
+    # Detect unsupported pre-release legacy YAML sidecars.
+    legacy_sidecar_found = False
     for task in tasks:
-        td = task_dir(paths, task.id)
-        for legacy_name in ("todos.yaml", "links.yaml", "requirements.yaml"):
-            legacy_path = td / legacy_name
-            if legacy_path.exists():
+        sidecar_dirs = [task_dir(paths, task.id)]
+        if task.slug and task.slug != task.id:
+            sidecar_dirs.append(paths.tasks_dir / task.slug)
+        for sidecar_dir in sidecar_dirs:
+            for legacy_name in ("todos.yaml", "links.yaml", "requirements.yaml"):
+                legacy_path = sidecar_dir / legacy_name
+                if not legacy_path.exists():
+                    continue
+                legacy_sidecar_found = True
                 warnings.append(
-                    f"Task {task.id} has a legacy {legacy_name} sidecar. "
-                    "Load once and re-save to migrate to per-record Markdown."
+                    f"Unsupported pre-release legacy sidecar retained: {legacy_path}."
                 )
+    if legacy_sidecar_found:
+        repair_hints.append(
+            "Run a one-off migration script for pre-release sidecars or remove the "
+            "legacy YAML sidecars after confirming their contents are obsolete."
+        )
 
     if broken_links:
         errors.append("V2 task records contain broken references.")
@@ -324,12 +338,24 @@ def inspect_v2_locks(workspace_root: Path) -> dict[str, object]:
 
 
 def inspect_v2_schema(workspace_root: Path) -> dict[str, object]:
-    payload = inspect_v2_project(workspace_root)
-    schema_errors = [
-        item
-        for item in cast(list[str], payload["errors"])
-        if "schema" in item.lower() or "version" in item.lower()
-    ]
+    try:
+        payload = inspect_v2_project(workspace_root)
+        schema_errors = [
+            item
+            for item in cast(list[str], payload["errors"])
+            if "schema" in item.lower() or "version" in item.lower()
+        ]
+    except Exception as exc:
+        schema_errors = [str(exc)]
+    needed, issues = inspect_records_for_migration(workspace_root)
+    schema_errors.extend(issue.message for issue in issues)
+    schema_errors.extend(
+        (
+            f"{item.object_type} record requires schema migration "
+            f"{item.current_version} -> {item.target_version}: {item.path}"
+        )
+        for item in needed
+    )
     # Check storage.yaml layout version
     try:
         from taskledger.storage.meta import read_storage_meta

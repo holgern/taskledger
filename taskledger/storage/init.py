@@ -3,11 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from taskledger.errors import LaunchError
-from taskledger.models import ProjectPaths
 from taskledger.storage.common import write_text
 from taskledger.storage.meta import StorageMeta, write_storage_meta
 from taskledger.storage.paths import (
     CANONICAL_PROJECT_CONFIG_FILENAME,
+    ProjectPaths,
     load_project_locator,
     project_paths_for_root,
 )
@@ -153,8 +153,8 @@ def _ensure_additive_project_files(paths: ProjectPaths) -> None:
 
 
 def _reject_legacy_item_memory_indexes(paths: ProjectPaths) -> None:
-    legacy_item_index = paths.items_dir / "index.json"
-    legacy_memory_index = paths.memories_dir / "index.json"
+    legacy_item_index = paths.taskledger_dir / "items" / "index.json"
+    legacy_memory_index = paths.taskledger_dir / "memories" / "index.json"
     if legacy_item_index.exists():
         raise LaunchError(
             "Legacy item JSON storage is unsupported after this refactor: "

@@ -49,7 +49,9 @@ def test_persisted_models_round_trip_with_schema_metadata() -> None:
             introduction_ref="intro-0001",
             latest_plan_version=1,
             accepted_plan_version=1,
-            file_links=(FileLink(path="taskledger/storage/v2.py", kind="code"),),
+            file_links=(
+                FileLink(path="taskledger/storage/task_store.py", kind="code"),
+            ),
             todos=(TaskTodo(id="todo-0001", text="Ship the contract layer."),),
         ),
         IntroductionRecord(

@@ -10,11 +10,11 @@ from taskledger.exchange import (
     parse_project_import_payload,
     write_project_snapshot,
 )
-from taskledger.services.doctor_v2 import inspect_v2_project
+from taskledger.services.doctor import inspect_v2_project
 from taskledger.storage.init import init_project_state
 from taskledger.storage.locks import lock_is_expired
 from taskledger.storage.paths import resolve_project_paths
-from taskledger.storage.v2 import (
+from taskledger.storage.task_store import (
     list_changes,
     list_introductions,
     list_plans,
@@ -172,3 +172,14 @@ def _active_task_status(workspace_root: Path) -> dict[str, object] | None:
         "title": task.title,
         "status_stage": task.status_stage,
     }
+
+
+__all__ = [
+    "init_project",
+    "project_status_summary",
+    "project_status",
+    "project_doctor",
+    "project_export",
+    "project_import",
+    "project_snapshot",
+]

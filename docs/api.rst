@@ -73,6 +73,7 @@ Plan API
 - ``list_plan_versions``
 - ``show_plan``
 - ``diff_plan``
+- ``lint_plan``
 - ``approve_plan``
 - ``reject_plan``
 - ``revise_plan``
@@ -114,7 +115,37 @@ Run API
 Other APIs
 ----------
 
-- ``taskledger.api.introductions``: create/list/resolve/link introductions
-- ``taskledger.api.locks``: inspect and break locks
-- ``taskledger.api.handoff``: render handoff context
-- ``taskledger.api.search``: workspace search, grep, symbols, and deps
+Introduction API
+~~~~~~~~~~~~~~~~
+
+- ``create_introduction``
+- ``list_introductions``
+- ``resolve_introduction``
+- ``link_introduction``
+
+Lock API
+~~~~~~~~
+
+- ``show_lock``
+- ``break_lock``
+- ``list_locks``
+- ``load_active_locks``
+
+Handoff API
+~~~~~~~~~~~
+
+- ``render_handoff``
+- ``create_handoff``
+- ``list_all_handoffs``
+- ``show_handoff``
+- ``claim_handoff_api``
+- ``close_handoff_api``
+- ``cancel_handoff_api``
+
+Search API
+~~~~~~~~~~
+
+- ``search_workspace``
+- ``grep_workspace``
+- ``symbols_workspace``
+- ``dependencies_for_module``

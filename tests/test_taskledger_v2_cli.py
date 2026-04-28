@@ -286,7 +286,7 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
                 "--task",
                 "rewrite-v2",
                 "--path",
-                "taskledger/storage/v2.py",
+                "taskledger/storage/task_store.py",
                 "--kind",
                 "edit",
                 "--summary",
@@ -379,7 +379,7 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
     assert payload["result"]["task"]["status_stage"] == "done"
     assert payload["result"]["task"]["active_stage"] is None
     assert payload["result"]["task"]["accepted_plan_version"] == 1
-    assert payload["result"]["changes"][0]["path"] == "taskledger/storage/v2.py"
+    assert payload["result"]["changes"][0]["path"] == "taskledger/storage/task_store.py"
 
     handoff_result = runner.invoke(
         app,
@@ -392,7 +392,7 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
     )
     assert handoff_result.exit_code == 0
     assert "Code Changes" in handoff_result.stdout
-    assert "taskledger/storage/v2.py" in handoff_result.stdout
+    assert "taskledger/storage/task_store.py" in handoff_result.stdout
 
     doctor_result = runner.invoke(
         app,

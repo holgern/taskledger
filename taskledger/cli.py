@@ -21,8 +21,8 @@ from taskledger.api.search import (
     search_workspace,
     symbols_workspace,
 )
-from taskledger.cli_actor_v2 import app as actors_app
-from taskledger.cli_actor_v2 import harness_app
+from taskledger.cli_actor import app as actors_app
+from taskledger.cli_actor import harness_app
 from taskledger.cli_common import (
     CLIState,
     TaskOption,
@@ -33,9 +33,9 @@ from taskledger.cli_common import (
     resolve_cli_task,
     resolve_workspace_root,
 )
-from taskledger.cli_implement_v2 import register_implement_v2_commands
-from taskledger.cli_migrate_v2 import migrate_app
-from taskledger.cli_misc_v2 import (
+from taskledger.cli_implement import register_implement_v2_commands
+from taskledger.cli_migrate import migrate_app
+from taskledger.cli_misc import (
     emit_can_command,
     emit_doctor_command,
     emit_doctor_indexes_command,
@@ -51,10 +51,10 @@ from taskledger.cli_misc_v2 import (
     register_require_v2_commands,
     register_todo_v2_commands,
 )
-from taskledger.cli_plan_v2 import register_plan_v2_commands
-from taskledger.cli_question_v2 import register_question_v2_commands
-from taskledger.cli_task_v2 import register_task_v2_commands
-from taskledger.cli_validate_v2 import register_validate_v2_commands
+from taskledger.cli_plan import register_plan_v2_commands
+from taskledger.cli_question import register_question_v2_commands
+from taskledger.cli_task import register_task_v2_commands
+from taskledger.cli_validate import register_validate_v2_commands
 from taskledger.errors import LaunchError
 from taskledger.services.dashboard import dashboard, render_dashboard_text
 
@@ -358,7 +358,7 @@ def repair_task_command(
 
 @repair_app.command("task-dirs")
 def repair_task_dirs_command(ctx: typer.Context) -> None:
-    from taskledger.services.doctor_v2 import cleanup_orphan_slug_dirs
+    from taskledger.services.doctor import cleanup_orphan_slug_dirs
 
     state = ctx.obj
     assert isinstance(state, CLIState)

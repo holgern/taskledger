@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 
 from taskledger.errors import LaunchError
-from taskledger.models import ProjectPaths
 from taskledger.storage.common import (
     content_hash,
     load_json_array,
@@ -21,6 +20,7 @@ from taskledger.storage.common import (
     write_json,
     write_text,
 )
+from taskledger.storage.paths import ProjectPaths
 
 
 def _paths(tmp_path: Path) -> ProjectPaths:
@@ -28,19 +28,10 @@ def _paths(tmp_path: Path) -> ProjectPaths:
     return ProjectPaths(
         workspace_root=tmp_path,
         project_dir=project_dir,
+        taskledger_dir=project_dir,
         config_path=project_dir / "project.toml",
         repos_dir=project_dir / "repos",
         repo_index_path=project_dir / "repos" / "index.json",
-        workflows_dir=project_dir / "workflows",
-        workflow_index_path=project_dir / "workflows" / "index.json",
-        memories_dir=project_dir / "memories",
-        contexts_dir=project_dir / "contexts",
-        context_index_path=project_dir / "contexts" / "index.json",
-        items_dir=project_dir / "items",
-        stages_dir=project_dir / "stages",
-        stage_index_path=project_dir / "stages" / "index.json",
-        runs_dir=project_dir / "runs",
-        taskledger_dir=project_dir,
     )
 
 

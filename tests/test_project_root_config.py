@@ -7,7 +7,7 @@ import yaml
 from typer.testing import CliRunner
 
 from taskledger.cli import app
-from taskledger.services.doctor_v2 import inspect_v2_project
+from taskledger.services.doctor import inspect_v2_project
 from taskledger.storage.meta import StorageMeta
 from taskledger.storage.paths import resolve_project_paths
 from taskledger.storage.project_config import load_project_config_overrides

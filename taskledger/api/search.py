@@ -77,3 +77,11 @@ def dependencies_for_module(
         repo_ref=repo_ref,
         module=module,
     )
+
+
+__all__ = [
+    "search_workspace",
+    "grep_workspace",
+    "symbols_workspace",
+    "dependencies_for_module",
+]

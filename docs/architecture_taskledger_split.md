@@ -10,11 +10,11 @@ task -> plan -> approval -> implement -> validate -> done
 ## Owning Layers
 
 - `taskledger/domain/` owns lifecycle enums, policies, and record models.
-- `taskledger/storage/v2.py` and `taskledger/storage/locks.py` own persisted
+- `taskledger/storage/task_store.py` and `taskledger/storage/locks.py` own persisted
   task bundles and visible lock files under `.taskledger/`.
 - `taskledger/services/tasks.py` owns task lifecycle orchestration.
 - `taskledger/services/handoff.py` owns handoff payloads and rendering.
-- `taskledger/services/doctor_v2.py` owns integrity checks.
+- `taskledger/services/doctor.py` owns integrity checks.
 - `taskledger/api/*` exposes public wrappers.
 - `taskledger/cli*.py` wires commands only.
 

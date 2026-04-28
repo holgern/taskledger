@@ -11,7 +11,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Literal, TypedDict, cast
+from typing import Literal, TypedDict, cast
 
 import yaml
 
@@ -86,7 +86,7 @@ from taskledger.storage.locks import (
     remove_lock,
     write_lock,
 )
-from taskledger.storage.v2 import (
+from taskledger.storage.task_store import (
     V2Paths,
     ensure_v2_layout,
     list_changes,
@@ -121,7 +121,7 @@ from taskledger.storage.v2 import (
     task_audit_dir,
     task_lock_path,
 )
-from taskledger.storage.v2 import (
+from taskledger.storage.task_store import (
     resolve_active_task as storage_resolve_active_task,
 )
 from taskledger.timeutils import utc_now_iso
@@ -276,7 +276,7 @@ def clear_active_task(
     actor_type: str = "user",
     force: bool = False,
 ) -> dict[str, object]:
-    from taskledger.storage.v2 import clear_active_task_state
+    from taskledger.storage.task_store import clear_active_task_state
 
     state = load_active_task_state(workspace_root)
     if state is None:
@@ -2260,216 +2260,9 @@ def _build_validation_gate_report(
     task: TaskRecord,
     run: TaskRunRecord | None = None,
 ) -> dict[str, object]:
-    """Build a comprehensive validation gate report.
+    from taskledger.services.validation import build_validation_gate_report
 
-    Returns a dict with:
-    - accepted_plan status
-    - implementation run status
-    - criteria satisfaction (latest-check-wins)
-    - open mandatory todos
-    - dependency blockers
-    - can_finish_passed flag
-    - blocker list with hints
-    """
-    run = run or _optional_run(workspace_root, task, task.latest_validation_run)
-
-    report: dict[str, Any] = {
-        "kind": "validation_status",
-        "task_id": task.id,
-        "task_slug": task.slug,
-        "status_stage": task.status_stage,
-        "active_stage": None,
-        "run_id": run.run_id if run else None,
-        "can_finish_passed": False,
-    }
-
-    report["accepted_plan"] = {}
-    if task.accepted_plan_version is not None:
-        accepted_plan = resolve_plan(
-            workspace_root,
-            task.id,
-            version=task.accepted_plan_version,
-        )
-        report["accepted_plan"] = {
-            "version": task.accepted_plan_version,
-            "status": accepted_plan.status,
-        }
-
-    report["implementation"] = {}
-    impl_run = _optional_run(workspace_root, task, task.latest_implementation_run)
-    if impl_run:
-        report["implementation"] = {
-            "run_id": impl_run.run_id,
-            "status": impl_run.status,
-            "satisfied": impl_run.status == "finished",
-        }
-
-    report["criteria"] = []
-    missing_criteria = []
-    failing_criteria = []
-
-    if task.accepted_plan_version is not None:
-        accepted_plan = resolve_plan(
-            workspace_root,
-            task.id,
-            version=task.accepted_plan_version,
-        )
-
-        checks_by_criterion: dict[str, list[ValidationCheck]] = {}
-        if run:
-            for check in run.checks:
-                if check.criterion_id is not None:
-                    checks_by_criterion.setdefault(check.criterion_id, []).append(check)
-
-        for criterion in accepted_plan.criteria:
-            checks = checks_by_criterion.get(criterion.id, [])
-
-            latest_check = checks[-1] if checks else None
-            latest_status = latest_check.status if latest_check else "not_run"
-            satisfied = bool(
-                latest_status == "pass"
-                or (latest_check and _criterion_has_user_waiver(latest_check))
-            )
-
-            has_waiver = latest_check and _criterion_has_user_waiver(latest_check)
-
-            blocker = []
-            if criterion.mandatory:
-                if latest_status == "fail":
-                    blocker = [
-                        {"kind": "criterion_fail", "message": "Latest check failed"}
-                    ]
-                    failing_criteria.append(criterion.id)
-                elif latest_status == "not_run":
-                    blocker = [
-                        {
-                            "kind": "criterion_missing",
-                            "message": "No passing check recorded",
-                        }
-                    ]
-                    missing_criteria.append(criterion.id)
-                elif not satisfied and latest_status != "pass":
-                    blocker = [
-                        {
-                            "kind": "criterion_unsatisfied",
-                            "message": f"Latest check status: {latest_status}",
-                        }
-                    ]
-                    missing_criteria.append(criterion.id)
-
-            criterion_report = {
-                "id": criterion.id,
-                "text": criterion.text,
-                "mandatory": criterion.mandatory,
-                "latest_check_id": latest_check.id if latest_check else None,
-                "latest_status": latest_status,
-                "satisfied": satisfied,
-                "has_waiver": has_waiver,
-                "evidence": list(latest_check.evidence) if latest_check else [],
-                "history": [{"check_id": c.id, "status": c.status} for c in checks],
-                "blockers": blocker,
-            }
-            report["criteria"].append(criterion_report)
-
-    report["todos"] = {"open_mandatory": []}
-    todos = load_todos(workspace_root, task.id).todos
-    open_todos = [todo.id for todo in todos if todo.mandatory and not todo.done]
-    report["todos"]["open_mandatory"] = open_todos
-
-    report["dependencies"] = {"blockers": _dependency_blockers(workspace_root, task)}
-
-    report["blockers"] = []
-    blockers: list[dict[str, object]] = []
-
-    if task.accepted_plan_version is None:
-        blockers.append(
-            {
-                "kind": "no_accepted_plan",
-                "message": "No accepted plan is recorded.",
-                "command_hint": (
-                    "taskledger plan propose ... && taskledger plan approve ..."
-                ),
-            }
-        )
-    elif task.accepted_plan_version is not None:
-        accepted_plan = resolve_plan(
-            workspace_root,
-            task.id,
-            version=task.accepted_plan_version,
-        )
-        if accepted_plan.status != "accepted":
-            blockers.append(
-                {
-                    "kind": "plan_not_accepted",
-                    "message": (
-                        f"Accepted plan record status is "
-                        f"{accepted_plan.status}, not accepted."
-                    ),
-                }
-            )
-
-    if not impl_run or impl_run.status != "finished":
-        blockers.append(
-            {
-                "kind": "no_finished_implementation",
-                "message": "No finished implementation run is recorded.",
-                "command_hint": (
-                    "taskledger implement start ... && taskledger implement finish ..."
-                ),
-            }
-        )
-
-    for missing_id in missing_criteria:
-        blockers.append(
-            {
-                "kind": "criterion_missing",
-                "ref": missing_id,
-                "message": f"Mandatory criterion {missing_id} has no passing check.",
-                "command_hint": (
-                    f"taskledger validate check "
-                    f"--criterion {missing_id} --status pass "
-                    f'--evidence "..."'
-                ),
-            }
-        )
-
-    for failing_id in failing_criteria:
-        blockers.append(
-            {
-                "kind": "criterion_fail",
-                "ref": failing_id,
-                "message": f"Mandatory criterion {failing_id} has a failing check.",
-                "command_hint": (
-                    f"taskledger validate check "
-                    f"--criterion {failing_id} --status pass "
-                    f'--evidence "..."'
-                ),
-            }
-        )
-
-    for todo_id in open_todos:
-        blockers.append(
-            {
-                "kind": "todo_open",
-                "ref": todo_id,
-                "message": f"Mandatory todo {todo_id} is not done.",
-                "command_hint": f'taskledger todo done {todo_id} --evidence "..."',
-            }
-        )
-
-    for dep_blocker in cast(list[str], report["dependencies"]["blockers"]):
-        blockers.append(
-            {
-                "kind": "dependency_blocker",
-                "ref": dep_blocker,
-                "message": f"Dependency {dep_blocker} blocks this task.",
-            }
-        )
-
-    report["blockers"] = blockers
-    report["can_finish_passed"] = len(blockers) == 0
-
-    return report
+    return build_validation_gate_report(workspace_root, task, run)
 
 
 def validation_status(
@@ -2482,7 +2275,7 @@ def validation_status(
     task = resolve_task(workspace_root, task_ref)
     run = None
     if run_id:
-        from taskledger.storage.v2 import resolve_run
+        from taskledger.storage.task_store import resolve_run
 
         run = resolve_run(workspace_root, task.id, run_id)
 
@@ -2800,342 +2593,15 @@ def list_locks(workspace_root: Path) -> dict[str, object]:
 
 
 def next_action(workspace_root: Path, task_ref: str) -> dict[str, object]:
-    task = resolve_task(workspace_root, task_ref)
-    lock = _current_lock(workspace_root, task.id)
-    runs = list_runs(workspace_root, task.id)
-    active_stage = _task_active_stage(
-        workspace_root,
-        task,
-        lock=lock,
-        runs=runs,
-    )
-    action: str
-    reason: str
-    blockers: list[dict[str, object]] = []
-    next_item: dict[str, object] | None = None
-    progress: dict[str, object] = {}
-    if active_stage == "planning":
-        questions = list_questions(workspace_root, task.id)
-        open_questions = _required_open_question_ids(questions)
-        answered_questions = [
-            item.id
-            for item in questions
-            if item.status == "answered" and item.required_for_plan
-        ]
-        latest_plan = _latest_plan_or_none(workspace_root, task.id)
-        stale_answers = (
-            _stale_answer_question_ids(questions, latest_plan)
-            if latest_plan is not None
-            else answered_questions
-        )
-        if open_questions:
-            action, reason = (
-                "question-answer",
-                "Required planning questions are open.",
-            )
-            question = _first_question_by_ids(questions, open_questions)
-            next_item = _question_next_item(question) if question is not None else None
-            progress["questions"] = {
-                "required_open": len(open_questions),
-                "required_open_ids": open_questions,
-            }
-            blockers.append(
-                {
-                    "kind": "open_questions",
-                    "question_ids": open_questions,
-                    "message": "Required planning questions must be answered.",
-                }
-            )
-        elif stale_answers:
-            action, reason = (
-                "plan-regenerate",
-                "Answered planning questions should be reflected in the plan.",
-            )
-            question = _first_question_by_ids(questions, stale_answers)
-            next_item = (
-                _answered_question_next_item(question) if question is not None else None
-            )
-            progress["questions"] = {
-                "required_open": 0,
-                "required_open_ids": [],
-                "answered_since_latest_plan": stale_answers,
-            }
-        else:
-            action, reason = (
-                "plan-propose",
-                "Planning is active; propose the next plan.",
-            )
-    elif active_stage == "implementation":
-        todo_report = _build_todo_gate_report(workspace_root, task)
-        open_todo_ids = cast(list[str], todo_report.get("open_todos", []))
-        open_todo_count = len(open_todo_ids)
-        total_todos = todo_report.get("total", 0)
-        done_todos = todo_report.get("done", 0)
-        progress["todos"] = {
-            "total": total_todos if isinstance(total_todos, int) else 0,
-            "done": done_todos if isinstance(done_todos, int) else 0,
-            "open": open_todo_count,
-            "open_ids": open_todo_ids,
-        }
-        if open_todo_count > 0:
-            todo = _first_open_todo_from_report(workspace_root, task, open_todo_ids)
-            next_item = _todo_next_item(todo) if todo is not None else None
-            action, reason = (
-                "todo-work",
-                f"Implementation is in progress; {open_todo_count} todos remain.",
-            )
-        else:
-            action, reason = (
-                "implement-finish",
-                "All todos done; ready to finish implementation.",
-            )
-            next_item = _task_next_item(task)
-    elif active_stage == "validation":
-        gate_report = _build_validation_gate_report(workspace_root, task)
-        report_blockers = cast(list[dict[str, object]], gate_report.get("blockers", []))
-        blockers.extend(_compact_next_action_blockers(report_blockers))
-        progress["validation"] = _validation_progress(gate_report)
-        if report_blockers:
-            action, reason = (
-                "validate-check",
-                "Validation is in progress; required checks remain.",
-            )
-            next_item = _next_validation_item(
-                workspace_root,
-                task,
-                gate_report,
-                report_blockers,
-            )
-        else:
-            action, reason = (
-                "validate-finish",
-                "Validation is complete enough to finish.",
-            )
-            next_item = _task_next_item(task)
-    elif task.status_stage == "draft":
-        action, reason = "plan", "Draft tasks need planning before work starts."
-    elif task.status_stage == "plan_review":
-        questions = list_questions(workspace_root, task.id)
-        open_questions = _required_open_question_ids(questions)
-        latest_plan = _latest_plan_or_none(workspace_root, task.id)
-        stale_answers = (
-            _stale_answer_question_ids(questions, latest_plan)
-            if latest_plan is not None
-            else []
-        )
-        if open_questions:
-            action, reason = (
-                "question-answer",
-                "Required planning questions are open.",
-            )
-            question = _first_question_by_ids(questions, open_questions)
-            next_item = _question_next_item(question) if question is not None else None
-            progress["questions"] = {
-                "required_open": len(open_questions),
-                "required_open_ids": open_questions,
-            }
-            blockers.append(
-                {
-                    "kind": "open_questions",
-                    "question_ids": open_questions,
-                    "message": "Required planning questions must be answered.",
-                }
-            )
-        elif stale_answers:
-            action, reason = (
-                "plan-regenerate",
-                "Answered planning questions are not reflected in the latest plan.",
-            )
-            question = _first_question_by_ids(questions, stale_answers)
-            next_item = (
-                _answered_question_next_item(question) if question is not None else None
-            )
-            progress["questions"] = {
-                "required_open": 0,
-                "required_open_ids": [],
-                "answered_since_latest_plan": stale_answers,
-            }
-            blockers.append(
-                {
-                    "kind": "stale_answers",
-                    "question_ids": stale_answers,
-                    "message": "Regenerate the plan from answered questions.",
-                }
-            )
-        else:
-            action, reason = "plan-approve", "A proposed plan is waiting for review."
-            if latest_plan is not None:
-                next_item = _plan_next_item(latest_plan)
-    elif task.status_stage == "approved":
-        action, reason = "implement", "The approved plan is ready for implementation."
-        next_item = _task_next_item(task)
-        if task.accepted_plan_version is None:
-            blockers.append(
-                {"kind": "approval", "message": "No accepted plan version is recorded."}
-            )
-        blockers.extend(
-            cast(list[dict[str, object]], _dependency_blockers(workspace_root, task))
-        )
-    elif task.status_stage == "implemented":
-        action, reason = "validate", "Implementation is complete and ready to validate."
-        next_item = _task_next_item(task)
-        impl_run = _optional_run(workspace_root, task, task.latest_implementation_run)
-        if (
-            impl_run is None
-            or impl_run.run_type != "implementation"
-            or impl_run.status != "finished"
-        ):
-            blockers.append(
-                {
-                    "kind": "implementation",
-                    "message": "Validation requires a finished implementation run.",
-                }
-            )
-    elif task.status_stage == "failed_validation":
-        action, reason = "implement", "Validation failed; return to implementation."
-        next_item = _task_next_item(task)
-        blockers.extend(
-            cast(list[dict[str, object]], _dependency_blockers(workspace_root, task))
-        )
-    elif task.status_stage == "done":
-        action, reason = "none", "The task is complete."
-    else:
-        action, reason = "none", "The task is cancelled."
-    if lock is not None and active_stage is None:
-        blockers.append(
-            {
-                "kind": "lock",
-                "message": (
-                    f"Task has a {lock.stage} lock from {lock.run_id} "
-                    "without a matching running run."
-                ),
-            }
-        )
-        action = "repair-lock"
-        reason = "A stale or broken lock must be repaired before work can continue."
-        next_item = _lock_next_item(task, lock)
-    next_command = _primary_command_for_next_item(action, next_item)
-    commands = _commands_for_next_item(action, next_item)
-    return {
-        "kind": "task_next_action",
-        "task_id": task.id,
-        "status_stage": task.status_stage,
-        "active_stage": active_stage,
-        "action": action,
-        "reason": reason,
-        "blocking": blockers,
-        "next_command": next_command,
-        "next_item": next_item,
-        "commands": commands,
-        "progress": progress,
-    }
+    from taskledger.services.navigation import next_action as navigation_next_action
+
+    return navigation_next_action(workspace_root, task_ref)
 
 
 def can_perform(workspace_root: Path, task_ref: str, action: str) -> dict[str, object]:
-    task = resolve_task(workspace_root, task_ref)
-    lock = _current_lock(workspace_root, task.id)
-    active_stage = _task_active_stage(workspace_root, task, lock=lock)
-    ok = False
-    reason = ""
-    blocking: list[dict[str, str]] = []
-    if action == "plan":
-        ok = task.status_stage in {"draft", "plan_review"} and lock is None
-        reason = (
-            "Planning can start from draft or after plan review."
-            if ok
-            else (
-                "Planning is only available from draft or plan_review "
-                "without an active lock."
-            )
-        )
-        if lock is not None:
-            blocking.append(
-                {
-                    "kind": "lock",
-                    "message": (
-                        f"Task has an active {lock.stage} lock from {lock.run_id}."
-                    ),
-                }
-            )
-    elif action == "implement":
-        ok = (
-            task.status_stage in IMPLEMENTABLE_TASK_STAGES
-            and task.accepted_plan_version is not None
-            and not _dependency_blockers(workspace_root, task)
-            and lock is None
-            and active_stage is None
-        )
-        reason = (
-            "Implementation is ready."
-            if ok
-            else (
-                "Implementation requires an accepted plan, valid stage, "
-                "no conflicting lock, and completed dependencies."
-            )
-        )
-        if task.accepted_plan_version is None:
-            blocking.append(
-                {"kind": "approval", "message": "No accepted plan version."}
-            )
-        blocking.extend(_dependency_blockers(workspace_root, task))
-        if lock is not None:
-            blocking.append(
-                {
-                    "kind": "lock",
-                    "message": (
-                        f"Task has an active {lock.stage} lock from {lock.run_id}."
-                    ),
-                }
-            )
-    elif action == "validate":
-        impl_run = _optional_run(workspace_root, task, task.latest_implementation_run)
-        ok = (
-            task.status_stage == "implemented"
-            and lock is None
-            and active_stage is None
-            and impl_run is not None
-            and impl_run.run_type == "implementation"
-            and impl_run.status == "finished"
-        )
-        reason = (
-            "Validation is ready."
-            if ok
-            else (
-                "Validation requires implemented state, a finished "
-                "implementation run, and no conflicting lock."
-            )
-        )
-        if (
-            impl_run is None
-            or impl_run.run_type != "implementation"
-            or impl_run.status != "finished"
-        ):
-            blocking.append(
-                {
-                    "kind": "implementation",
-                    "message": "No finished implementation run is available.",
-                }
-            )
-        if lock is not None:
-            blocking.append(
-                {
-                    "kind": "lock",
-                    "message": (
-                        f"Task has an active {lock.stage} lock from {lock.run_id}."
-                    ),
-                }
-            )
-    else:
-        raise _cli_error(f"Unsupported action: {action}", EXIT_CODE_BAD_INPUT)
-    return {
-        "kind": "task_capability",
-        "task_id": task.id,
-        "action": action,
-        "ok": ok,
-        "reason": reason,
-        "active_stage": active_stage,
-        "blocking": blocking,
-    }
+    from taskledger.services.navigation import can_perform as navigation_can_perform
+
+    return navigation_can_perform(workspace_root, task_ref, action)
 
 
 def task_dossier(
@@ -3144,12 +2610,11 @@ def task_dossier(
     *,
     format_name: str = "markdown",
 ) -> str | dict[str, object]:
-    from taskledger.services.handoff import render_handoff
+    from taskledger.services.navigation import task_dossier as navigation_task_dossier
 
-    return render_handoff(
+    return navigation_task_dossier(
         workspace_root,
         task_ref,
-        mode="full",
         format_name=format_name,
     )
 

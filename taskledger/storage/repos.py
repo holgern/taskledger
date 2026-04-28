@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal, cast
 
@@ -8,17 +8,64 @@ from taskledger.errors import LaunchError
 from taskledger.ids import (
     slugify_project_ref as _slugify,
 )
-from taskledger.models import (
-    ProjectPaths,
-    ProjectRepo,
-    ProjectRepoKind,
-    utc_now_iso,
-)
 from taskledger.storage.common import load_json_array as _load_json_array
 from taskledger.storage.common import (
     relative_to_workspace as _relative_to_workspace,
 )
 from taskledger.storage.common import write_json as _write_json
+from taskledger.storage.paths import ProjectPaths
+from taskledger.timeutils import utc_now_iso
+
+ProjectRepoKind = Literal["odoo", "enterprise", "custom", "shared", "generic"]
+
+
+@dataclass(slots=True, frozen=True)
+class ProjectRepo:
+    name: str
+    slug: str
+    path: str
+    kind: ProjectRepoKind
+    branch: str | None
+    notes: str | None
+    created_at: str
+    updated_at: str
+    role: Literal["read", "write", "both"] = "read"
+    preferred_for_execution: bool = False
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "slug": self.slug,
+            "path": self.path,
+            "kind": self.kind,
+            "branch": self.branch,
+            "notes": self.notes,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "role": self.role,
+            "preferred_for_execution": self.preferred_for_execution,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, object]) -> ProjectRepo:
+        kind = _string_value(data, "kind")
+        if kind not in {"odoo", "enterprise", "custom", "shared", "generic"}:
+            raise ValueError(f"Unsupported project repo kind: {kind}")
+        role = _optional_string_value(data, "role") or "read"
+        if role not in {"read", "write", "both"}:
+            raise ValueError(f"Unsupported project repo role: {role}")
+        return cls(
+            name=_string_value(data, "name"),
+            slug=_string_value(data, "slug"),
+            path=_string_value(data, "path"),
+            kind=cast(ProjectRepoKind, kind),
+            branch=_optional_string_value(data, "branch"),
+            notes=_optional_string_value(data, "notes"),
+            created_at=_string_value(data, "created_at"),
+            updated_at=_string_value(data, "updated_at"),
+            role=cast(Literal["read", "write", "both"], role),
+            preferred_for_execution=bool(data.get("preferred_for_execution", False)),
+        )
 
 
 def load_repos(paths: ProjectPaths) -> list[ProjectRepo]:
@@ -191,3 +238,19 @@ def _preferred_repo_state(
         )
         changed = True
     return updated if changed else repos
+
+
+def _string_value(data: dict[str, object], key: str) -> str:
+    value = data.get(key)
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"Missing or invalid {key}")
+    return value
+
+
+def _optional_string_value(data: dict[str, object], key: str) -> str | None:
+    value = data.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"Invalid {key}")
+    return value

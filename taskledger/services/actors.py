@@ -15,7 +15,7 @@ from taskledger.domain.states import (
     normalize_harness_kind,
 )
 from taskledger.ids import next_project_id
-from taskledger.storage.v2 import load_actor_state, load_harness_state
+from taskledger.storage.task_store import load_actor_state, load_harness_state
 
 
 def resolve_actor(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import re
 import shlex
 from pathlib import Path
@@ -16,6 +17,17 @@ DOC_PATHS = [
     ROOT / "skills" / "taskledger" / "SKILL.md",
     *sorted((ROOT / "skills" / "taskledger" / "examples").glob("*.md")),
 ]
+PUBLIC_API_MODULES = (
+    "taskledger.api.project",
+    "taskledger.api.tasks",
+    "taskledger.api.plans",
+    "taskledger.api.questions",
+    "taskledger.api.task_runs",
+    "taskledger.api.introductions",
+    "taskledger.api.locks",
+    "taskledger.api.handoff",
+    "taskledger.api.search",
+)
 
 
 def test_skill_examples_exist() -> None:
@@ -28,6 +40,7 @@ def test_skill_examples_exist() -> None:
 
 def test_skills_are_not_packaged_resources() -> None:
     assert not (ROOT / "taskledger" / "skills").exists()
+    assert not (ROOT / "setup.py").exists()
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert "skills/taskledger" not in pyproject
 
@@ -52,6 +65,21 @@ def test_api_docs_mentions_all_task_first_command_groups() -> None:
         "doctor",
     ):
         assert f"`{name}`" in api_text
+
+
+def test_public_api_docs_match_module_exports() -> None:
+    api_md = (ROOT / "API.md").read_text(encoding="utf-8")
+    api_rst = (ROOT / "docs" / "api.rst").read_text(encoding="utf-8")
+    for module_name in PUBLIC_API_MODULES:
+        module = importlib.import_module(module_name)
+        exported = getattr(module, "__all__", None)
+        assert isinstance(exported, list), module_name
+        assert all(isinstance(name, str) for name in exported), module_name
+        for name in exported:
+            assert f"`{name}`" in api_md, f"API.md missing {module_name}.{name}"
+            assert f"``{name}``" in api_rst, (
+                f"docs/api.rst missing {module_name}.{name}"
+            )
 
 
 def test_readme_mentions_root_alias_and_json_envelope() -> None:

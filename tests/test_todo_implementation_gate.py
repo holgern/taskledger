@@ -745,14 +745,12 @@ class TestNextActionTodoOutput:
         }
 
 
-class TestTodoBackwardCompatibility:
-    """Test suite for backward compatibility with old todo format."""
+class TestLegacyTodoSidecars:
+    """Legacy sidecars are ignored during normal v2 operation."""
 
-    def test_legacy_done_bool_loads_as_status(self, tmp_path: Path) -> None:
-        """Verify that old todos.yaml with only 'done' field loads correctly."""
+    def test_legacy_todos_yaml_is_ignored_in_normal_reads(self, tmp_path: Path) -> None:
         _init(tmp_path)
 
-        # Create task and manually write legacy todos.yaml
         result = runner.invoke(
             app,
             [
@@ -767,11 +765,9 @@ class TestTodoBackwardCompatibility:
         )
         assert result.exit_code == 0
 
-        # Get task to retrieve it
         task_dir = tmp_path / ".taskledger" / "tasks" / "task-0001"
         todos_file = task_dir / "todos.yaml"
 
-        # Write legacy todos.yaml
         legacy_todos = """schema_version: 1
 object_type: todos
 task_id: task-0001
@@ -793,7 +789,6 @@ todos:
 """
         todos_file.write_text(legacy_todos)
 
-        # Load task and verify todos are loaded
         result = runner.invoke(
             app,
             ["--cwd", str(tmp_path), "--json", "task", "show", "--task", "legacy-task"],
@@ -801,21 +796,11 @@ todos:
         assert result.exit_code == 0
         task_data = _json(result)
         todos = task_data.get("result", {}).get("task", {}).get("todos", [])
+        assert todos == []
 
-        # Verify both todos loaded
-        assert len(todos) == 2
-        assert todos[0]["id"] == "todo-0001"
-        assert todos[0]["done"] is True
-        assert todos[1]["id"] == "todo-0002"
-        assert todos[1]["done"] is False
-
-    def test_legacy_todos_dont_block_finish_after_marking_done(
-        self, tmp_path: Path
-    ) -> None:
-        """Verify legacy todos work with the finish gate after marking done."""
+    def test_legacy_todos_yaml_does_not_block_finish(self, tmp_path: Path) -> None:
         _prepare_task_for_implementation(tmp_path)
 
-        # Manually write legacy todos.yaml
         task_dir = tmp_path / ".taskledger" / "tasks" / "task-0001"
         todos_file = task_dir / "todos.yaml"
 
@@ -833,28 +818,6 @@ todos:
 """
         todos_file.write_text(legacy_todos)
 
-        # Attempt to finish - should be blocked
-        result = runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "implement",
-                "finish",
-                "--summary",
-                "Completed implementation.",
-            ],
-        )
-        assert result.exit_code != 0
-
-        # Mark todo done
-        result = runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "todo", "done", "todo-0001"],
-        )
-        assert result.exit_code == 0
-
-        # Finish should now succeed
         result = runner.invoke(
             app,
             [

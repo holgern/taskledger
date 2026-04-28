@@ -18,7 +18,7 @@ from taskledger.domain.states import (
     normalize_harness_kind,
 )
 from taskledger.services.actors import resolve_actor, resolve_harness
-from taskledger.storage.v2 import (
+from taskledger.storage.task_store import (
     clear_actor_state,
     clear_harness_state,
     save_actor_state,

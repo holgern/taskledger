@@ -11,7 +11,7 @@ from taskledger.domain.models import (
     TodoCollection,
 )
 from taskledger.services.dashboard import dashboard, render_dashboard_text
-from taskledger.storage.v2 import (
+from taskledger.storage.task_store import (
     ensure_v2_layout,
     save_active_task_state,
     save_task,

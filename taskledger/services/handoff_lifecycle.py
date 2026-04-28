@@ -8,7 +8,7 @@ from pathlib import Path
 from taskledger.domain.models import ActorRef, HarnessRef, TaskHandoffRecord
 from taskledger.errors import LaunchError
 from taskledger.services.actors import resolve_actor, resolve_harness
-from taskledger.storage.v2 import (
+from taskledger.storage.task_store import (
     resolve_handoff,
     resolve_lock,
     resolve_task,

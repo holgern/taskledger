@@ -7,7 +7,7 @@ from typing import Literal, TypedDict
 
 from taskledger.domain.models import PlanRecord, TaskTodo
 from taskledger.errors import LaunchError
-from taskledger.storage.v2 import list_plans, resolve_plan, resolve_task
+from taskledger.storage.task_store import list_plans, resolve_plan, resolve_task
 
 Severity = Literal["error", "warning"]
 

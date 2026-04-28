@@ -5,7 +5,7 @@ from pathlib import Path
 from taskledger.domain.models import PlanRecord
 from taskledger.domain.policies import derive_active_stage
 from taskledger.storage.locks import lock_is_expired
-from taskledger.storage.v2 import (
+from taskledger.storage.task_store import (
     list_changes,
     list_plans,
     list_questions,
@@ -41,7 +41,7 @@ def dashboard(
         active_stage = derive_active_stage(lock, runs)
 
     # next action
-    from taskledger.services.tasks import next_action
+    from taskledger.services.navigation import next_action
 
     action_info = next_action(workspace_root, task.id)
 

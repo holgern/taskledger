@@ -26,7 +26,7 @@ from taskledger.errors import LaunchError
 from taskledger.storage.events import append_event, load_events
 from taskledger.storage.indexes import rebuild_v2_indexes
 from taskledger.storage.locks import write_lock
-from taskledger.storage.v2 import (
+from taskledger.storage.task_store import (
     V2Paths,
     ensure_v2_layout,
     load_active_locks,
@@ -47,16 +47,16 @@ from taskledger.storage.v2 import (
     save_todos,
     task_lock_path,
 )
-from taskledger.storage.v2 import list_changes as list_v2_changes
-from taskledger.storage.v2 import list_handoffs as list_v2_handoffs
-from taskledger.storage.v2 import list_introductions as list_v2_introductions
-from taskledger.storage.v2 import list_plans as list_v2_plans
-from taskledger.storage.v2 import list_questions as list_v2_questions
-from taskledger.storage.v2 import list_runs as list_v2_runs
-from taskledger.storage.v2 import list_tasks as list_v2_tasks
-from taskledger.storage.v2 import load_links as load_v2_links
-from taskledger.storage.v2 import load_requirements as load_v2_requirements
-from taskledger.storage.v2 import load_todos as load_v2_todos
+from taskledger.storage.task_store import list_changes as list_v2_changes
+from taskledger.storage.task_store import list_handoffs as list_v2_handoffs
+from taskledger.storage.task_store import list_introductions as list_v2_introductions
+from taskledger.storage.task_store import list_plans as list_v2_plans
+from taskledger.storage.task_store import list_questions as list_v2_questions
+from taskledger.storage.task_store import list_runs as list_v2_runs
+from taskledger.storage.task_store import list_tasks as list_v2_tasks
+from taskledger.storage.task_store import load_links as load_v2_links
+from taskledger.storage.task_store import load_requirements as load_v2_requirements
+from taskledger.storage.task_store import load_todos as load_v2_todos
 from taskledger.timeutils import utc_now_iso
 
 

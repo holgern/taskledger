@@ -17,7 +17,7 @@ from taskledger.domain.states import (
 )
 from taskledger.errors import LaunchError
 from taskledger.storage.locks import lock_is_expired, lock_status, read_lock
-from taskledger.storage.v2 import (
+from taskledger.storage.task_store import (
     list_changes,
     list_plans,
     list_questions,
@@ -212,9 +212,9 @@ def build_handoff_payload(
 
     validation_status_report = None
     if request.context_for in {"validator", "full"}:
-        from taskledger.services.tasks import _build_validation_gate_report
+        from taskledger.services.validation import build_validation_gate_report
 
-        validation_status_report = _build_validation_gate_report(workspace_root, task)
+        validation_status_report = build_validation_gate_report(workspace_root, task)
 
     return {
         "kind": "task_handoff",

@@ -1,23 +1,14 @@
 from __future__ import annotations
 
 import importlib
+from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, Literal, cast
 
 from taskledger.errors import LaunchError
-from taskledger.models import (
-    ARTIFACT_MEMORY_REF_FIELDS,
-    DEFAULT_PROJECT_SOURCE_HEAD_LINES,
-    DEFAULT_PROJECT_SOURCE_MAX_CHARS,
-    DEFAULT_PROJECT_SOURCE_TAIL_LINES,
-    DEFAULT_PROJECT_TOTAL_SOURCE_MAX_CHARS,
-    FileRenderMode,
-    MemoryUpdateMode,
-    ProjectArtifactRule,
-    ProjectConfig,
-    ProjectPaths,
-)
-from taskledger.storage.common import read_text
+
+if TYPE_CHECKING:
+    from taskledger.storage.paths import ProjectPaths
 
 try:
     tomllib = importlib.import_module("tomllib")
@@ -42,6 +33,61 @@ WORKFLOW_CONFIG_KEYS = frozenset(
     }
 )
 SUPPORTED_PROJECT_CONFIG_KEYS = LOCATION_CONFIG_KEYS | WORKFLOW_CONFIG_KEYS
+
+MemoryUpdateMode = Literal["replace", "append", "prepend"]
+FileRenderMode = Literal["content", "reference"]
+DEFAULT_PROJECT_SOURCE_MAX_CHARS = 12000
+DEFAULT_PROJECT_TOTAL_SOURCE_MAX_CHARS = 48000
+DEFAULT_PROJECT_SOURCE_HEAD_LINES = 200
+DEFAULT_PROJECT_SOURCE_TAIL_LINES = 50
+ARTIFACT_MEMORY_REF_FIELDS = (
+    "analysis_memory_ref",
+    "state_memory_ref",
+    "plan_memory_ref",
+    "implementation_memory_ref",
+    "validation_memory_ref",
+    "save_target_ref",
+)
+
+
+@dataclass(slots=True, frozen=True)
+class ProjectArtifactRule:
+    name: str
+    depends_on: tuple[str, ...] = ()
+    memory_ref_field: str | None = None
+    label: str | None = None
+    description: str | None = None
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "depends_on": list(self.depends_on),
+            "memory_ref_field": self.memory_ref_field,
+            "label": self.label,
+            "description": self.description,
+        }
+
+
+@dataclass(slots=True, frozen=True)
+class ProjectConfig:
+    default_memory_update_mode: MemoryUpdateMode = "replace"
+    default_file_render_mode: FileRenderMode = "content"
+    default_save_run_reports: bool = True
+    default_source_max_chars: int | None = DEFAULT_PROJECT_SOURCE_MAX_CHARS
+    default_total_source_max_chars: int | None = DEFAULT_PROJECT_TOTAL_SOURCE_MAX_CHARS
+    default_source_head_lines: int | None = DEFAULT_PROJECT_SOURCE_HEAD_LINES
+    default_source_tail_lines: int | None = DEFAULT_PROJECT_SOURCE_TAIL_LINES
+    default_context_order: tuple[str, ...] = (
+        "memory",
+        "file",
+        "item",
+        "inline",
+        "loop_artifact",
+    )
+    workflow_schema: str | None = None
+    project_context: str | None = None
+    artifact_rules: tuple[ProjectArtifactRule, ...] = ()
+    default_artifact_order: tuple[str, ...] = ()
 
 
 def render_default_taskledger_toml(taskledger_dir: str = ".taskledger") -> str:
@@ -80,7 +126,10 @@ def load_project_config_overrides(paths: ProjectPaths) -> dict[str, object]:
 def load_project_config_document(path: Path) -> dict[str, object]:
     if not path.exists():
         return {}
-    text = read_text(path).strip()
+    try:
+        text = path.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        raise LaunchError(f"Failed to read {path}: {exc}") from exc
     if not text:
         return {}
     try:

@@ -440,19 +440,7 @@ def load_todos(workspace_root: Path, task_id: str) -> TodoCollection:
         [_load_record(p, TaskTodo.from_dict) for p in directory.glob("todo-*.md")],
         key=lambda t: t.id,
     )
-    if records:
-        return TodoCollection(task_id=task_id, todos=tuple(records))
-    # Backward compat: read legacy todos.yaml
-    path = task_todos_path(paths, task_id)
-    alias_path = _legacy_slug_sidecar_path(paths, task_id, "todos.yaml")
-    if alias_path is not None and alias_path.exists():
-        path = alias_path
-    if not path.exists():
-        return TodoCollection(task_id=task_id)
-    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
-        raise LaunchError(f"Invalid todo sidecar for {task_id}.")
-    return TodoCollection.from_dict(payload)
+    return TodoCollection(task_id=task_id, todos=tuple(records))
 
 
 def save_todos(workspace_root: Path, collection: TodoCollection) -> TodoCollection:
@@ -478,13 +466,6 @@ def save_todos(workspace_root: Path, collection: TodoCollection) -> TodoCollecti
     for path in directory.glob("todo-*.md"):
         if path.stem not in keep_ids:
             path.unlink()
-    # Remove legacy YAML sidecar if it exists
-    legacy = task_todos_path(paths, collection.task_id)
-    if legacy.exists():
-        legacy.unlink()
-    alias_path = _legacy_slug_sidecar_path(paths, collection.task_id, "todos.yaml")
-    if alias_path is not None and alias_path.exists():
-        alias_path.unlink()
     return collection
 
 
@@ -495,16 +476,7 @@ def load_links(workspace_root: Path, task_id: str) -> LinkCollection:
         [_load_record(p, FileLink.from_dict) for p in directory.glob("link-*.md")],
         key=lambda lk: lk.id or "",
     )
-    if records:
-        return LinkCollection(task_id=task_id, links=tuple(records))
-    # Backward compat: read legacy links.yaml
-    path = task_links_path(paths, task_id)
-    if not path.exists():
-        return LinkCollection(task_id=task_id)
-    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
-        raise LaunchError(f"Invalid link sidecar for {task_id}.")
-    return LinkCollection.from_dict(payload)
+    return LinkCollection(task_id=task_id, links=tuple(records))
 
 
 def save_links(workspace_root: Path, collection: LinkCollection) -> LinkCollection:
@@ -534,10 +506,6 @@ def save_links(workspace_root: Path, collection: LinkCollection) -> LinkCollecti
     for path in directory.glob("link-*.md"):
         if path.stem not in keep_ids:
             path.unlink()
-    # Remove legacy YAML sidecar
-    legacy = task_links_path(paths, collection.task_id)
-    if legacy.exists():
-        legacy.unlink()
     return collection
 
 
@@ -551,16 +519,7 @@ def load_requirements(workspace_root: Path, task_id: str) -> RequirementCollecti
         ],
         key=lambda r: r.id or "",
     )
-    if records:
-        return RequirementCollection(task_id=task_id, requirements=tuple(records))
-    # Backward compat: read legacy requirements.yaml
-    path = task_requirements_path(paths, task_id)
-    if not path.exists():
-        return RequirementCollection(task_id=task_id)
-    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
-        raise LaunchError(f"Invalid requirement sidecar for {task_id}.")
-    return RequirementCollection.from_dict(payload)
+    return RequirementCollection(task_id=task_id, requirements=tuple(records))
 
 
 def save_requirements(
@@ -596,10 +555,6 @@ def save_requirements(
     for path in directory.glob("req-*.md"):
         if path.stem not in keep_ids:
             path.unlink()
-    # Remove legacy YAML sidecar
-    legacy = task_requirements_path(paths, collection.task_id)
-    if legacy.exists():
-        legacy.unlink()
     return collection
 
 
@@ -766,20 +721,6 @@ def _ensure_task_bundle(paths: V2Paths, task_id: str) -> None:
         directory.mkdir(parents=True, exist_ok=True)
 
 
-def _legacy_slug_sidecar_path(
-    paths: V2Paths,
-    task_id: str,
-    filename: str,
-) -> Path | None:
-    task_path = task_markdown_path(paths, task_id)
-    if not task_path.exists():
-        return None
-    task = _load_task(task_path)
-    if not task.slug or task.slug == task.id:
-        return None
-    return task_dir(paths, task.slug) / filename
-
-
 def _write_yaml(path: Path, payload: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     atomic_write_text(path, yaml.safe_dump(payload, sort_keys=False))
@@ -816,11 +757,22 @@ def _render_run_body(run: TaskRunRecord) -> str:
 
 
 def list_handoffs(workspace_root: Path, task_id: str) -> list[TaskHandoffRecord]:
+    handoffs, errors = list_handoffs_with_errors(workspace_root, task_id)
+    if errors:
+        raise LaunchError(errors[0])
+    return handoffs
+
+
+def list_handoffs_with_errors(
+    workspace_root: Path,
+    task_id: str,
+) -> tuple[list[TaskHandoffRecord], list[str]]:
     paths = resolve_v2_paths(workspace_root)
     handoffs_dir = task_handoffs_dir(paths, task_id)
     if not handoffs_dir.exists():
-        return []
-    result = []
+        return [], []
+    result: list[TaskHandoffRecord] = []
+    errors: list[str] = []
     for md_file in handoffs_dir.glob("*.md"):
         try:
             metadata, _ = read_markdown_front_matter(md_file)
@@ -828,9 +780,10 @@ def list_handoffs(workspace_root: Path, task_id: str) -> list[TaskHandoffRecord]
             metadata["context_body"] = ""
             handoff = TaskHandoffRecord.from_dict(metadata)
             result.append(handoff)
-        except Exception:
-            pass
-    return sorted(result, key=lambda h: h.created_at)
+        except Exception as exc:
+            label = _path_label(workspace_root, md_file)
+            errors.append(f"Malformed handoff record {label}: {exc}")
+    return sorted(result, key=lambda h: h.created_at), errors
 
 
 def resolve_handoff(
@@ -844,6 +797,13 @@ def resolve_handoff(
     metadata = dict(metadata)
     metadata["context_body"] = body or str(metadata.get("context_body") or "")
     return TaskHandoffRecord.from_dict(metadata)
+
+
+def _path_label(workspace_root: Path, path: Path) -> str:
+    try:
+        return str(path.relative_to(workspace_root))
+    except ValueError:
+        return str(path)
 
 
 def save_handoff(workspace_root: Path, handoff: TaskHandoffRecord) -> Path:

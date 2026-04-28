@@ -76,10 +76,13 @@ from taskledger.errors import (
 - `add_todo`
 - `set_todo_done`
 - `show_todo`
+- `todo_status`
+- `next_todo`
 - `task_dossier`
 - `next_action`
 - `can_perform`
 - `reindex`
+- `repair_task_record`
 
 ### `taskledger.api.plans`
 
@@ -95,6 +98,7 @@ from taskledger.errors import (
 - `approve_plan`
 - `reject_plan`
 - `revise_plan`
+- `run_planning_command`
 
 ### `taskledger.api.questions`
 

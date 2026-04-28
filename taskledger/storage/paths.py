@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from taskledger.models import ProjectPaths
 from taskledger.storage.project_config import load_project_config_document
 
 CANONICAL_PROJECT_CONFIG_FILENAME = "taskledger.toml"
@@ -20,6 +19,16 @@ class ProjectLocator:
     config_path: Path
     taskledger_dir: Path
     source: Literal["explicit", "dotfile", "toml", "legacy", "default"]
+
+
+@dataclass(slots=True, frozen=True)
+class ProjectPaths:
+    workspace_root: Path
+    project_dir: Path
+    taskledger_dir: Path
+    config_path: Path
+    repos_dir: Path
+    repo_index_path: Path
 
 
 def resolve_taskledger_root(workspace_root: Path) -> Path:
@@ -126,15 +135,6 @@ def project_paths_for_root(
         config_path=config_path or workspace_root / CANONICAL_PROJECT_CONFIG_FILENAME,
         repos_dir=project_dir / "repos",
         repo_index_path=indexes_dir / "repos.json",
-        workflows_dir=project_dir / "workflows",
-        workflow_index_path=indexes_dir / "workflows.json",
-        memories_dir=project_dir / "memories",
-        contexts_dir=project_dir / "contexts",
-        context_index_path=indexes_dir / "contexts.json",
-        items_dir=project_dir / "items",
-        stages_dir=project_dir / "stages",
-        stage_index_path=indexes_dir / "stages.json",
-        runs_dir=project_dir / "runs",
     )
 
 

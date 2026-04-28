@@ -377,14 +377,14 @@ class TestDoctorSchemaLayoutVersion:
         if storage_yaml.exists():
             storage_yaml.unlink()
 
-        from taskledger.services.doctor_v2 import inspect_v2_schema
+        from taskledger.services.doctor import inspect_v2_schema
 
         result = inspect_v2_schema(tmp_path)
         assert not result["healthy"]
         assert any("storage.yaml" in e for e in result["errors"])
 
     def test_doctor_schema_up_to_date(self, tmp_path: Path) -> None:
-        from taskledger.services.doctor_v2 import inspect_v2_schema
+        from taskledger.services.doctor import inspect_v2_schema
         from taskledger.storage.init import init_project_state
 
         init_project_state(tmp_path)
@@ -396,3 +396,34 @@ class TestDoctorSchemaLayoutVersion:
             if "layout" in e.lower() or "storage" in e.lower()
         ]
         assert layout_errors == []
+
+    def test_inspect_records_for_migration_reports_malformed_markdown(
+        self, tmp_path: Path
+    ) -> None:
+        from taskledger.storage.init import init_project_state
+        from taskledger.storage.migrations import inspect_records_for_migration
+
+        init_project_state(tmp_path)
+        task_dir = tmp_path / ".taskledger" / "tasks" / "task-0001"
+        task_dir.mkdir(parents=True, exist_ok=True)
+        task_path = task_dir / "task.md"
+        task_path.write_text("---\nobject_type: task\nslug: [\n---\n", encoding="utf-8")
+
+        _needed, issues = inspect_records_for_migration(tmp_path)
+
+        assert any(issue.path == task_path for issue in issues)
+
+    def test_doctor_schema_reports_malformed_task_record(self, tmp_path: Path) -> None:
+        from taskledger.services.doctor import inspect_v2_schema
+        from taskledger.storage.init import init_project_state
+
+        init_project_state(tmp_path)
+        task_dir = tmp_path / ".taskledger" / "tasks" / "task-0001"
+        task_dir.mkdir(parents=True, exist_ok=True)
+        task_path = task_dir / "task.md"
+        task_path.write_text("---\nobject_type: task\nslug: [\n---\n", encoding="utf-8")
+
+        result = inspect_v2_schema(tmp_path)
+
+        assert not result["healthy"]
+        assert any(str(task_path) in error for error in result["errors"])

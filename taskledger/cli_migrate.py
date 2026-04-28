@@ -255,7 +255,7 @@ def migrate_apply_command(
     if not dry_run and applied:
         try:
             from taskledger.storage.indexes import rebuild_v2_indexes
-            from taskledger.storage.v2 import resolve_v2_paths
+            from taskledger.storage.task_store import resolve_v2_paths
 
             v2_paths = resolve_v2_paths(state.cwd)
             rebuild_v2_indexes(v2_paths)

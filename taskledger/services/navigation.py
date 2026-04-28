@@ -1,0 +1,864 @@
+from __future__ import annotations
+
+import hashlib
+from collections.abc import Mapping, Sequence
+from pathlib import Path
+from typing import cast
+
+from taskledger.domain.models import (
+    PlanRecord,
+    QuestionRecord,
+    TaskLock,
+    TaskRecord,
+    TaskTodo,
+)
+from taskledger.domain.states import EXIT_CODE_BAD_INPUT, IMPLEMENTABLE_TASK_STAGES
+from taskledger.services.tasks import (
+    _build_todo_gate_report,
+    _cli_error,
+    _current_lock,
+    _dependency_blockers,
+    _optional_run,
+    _task_active_stage,
+    _task_with_sidecars,
+)
+from taskledger.services.validation import build_validation_gate_report
+from taskledger.storage.locks import lock_is_expired
+from taskledger.storage.task_store import (
+    list_plans,
+    list_questions,
+    list_runs,
+    resolve_task,
+)
+
+
+def next_action(workspace_root: Path, task_ref: str) -> dict[str, object]:
+    task = resolve_task(workspace_root, task_ref)
+    lock = _current_lock(workspace_root, task.id)
+    runs = list_runs(workspace_root, task.id)
+    active_stage = _task_active_stage(
+        workspace_root,
+        task,
+        lock=lock,
+        runs=runs,
+    )
+    action: str
+    reason: str
+    blockers: list[dict[str, object]] = []
+    next_item: dict[str, object] | None = None
+    progress: dict[str, object] = {}
+    if active_stage == "planning":
+        questions = list_questions(workspace_root, task.id)
+        open_questions = _required_open_question_ids(questions)
+        answered_questions = [
+            item.id
+            for item in questions
+            if item.status == "answered" and item.required_for_plan
+        ]
+        latest_plan = _latest_plan_or_none(workspace_root, task.id)
+        stale_answers = (
+            _stale_answer_question_ids(questions, latest_plan)
+            if latest_plan is not None
+            else answered_questions
+        )
+        if open_questions:
+            action, reason = (
+                "question-answer",
+                "Required planning questions are open.",
+            )
+            question = _first_question_by_ids(questions, open_questions)
+            next_item = _question_next_item(question) if question is not None else None
+            progress["questions"] = {
+                "required_open": len(open_questions),
+                "required_open_ids": open_questions,
+            }
+            blockers.append(
+                {
+                    "kind": "open_questions",
+                    "question_ids": open_questions,
+                    "message": "Required planning questions must be answered.",
+                }
+            )
+        elif stale_answers:
+            action, reason = (
+                "plan-regenerate",
+                "Answered planning questions should be reflected in the plan.",
+            )
+            question = _first_question_by_ids(questions, stale_answers)
+            next_item = (
+                _answered_question_next_item(question) if question is not None else None
+            )
+            progress["questions"] = {
+                "required_open": 0,
+                "required_open_ids": [],
+                "answered_since_latest_plan": stale_answers,
+            }
+        else:
+            action, reason = (
+                "plan-propose",
+                "Planning is active; propose the next plan.",
+            )
+    elif active_stage == "implementation":
+        todo_report = _build_todo_gate_report(workspace_root, task)
+        open_todo_ids = cast(list[str], todo_report.get("open_todos", []))
+        open_todo_count = len(open_todo_ids)
+        total_todos = todo_report.get("total", 0)
+        done_todos = todo_report.get("done", 0)
+        progress["todos"] = {
+            "total": total_todos if isinstance(total_todos, int) else 0,
+            "done": done_todos if isinstance(done_todos, int) else 0,
+            "open": open_todo_count,
+            "open_ids": open_todo_ids,
+        }
+        if open_todo_count > 0:
+            todo = _first_open_todo_from_report(workspace_root, task, open_todo_ids)
+            next_item = _todo_next_item(todo) if todo is not None else None
+            action, reason = (
+                "todo-work",
+                f"Implementation is in progress; {open_todo_count} todos remain.",
+            )
+        else:
+            action, reason = (
+                "implement-finish",
+                "All todos done; ready to finish implementation.",
+            )
+            next_item = _task_next_item(task)
+    elif active_stage == "validation":
+        gate_report = build_validation_gate_report(workspace_root, task)
+        report_blockers = cast(list[dict[str, object]], gate_report.get("blockers", []))
+        blockers.extend(_compact_next_action_blockers(report_blockers))
+        progress["validation"] = _validation_progress(gate_report)
+        if report_blockers:
+            action, reason = (
+                "validate-check",
+                "Validation is in progress; required checks remain.",
+            )
+            next_item = _next_validation_item(
+                workspace_root,
+                task,
+                gate_report,
+                report_blockers,
+            )
+        else:
+            action, reason = (
+                "validate-finish",
+                "Validation is complete enough to finish.",
+            )
+            next_item = _task_next_item(task)
+    elif task.status_stage == "draft":
+        action, reason = "plan", "Draft tasks need planning before work starts."
+    elif task.status_stage == "plan_review":
+        questions = list_questions(workspace_root, task.id)
+        open_questions = _required_open_question_ids(questions)
+        latest_plan = _latest_plan_or_none(workspace_root, task.id)
+        stale_answers = (
+            _stale_answer_question_ids(questions, latest_plan)
+            if latest_plan is not None
+            else []
+        )
+        if open_questions:
+            action, reason = (
+                "question-answer",
+                "Required planning questions are open.",
+            )
+            question = _first_question_by_ids(questions, open_questions)
+            next_item = _question_next_item(question) if question is not None else None
+            progress["questions"] = {
+                "required_open": len(open_questions),
+                "required_open_ids": open_questions,
+            }
+            blockers.append(
+                {
+                    "kind": "open_questions",
+                    "question_ids": open_questions,
+                    "message": "Required planning questions must be answered.",
+                }
+            )
+        elif stale_answers:
+            action, reason = (
+                "plan-regenerate",
+                "Answered planning questions are not reflected in the latest plan.",
+            )
+            question = _first_question_by_ids(questions, stale_answers)
+            next_item = (
+                _answered_question_next_item(question) if question is not None else None
+            )
+            progress["questions"] = {
+                "required_open": 0,
+                "required_open_ids": [],
+                "answered_since_latest_plan": stale_answers,
+            }
+            blockers.append(
+                {
+                    "kind": "stale_answers",
+                    "question_ids": stale_answers,
+                    "message": "Regenerate the plan from answered questions.",
+                }
+            )
+        else:
+            action, reason = "plan-approve", "A proposed plan is waiting for review."
+            if latest_plan is not None:
+                next_item = _plan_next_item(latest_plan)
+    elif task.status_stage == "approved":
+        action, reason = "implement", "The approved plan is ready for implementation."
+        next_item = _task_next_item(task)
+        if task.accepted_plan_version is None:
+            blockers.append(
+                {"kind": "approval", "message": "No accepted plan version is recorded."}
+            )
+        blockers.extend(
+            cast(list[dict[str, object]], _dependency_blockers(workspace_root, task))
+        )
+    elif task.status_stage == "implemented":
+        action, reason = "validate", "Implementation is complete and ready to validate."
+        next_item = _task_next_item(task)
+        impl_run = _optional_run(workspace_root, task, task.latest_implementation_run)
+        if (
+            impl_run is None
+            or impl_run.run_type != "implementation"
+            or impl_run.status != "finished"
+        ):
+            blockers.append(
+                {
+                    "kind": "implementation",
+                    "message": "Validation requires a finished implementation run.",
+                }
+            )
+    elif task.status_stage == "failed_validation":
+        action, reason = "implement", "Validation failed; return to implementation."
+        next_item = _task_next_item(task)
+        blockers.extend(
+            cast(list[dict[str, object]], _dependency_blockers(workspace_root, task))
+        )
+    elif task.status_stage == "done":
+        action, reason = "none", "The task is complete."
+    else:
+        action, reason = "none", "The task is cancelled."
+    if lock is not None and active_stage is None:
+        blockers.append(
+            {
+                "kind": "lock",
+                "message": (
+                    f"Task has a {lock.stage} lock from {lock.run_id} "
+                    "without a matching running run."
+                ),
+            }
+        )
+        action = "repair-lock"
+        reason = "A stale or broken lock must be repaired before work can continue."
+        next_item = _lock_next_item(task, lock)
+    next_command = _primary_command_for_next_item(action, next_item)
+    commands = _commands_for_next_item(action, next_item)
+    return {
+        "kind": "task_next_action",
+        "task_id": task.id,
+        "status_stage": task.status_stage,
+        "active_stage": active_stage,
+        "action": action,
+        "reason": reason,
+        "blocking": blockers,
+        "next_command": next_command,
+        "next_item": next_item,
+        "commands": commands,
+        "progress": progress,
+    }
+
+
+def can_perform(workspace_root: Path, task_ref: str, action: str) -> dict[str, object]:
+    task = resolve_task(workspace_root, task_ref)
+    lock = _current_lock(workspace_root, task.id)
+    active_stage = _task_active_stage(workspace_root, task, lock=lock)
+    ok = False
+    reason = ""
+    blocking: list[dict[str, str]] = []
+    if action == "plan":
+        ok = task.status_stage in {"draft", "plan_review"} and lock is None
+        reason = (
+            "Planning can start from draft or after plan review."
+            if ok
+            else (
+                "Planning is only available from draft or plan_review "
+                "without an active lock."
+            )
+        )
+        if lock is not None:
+            blocking.append(
+                {
+                    "kind": "lock",
+                    "message": (
+                        f"Task has an active {lock.stage} lock from {lock.run_id}."
+                    ),
+                }
+            )
+    elif action == "implement":
+        ok = (
+            task.status_stage in IMPLEMENTABLE_TASK_STAGES
+            and task.accepted_plan_version is not None
+            and not _dependency_blockers(workspace_root, task)
+            and lock is None
+            and active_stage is None
+        )
+        reason = (
+            "Implementation is ready."
+            if ok
+            else (
+                "Implementation requires an accepted plan, valid stage, "
+                "no conflicting lock, and completed dependencies."
+            )
+        )
+        if task.accepted_plan_version is None:
+            blocking.append(
+                {"kind": "approval", "message": "No accepted plan version."}
+            )
+        blocking.extend(_dependency_blockers(workspace_root, task))
+        if lock is not None:
+            blocking.append(
+                {
+                    "kind": "lock",
+                    "message": (
+                        f"Task has an active {lock.stage} lock from {lock.run_id}."
+                    ),
+                }
+            )
+    elif action == "validate":
+        impl_run = _optional_run(workspace_root, task, task.latest_implementation_run)
+        ok = (
+            task.status_stage == "implemented"
+            and lock is None
+            and active_stage is None
+            and impl_run is not None
+            and impl_run.run_type == "implementation"
+            and impl_run.status == "finished"
+        )
+        reason = (
+            "Validation is ready."
+            if ok
+            else (
+                "Validation requires implemented state, a finished "
+                "implementation run, and no conflicting lock."
+            )
+        )
+        if (
+            impl_run is None
+            or impl_run.run_type != "implementation"
+            or impl_run.status != "finished"
+        ):
+            blocking.append(
+                {
+                    "kind": "implementation",
+                    "message": "No finished implementation run is available.",
+                }
+            )
+        if lock is not None:
+            blocking.append(
+                {
+                    "kind": "lock",
+                    "message": (
+                        f"Task has an active {lock.stage} lock from {lock.run_id}."
+                    ),
+                }
+            )
+    else:
+        raise _cli_error(f"Unsupported action: {action}", EXIT_CODE_BAD_INPUT)
+    return {
+        "kind": "task_capability",
+        "task_id": task.id,
+        "action": action,
+        "ok": ok,
+        "reason": reason,
+        "active_stage": active_stage,
+        "blocking": blocking,
+    }
+
+
+def task_dossier(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    format_name: str = "markdown",
+) -> str | dict[str, object]:
+    from taskledger.services.handoff import render_handoff
+
+    return render_handoff(
+        workspace_root,
+        task_ref,
+        mode="full",
+        format_name=format_name,
+    )
+
+
+def _answer_snapshot_hash(questions: list[QuestionRecord]) -> str | None:
+    answered = [
+        f"{item.id}\0{item.answer or ''}"
+        for item in questions
+        if item.status == "answered"
+    ]
+    if not answered:
+        return None
+    digest = hashlib.sha256("\n".join(sorted(answered)).encode("utf-8")).hexdigest()
+    return f"sha256:{digest}"
+
+
+def _required_open_question_ids(questions: list[QuestionRecord]) -> list[str]:
+    return [
+        item.id
+        for item in questions
+        if item.status == "open" and item.required_for_plan
+    ]
+
+
+def _latest_plan_or_none(workspace_root: Path, task_id: str) -> PlanRecord | None:
+    plans = list_plans(workspace_root, task_id)
+    return plans[-1] if plans else None
+
+
+def _stale_answer_question_ids(
+    questions: list[QuestionRecord],
+    plan: PlanRecord,
+) -> list[str]:
+    answered = [
+        item
+        for item in questions
+        if item.status == "answered" and item.required_for_plan
+    ]
+    if not answered:
+        return []
+    current_hash = _answer_snapshot_hash(questions)
+    if (
+        plan.generation_reason == "after_questions"
+        and plan.based_on_answer_hash == current_hash
+    ):
+        return []
+    return [item.id for item in answered]
+
+
+def _question_next_item(question: QuestionRecord) -> dict[str, object]:
+    return {
+        "kind": "question",
+        "id": question.id,
+        "text": question.question,
+        "status": question.status,
+        "required_for_plan": question.required_for_plan,
+        "plan_version": question.plan_version,
+    }
+
+
+def _answered_question_next_item(question: QuestionRecord) -> dict[str, object]:
+    return {
+        "kind": "answered_question",
+        "id": question.id,
+        "text": question.question,
+        "status": question.status,
+        "answer": question.answer,
+        "answered_at": question.answered_at,
+        "required_for_plan": question.required_for_plan,
+        "plan_version": question.plan_version,
+    }
+
+
+def _todo_next_item(todo: TaskTodo) -> dict[str, object]:
+    return {
+        "kind": "todo",
+        "id": todo.id,
+        "text": todo.text,
+        "status": todo.status,
+        "mandatory": todo.mandatory,
+        "source": todo.source,
+        "done": todo.done,
+        "validation_hint": todo.validation_hint,
+    }
+
+
+def _criterion_next_item(criterion_report: Mapping[str, object]) -> dict[str, object]:
+    return {
+        "kind": "criterion",
+        "id": criterion_report.get("id"),
+        "text": criterion_report.get("text"),
+        "mandatory": criterion_report.get("mandatory"),
+        "latest_status": criterion_report.get("latest_status"),
+        "satisfied": criterion_report.get("satisfied"),
+    }
+
+
+def _plan_next_item(plan: PlanRecord) -> dict[str, object]:
+    return {
+        "kind": "plan",
+        "id": f"plan-v{plan.plan_version}",
+        "version": plan.plan_version,
+        "status": plan.status,
+    }
+
+
+def _task_next_item(task: TaskRecord) -> dict[str, object]:
+    return {
+        "kind": "task",
+        "id": task.id,
+        "status_stage": task.status_stage,
+    }
+
+
+def _lock_next_item(task: TaskRecord, lock: TaskLock) -> dict[str, object]:
+    return {
+        "kind": "lock",
+        "id": lock.lock_id,
+        "task_id": task.id,
+        "stage": lock.stage,
+        "run_id": lock.run_id,
+        "expired": lock_is_expired(lock),
+    }
+
+
+def _command(
+    kind: str,
+    label: str,
+    command: str,
+    *,
+    primary: bool = False,
+) -> dict[str, object]:
+    return {
+        "kind": kind,
+        "label": label,
+        "command": command,
+        "primary": primary,
+    }
+
+
+def _first_question_by_ids(
+    questions: Sequence[QuestionRecord],
+    ids: Sequence[str],
+) -> QuestionRecord | None:
+    wanted = set(ids)
+    for question in questions:
+        if question.id in wanted:
+            return question
+    return None
+
+
+def _first_open_todo_from_report(
+    workspace_root: Path,
+    task: TaskRecord,
+    open_ids: Sequence[str],
+) -> TaskTodo | None:
+    task = _task_with_sidecars(workspace_root, task)
+    wanted = set(open_ids)
+    for todo in task.todos:
+        if todo.id in wanted and todo.status == "active" and not todo.done:
+            return todo
+    for todo in task.todos:
+        if todo.id in wanted and not todo.done:
+            return todo
+    return None
+
+
+def _criterion_report_by_id(
+    gate_report: Mapping[str, object],
+    criterion_id: str,
+) -> dict[str, object] | None:
+    criteria = cast(list[dict[str, object]], gate_report.get("criteria", []))
+    for criterion in criteria:
+        if criterion.get("id") == criterion_id:
+            return criterion
+    return None
+
+
+def _compact_next_action_blockers(
+    blockers: Sequence[Mapping[str, object]],
+) -> list[dict[str, object]]:
+    compact: list[dict[str, object]] = []
+    for blocker in blockers:
+        item: dict[str, object] = {
+            "kind": str(blocker.get("kind", "blocker")),
+            "message": str(blocker.get("message", "Next-action blocker")),
+        }
+        ref = blocker.get("ref")
+        if isinstance(ref, str) and ref:
+            item["ref"] = ref
+        command_hint = _optional_string_value(blocker.get("command_hint"))
+        if command_hint is not None:
+            item["command_hint"] = command_hint
+        compact.append(item)
+    return compact
+
+
+def _validation_progress(gate_report: Mapping[str, object]) -> dict[str, object]:
+    criteria = cast(list[dict[str, object]], gate_report.get("criteria", []))
+    satisfied = sum(1 for criterion in criteria if criterion.get("satisfied") is True)
+    blocking_ids: list[str] = []
+    for blocker in cast(list[dict[str, object]], gate_report.get("blockers", [])):
+        ref = blocker.get("ref")
+        if isinstance(ref, str) and ref and ref not in blocking_ids:
+            blocking_ids.append(ref)
+    return {
+        "total": len(criteria),
+        "satisfied": satisfied,
+        "remaining": max(len(blocking_ids), len(criteria) - satisfied),
+        "blocking_ids": blocking_ids,
+    }
+
+
+def _next_validation_item(
+    workspace_root: Path,
+    task: TaskRecord,
+    gate_report: Mapping[str, object],
+    blockers: Sequence[Mapping[str, object]],
+) -> dict[str, object] | None:
+    priority = (
+        "criterion_fail",
+        "criterion_missing",
+        "criterion_unsatisfied",
+        "todo_open",
+        "no_finished_implementation",
+        "dependency_blocker",
+        "no_accepted_plan",
+        "plan_not_accepted",
+    )
+    for kind in priority:
+        for blocker in blockers:
+            if blocker.get("kind") != kind:
+                continue
+            ref = blocker.get("ref")
+            if kind.startswith("criterion_") and isinstance(ref, str):
+                criterion = _criterion_report_by_id(gate_report, ref)
+                if criterion is not None:
+                    return _criterion_next_item(criterion)
+            if kind == "todo_open" and isinstance(ref, str):
+                todo = _first_open_todo_from_report(workspace_root, task, (ref,))
+                if todo is not None:
+                    return _todo_next_item(todo)
+            if kind == "dependency_blocker" and isinstance(ref, str):
+                return {"kind": "dependency", "id": ref}
+            if kind == "no_finished_implementation":
+                return _task_next_item(task)
+            if kind in {"no_accepted_plan", "plan_not_accepted"}:
+                plan = _latest_plan_or_none(workspace_root, task.id)
+                if plan is not None:
+                    return _plan_next_item(plan)
+                return _task_next_item(task)
+
+    for criterion in cast(list[dict[str, object]], gate_report.get("criteria", [])):
+        criterion_blockers = criterion.get("blockers")
+        if isinstance(criterion_blockers, list) and criterion_blockers:
+            return _criterion_next_item(criterion)
+    return None
+
+
+def _next_action_command(action: str) -> str | None:
+    return {
+        "plan": "taskledger plan start",
+        "plan-propose": "taskledger plan upsert --file plan.md",
+        "question-answer": "taskledger question answer-many --file answers.yaml",
+        "plan-regenerate": "taskledger plan upsert --from-answers --file plan.md",
+        "plan-approve": "taskledger plan approve --version VERSION --actor user",
+        "implement": "taskledger implement start",
+        "todo-work": "taskledger implement checklist",
+        "implement-finish": "taskledger implement finish --summary SUMMARY",
+        "validate": "taskledger validate start",
+        "validate-check": (
+            "taskledger validate check --criterion CRITERION "
+            '--status pass --evidence "..."'
+        ),
+        "validate-finish": (
+            "taskledger validate finish --result passed --summary SUMMARY"
+        ),
+        "repair-lock": "taskledger lock show",
+    }.get(action)
+
+
+def _primary_command_for_next_item(
+    action: str,
+    next_item: dict[str, object] | None,
+) -> str | None:
+    if not next_item:
+        return _next_action_command(action)
+
+    kind = next_item.get("kind")
+    item_id = next_item.get("id")
+
+    if kind == "question" and isinstance(item_id, str):
+        return f'taskledger question answer {item_id} --text "..."'
+    if kind == "todo" and isinstance(item_id, str):
+        return f"taskledger todo show {item_id}"
+    if kind == "criterion" and isinstance(item_id, str):
+        return (
+            f"taskledger validate check --criterion {item_id} "
+            '--status pass --evidence "..."'
+        )
+    if kind == "plan":
+        version = next_item.get("version")
+        if isinstance(version, int):
+            return f"taskledger plan show --version {version}"
+    if kind == "lock":
+        task_id = next_item.get("task_id")
+        if isinstance(task_id, str):
+            return f'taskledger lock break --task {task_id} --reason "..."'
+
+    return _next_action_command(action)
+
+
+def _commands_for_next_item(
+    action: str,
+    next_item: dict[str, object] | None,
+) -> list[dict[str, object]]:
+    if next_item is None:
+        primary = _primary_command_for_next_item(action, next_item)
+        if primary is None:
+            return []
+        label = {
+            "plan": "Start planning",
+            "plan-propose": "Propose plan",
+            "plan-regenerate": "Regenerate plan from answers",
+            "plan-approve": "Approve plan",
+            "implement": "Start implementation",
+            "todo-work": "Show implementation checklist",
+            "implement-finish": "Finish implementation",
+            "validate": "Start validation",
+            "validate-check": "Record validation check",
+            "validate-finish": "Finish validation",
+            "repair-lock": "Show current lock",
+        }.get(action, "Show next action")
+        command_kind = {
+            "plan": "start",
+            "plan-propose": "regenerate",
+            "plan-regenerate": "regenerate",
+            "plan-approve": "approve",
+            "implement": "start",
+            "todo-work": "context",
+            "implement-finish": "finish",
+            "validate": "start",
+            "validate-check": "check",
+            "validate-finish": "finish",
+            "repair-lock": "inspect",
+        }.get(action, "context")
+        return [_command(command_kind, label, primary, primary=True)]
+
+    item_kind = next_item.get("kind")
+    item_id = next_item.get("id")
+    if item_kind == "question" and isinstance(item_id, str):
+        return [
+            _command(
+                "answer",
+                "Answer required question",
+                f'taskledger question answer {item_id} --text "..."',
+                primary=True,
+            ),
+            _command("context", "Show question status", "taskledger question status"),
+        ]
+    if item_kind == "answered_question":
+        return [
+            _command(
+                "regenerate",
+                "Regenerate plan from answers",
+                "taskledger plan upsert --from-answers --file plan.md",
+                primary=True,
+            ),
+            _command(
+                "context",
+                "Show answered questions",
+                "taskledger question answers",
+            ),
+        ]
+    if item_kind == "todo" and isinstance(item_id, str):
+        return [
+            _command(
+                "inspect",
+                "Show next todo",
+                f"taskledger todo show {item_id}",
+                primary=True,
+            ),
+            _command(
+                "complete",
+                "Mark todo done after evidence exists",
+                f'taskledger todo done {item_id} --evidence "..."',
+            ),
+            _command(
+                "context",
+                "Show implementation checklist",
+                "taskledger implement checklist",
+            ),
+        ]
+    if item_kind == "criterion" and isinstance(item_id, str):
+        return [
+            _command(
+                "check",
+                "Record validation check",
+                (
+                    f"taskledger validate check --criterion {item_id} "
+                    '--status pass --evidence "..."'
+                ),
+                primary=True,
+            ),
+            _command("context", "Show validation status", "taskledger validate status"),
+        ]
+    if item_kind == "plan":
+        version = next_item.get("version")
+        if isinstance(version, int):
+            commands = [
+                _command(
+                    "inspect",
+                    "Show proposed plan",
+                    f"taskledger plan show --version {version}",
+                    primary=True,
+                )
+            ]
+            if action == "plan-approve":
+                commands.append(
+                    _command(
+                        "approve",
+                        "Approve plan",
+                        f"taskledger plan approve --version {version} --actor user",
+                    )
+                )
+            return commands
+    if item_kind == "lock":
+        task_id = next_item.get("task_id")
+        if isinstance(task_id, str):
+            return [
+                _command(
+                    "repair",
+                    "Break stale lock",
+                    f'taskledger lock break --task {task_id} --reason "..."',
+                    primary=True,
+                ),
+                _command("inspect", "Show current lock", "taskledger lock show"),
+            ]
+
+    primary = _primary_command_for_next_item(action, next_item)
+    if primary is None:
+        return []
+    label = {
+        "implement": "Start implementation",
+        "implement-finish": "Finish implementation",
+        "validate": "Start validation",
+        "validate-finish": "Finish validation",
+    }.get(action, "Show next action")
+    kind_name = {
+        "implement": "start",
+        "implement-finish": "finish",
+        "validate": "start",
+        "validate-finish": "finish",
+    }.get(action, "context")
+    commands = [_command(kind_name, label, primary, primary=True)]
+    if action == "implement-finish":
+        commands.append(
+            _command(
+                "context",
+                "Show implementation checklist",
+                "taskledger implement checklist",
+            )
+        )
+    if action == "validate-finish":
+        commands.append(
+            _command(
+                "context",
+                "Show validation status",
+                "taskledger validate status",
+            )
+        )
+    return commands
+
+
+def _optional_string_value(value: object) -> str | None:
+    return value if isinstance(value, str) and value.strip() else None
+
+
+__all__ = ["can_perform", "next_action", "task_dossier"]

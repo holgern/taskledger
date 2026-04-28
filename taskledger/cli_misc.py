@@ -48,13 +48,17 @@ from taskledger.cli_common import (
     resolve_cli_task,
 )
 from taskledger.errors import LaunchError
-from taskledger.services.doctor_v2 import (
+from taskledger.services.doctor import (
     inspect_v2_indexes,
     inspect_v2_locks,
     inspect_v2_project,
     inspect_v2_schema,
 )
-from taskledger.storage.v2 import load_active_locks, load_requirements, load_todos
+from taskledger.storage.task_store import (
+    load_active_locks,
+    load_requirements,
+    load_todos,
+)
 
 
 def register_todo_v2_commands(app: typer.Typer) -> None:  # noqa: C901
