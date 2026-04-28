@@ -15,8 +15,10 @@ def test_init_project_state_creates_structure(tmp_path: Path) -> None:
     assert paths.project_dir.exists()
     assert paths.config_path.exists()
     assert paths.repo_index_path.exists()
-    assert (paths.project_dir / "indexes" / "tasks.json").exists()
     assert (paths.project_dir / "indexes" / "active_locks.json").exists()
+    assert not (paths.project_dir / "indexes" / "tasks.json").exists()
+    assert not (paths.project_dir / "indexes" / "latest_runs.json").exists()
+    assert not (paths.project_dir / "indexes" / "plan_versions.json").exists()
     assert len(created) > 0
 
 

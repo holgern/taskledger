@@ -20,9 +20,10 @@ task -> plan -> approval -> implement -> validate -> done
 
 ## Storage Model
 
-Markdown records are canonical. JSON indexes are rebuildable caches. Active
-stages require visible lock files, and stale locks are reported instead of being
-cleared silently.
+Markdown records are canonical. Task, plan, and run reads come from those
+records directly. JSON files under `.taskledger/indexes/` are optional derived
+caches or registries. Active stages require visible lock files, and stale locks
+are reported instead of being cleared silently.
 
 ## Command Surface
 

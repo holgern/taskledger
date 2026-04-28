@@ -135,10 +135,12 @@ JSON result example:
   intros/
   tasks/
   events/
-  indexes/
+  indexes/   # optional derived caches and registries
 ```
 
-Markdown files are canonical. JSON indexes are rebuildable caches.
+Markdown files are canonical. Task, plan, and run listings scan those records
+directly. JSON files under `.taskledger/indexes/` are optional derived caches or
+registries and are not required for task correctness.
 
 ## JSON output
 

@@ -406,7 +406,11 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
         ["--cwd", str(tmp_path), "--json", "reindex"],
     )
     reindex_payload = _json(reindex_result)
-    assert reindex_payload["result"]["counts"]["tasks"] == 1
+    assert reindex_payload["result"]["counts"] == {
+        "introductions": 0,
+        "locks": 0,
+        "dependencies": 1,
+    }
 
 
 def test_v2_lock_break_and_expired_lock_report(tmp_path: Path) -> None:

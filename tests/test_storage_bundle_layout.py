@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from typer.testing import CliRunner
 
 from taskledger.cli import app
+from taskledger.storage.indexes import rebuild_v2_indexes
+from taskledger.storage.v2 import ensure_v2_layout, resolve_v2_paths
 
 
 def _make_runner() -> CliRunner:
@@ -17,9 +20,102 @@ def _make_runner() -> CliRunner:
 runner = _make_runner()
 
 
+def _json(result) -> dict[str, object]:
+    assert result.exit_code == 0, result.stdout
+    return json.loads(result.stdout)
+
+
 def _init_project(tmp_path: Path) -> None:
     result = runner.invoke(app, ["--cwd", str(tmp_path), "init"])
     assert result.exit_code == 0
+
+
+def _removed_index_paths(tmp_path: Path) -> tuple[Path, Path, Path]:
+    indexes_dir = tmp_path / ".taskledger" / "indexes"
+    return (
+        indexes_dir / "tasks.json",
+        indexes_dir / "plan_versions.json",
+        indexes_dir / "latest_runs.json",
+    )
+
+
+def _prepare_task_with_plan(
+    tmp_path: Path,
+    *,
+    slug: str,
+    approve: bool = False,
+    start_implementation: bool = False,
+) -> None:
+    _init_project(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "create",
+                slug,
+                "--description",
+                "Exercise canonical plan and run scans.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(app, ["--cwd", str(tmp_path), "task", "activate", slug]).exit_code
+        == 0
+    )
+    assert runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start"]).exit_code == 0
+    plan_text = """---
+goal: Verify canonical plan and run scans.
+acceptance_criteria:
+  - id: ac-0001
+    text: Canonical records drive task commands.
+todos:
+  - id: todo-0001
+    text: Exercise canonical read paths.
+---
+
+# Plan
+
+Use task bundles instead of derived task, plan, and run indexes.
+"""
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "plan", "propose", "--text", plan_text],
+        ).exit_code
+        == 0
+    )
+    if not approve and not start_implementation:
+        return
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "plan",
+                "approve",
+                "--version",
+                "1",
+                "--actor",
+                "user",
+                "--note",
+                "Ready to implement.",
+            ],
+        ).exit_code
+        == 0
+    )
+    if start_implementation:
+        assert (
+            runner.invoke(
+                app,
+                ["--cwd", str(tmp_path), "implement", "start"],
+            ).exit_code
+            == 0
+        )
 
 
 def test_task_create_uses_task_bundle_layout(tmp_path: Path) -> None:
@@ -96,6 +192,76 @@ def test_task_list_scans_task_markdown_without_indexes(tmp_path: Path) -> None:
     result = runner.invoke(app, ["--cwd", str(tmp_path), "task", "list"])
     assert result.exit_code == 0, result.stdout
     assert "scan-layout" in result.stdout
+
+
+def test_task_list_ignores_removed_legacy_indexes(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "create",
+                "legacy-indexes",
+                "--description",
+                "Listing should ignore legacy removed indexes.",
+            ],
+        ).exit_code
+        == 0
+    )
+    for path in _removed_index_paths(tmp_path):
+        path.write_text("{not valid json", encoding="utf-8")
+
+    result = runner.invoke(app, ["--cwd", str(tmp_path), "task", "list"])
+    assert result.exit_code == 0, result.stdout
+    assert "legacy-indexes" in result.stdout
+
+
+def test_ensure_v2_layout_does_not_create_removed_indexes(tmp_path: Path) -> None:
+    ensure_v2_layout(tmp_path)
+    for path in _removed_index_paths(tmp_path):
+        assert not path.exists()
+
+
+def test_plan_list_does_not_need_removed_indexes(tmp_path: Path) -> None:
+    _prepare_task_with_plan(tmp_path, slug="plan-scan")
+    for path in _removed_index_paths(tmp_path):
+        path.unlink(missing_ok=True)
+
+    payload = _json(
+        runner.invoke(app, ["--cwd", str(tmp_path), "--json", "plan", "list"])
+    )
+    assert payload["result"]["plans"][0]["plan_version"] == 1
+
+
+def test_implement_status_does_not_need_removed_indexes(tmp_path: Path) -> None:
+    _prepare_task_with_plan(
+        tmp_path,
+        slug="run-scan",
+        approve=True,
+        start_implementation=True,
+    )
+    for path in _removed_index_paths(tmp_path):
+        path.unlink(missing_ok=True)
+
+    payload = _json(
+        runner.invoke(app, ["--cwd", str(tmp_path), "--json", "implement", "status"])
+    )
+    assert payload["result"]["task_id"] == "task-0001"
+    assert payload["result"]["total"] == 1
+    assert payload["result"]["done"] == 0
+
+
+def test_reindex_does_not_create_removed_indexes(tmp_path: Path) -> None:
+    ensure_v2_layout(tmp_path)
+    paths = resolve_v2_paths(tmp_path)
+
+    rebuild_v2_indexes(paths)
+
+    for path in _removed_index_paths(tmp_path):
+        assert not path.exists()
 
 
 def test_task_create_no_orphan_slug_directory(tmp_path: Path) -> None:

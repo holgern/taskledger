@@ -169,8 +169,11 @@ taskledger migrate plan
 taskledger migrate apply --backup
 ```
 
-Indexes under `.taskledger/indexes/` are derived caches. They may be plain JSON
-arrays with no version metadata. They can be rebuilt with:
+Indexes under `.taskledger/indexes/` are optional derived caches or registries.
+Task, plan, and run commands must continue to work from canonical Markdown/YAML
+records even when task/run/plan JSON cache files are absent. The remaining
+derived caches may be plain JSON arrays with no version metadata and can be
+rebuilt with:
 
 ```bash
 taskledger reindex

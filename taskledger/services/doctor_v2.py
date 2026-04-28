@@ -313,12 +313,9 @@ def inspect_v2_indexes(workspace_root: Path) -> dict[str, object]:
     missing = [
         str(path.relative_to(paths.project_dir))
         for path in (
-            paths.tasks_index_path,
             paths.active_locks_index_path,
             paths.dependencies_index_path,
             paths.introductions_index_path,
-            paths.latest_runs_index_path,
-            paths.plan_versions_index_path,
         )
         if not path.exists()
     ]

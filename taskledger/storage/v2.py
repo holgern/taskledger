@@ -85,12 +85,9 @@ class V2Paths:
     active_task_path: Path
     actor_path: Path
     harness_path: Path
-    tasks_index_path: Path
     active_locks_index_path: Path
     dependencies_index_path: Path
     introductions_index_path: Path
-    latest_runs_index_path: Path
-    plan_versions_index_path: Path
 
 
 def resolve_v2_paths(workspace_root: Path) -> V2Paths:
@@ -110,12 +107,9 @@ def resolve_v2_paths(workspace_root: Path) -> V2Paths:
         active_task_path=project_dir / "active-task.yaml",
         actor_path=project_dir / "actor.yaml",
         harness_path=project_dir / "harness.yaml",
-        tasks_index_path=indexes_dir / "tasks.json",
         active_locks_index_path=indexes_dir / "active_locks.json",
         dependencies_index_path=indexes_dir / "dependencies.json",
         introductions_index_path=indexes_dir / "introductions.json",
-        latest_runs_index_path=indexes_dir / "latest_runs.json",
-        plan_versions_index_path=indexes_dir / "plan_versions.json",
     )
 
 
@@ -130,12 +124,9 @@ def ensure_v2_layout(workspace_root: Path) -> V2Paths:
     ):
         directory.mkdir(parents=True, exist_ok=True)
     for index_path in (
-        paths.tasks_index_path,
         paths.active_locks_index_path,
         paths.dependencies_index_path,
         paths.introductions_index_path,
-        paths.latest_runs_index_path,
-        paths.plan_versions_index_path,
     ):
         if index_path.exists():
             continue

@@ -34,12 +34,9 @@ def init_project_state(workspace_root: Path) -> tuple[ProjectPaths, list[str]]:
     for path, contents in (
         (paths.config_path, DEFAULT_PROJECT_TOML),
         (paths.repo_index_path, "[]\n"),
-        (paths.project_dir / "indexes" / "tasks.json", "[]\n"),
         (paths.project_dir / "indexes" / "active_locks.json", "[]\n"),
         (paths.project_dir / "indexes" / "dependencies.json", "[]\n"),
         (paths.project_dir / "indexes" / "introductions.json", "[]\n"),
-        (paths.project_dir / "indexes" / "latest_runs.json", "[]\n"),
-        (paths.project_dir / "indexes" / "plan_versions.json", "[]\n"),
     ):
         if path.exists():
             continue
@@ -99,12 +96,9 @@ def _ensure_additive_project_files(paths: ProjectPaths) -> None:
             raise LaunchError(f"Failed to create {directory}: {exc}") from exc
     for path in (
         paths.repo_index_path,
-        paths.project_dir / "indexes" / "tasks.json",
         paths.project_dir / "indexes" / "active_locks.json",
         paths.project_dir / "indexes" / "dependencies.json",
         paths.project_dir / "indexes" / "introductions.json",
-        paths.project_dir / "indexes" / "latest_runs.json",
-        paths.project_dir / "indexes" / "plan_versions.json",
     ):
         if path.exists():
             continue

@@ -12,6 +12,11 @@ metadata:
 
 Use taskledger for staged coding work that needs a durable task record, reviewable plan, explicit user approval, implementation log, validation evidence, and fresh-context continuation.
 
+Treat task bundles and Markdown/YAML records as canonical state. JSON files
+under `.taskledger/indexes/` are optional derived caches or registries, so do
+not rely on `tasks.json`, `plan_versions.json`, or `latest_runs.json` as source
+data.
+
 ## Never do these things
 
 - Do not implement before `taskledger plan approve` has recorded user approval.

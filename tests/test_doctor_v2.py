@@ -430,6 +430,20 @@ def test_inspect_v2_indexes_all_present(tmp_path: Path) -> None:
     assert result["missing_indexes"] == []
 
 
+def test_inspect_v2_indexes_ignores_removed_legacy_indexes(tmp_path: Path) -> None:
+    _setup_project(tmp_path)
+    indexes_dir = ensure_v2_layout(tmp_path).indexes_dir
+    for name in ("tasks.json", "plan_versions.json", "latest_runs.json"):
+        (indexes_dir / name).write_text("{not valid json", encoding="utf-8")
+
+    result = inspect_v2_indexes(tmp_path)
+
+    assert result["healthy"] is True
+    assert "indexes/tasks.json" not in result["missing_indexes"]
+    assert "indexes/plan_versions.json" not in result["missing_indexes"]
+    assert "indexes/latest_runs.json" not in result["missing_indexes"]
+
+
 def test_inspect_v2_indexes_event_error(tmp_path: Path) -> None:
     paths = ensure_v2_layout(tmp_path)
     # Write invalid event data
