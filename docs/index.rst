@@ -12,6 +12,8 @@ Contents
 
    usage
    full_task_cycle
+   architecture_taskledger_split
+   multi_repo
    api
    public_surface
    command_contract

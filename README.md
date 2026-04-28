@@ -340,8 +340,8 @@ $ taskledger handoff close handoff-0001 --task task-0001 --reason "Continued."
 ```
 
 See [docs/usage.rst](docs/usage.rst) and
-[skills/taskledger/examples/validation-flow.md](skills/taskledger/examples/validation-flow.md)
-for task-first handoff examples.
+[skills/taskledger/SKILL.md](skills/taskledger/SKILL.md)
+for task-first handoff guidance.
 
 ## Export, import, and snapshots
 
@@ -353,14 +353,13 @@ taskledger snapshot ./artifacts
 
 ## Skill packaging
 
-The packaged skill lives at:
+The canonical skill file lives at:
 
 ```text
 skills/taskledger/SKILL.md
 ```
 
-It includes example planner, implementer, and validator handoffs under
-`skills/taskledger/examples/`.
+No additional `skills/taskledger/examples/` directory is required.
 
 ## Development
 

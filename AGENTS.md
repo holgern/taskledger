@@ -119,8 +119,8 @@ Use the owning layer before editing.
 - `taskledger/errors.py` — public exception taxonomy and exit codes
 - `taskledger/command_inventory.py` — registered command metadata
 - `skills/taskledger/SKILL.md` — external agent skill protocol
-- `docs/command_contract.md` and `.rst` — CLI grammar contract
-- `API.md`, `docs/api.rst`, `docs/public_surface.*` — public API documentation
+- `docs/command_contract.rst` — CLI grammar contract
+- `API.md`, `docs/api.rst`, `docs/public_surface.rst` — public API documentation
 
 ## 4. Packaging Rule for Skills
 
@@ -356,16 +356,14 @@ Docs, examples, command inventory, and skill files must agree.
 When changing commands or workflow behavior, update as needed:
 
 - `README.md`
-- `docs/command_contract.md`
 - `docs/command_contract.rst`
 - `docs/full_task_cycle.rst`
 - `docs/usage.rst`
-- `docs/public_surface.*`
+- `docs/public_surface.rst`
 - `API.md`
 - `skills/taskledger/SKILL.md`
-- `skills/taskledger/examples/*.md`
 - `taskledger/command_inventory.py`
-- tests that lint docs and examples
+- tests that lint docs and skill content
 
 Do not document commands that are not registered.
 Do not leave examples using removed aliases.

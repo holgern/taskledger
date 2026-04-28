@@ -12,10 +12,8 @@ DOC_PATHS = [
     ROOT / "README.md",
     ROOT / "API.md",
     ROOT / "AGENTS.md",
-    *sorted((ROOT / "docs").glob("*.md")),
     *sorted((ROOT / "docs").glob("*.rst")),
     ROOT / "skills" / "taskledger" / "SKILL.md",
-    *sorted((ROOT / "skills" / "taskledger" / "examples").glob("*.md")),
 ]
 PUBLIC_API_MODULES = (
     "taskledger.api.project",
@@ -30,12 +28,14 @@ PUBLIC_API_MODULES = (
 )
 
 
-def test_skill_examples_exist() -> None:
-    examples_dir = ROOT / "skills" / "taskledger" / "examples"
-    for name in ("planning-flow.md", "implementation-flow.md", "validation-flow.md"):
-        path = examples_dir / name
-        assert path.exists()
-        assert path.read_text(encoding="utf-8").strip()
+def test_skill_is_single_file_without_examples_dir() -> None:
+    skill_dir = ROOT / "skills" / "taskledger"
+    assert (skill_dir / "SKILL.md").exists()
+    assert not (skill_dir / "examples").exists()
+
+
+def test_docs_directory_uses_rst_only() -> None:
+    assert not list((ROOT / "docs").glob("*.md"))
 
 
 def test_skills_are_not_packaged_resources() -> None:

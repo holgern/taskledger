@@ -22,6 +22,24 @@ keep using the CLI and JSON command surface for automation.
 The supported implementation lifecycle includes ``implement restart --summary
 "..."`` when a task is in ``failed_validation``.
 
+question subcommands
+--------------------
+
+- ``question add``, ``question list [--status STATUS]``, ``question answers [--format markdown|json]``
+- ``question answer``, ``question answer-many``, ``question dismiss``, ``question open``, ``question status``
+
+plan subcommands
+----------------
+
+- ``plan start``, ``plan propose``, ``plan upsert``, ``plan lint``, ``plan approve``, ``plan accept``, ``plan reject``, ``plan show``, ``plan diff``
+- ``plan regenerate --from-answers``, ``plan materialize-todos``, ``plan command -- ...``
+
+todo subcommands
+----------------
+
+- ``todo add``, ``todo list``, ``todo done``, ``todo show``, ``todo status``, ``todo next``
+- Todo source is inferred from active lock: ``implementer`` during implementation, ``planner`` during planning, ``user`` otherwise.
+
 Supported Python API modules
 ----------------------------
 

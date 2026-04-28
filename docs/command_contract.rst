@@ -143,15 +143,90 @@ Use ``task create``, ``task deactivate``, ``implement change``,
 ``validate check``, ``file add``, ``file remove``, ``link add``, and
 ``link remove`` instead.
 
+Approval escape hatches
+-----------------------
+
+Plan approval escape hatches require ``--reason`` to prevent silent bypass:
+
++--------------------------+--------------------------------------------------+------------------------+
+| Flag                     | Effect                                           | Requires ``--reason``  |
++==========================+==================================================+========================+
+| ``--allow-empty-criteria`` | Skip the acceptance criteria requirement       | Yes                    |
++--------------------------+--------------------------------------------------+------------------------+
+| ``--allow-open-questions`` | Approve despite open planning questions        | Yes                    |
++--------------------------+--------------------------------------------------+------------------------+
+| ``--allow-empty-todos``    | Approve despite no todos in the plan           | Yes                    |
++--------------------------+--------------------------------------------------+------------------------+
+| ``--no-materialize-todos`` | Skip materializing plan todos into the checklist | Yes                  |
++--------------------------+--------------------------------------------------+------------------------+
+| ``--allow-agent-approval`` | Allow agent (non-user) approval                | Yes (plus ``--reason``) |
++--------------------------+--------------------------------------------------+------------------------+
+| ``--allow-lint-errors``    | Approve despite plan lint errors               | Yes                    |
++--------------------------+--------------------------------------------------+------------------------+
+
+Approval also requires ``--note`` for user approval. Agent approval additionally
+requires ``--allow-agent-approval --reason "..."``.
+
+Todo source inference
+---------------------
+
+When ``todo add`` is called without an explicit ``--source``, the source is
+inferred from the active lock:
+
++-------------------+-----------------+
+| Active lock stage | Inferred source |
++===================+=================+
+| ``implementing``  | ``implementer`` |
++-------------------+-----------------+
+| ``planning``      | ``planner``     |
++-------------------+-----------------+
+| No active lock    | ``user``        |
++-------------------+-----------------+
+
+Plan-materialized todos always use ``source=plan``.
+
 Storage Compatibility
 ---------------------
 
-Taskledger keeps project-local configuration in ``taskledger.toml`` at the
-workspace root. ``.taskledger.toml`` is also read as a local override when it
-exists.
+Taskledger stores project-local configuration in ``taskledger.toml`` at the
+workspace root. ``.taskledger.toml`` is also read as a local override file when
+it exists.
 
 The resolved ``taskledger_dir`` defaults to ``.taskledger/`` beside that config
 file, but ``taskledger init --taskledger-dir /path/to/state`` may point durable
 state elsewhere. Commands resolve config files upward from the starting
 directory and keep ``--root`` scoped to the source workspace, not the storage
 root.
+
+Taskledger uses:
+
+* a workspace storage layout version in ``taskledger_dir/storage.yaml``
+* per-record ``schema_version``
+* per-record ``object_type``
+* per-file ``file_version`` for durable Markdown/YAML/JSON record files
+
+Taskledger does not silently rewrite storage during read-only commands.
+
+If the installed taskledger version can read but not write an older workspace,
+it reports that migration is required.
+
+To migrate:
+
+.. code-block:: bash
+
+   taskledger migrate status
+   taskledger migrate plan
+   taskledger migrate apply --backup
+
+Indexes under ``taskledger_dir/indexes/`` are optional derived caches or
+registries. Task, plan, and run commands must continue to work from canonical
+Markdown/YAML records even when task/run/plan JSON cache files are absent. The
+remaining derived caches may be plain JSON arrays with no version metadata and
+can be rebuilt with:
+
+.. code-block:: bash
+
+   taskledger reindex
+
+A newer storage version than the installed taskledger supports is rejected with
+a clear error.

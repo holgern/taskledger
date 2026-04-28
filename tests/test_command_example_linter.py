@@ -13,16 +13,14 @@ ROOT = Path(__file__).resolve().parents[1]
 DOC_PATHS: list[Path] = sorted(
     p
     for p in (ROOT / "docs").rglob("*")
-    if p.suffix in {".md", ".rst"} and "_build" not in p.parts
+    if p.suffix == ".rst" and "_build" not in p.parts
 ) + [
     ROOT / "README.md",
     ROOT / "AGENTS.md",
     ROOT / "API.md",
 ]
 
-SKILL_PATHS: list[Path] = sorted(
-    p for p in (ROOT / "skills").rglob("*.md") if p.is_file()
-)
+SKILL_PATHS: list[Path] = [ROOT / "skills" / "taskledger" / "SKILL.md"]
 
 ALL_PATHS = DOC_PATHS + SKILL_PATHS
 
