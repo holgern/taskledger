@@ -24,7 +24,7 @@ The supported command surface is organized as:
 
 **Operations:**
 
-- `context`, `next-action`, `can`, `search`, `grep`, `symbols`, `deps`, `actor`, `view`
+- `context`, `next-action`, `can`, `search`, `grep`, `symbols`, `deps`, `actor`, `view`, `serve`
 
 **Repair and inspection:**
 
@@ -133,6 +133,21 @@ JSON result example:
   "blocking": []
 }
 ```
+
+## Human monitoring UI
+
+`taskledger serve` starts a read-only local dashboard for humans monitoring task
+state. The MVP binds to localhost only, refreshes with read-only JSON polling,
+and exposes no browser mutation endpoints.
+
+```bash
+taskledger serve
+taskledger serve --open
+taskledger serve --task rewrite-v2 --refresh-ms 2000
+```
+
+Agents should keep using `taskledger next-action`, `taskledger context`, and
+`--json` commands as the canonical automation interface.
 
 ## Storage layout
 

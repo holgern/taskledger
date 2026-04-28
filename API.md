@@ -222,6 +222,7 @@ Top-level commands that are part of the supported surface are:
 
 - `init`
 - `status`
+- `serve`
 - `next-action`
 - `can`
 - `reindex`
@@ -248,3 +249,5 @@ Workflow additions:
 - `todo done` records evidence with `--evidence`, `--artifact`, and `--change`.
 - `handoff create|list|show|claim|close|cancel` are available on the main
   task-first handoff command group.
+- `serve` is a human-oriented, read-only localhost dashboard. Agents should keep
+  using `next-action`, `context`, `view`, and JSON commands for automation.

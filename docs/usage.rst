@@ -54,6 +54,21 @@ includes the primary command hint. JSON output preserves the existing
 Agents should inspect ``next_item`` first, run ``next_command`` when it is safe,
 avoid inventing question answers, and only mark todos done after evidence exists.
 
+Human monitoring UI
+-------------------
+
+``taskledger serve`` starts a read-only localhost dashboard for a human operator.
+The MVP refreshes with JSON polling and exposes no browser write actions.
+
+.. code-block:: bash
+
+   taskledger serve
+   taskledger serve --open
+   taskledger serve --task rewrite-v2 --refresh-ms 2000
+
+Agents should continue to use ``next-action``, ``context``, and ``--json`` as
+the canonical machine interface.
+
 .. code-block:: text
 
    todo-work: Implementation is in progress; 1 todos remain.

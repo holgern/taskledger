@@ -10,6 +10,7 @@ COMMAND_METADATA: dict[str, tuple[str, str]] = {
     "status": (STABLE_FOR_AGENTS, "safe_read_only"),
     "next-action": (STABLE_FOR_AGENTS, "safe_read_only"),
     "view": (STABLE_FOR_AGENTS, "safe_read_only"),
+    "serve": (HUMAN_ORIENTED, "safe_read_only"),
     "can": (STABLE_FOR_AGENTS, "safe_read_only"),
     "reindex": (REPAIR, "ledger_mutation"),
     "export": (STABLE_FOR_AGENTS, "safe_read_only"),

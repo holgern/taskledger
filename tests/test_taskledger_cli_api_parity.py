@@ -25,6 +25,7 @@ def test_cli_command_tree_matches_task_first_contract(tmp_path: Path) -> None:
     for name in (
         "init",
         "status",
+        "serve",
         "doctor",
         "export",
         "import",

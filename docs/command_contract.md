@@ -79,6 +79,22 @@ and may also include:
 Agents should inspect `next_item`, prefer `next_command` when it is safe, avoid
 inventing question answers, and never mark todos done without evidence.
 
+## Human monitoring UI
+
+`taskledger serve` is a top-level human-oriented monitoring command:
+
+```bash
+taskledger serve [--host 127.0.0.1] [--port 8765] [--task TASK_REF] [--refresh-ms 1000] [--open/--no-open]
+```
+
+Rules:
+
+- the MVP binds only to localhost;
+- it serves read-only HTML plus read-only JSON endpoints;
+- browser actions are not part of the MVP;
+- agents should continue to use `next-action`, `context`, `view`, and `--json`
+  commands as the canonical automation interface.
+
 ## Focused context and handoff options
 
 Focused worker contexts keep lifecycle `mode` separate from worker-role

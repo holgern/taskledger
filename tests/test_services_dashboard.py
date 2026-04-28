@@ -44,9 +44,13 @@ def test_dashboard_with_active_task(tmp_path: Path) -> None:
     assert task_info["slug"] == "test-task"
     assert task_info["title"] == "Test Task"
     assert result["plan"] is None
+    assert result["plans"] == []
     assert result["lock"] is None
     assert result["runs"] == []
     assert result["changes"] == []
+    assert result["events"] == []
+    assert result["questions"]["items"] == []
+    assert result["validation"]["kind"] == "validation_status"
 
 
 def test_dashboard_with_ref(tmp_path: Path) -> None:

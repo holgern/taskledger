@@ -1,0 +1,384 @@
+from __future__ import annotations
+
+import json
+import threading
+import time
+from contextlib import contextmanager
+from pathlib import Path
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
+
+import pytest
+
+from taskledger.domain.models import (
+    AcceptanceCriterion,
+    ActiveTaskState,
+    ActorRef,
+    CodeChangeRecord,
+    PlanRecord,
+    QuestionRecord,
+    TaskEvent,
+    TaskLock,
+    TaskRecord,
+    TaskRunRecord,
+    TaskTodo,
+    TodoCollection,
+    ValidationCheck,
+)
+from taskledger.errors import LaunchError
+from taskledger.services.web_dashboard import (
+    DashboardServerConfig,
+    DashboardServerHandle,
+    _DashboardRequestHandler,
+    launch_dashboard_server,
+    render_index_html,
+)
+from taskledger.storage.events import append_event
+from taskledger.storage.task_store import (
+    ensure_v2_layout,
+    resolve_v2_paths,
+    save_active_task_state,
+    save_change,
+    save_lock,
+    save_plan,
+    save_question,
+    save_run,
+    save_task,
+    save_todos,
+)
+
+
+def _build_workspace(tmp_path: Path) -> None:
+    ensure_v2_layout(tmp_path)
+    task = TaskRecord(
+        id="task-0001",
+        slug="serve-task",
+        title="Serve dashboard",
+        body="Read-only dashboard task.",
+        status_stage="validating",
+        description_summary="Exercise the serve dashboard payload.",
+        latest_plan_version=2,
+        accepted_plan_version=2,
+        latest_implementation_run="run-0001",
+        latest_validation_run="run-0002",
+    )
+    save_task(tmp_path, task)
+    save_active_task_state(tmp_path, ActiveTaskState(task_id=task.id))
+
+    save_plan(
+        tmp_path,
+        PlanRecord(
+            task_id=task.id,
+            plan_version=1,
+            status="superseded",
+            goal="Initial serve spike.",
+            body="Initial plan body.",
+            criteria=(AcceptanceCriterion(id="ac-0001", text="Serve exists."),),
+            todos=(TaskTodo(id="todo-0001", text="Draft the server."),),
+        ),
+    )
+    save_plan(
+        tmp_path,
+        PlanRecord(
+            task_id=task.id,
+            plan_version=2,
+            status="accepted",
+            goal="Ship the read-only dashboard.",
+            body="Accepted plan body.",
+            criteria=(
+                AcceptanceCriterion(id="ac-0001", text="Serve exists."),
+                AcceptanceCriterion(id="ac-0002", text="Dashboard is read-only."),
+            ),
+            todos=(
+                TaskTodo(id="todo-0001", text="Add the server.", mandatory=True),
+                TaskTodo(id="todo-0002", text="Add docs.", mandatory=False),
+            ),
+            test_commands=("python -m pytest tests/test_serve_dashboard.py -q",),
+            expected_outputs=("Serve dashboard tests pass.",),
+        ),
+    )
+
+    save_question(
+        tmp_path,
+        QuestionRecord(
+            id="q-0001",
+            task_id=task.id,
+            question="Should localhost-only binding be enforced?",
+            status="answered",
+            answer="Yes.",
+            required_for_plan=True,
+        ),
+    )
+    save_question(
+        tmp_path,
+        QuestionRecord(
+            id="q-0002",
+            task_id=task.id,
+            question="Should actions be enabled?",
+            status="open",
+            required_for_plan=False,
+        ),
+    )
+
+    save_todos(
+        tmp_path,
+        TodoCollection(
+            task_id=task.id,
+            todos=(
+                TaskTodo(
+                    id="todo-0001",
+                    text="Add the server.",
+                    done=True,
+                    mandatory=True,
+                    status="done",
+                ),
+                TaskTodo(
+                    id="todo-0002",
+                    text="Add docs.",
+                    done=False,
+                    mandatory=False,
+                    status="open",
+                ),
+            ),
+        ),
+    )
+
+    save_run(
+        tmp_path,
+        TaskRunRecord(
+            run_id="run-0001",
+            task_id=task.id,
+            run_type="implementation",
+            status="finished",
+            summary="Implemented the read-only dashboard.",
+            based_on_plan_version=2,
+        ),
+    )
+    save_run(
+        tmp_path,
+        TaskRunRecord(
+            run_id="run-0002",
+            task_id=task.id,
+            run_type="validation",
+            status="running",
+            summary="Checking the dashboard endpoints.",
+            based_on_plan_version=2,
+            based_on_implementation_run="run-0001",
+            checks=(
+                ValidationCheck(
+                    id="check-0001",
+                    criterion_id="ac-0001",
+                    name="Serve command works.",
+                    status="pass",
+                    evidence=("python -m pytest tests/test_serve_dashboard.py -q",),
+                ),
+            ),
+        ),
+    )
+
+    save_change(
+        tmp_path,
+        CodeChangeRecord(
+            change_id="change-0001",
+            task_id=task.id,
+            implementation_run="run-0001",
+            timestamp="2026-04-28T08:00:00Z",
+            kind="edit",
+            path="taskledger/services/web_dashboard.py",
+            summary="Added read-only HTTP dashboard server.",
+        ),
+    )
+
+    save_lock(
+        tmp_path,
+        task.id,
+        TaskLock(
+            lock_id="lock-0001",
+            task_id=task.id,
+            stage="validating",
+            run_id="run-0002",
+            created_at="2026-04-28T08:30:00Z",
+            expires_at=None,
+            reason="Validation in progress.",
+            holder=ActorRef(actor_name="copilot", role="validator"),
+        ),
+    )
+
+    paths = resolve_v2_paths(tmp_path)
+    append_event(
+        paths.events_dir,
+        TaskEvent(
+            event_id="evt-20260428T080000Z-000001",
+            ts="2026-04-28T08:00:00Z",
+            event="task.created",
+            task_id=task.id,
+            actor=ActorRef(actor_name="copilot"),
+        ),
+    )
+    append_event(
+        paths.events_dir,
+        TaskEvent(
+            event_id="evt-20260428T081000Z-000002",
+            ts="2026-04-28T08:10:00Z",
+            event="plan.approved",
+            task_id=task.id,
+            actor=ActorRef(actor_name="user", actor_type="user"),
+        ),
+    )
+    append_event(
+        paths.events_dir,
+        TaskEvent(
+            event_id="evt-20260428T082000Z-000003",
+            ts="2026-04-28T08:20:00Z",
+            event="validate.started",
+            task_id=task.id,
+            actor=ActorRef(actor_name="copilot", role="validator"),
+        ),
+    )
+
+
+@contextmanager
+def _running_server(
+    workspace_root: Path,
+    *,
+    host: str = "127.0.0.1",
+    port: int = 0,
+    task_ref: str | None = None,
+) -> DashboardServerHandle:
+    handle = launch_dashboard_server(
+        DashboardServerConfig(
+            workspace_root=workspace_root,
+            host=host,
+            port=port,
+            task_ref=task_ref,
+        )
+    )
+    thread = threading.Thread(target=handle.serve_forever, daemon=True)
+    thread.start()
+    time.sleep(0.05)
+    try:
+        yield handle
+    finally:
+        handle.close()
+        thread.join(timeout=1)
+
+
+def _request(handle: DashboardServerHandle, path: str, *, method: str = "GET"):
+    return Request(f"{handle.url.rstrip('/')}{path}", method=method)
+
+
+def _load_json(handle: DashboardServerHandle, path: str) -> dict[str, object]:
+    with urlopen(_request(handle, path), timeout=5) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def _load_error(
+    handle: DashboardServerHandle,
+    path: str,
+    *,
+    method: str = "GET",
+) -> tuple[int, dict[str, object]]:
+    try:
+        with urlopen(_request(handle, path, method=method), timeout=5):
+            raise AssertionError("Expected HTTP error response.")
+    except HTTPError as exc:
+        payload = json.loads(exc.read().decode("utf-8"))
+        return exc.code, payload
+
+
+def test_render_index_html_escapes_task_ref_and_refresh_interval() -> None:
+    html = render_index_html(
+        refresh_ms=750,
+        task_ref='task-0001</script><img src=x onerror="boom">',
+    )
+    assert "const refreshMs = 750;" in html
+    assert "\\u003c/script\\u003e\\u003cimg" in html
+    assert '</script><img src=x onerror="boom">' not in html
+
+
+def test_launch_dashboard_server_defaults_to_loopback_and_reports_bound_port(
+    tmp_path: Path,
+) -> None:
+    _build_workspace(tmp_path)
+    handle = launch_dashboard_server(
+        DashboardServerConfig(workspace_root=tmp_path, port=0)
+    )
+    try:
+        assert handle.host == "127.0.0.1"
+        assert handle.port > 0
+        assert handle.url.startswith("http://127.0.0.1:")
+    finally:
+        handle.close()
+
+
+def test_launch_dashboard_server_rejects_non_loopback_hosts(tmp_path: Path) -> None:
+    _build_workspace(tmp_path)
+    with pytest.raises(LaunchError, match="localhost"):
+        launch_dashboard_server(
+            DashboardServerConfig(workspace_root=tmp_path, host="0.0.0.0")
+        )
+
+
+def test_dashboard_api_routes_return_expected_payloads(tmp_path: Path) -> None:
+    _build_workspace(tmp_path)
+    with _running_server(tmp_path) as handle:
+        root = urlopen(_request(handle, "/"), timeout=5).read().decode("utf-8")
+        project_payload = _load_json(handle, "/api/project")
+        tasks_payload = _load_json(handle, "/api/tasks")
+        dash_payload = _load_json(handle, "/api/dashboard?task=active")
+        events_payload = _load_json(handle, "/api/events?task=active&limit=2")
+
+    assert "Taskledger dashboard" in root
+    assert project_payload["kind"] == "project"
+    assert tasks_payload["kind"] == "tasks"
+    assert tasks_payload["tasks"][0]["id"] == "task-0001"
+    assert dash_payload["kind"] == "dashboard"
+    assert dash_payload["task"]["id"] == "task-0001"
+    assert dash_payload["task"]["active_stage"] == "validation"
+    assert len(dash_payload["plans"]) == 2
+    assert dash_payload["questions"]["items"][0]["id"] == "q-0001"
+    assert dash_payload["validation"]["kind"] == "validation_status"
+    assert dash_payload["lock"]["stage"] == "validating"
+    assert dash_payload["revision"]
+    assert len(events_payload["items"]) == 2
+    assert events_payload["items"][-1]["event"] == "validate.started"
+
+
+def test_dashboard_api_returns_404_for_unknown_task(tmp_path: Path) -> None:
+    _build_workspace(tmp_path)
+    with _running_server(tmp_path) as handle:
+        status, payload = _load_error(handle, "/api/dashboard?task=missing-task")
+
+    assert status == 404
+    assert payload["ok"] is False
+    assert payload["error"]["type"] == "NotFound"
+
+
+def test_dashboard_rejects_non_get_requests(tmp_path: Path) -> None:
+    _build_workspace(tmp_path)
+    with _running_server(tmp_path) as handle:
+        status, payload = _load_error(handle, "/api/dashboard", method="POST")
+
+    assert status == 405
+    assert payload["ok"] is False
+    assert payload["error"]["type"] == "MethodNotAllowed"
+
+
+@pytest.mark.parametrize("fail_on", ["headers", "write"])
+def test_send_text_ignores_client_disconnects(fail_on: str) -> None:
+    class _Writer:
+        def write(self, data: bytes) -> None:
+            if fail_on == "write":
+                raise BrokenPipeError()
+
+    def _end_headers() -> None:
+        if fail_on == "headers":
+            raise BrokenPipeError()
+
+    handler = _DashboardRequestHandler.__new__(_DashboardRequestHandler)
+    handler.wfile = _Writer()
+    handler.send_response = lambda *args, **kwargs: None
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = _end_headers
+
+    handler._send_text(200, "ok", content_type="text/plain")

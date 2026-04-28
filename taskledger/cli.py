@@ -57,6 +57,10 @@ from taskledger.cli_task import register_task_v2_commands
 from taskledger.cli_validate import register_validate_v2_commands
 from taskledger.errors import LaunchError
 from taskledger.services.dashboard import dashboard, render_dashboard_text
+from taskledger.services.web_dashboard import (
+    DashboardServerConfig,
+    launch_dashboard_server,
+)
 
 app = typer.Typer(add_completion=False, help="Manage staged taskledger coding work.")
 task_app = typer.Typer(add_completion=False, help="Manage coding tasks.")
@@ -261,6 +265,49 @@ def view_command(
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
     human = render_dashboard_text(payload)
     emit_payload(ctx, payload, human=human)
+
+
+@app.command("serve")
+def serve_command(
+    ctx: typer.Context,
+    task_ref: TaskOption = None,
+    host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
+    port: Annotated[int, typer.Option("--port")] = 8765,
+    refresh_ms: Annotated[int, typer.Option("--refresh-ms")] = 1000,
+    open_browser: Annotated[bool, typer.Option("--open/--no-open")] = False,
+) -> None:
+    state = ctx.obj
+    assert isinstance(state, CLIState)
+    try:
+        handle = launch_dashboard_server(
+            DashboardServerConfig(
+                workspace_root=state.cwd,
+                host=host,
+                port=port,
+                task_ref=task_ref,
+                refresh_ms=refresh_ms,
+                open_browser=open_browser,
+            )
+        )
+    except LaunchError as exc:
+        emit_error(ctx, exc)
+        raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+    emit_payload(
+        ctx,
+        {
+            "kind": "serve_started",
+            "url": handle.url,
+            "host": handle.host,
+            "port": handle.port,
+        },
+        human=f"Serving taskledger dashboard at {handle.url}\nPress Ctrl-C to stop.",
+    )
+    try:
+        handle.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        handle.close()
 
 
 @doctor_app.callback()

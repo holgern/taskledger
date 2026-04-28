@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 from taskledger.cli import app
-from taskledger.command_inventory import COMMAND_METADATA, REPAIR, STABLE_FOR_AGENTS
+from taskledger.command_inventory import (
+    COMMAND_METADATA,
+    HUMAN_ORIENTED,
+    REPAIR,
+    STABLE_FOR_AGENTS,
+)
 
 
 def _registered_command_paths() -> set[str]:
@@ -22,6 +27,7 @@ def test_registered_commands_have_inventory_metadata() -> None:
 def test_inventory_marks_core_and_repair_commands() -> None:
     assert COMMAND_METADATA["task create"][0] == STABLE_FOR_AGENTS
     assert COMMAND_METADATA["plan approve"][0] == STABLE_FOR_AGENTS
+    assert COMMAND_METADATA["serve"][0] == HUMAN_ORIENTED
     assert COMMAND_METADATA["lock break"][0] == REPAIR
     assert COMMAND_METADATA["doctor"][0] == REPAIR
 

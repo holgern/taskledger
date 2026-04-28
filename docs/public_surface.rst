@@ -14,7 +14,10 @@ Supported CLI groups
 - ``intro``, ``file``, ``link``, ``require``, ``lock``, ``handoff``
 - ``doctor``, ``repair``, ``next-action``, ``can``, ``reindex``
 - ``init``, ``status``, ``export``, ``import``, ``snapshot``
-- ``context``, ``search``, ``grep``, ``symbols``, ``deps``
+- ``context``, ``view``, ``serve``, ``search``, ``grep``, ``symbols``, ``deps``
+
+``serve`` is a human-oriented, read-only localhost dashboard. Agents should
+keep using the CLI and JSON command surface for automation.
 
 Supported Python API modules
 ----------------------------

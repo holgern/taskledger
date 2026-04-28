@@ -10,9 +10,12 @@ task -> plan -> approval -> implement -> validate -> done
 
 - `task`, `plan`, `question`, `implement`, `validate`, `todo`
 - `intro`, `file`, `link`, `require`, `lock`, `handoff`
-- `context`, `actor`, `view`, `next-action`, `can`, `search`, `grep`, `symbols`, `deps`
+- `context`, `actor`, `view`, `serve`, `next-action`, `can`, `search`, `grep`, `symbols`, `deps`
 - `doctor`, `repair`, `reindex`
 - `init`, `status`, `export`, `import`, `snapshot`
+
+`serve` is a human-oriented, read-only localhost dashboard. Agents should keep
+using the CLI and JSON command surface for automation.
 
 ### question subcommands
 

@@ -4,6 +4,7 @@ from pathlib import Path
 
 from taskledger.domain.models import PlanRecord
 from taskledger.domain.policies import derive_active_stage
+from taskledger.services.validation import build_validation_gate_report
 from taskledger.storage.locks import lock_is_expired
 from taskledger.storage.task_store import (
     list_changes,
@@ -69,10 +70,12 @@ def dashboard(
             "owner": task.owner,
         },
         "plan": _plan_summary(plans),
+        "plans": [plan.to_dict() for plan in plans],
         "next_action": action_info,
         "questions": {
             "total": len(questions),
             "open": sum(1 for q in questions if q.status == "open"),
+            "items": [question.to_dict() for question in questions],
         },
         "todos": {
             "total": todos_total,
@@ -85,6 +88,8 @@ def dashboard(
         },
         "runs": [r.to_dict() for r in runs],
         "changes": [c.to_dict() for c in changes],
+        "validation": build_validation_gate_report(workspace_root, task),
+        "events": _recent_task_events(workspace_root, task.id),
         "lock": lock.to_dict() if lock is not None else None,
     }
 
@@ -265,6 +270,24 @@ def _plan_summary(plans: list[PlanRecord]) -> dict[str, object] | None:
         "criteria": [ac.to_dict() for ac in latest.criteria],
         "body": latest.body,
     }
+
+
+def _recent_task_events(
+    workspace_root: Path,
+    task_id: str,
+    *,
+    limit: int = 50,
+) -> list[dict[str, object]]:
+    from taskledger.services.tasks import list_events
+
+    events = [
+        event
+        for event in list_events(workspace_root)
+        if event.get("task_id") == task_id
+    ]
+    if limit <= 0:
+        return []
+    return events[-limit:]
 
 
 def _ts(value: object) -> str:
