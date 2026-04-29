@@ -49,6 +49,11 @@ def test_persisted_models_round_trip_with_schema_metadata() -> None:
             introduction_ref="intro-0001",
             latest_plan_version=1,
             accepted_plan_version=1,
+            parent_task_id="task-0000",
+            parent_relation="follow_up",
+            closed_at="2026-04-24T09:30:00+00:00",
+            closed_by=ActorRef(actor_type="user", actor_name="local-user"),
+            closure_note="Closed after validation.",
             file_links=(
                 FileLink(path="taskledger/storage/task_store.py", kind="code"),
             ),

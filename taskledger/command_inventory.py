@@ -26,6 +26,7 @@ COMMAND_METADATA: dict[str, tuple[str, str]] = {
     "task active": (STABLE_FOR_AGENTS, "safe_read_only"),
     "task activate": (STABLE_FOR_AGENTS, "ledger_mutation"),
     "task deactivate": (STABLE_FOR_AGENTS, "ledger_mutation"),
+    "task follow-up": (STABLE_FOR_AGENTS, "ledger_mutation"),
     "task show": (STABLE_FOR_AGENTS, "safe_read_only"),
     "task edit": (STABLE_FOR_AGENTS, "ledger_mutation"),
     "task cancel": (STABLE_FOR_AGENTS, "ledger_mutation"),

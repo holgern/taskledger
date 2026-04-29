@@ -4,7 +4,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-from taskledger.domain.models import CodeChangeRecord, TaskRunRecord, TaskTodo
+from taskledger.domain.models import (
+    CodeChangeRecord,
+    TaskRecord,
+    TaskRunRecord,
+    TaskTodo,
+)
 from taskledger.domain.policies import derive_active_stage
 from taskledger.domain.states import (
     ContextFor,
@@ -22,6 +27,7 @@ from taskledger.storage.task_store import (
     list_plans,
     list_questions,
     list_runs,
+    list_tasks,
     load_links,
     load_requirements,
     load_todos,
@@ -215,6 +221,7 @@ def build_handoff_payload(
         from taskledger.services.validation import build_validation_gate_report
 
         validation_status_report = build_validation_gate_report(workspace_root, task)
+    relationships = build_task_relationship_payload(workspace_root, task)
 
     return {
         "kind": "task_handoff",
@@ -250,6 +257,8 @@ def build_handoff_payload(
         "focused_changes": focus["focused_changes"],
         "validation_history": validation_history,
         "validation_status": validation_status_report,
+        "parent_task": relationships["parent_task"],
+        "follow_up_tasks": relationships["follow_up_tasks"],
         "review_contract": (
             {
                 "role": request.context_for,
@@ -278,6 +287,11 @@ def render_markdown_handoff(payload: dict[str, object]) -> str:
     _append_worker_role(lines, payload)
     _append_worker_contract(lines, payload)
     _append_task_section(lines, task)
+    _append_relationships(
+        lines,
+        payload.get("parent_task"),
+        payload.get("follow_up_tasks"),
+    )
     _append_description(lines, task)
     _append_intro(lines, payload.get("introduction"))
     _append_dependencies(lines, payload["dependencies"])
@@ -403,6 +417,38 @@ def _append_task_section(lines: list[str], task: dict[str, object]) -> None:
 
 def _append_description(lines: list[str], task: dict[str, object]) -> None:
     lines.extend(["## Description", "", str(task.get("body") or ""), ""])
+
+
+def _append_relationships(
+    lines: list[str],
+    parent_task: object,
+    follow_up_tasks: object,
+) -> None:
+    if isinstance(parent_task, dict):
+        lines.extend(
+            [
+                "## Parent Task",
+                "",
+                f"- ID: {parent_task['task_id']}",
+                f"- Title: {parent_task['title']}",
+                f"- Status: {parent_task['status_stage']}",
+                f"- Accepted plan: {parent_task.get('accepted_plan') or 'none'}",
+                "- Latest validation: " + _latest_validation_label(parent_task),
+                "",
+            ]
+        )
+    if not isinstance(follow_up_tasks, list):
+        return
+    lines.extend(["## Follow-up Tasks", ""])
+    if follow_up_tasks:
+        for item in follow_up_tasks:
+            if isinstance(item, dict):
+                lines.append(
+                    f"- {item['task_id']} {item['title']} — {item['status_stage']}"
+                )
+    else:
+        lines.append("- none")
+    lines.append("")
 
 
 def _append_intro(lines: list[str], intro: object) -> None:
@@ -927,6 +973,60 @@ def _worker_contract(context_for: str) -> tuple[list[str], list[str]]:
     )
 
 
+def build_task_relationship_payload(
+    workspace_root: Path,
+    task: TaskRecord,
+) -> dict[str, object]:
+    parent_task = None
+    if task.parent_task_id is not None:
+        parent = resolve_task(workspace_root, task.parent_task_id)
+        parent_task = _relationship_task_summary(workspace_root, parent)
+    follow_up_tasks = [
+        _relationship_task_summary(workspace_root, child)
+        for child in list_tasks(workspace_root)
+        if child.parent_task_id == task.id and child.parent_relation == "follow_up"
+    ]
+    return {
+        "parent_task": parent_task,
+        "follow_up_tasks": follow_up_tasks,
+    }
+
+
+def _relationship_task_summary(
+    workspace_root: Path,
+    task: TaskRecord,
+) -> dict[str, object]:
+    runs = list_runs(workspace_root, task.id)
+    lock = read_lock(task_lock_path(resolve_v2_paths(workspace_root), task.id))
+    active_stage = (
+        None
+        if lock is None or lock_is_expired(lock)
+        else derive_active_stage(lock, runs)
+    )
+    latest_validation = _latest_run(runs, "validation")
+    return {
+        "task_id": task.id,
+        "slug": task.slug,
+        "title": task.title,
+        "status_stage": task.status_stage,
+        "active_stage": active_stage,
+        "accepted_plan": (
+            f"plan-v{task.accepted_plan_version}"
+            if task.accepted_plan_version is not None
+            else None
+        ),
+        "accepted_plan_version": task.accepted_plan_version,
+        "latest_validation_run": (
+            latest_validation.run_id if latest_validation is not None else None
+        ),
+        "latest_validation_result": (
+            latest_validation.result or latest_validation.status
+            if latest_validation is not None
+            else None
+        ),
+    }
+
+
 def _resolve_focus(
     workspace_root: Path,
     task_id: str,
@@ -988,6 +1088,14 @@ def _latest_run(runs: list[TaskRunRecord], run_type: str) -> TaskRunRecord | Non
 
 def _run_to_dict(run: TaskRunRecord | None) -> dict[str, object] | None:
     return run.to_dict() if run is not None else None
+
+
+def _latest_validation_label(task_summary: dict[str, object]) -> str:
+    run_id = task_summary.get("latest_validation_run")
+    result = task_summary.get("latest_validation_result")
+    if isinstance(run_id, str) and isinstance(result, str):
+        return f"{run_id} {result}"
+    return "none"
 
 
 def _default_context_for(mode: HandoffMode) -> ContextFor:

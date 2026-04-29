@@ -47,6 +47,7 @@ Task API
 - ``edit_task``
 - ``cancel_task``
 - ``close_task``
+- ``create_follow_up_task``
 - ``add_requirement``
 - ``remove_requirement``
 - ``waive_requirement``

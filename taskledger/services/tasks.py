@@ -161,6 +161,99 @@ def create_task(
     return task
 
 
+def create_follow_up_task(
+    workspace_root: Path,
+    parent_ref: str,
+    *,
+    title: str,
+    description: str | None = None,
+    slug: str | None = None,
+    labels: tuple[str, ...] = (),
+    activate: bool = False,
+    copy_files: bool = False,
+    copy_links: bool = False,
+    reason: str | None = None,
+) -> dict[str, object]:
+    paths = ensure_v2_layout(workspace_root)
+    parent = _task_with_sidecars(
+        workspace_root,
+        resolve_task(workspace_root, parent_ref),
+    )
+    if parent.status_stage != "done":
+        raise _cli_error(
+            "Follow-up tasks require a done parent task.",
+            EXIT_CODE_INVALID_TRANSITION,
+        )
+    tasks = list_tasks(workspace_root)
+    task_slug = _unique_slug(tasks, slug or title)
+    body = _follow_up_description(parent, description=description, reason=reason)
+    copied_links = _copy_follow_up_links(
+        parent.file_links,
+        copy_files=copy_files,
+        copy_links=copy_links,
+    )
+    child = TaskRecord(
+        id=next_project_id("task", [item.id for item in tasks]),
+        slug=task_slug,
+        title=title,
+        body=body,
+        description_summary=_summary_line(body),
+        labels=tuple(dict.fromkeys((*labels, "follow-up"))),
+        file_links=copied_links,
+        parent_task_id=parent.id,
+        parent_relation="follow_up",
+    )
+    save_task(workspace_root, child)
+    if copied_links:
+        save_links(workspace_root, LinkCollection(task_id=child.id, links=copied_links))
+    _append_event(
+        paths.project_dir,
+        parent.id,
+        "task.follow_up.created",
+        {
+            "child_task_id": child.id,
+            "child_slug": child.slug,
+            "reason": reason,
+        },
+    )
+    _append_event(
+        paths.project_dir,
+        child.id,
+        "task.created",
+        {
+            "slug": child.slug,
+            "title": child.title,
+            "parent_task_id": parent.id,
+            "parent_relation": "follow_up",
+        },
+    )
+    rebuild_v2_indexes(paths)
+    if activate:
+        activate_task(workspace_root, child.id, reason=reason, actor_type="agent")
+    return {
+        "kind": "task_follow_up_created",
+        "task_id": child.id,
+        "slug": child.slug,
+        "parent_task_id": parent.id,
+        "parent_relation": "follow_up",
+        "activated": activate,
+        "next_command": (
+            "taskledger plan start"
+            if activate
+            else f'taskledger task activate {child.id} --reason "Start follow-up delta"'
+        ),
+    }
+
+
+def list_follow_up_tasks(workspace_root: Path, parent_ref: str) -> list[TaskRecord]:
+    parent = resolve_task(workspace_root, parent_ref)
+    return [
+        task
+        for task in list_tasks(workspace_root)
+        if task.parent_task_id == parent.id and task.parent_relation == "follow_up"
+    ]
+
+
 def list_task_summaries(workspace_root: Path) -> list[dict[str, object]]:
     tasks = list_tasks(workspace_root)
     active_state = load_active_task_state(workspace_root)
@@ -306,12 +399,15 @@ def clear_active_task(
 
 
 def show_task(workspace_root: Path, ref: str) -> dict[str, object]:
+    from taskledger.services.handoff import build_task_relationship_payload
+
     task = _task_with_sidecars(workspace_root, resolve_task(workspace_root, ref))
     lock = read_lock(task_lock_path(resolve_v2_paths(workspace_root), task.id))
     plans = list_plans(workspace_root, task.id)
     questions = list_questions(workspace_root, task.id)
     runs = list_runs(workspace_root, task.id)
     changes = list_changes(workspace_root, task.id)
+    relationships = build_task_relationship_payload(workspace_root, task)
     active_stage = _task_active_stage(
         workspace_root,
         task,
@@ -326,6 +422,8 @@ def show_task(workspace_root: Path, ref: str) -> dict[str, object]:
         "questions": [question.to_dict() for question in questions],
         "runs": [run.to_dict() for run in runs],
         "changes": [change.to_dict() for change in changes],
+        "parent_task": relationships["parent_task"],
+        "follow_up_tasks": relationships["follow_up_tasks"],
     }
 
 
@@ -414,14 +512,37 @@ def cancel_task(
     )
 
 
-def close_task(workspace_root: Path, ref: str) -> dict[str, object]:
+def close_task(
+    workspace_root: Path,
+    ref: str,
+    *,
+    note: str | None = None,
+) -> dict[str, object]:
     task = resolve_task(workspace_root, ref)
     if task.status_stage != "done":
         raise _cli_error(
             "Only done tasks can be closed via task close.",
             EXIT_CODE_INVALID_TRANSITION,
         )
-    return _lifecycle_payload("task close", task, warnings=[], changed=False)
+    if task.closed_at is not None:
+        return _lifecycle_payload("task close", task, warnings=[], changed=False)
+    closed_at = utc_now_iso()
+    updated = replace(
+        task,
+        closed_at=closed_at,
+        closed_by=_default_actor(),
+        closure_note=note,
+        updated_at=closed_at,
+    )
+    save_task(workspace_root, updated)
+    _append_event(
+        resolve_v2_paths(workspace_root).project_dir,
+        updated.id,
+        "task.closed",
+        {"closed_at": closed_at, "note": note},
+    )
+    rebuild_v2_indexes(resolve_v2_paths(workspace_root))
+    return _lifecycle_payload("task close", updated, warnings=[], changed=True)
 
 
 def create_introduction(
@@ -3076,6 +3197,50 @@ def _summary_line(text: str | None) -> str | None:
         return None
     stripped = " ".join(text.split())
     return stripped[:117] + "..." if len(stripped) > 120 else stripped
+
+
+def _follow_up_description(
+    parent: TaskRecord,
+    *,
+    description: str | None,
+    reason: str | None,
+) -> str:
+    parts: list[str] = []
+    if description is not None and description.strip():
+        parts.append(description.strip())
+    parts.append(f"Follow-up of {parent.id} ({parent.slug}): {parent.title}.")
+    if reason is not None and reason.strip():
+        parts.append(f"Reason: {reason.strip()}")
+    return "\n\n".join(parts)
+
+
+def _copy_follow_up_links(
+    file_links: Sequence[FileLink],
+    *,
+    copy_files: bool,
+    copy_links: bool,
+) -> tuple[FileLink, ...]:
+    copied: list[FileLink] = []
+    for item in file_links:
+        is_external = _is_external_task_link(item)
+        if is_external and not copy_links:
+            continue
+        if not is_external and not copy_files:
+            continue
+        copied.append(
+            FileLink(
+                path=item.path,
+                kind=item.kind,
+                label=item.label,
+                required_for_validation=item.required_for_validation,
+                target_type=item.target_type,
+            )
+        )
+    return tuple(copied)
+
+
+def _is_external_task_link(link: FileLink) -> bool:
+    return link.kind == "other" or "://" in link.path or link.path.startswith("mailto:")
 
 
 def _git_change_state(workspace_root: Path) -> dict[str, str]:

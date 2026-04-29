@@ -1054,3 +1054,501 @@ def test_next_action_with_expired_lock_returns_repair_hint(tmp_path: Path) -> No
         'taskledger lock break --task task-0001 --reason "..."'
     )
     assert any(b.get("kind") == "lock" for b in data["blocking"])
+
+
+def _prepare_done_task(
+    tmp_path: Path,
+    *,
+    slug: str = "parent-task",
+    title: str = "Parent task",
+    include_links: bool = False,
+) -> None:
+    _init(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "create",
+                title,
+                "--slug",
+                slug,
+                "--description",
+                f"{title} description.",
+            ],
+        ).exit_code
+        == 0
+    )
+    if include_links:
+        assert (
+            runner.invoke(
+                app,
+                [
+                    "--cwd",
+                    str(tmp_path),
+                    "file",
+                    "add",
+                    "--task",
+                    slug,
+                    "--path",
+                    "README.md",
+                    "--kind",
+                    "doc",
+                ],
+            ).exit_code
+            == 0
+        )
+        assert (
+            runner.invoke(
+                app,
+                [
+                    "--cwd",
+                    str(tmp_path),
+                    "link",
+                    "add",
+                    "--task",
+                    slug,
+                    "--url",
+                    "https://example.com/spec",
+                    "--label",
+                    "spec",
+                ],
+            ).exit_code
+            == 0
+        )
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "plan", "start", "--task", slug],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "plan",
+                "propose",
+                "--task",
+                slug,
+                "--criterion",
+                "The task completes successfully.",
+                "--text",
+                "## Goal\n\nComplete the task.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "plan",
+                "approve",
+                "--task",
+                slug,
+                "--version",
+                "1",
+                "--actor",
+                "user",
+                "--note",
+                "Approved.",
+                "--allow-empty-todos",
+                "--allow-lint-errors",
+                "--reason",
+                "test",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "implement", "start", "--task", slug],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "implement",
+                "finish",
+                "--task",
+                slug,
+                "--summary",
+                "Implemented.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "validate", "start", "--task", slug],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "validate",
+                "check",
+                "--task",
+                slug,
+                "--criterion",
+                "ac-0001",
+                "--status",
+                "pass",
+                "--evidence",
+                "pytest -q",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "validate",
+                "finish",
+                "--task",
+                slug,
+                "--result",
+                "passed",
+                "--summary",
+                "Validated.",
+            ],
+        ).exit_code
+        == 0
+    )
+
+
+def test_task_follow_up_creates_linked_child_and_copies_lightweight_links(
+    tmp_path: Path,
+) -> None:
+    _prepare_done_task(tmp_path, include_links=True)
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "task",
+            "follow-up",
+            "parent-task",
+            "Rename label",
+            "--description",
+            "Change button copy.",
+            "--copy-files",
+            "--copy-links",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    payload = _json(result)["result"]
+    assert set(payload) == {
+        "kind",
+        "task_id",
+        "slug",
+        "parent_task_id",
+        "parent_relation",
+        "activated",
+        "next_command",
+    }
+    assert payload["kind"] == "task_follow_up_created"
+    assert payload["task_id"] == "task-0002"
+    assert payload["parent_task_id"] == "task-0001"
+    assert payload["parent_relation"] == "follow_up"
+    assert payload["activated"] is False
+
+    child_show = _json(
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "--json",
+                "task",
+                "show",
+                "--task",
+                "task-0002",
+            ],
+        )
+    )["result"]
+    child = child_show["task"]
+    assert child["status_stage"] == "draft"
+    assert child["parent_task_id"] == "task-0001"
+    assert child["parent_relation"] == "follow_up"
+    assert child["todos"] == []
+    assert child_show["plans"] == []
+    assert child_show["runs"] == []
+    assert child_show["changes"] == []
+    assert {item["path"] for item in child["file_links"]} == {
+        "README.md",
+        "https://example.com/spec",
+    }
+
+    parent_show = _json(
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "--json",
+                "task",
+                "show",
+                "--task",
+                "parent-task",
+            ],
+        )
+    )["result"]
+    assert parent_show["follow_up_tasks"][0]["task_id"] == "task-0002"
+
+
+def test_task_follow_up_activate_sets_child_active_and_next_command(
+    tmp_path: Path,
+) -> None:
+    _prepare_done_task(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "task",
+            "follow-up",
+            "parent-task",
+            "Rename label",
+            "--activate",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    payload = _json(result)["result"]
+    assert payload["activated"] is True
+    assert payload["next_command"] == "taskledger plan start"
+
+    active = _json(
+        runner.invoke(app, ["--cwd", str(tmp_path), "--json", "task", "active"])
+    )["result"]
+    assert active["task_id"] == "task-0002"
+
+
+def test_task_follow_up_rejects_non_done_parent_without_mutating_state(
+    tmp_path: Path,
+) -> None:
+    _init(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "create",
+                "Parent task",
+                "--slug",
+                "parent-task",
+                "--description",
+                "Still draft.",
+            ],
+        ).exit_code
+        == 0
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "task",
+            "follow-up",
+            "parent-task",
+            "Rename label",
+        ],
+    )
+    assert result.exit_code != 0
+    payload = _json(result)
+    assert "done parent task" in payload["error"]["message"]
+
+    tasks = _json(
+        runner.invoke(app, ["--cwd", str(tmp_path), "--json", "task", "list"])
+    )["result"]["tasks"]
+    assert len(tasks) == 1
+
+
+def test_task_close_persists_closure_metadata_and_is_idempotent(tmp_path: Path) -> None:
+    _prepare_done_task(tmp_path, slug="closable", title="Closable task")
+
+    first = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "task",
+            "close",
+            "--task",
+            "closable",
+            "--note",
+            "Archived after validation.",
+        ],
+    )
+    assert first.exit_code == 0, first.stdout
+    first_payload = _json(first)["result"]
+    assert first_payload["changed"] is True
+
+    show = _json(
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "--json",
+                "task",
+                "show",
+                "--task",
+                "closable",
+            ],
+        )
+    )["result"]["task"]
+    assert show["closed_at"]
+    assert show["closed_by"]["actor_type"] == "agent"
+    assert show["closure_note"] == "Archived after validation."
+
+    second = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "task",
+            "close",
+            "--task",
+            "closable",
+        ],
+    )
+    assert second.exit_code == 0, second.stdout
+    assert _json(second)["result"]["changed"] is False
+
+
+def test_follow_up_relationships_render_in_show_dossier_and_context(
+    tmp_path: Path,
+) -> None:
+    _prepare_done_task(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "follow-up",
+                "parent-task",
+                "Rename label",
+            ],
+        ).exit_code
+        == 0
+    )
+
+    child_show = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "task", "show", "--task", "task-0002"],
+    )
+    assert child_show.exit_code == 0
+    assert "follow-up of: task-0001 Parent task" in child_show.stdout
+
+    parent_show = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "task", "show", "--task", "parent-task"],
+    )
+    assert parent_show.exit_code == 0
+    assert "follow-ups: task-0002 Rename label" in parent_show.stdout
+
+    dossier = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "dossier",
+            "--task",
+            "parent-task",
+            "--format",
+            "markdown",
+        ],
+    )
+    assert dossier.exit_code == 0
+    assert "## Follow-up Tasks" in dossier.stdout
+    assert "task-0002 Rename label — draft" in dossier.stdout
+
+    context = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "context",
+            "--task",
+            "task-0002",
+            "--for",
+            "planning",
+            "--format",
+            "markdown",
+        ],
+    )
+    assert context.exit_code == 0
+    assert "## Parent Task" in context.stdout
+    assert "- ID: task-0001" in context.stdout
+    assert "- Accepted plan: plan-v1" in context.stdout
+    assert "- Latest validation: run-0003 passed" in context.stdout
+
+
+def test_done_parent_next_action_stays_none_after_follow_up_creation(
+    tmp_path: Path,
+) -> None:
+    _prepare_done_task(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "follow-up",
+                "parent-task",
+                "Rename label",
+            ],
+        ).exit_code
+        == 0
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "next-action",
+            "--task",
+            "parent-task",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    payload = _json(result)["result"]
+    assert payload["action"] == "none"
+    assert payload["reason"] == "The task is complete."

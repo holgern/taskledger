@@ -35,6 +35,25 @@ Task-first workflow
    taskledger plan lint --version 1
    taskledger plan accept --version 1 --note "Ready."
 
+Post-completion follow-up deltas
+--------------------------------
+
+When a task is already ``done`` and the user requests a small later change, do
+not reopen the completed task. Create a follow-up task linked to the completed
+parent and run the normal lifecycle on that child:
+
+.. code-block:: bash
+
+   taskledger task follow-up rewrite-v2 "Rename submit label" --description "Small post-completion delta." --activate
+   taskledger plan start
+   taskledger plan upsert --file ./plan.md
+   taskledger plan accept --version 1 --note "Ready."
+   taskledger implement start
+   taskledger validate start
+
+``task follow-up`` keeps ``done`` terminal on the parent task while preserving a
+traceable child record for the new delta.
+
 Fresh-context entrypoint
 ------------------------
 

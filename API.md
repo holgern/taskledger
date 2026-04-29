@@ -67,6 +67,7 @@ from taskledger.errors import (
 - `edit_task`
 - `cancel_task`
 - `close_task`
+- `create_follow_up_task`
 - `add_requirement`
 - `remove_requirement`
 - `waive_requirement`
@@ -243,6 +244,9 @@ structured `error` object on failure.
 Workflow additions:
 
 - `task create` creates a task. Use `task activate TASK_REF` to make it active.
+- `task follow-up PARENT_REF TITLE` creates a new draft child task linked to a
+  completed parent. Use it for small post-completion deltas instead of
+  reopening the done task.
 - `plan draft`, `plan upsert --from-answers`, and
   `plan materialize-todos` support the question-answer-regenerate loop.
 - `question status` reports required open questions and whether regeneration is

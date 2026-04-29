@@ -869,12 +869,17 @@ class TaskRecord:
     latest_validation_run: str | None = None
     code_change_log_refs: tuple[str, ...] = ()
     notes: tuple[str, ...] = ()
+    parent_task_id: str | None = None
+    parent_relation: str | None = None
+    closed_at: str | None = None
+    closed_by: ActorRef | None = None
+    closure_note: str | None = None
     file_version: str = TASKLEDGER_V2_FILE_VERSION
     schema_version: int = TASKLEDGER_SCHEMA_VERSION
     object_type: str = "task"
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "schema_version": self.schema_version,
             "object_type": self.object_type,
             "file_version": self.file_version,
@@ -905,6 +910,17 @@ class TaskRecord:
             "notes": list(self.notes),
             "body": self.body,
         }
+        if self.parent_task_id is not None:
+            payload["parent_task_id"] = self.parent_task_id
+        if self.parent_relation is not None:
+            payload["parent_relation"] = self.parent_relation
+        if self.closed_at is not None:
+            payload["closed_at"] = self.closed_at
+        if self.closed_by is not None:
+            payload["closed_by"] = self.closed_by.to_dict()
+        if self.closure_note is not None:
+            payload["closure_note"] = self.closure_note
+        return payload
 
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> TaskRecord:
@@ -944,6 +960,13 @@ class TaskRecord:
             latest_validation_run=_optional_string(data.get("latest_validation_run")),
             code_change_log_refs=_string_tuple(data.get("code_change_log_refs")),
             notes=_string_tuple(data.get("notes")),
+            parent_task_id=_optional_string(data.get("parent_task_id")),
+            parent_relation=_optional_parent_relation(data.get("parent_relation")),
+            closed_at=_optional_string(data.get("closed_at")),
+            closed_by=ActorRef.from_dict(data.get("closed_by"))
+            if data.get("closed_by") is not None
+            else None,
+            closure_note=_optional_string(data.get("closure_note")),
             file_version=_optional_string(data.get("file_version"))
             or TASKLEDGER_V2_FILE_VERSION,
             schema_version=_int_value(data, "schema_version"),
@@ -1564,6 +1587,15 @@ def _optional_int(value: object) -> int | None:
 
 def _optional_string(value: object) -> str | None:
     return value if isinstance(value, str) else None
+
+
+def _optional_parent_relation(value: object) -> str | None:
+    relation = _optional_string(value)
+    if relation is None:
+        return None
+    if relation != "follow_up":
+        raise LaunchError(f"Unsupported task parent_relation: {relation}")
+    return relation
 
 
 def _optional_list_string(value: object) -> list[str] | None:

@@ -100,6 +100,16 @@ The plan file should use version ids like `plan-v1`, `plan-v2` in references. Do
 
 **Critical**: `implement finish` will block until all non-skipped todos are done. Use `todo status` to verify readiness.
 
+## Post-completion follow-up deltas
+
+When a task is done and the user requests a small later change, do not reopen or mutate the completed task. Create a follow-up task linked to the completed parent:
+
+```bash
+taskledger task follow-up PARENT_REF "Short delta title" --description "..." --activate
+```
+
+Then run the normal compact lifecycle on the follow-up task. Keep the plan small, but preserve approval, implementation evidence, and validation evidence.
+
 ## Compact implementation loop
 
 For routine same-session implementation, prefer the next action and the single
@@ -209,6 +219,7 @@ taskledger actor clear
 taskledger harness set --name pi --kind agent_harness
 taskledger harness clear
 taskledger task create "Parser fix" --slug parser-fix
+taskledger task follow-up parser-fix "Rename parser copy" --description "Small post-completion delta." --activate
 taskledger question add --text "Should legacy storage be removed?" --required-for-plan
 taskledger question answer-many --text "q-0001: No."
 taskledger question status

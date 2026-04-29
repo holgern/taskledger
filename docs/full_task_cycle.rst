@@ -279,13 +279,30 @@ After validation passes, close the task and inspect final state:
    taskledger task dossier --format markdown
    taskledger handoff create --mode validation --summary "Parser fix is implemented and validated."
    taskledger handoff show HANDOFF_ID --format text
-   taskledger task close --summary "Fixed parser delimiter handling and validated parser regressions."
+   taskledger task close --note "Fixed parser delimiter handling and validated parser regressions."
    taskledger task show
    taskledger status --full
    taskledger doctor
 
-``task close`` marks the task done. The dossier and handoff commands preserve a
-fresh-context summary for future agents or reviewers.
+``task close`` records durable closure metadata on a task that is already
+``done``. The dossier and handoff commands preserve a fresh-context summary for
+future agents or reviewers.
+
+Post-completion follow-up deltas
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When the original task is complete and a later small delta is needed, keep the
+parent task closed and create a new follow-up child task:
+
+.. code-block:: bash
+
+   taskledger task follow-up parser-fix "Rename parser error copy" --description "Small post-completion delta." --activate
+   taskledger plan start
+   taskledger plan upsert --file ./plan.md
+   taskledger plan accept --version 1 --note "Approved tiny follow-up delta."
+
+Use the normal lifecycle on the follow-up task. Do not reopen the completed
+parent task for ordinary deltas.
 
 11. Recovery And Maintenance Commands
 -------------------------------------

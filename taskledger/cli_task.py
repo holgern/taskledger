@@ -9,6 +9,7 @@ from taskledger.api.tasks import (
     activate_task,
     cancel_task,
     close_task,
+    create_follow_up_task,
     create_task,
     deactivate_task,
     edit_task,
@@ -60,6 +61,70 @@ def register_task_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             task.to_dict(),
             human=f"created task {task.slug} ({task.id})",
         )
+
+    @app.command("follow-up")
+    def follow_up_command(
+        ctx: typer.Context,
+        parent_ref: Annotated[
+            str,
+            typer.Argument(..., help="Completed parent task ref."),
+        ],
+        title: Annotated[
+            str,
+            typer.Argument(..., help="Follow-up task title."),
+        ],
+        description: Annotated[
+            str | None,
+            typer.Option("--description", help="Follow-up task description."),
+        ] = None,
+        from_file: Annotated[
+            Path | None,
+            typer.Option("--from-file", help="Read description from a file."),
+        ] = None,
+        slug: Annotated[str | None, typer.Option("--slug")] = None,
+        activate: Annotated[bool, typer.Option("--activate/--no-activate")] = False,
+        copy_files: Annotated[
+            bool, typer.Option("--copy-files/--no-copy-files")
+        ] = False,
+        copy_links: Annotated[
+            bool, typer.Option("--copy-links/--no-copy-links")
+        ] = False,
+        label: Annotated[list[str] | None, typer.Option("--label")] = None,
+        reason: Annotated[str | None, typer.Option("--reason")] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = create_follow_up_task(
+                state.cwd,
+                parent_ref,
+                title=title,
+                description=(
+                    read_text_input(text=description, from_file=from_file)
+                    if description is not None or from_file is not None
+                    else None
+                ),
+                slug=slug,
+                labels=tuple(label or ()),
+                activate=activate,
+                copy_files=copy_files,
+                copy_links=copy_links,
+                reason=reason,
+            )
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        task_id = payload["task_id"]
+        parent_task_id = payload["parent_task_id"]
+        next_command = payload["next_command"]
+        assert isinstance(task_id, str)
+        assert isinstance(parent_task_id, str)
+        assert isinstance(next_command, str)
+        lead = (
+            f"created and activated follow-up task {task_id} for {parent_task_id}"
+            if payload["activated"]
+            else f"created follow-up task {task_id} for {parent_task_id}"
+        )
+        emit_payload(ctx, payload, human=f"{lead}\nnext: {next_command}")
 
     @app.command("list")
     def list_command(ctx: typer.Context) -> None:
@@ -137,15 +202,30 @@ def register_task_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         task = payload["task"]
         assert isinstance(task, dict)
+        human_lines = [
+            f"{task['title']} ({task['id']})",
+            f"status: {task['status_stage']}",
+            f"active_stage: {task.get('active_stage') or 'none'}",
+            f"slug: {task['slug']}",
+        ]
+        parent_task = payload.get("parent_task")
+        if isinstance(parent_task, dict):
+            human_lines.append(
+                f"follow-up of: {parent_task['task_id']} {parent_task['title']}"
+            )
+        follow_up_tasks = payload.get("follow_up_tasks")
+        if isinstance(follow_up_tasks, list) and follow_up_tasks:
+            rendered = ", ".join(
+                f"{item['task_id']} {item['title']}"
+                for item in follow_up_tasks
+                if isinstance(item, dict)
+            )
+            if rendered:
+                human_lines.append(f"follow-ups: {rendered}")
         emit_payload(
             ctx,
             payload,
-            human=(
-                f"{task['title']} ({task['id']})\n"
-                f"status: {task['status_stage']}\n"
-                f"active_stage: {task.get('active_stage') or 'none'}\n"
-                f"slug: {task['slug']}"
-            ),
+            human="\n".join(human_lines),
         )
 
     @app.command("edit")
@@ -206,11 +286,12 @@ def register_task_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     def close_command(
         ctx: typer.Context,
         task_ref: TaskOption = None,
+        note: Annotated[str | None, typer.Option("--note")] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
             task = resolve_cli_task(state.cwd, task_ref)
-            payload = close_task(state.cwd, task.id)
+            payload = close_task(state.cwd, task.id, note=note)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc

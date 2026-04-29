@@ -41,6 +41,7 @@ Positional refs are reserved for the direct resource being changed or shown:
 .. code-block:: bash
 
    taskledger task activate TASK_REF
+   taskledger task follow-up PARENT_REF TITLE [options]
    taskledger todo done TODO_ID --task TASK_REF --evidence "pytest -q"
    taskledger question answer QUESTION_ID --task TASK_REF --text "Yes."
    taskledger handoff show HANDOFF_ID --task TASK_REF
@@ -85,6 +86,14 @@ avoid inventing question answers, and never mark todos done without evidence.
 
 When a task is in ``failed_validation``, ``next-action`` should direct agents
 back to implementation with ``taskledger implement restart --summary SUMMARY``.
+
+Post-completion follow-up deltas
+--------------------------------
+
+``taskledger task follow-up PARENT_REF TITLE`` is the supported path for small
+post-completion changes. It requires a ``done`` parent task, creates a new draft
+child task with ``parent_task_id`` and ``parent_relation=follow_up``, and keeps
+the parent task terminal.
 
 Human monitoring UI
 -------------------

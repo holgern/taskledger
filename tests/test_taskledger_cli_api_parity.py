@@ -81,7 +81,16 @@ def test_task_first_subcommands_are_registered(tmp_path: Path) -> None:
     runner.invoke(app, ["--cwd", str(tmp_path), "init"])
 
     expected = {
-        "task": ("create", "list", "show", "edit", "cancel", "close", "dossier"),
+        "task": (
+            "create",
+            "list",
+            "show",
+            "edit",
+            "cancel",
+            "close",
+            "follow-up",
+            "dossier",
+        ),
         "plan": (
             "start",
             "propose",

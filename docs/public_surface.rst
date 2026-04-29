@@ -22,6 +22,9 @@ keep using the CLI and JSON command surface for automation.
 The supported implementation lifecycle includes ``implement restart --summary
 "..."`` when a task is in ``failed_validation``.
 
+Small post-completion deltas use ``task follow-up PARENT_REF TITLE`` to create a
+new child task instead of reopening a ``done`` task.
+
 question subcommands
 --------------------
 
