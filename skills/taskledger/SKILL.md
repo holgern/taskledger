@@ -219,8 +219,10 @@ To receive work:
 ## Failure handling
 
 - If a lock is stale, inspect it first, then run `taskledger lock break --reason "..."`.
+- If breaking an implementation lock leaves a running implementation run behind, use `taskledger implement resume --reason "..."` instead of `implement start`.
 - If validation fails, record the failure and return to implementation or replanning.
 - If indexes are stale, run `taskledger repair index`; `taskledger reindex` is a compatibility alias.
+- If a task is truly cancelled and the user wants to continue, use `taskledger task uncancel --reason "..." [--to STAGE]` to restore a safe durable stage before re-entering an active stage.
 - If dependencies must be bypassed, only a user waiver may unblock implementation.
 
 ## Command examples
@@ -250,8 +252,10 @@ taskledger context --for spec-reviewer --run run-0008
 taskledger context --for code-reviewer --run run-0008
 taskledger release tag 0.4.1 --at-task task-0030 --note "0.4.1 released"
 taskledger release changelog 0.4.2 --since 0.4.1 --until-task task-0035 --output /tmp/taskledger-0.4.2-changelog-source.md
+taskledger implement resume --reason "Reacquire implementation lock for existing running run."
 taskledger implement restart --summary "Fix failed validation findings."
 taskledger implement change --path taskledger/services/tasks.py --kind edit --summary "Hardened validation gates."
+taskledger task uncancel --actor agent --allow-agent-uncancel --reason "User explicitly requested continuation in harness."
 taskledger todo done todo-0001 --evidence "uv run pytest -q" --artifact tests/test_parser.py
 taskledger validate check --criterion ac-0001 --status pass --evidence "uv run pytest -q"
 taskledger handoff create --mode implementation --todo todo-0003 --intended-actor agent --intended-harness codex --summary "Ready for focused implementation."

@@ -16,6 +16,7 @@ from taskledger.domain.models import (
     ValidationCheck,
 )
 from taskledger.domain.policies import derive_active_stage
+from taskledger.domain.states import ACTIVE_TASK_STAGES
 from taskledger.services.navigation import (
     _answered_question_next_item,
     _commands_for_next_item,
@@ -372,89 +373,16 @@ def _build_next_action_from_snapshot(
                 "Validation is complete enough to finish.",
             )
             next_item = _task_next_item(task)
-    elif task.status_stage == "draft":
-        action, reason = "plan", "Draft tasks need planning before work starts."
-    elif task.status_stage == "plan_review":
-        open_questions = _required_open_question_ids(snapshot.questions)
-        stale_answers = (
-            _stale_answer_question_ids(snapshot.questions, latest_plan)
-            if latest_plan is not None
-            else []
-        )
-        if open_questions:
-            action, reason = "question-answer", "Required planning questions are open."
-            question = _first_question_by_ids(snapshot.questions, open_questions)
-            next_item = _question_next_item(question) if question is not None else None
-            progress["questions"] = {
-                "required_open": len(open_questions),
-                "required_open_ids": open_questions,
-            }
-            blockers.append(
-                {
-                    "kind": "open_questions",
-                    "question_ids": open_questions,
-                    "message": "Required planning questions must be answered.",
-                }
-            )
-        elif stale_answers:
-            action, reason = (
-                "plan-regenerate",
-                "Answered planning questions are not reflected in the latest plan.",
-            )
-            question = _first_question_by_ids(snapshot.questions, stale_answers)
-            next_item = (
-                _answered_question_next_item(question) if question is not None else None
-            )
-            progress["questions"] = {
-                "required_open": 0,
-                "required_open_ids": [],
-                "answered_since_latest_plan": stale_answers,
-            }
-            blockers.append(
-                {
-                    "kind": "stale_answers",
-                    "question_ids": stale_answers,
-                    "message": "Regenerate the plan from answered questions.",
-                }
-            )
-        else:
-            action, reason = "plan-approve", "A proposed plan is waiting for review."
-            if latest_plan is not None:
-                next_item = _plan_next_item(latest_plan)
-    elif task.status_stage == "approved":
-        action, reason = "implement", "The approved plan is ready for implementation."
-        next_item = _task_next_item(task)
-        if task.accepted_plan_version is None:
-            blockers.append(
-                {"kind": "approval", "message": "No accepted plan version is recorded."}
-            )
-        blockers.extend(_dependency_blockers_from_snapshot(workspace_root, snapshot))
-    elif task.status_stage == "implemented":
-        action, reason = "validate", "Implementation is complete and ready to validate."
-        next_item = _task_next_item(task)
-        implementation_run = _find_run(snapshot.runs, task.latest_implementation_run)
-        if (
-            implementation_run is None
-            or implementation_run.run_type != "implementation"
-            or implementation_run.status != "finished"
-        ):
-            blockers.append(
-                {
-                    "kind": "implementation",
-                    "message": "Validation requires a finished implementation run.",
-                }
-            )
-    elif task.status_stage == "failed_validation":
-        action, reason = (
-            "implement-restart",
-            "Validation failed; restart implementation.",
-        )
-        next_item = _task_next_item(task)
-        blockers.extend(_dependency_blockers_from_snapshot(workspace_root, snapshot))
-    elif task.status_stage == "done":
-        action, reason = "none", "The task is complete."
     else:
-        action, reason = "none", "The task is cancelled."
+        (
+            action,
+            reason,
+            next_item,
+            status_blockers,
+            status_progress,
+        ) = _inactive_snapshot_next_action(workspace_root, snapshot, latest_plan)
+        blockers.extend(status_blockers)
+        progress.update(status_progress)
 
     if snapshot.lock is not None and active_stage is None:
         blockers.append(
@@ -491,6 +419,189 @@ def _build_next_action_from_snapshot(
         "commands": _commands_for_next_item(action, next_item),
         "progress": progress,
     }
+
+
+def _snapshot_orphaned_active_stage_action(
+    snapshot: TaskDashboardSnapshot,
+) -> tuple[str, str, dict[str, object], list[dict[str, object]]]:
+    task = snapshot.task
+    blockers: list[dict[str, object]] = [
+        {
+            "kind": "active_stage",
+            "message": (
+                f"Task status is {task.status_stage}, but active_stage is missing."
+            ),
+        }
+    ]
+    action = "repair-active-stage"
+    reason = f"Task is {task.status_stage}, but no matching active lock/run exists."
+    next_item = _task_next_item(task)
+    if task.status_stage == "implementing":
+        latest_run = _find_run(snapshot.runs, task.latest_implementation_run)
+        has_accepted_plan = any(
+            plan.plan_version == task.accepted_plan_version
+            and plan.status == "accepted"
+            for plan in snapshot.plans
+        )
+        if (
+            latest_run is not None
+            and latest_run.run_type == "implementation"
+            and latest_run.status == "running"
+            and snapshot.lock is None
+            and has_accepted_plan
+        ):
+            action = "implement-resume"
+            reason = "Implementation run is running but the lock is missing."
+            blockers.append(
+                {
+                    "kind": "lock",
+                    "message": (
+                        "Missing active implementation lock "
+                        f"for run {latest_run.run_id}."
+                    ),
+                }
+            )
+    return action, reason, next_item, blockers
+
+
+def _inactive_snapshot_next_action(
+    workspace_root: Path,
+    snapshot: TaskDashboardSnapshot,
+    latest_plan: PlanRecord | None,
+) -> tuple[
+    str,
+    str,
+    dict[str, object] | None,
+    list[dict[str, object]],
+    dict[str, object],
+]:
+    task = snapshot.task
+    blockers: list[dict[str, object]] = []
+    progress: dict[str, object] = {}
+    next_item: dict[str, object] | None = None
+    if task.status_stage == "draft":
+        return (
+            "plan",
+            "Draft tasks need planning before work starts.",
+            None,
+            blockers,
+            progress,
+        )
+    if task.status_stage == "plan_review":
+        open_questions = _required_open_question_ids(snapshot.questions)
+        stale_answers = (
+            _stale_answer_question_ids(snapshot.questions, latest_plan)
+            if latest_plan is not None
+            else []
+        )
+        if open_questions:
+            question = _first_question_by_ids(snapshot.questions, open_questions)
+            next_item = _question_next_item(question) if question is not None else None
+            progress["questions"] = {
+                "required_open": len(open_questions),
+                "required_open_ids": open_questions,
+            }
+            blockers.append(
+                {
+                    "kind": "open_questions",
+                    "question_ids": open_questions,
+                    "message": "Required planning questions must be answered.",
+                }
+            )
+            return (
+                "question-answer",
+                "Required planning questions are open.",
+                next_item,
+                blockers,
+                progress,
+            )
+        if stale_answers:
+            question = _first_question_by_ids(snapshot.questions, stale_answers)
+            next_item = (
+                _answered_question_next_item(question) if question is not None else None
+            )
+            progress["questions"] = {
+                "required_open": 0,
+                "required_open_ids": [],
+                "answered_since_latest_plan": stale_answers,
+            }
+            blockers.append(
+                {
+                    "kind": "stale_answers",
+                    "question_ids": stale_answers,
+                    "message": "Regenerate the plan from answered questions.",
+                }
+            )
+            return (
+                "plan-regenerate",
+                "Answered planning questions are not reflected in the latest plan.",
+                next_item,
+                blockers,
+                progress,
+            )
+        if latest_plan is not None:
+            next_item = _plan_next_item(latest_plan)
+        return (
+            "plan-approve",
+            "A proposed plan is waiting for review.",
+            next_item,
+            blockers,
+            progress,
+        )
+    if task.status_stage == "approved":
+        next_item = _task_next_item(task)
+        if task.accepted_plan_version is None:
+            blockers.append(
+                {"kind": "approval", "message": "No accepted plan version is recorded."}
+            )
+        blockers.extend(_dependency_blockers_from_snapshot(workspace_root, snapshot))
+        return (
+            "implement",
+            "The approved plan is ready for implementation.",
+            next_item,
+            blockers,
+            progress,
+        )
+    if task.status_stage == "implemented":
+        next_item = _task_next_item(task)
+        implementation_run = _find_run(snapshot.runs, task.latest_implementation_run)
+        if (
+            implementation_run is None
+            or implementation_run.run_type != "implementation"
+            or implementation_run.status != "finished"
+        ):
+            blockers.append(
+                {
+                    "kind": "implementation",
+                    "message": "Validation requires a finished implementation run.",
+                }
+            )
+        return (
+            "validate",
+            "Implementation is complete and ready to validate.",
+            next_item,
+            blockers,
+            progress,
+        )
+    if task.status_stage == "failed_validation":
+        next_item = _task_next_item(task)
+        blockers.extend(_dependency_blockers_from_snapshot(workspace_root, snapshot))
+        return (
+            "implement-restart",
+            "Validation failed; restart implementation.",
+            next_item,
+            blockers,
+            progress,
+        )
+    if task.status_stage in ACTIVE_TASK_STAGES:
+        action, reason, next_item, orphaned_blockers = (
+            _snapshot_orphaned_active_stage_action(snapshot)
+        )
+        blockers.extend(orphaned_blockers)
+        return action, reason, next_item, blockers, progress
+    if task.status_stage == "done":
+        return "none", "The task is complete.", None, blockers, progress
+    return "none", "The task is cancelled.", None, blockers, progress
 
 
 def _todo_gate_report(snapshot: TaskDashboardSnapshot) -> dict[str, object]:

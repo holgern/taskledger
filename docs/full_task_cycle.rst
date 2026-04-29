@@ -317,6 +317,8 @@ cycle:
    taskledger lock show
    taskledger doctor locks
    taskledger lock break --reason "Recover stale planning lock."
+   taskledger implement resume --reason "Reacquire implementation lock for existing running run."
+   taskledger task uncancel --reason "Restore the task to a safe durable stage."
    taskledger repair index
    taskledger repair task --reason "Inspect task record after manual edit."
    taskledger reindex
@@ -324,4 +326,8 @@ cycle:
    taskledger snapshot ./taskledger-snapshot --include-bodies --include-run-artifacts
 
 Locks are never cleared silently. Use ``lock break`` only after inspecting the
-lock and recording a reason.
+lock and recording a reason. If a broken stale lock leaves an implementation run
+still marked ``running``, continue with ``implement resume`` instead of starting a
+new implementation run. If a task is truly ``cancelled``, use ``task uncancel``
+to restore a safe durable stage before re-entering planning, implementation, or
+validation through the normal stage-specific commands.

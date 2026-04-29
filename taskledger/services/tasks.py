@@ -69,6 +69,7 @@ from taskledger.domain.states import (
     TaskStatusStage,
     normalize_file_link_kind,
     normalize_run_type,
+    normalize_task_status_stage,
     normalize_validation_check_status,
     normalize_validation_result,
     require_transition,
@@ -513,6 +514,71 @@ def cancel_task(
         warnings=[],
         changed=True,
     )
+
+
+def uncancel_task(
+    workspace_root: Path,
+    ref: str,
+    *,
+    target_stage: str | None,
+    reason: str,
+    actor: ActorRef | None = None,
+    allow_agent_uncancel: bool = False,
+) -> dict[str, object]:
+    task = resolve_task(workspace_root, ref)
+    if task.status_stage != "cancelled":
+        raise _cli_error(
+            "Only cancelled tasks can be uncancelled.",
+            EXIT_CODE_INVALID_TRANSITION,
+        )
+    lock = _current_lock(workspace_root, task.id)
+    if lock is not None:
+        if lock_is_expired(lock):
+            raise _stale_lock_error(task.id, lock)
+        raise _cli_error(
+            "Cancelled task has an active lock; repair the lock first.",
+            EXIT_CODE_LOCK_CONFLICT,
+        )
+    uncancel_reason = reason.strip()
+    if not uncancel_reason:
+        raise _cli_error("Uncancel requires --reason.", EXIT_CODE_BAD_INPUT)
+    resolved_actor = actor or _default_actor()
+    if resolved_actor.actor_type == "system":
+        raise _cli_error(
+            "System actors cannot uncancel tasks.",
+            EXIT_CODE_BAD_INPUT,
+        )
+    if resolved_actor.actor_type != "user" and not allow_agent_uncancel:
+        raise _cli_error(
+            "Agent uncancel requires --allow-agent-uncancel and --reason.",
+            EXIT_CODE_APPROVAL_REQUIRED,
+        )
+    target = (
+        _infer_uncancel_target(workspace_root, task)
+        if target_stage is None
+        else normalize_task_status_stage(target_stage)
+    )
+    if target in ACTIVE_TASK_STAGES or target in {"done", "cancelled"}:
+        raise _cli_error(
+            f"Invalid uncancel target: {target}",
+            EXIT_CODE_BAD_INPUT,
+        )
+    _validate_uncancel_target(workspace_root, task, target)
+    updated = replace(task, status_stage=target, updated_at=utc_now_iso())
+    save_task(workspace_root, updated)
+    _append_event(
+        resolve_v2_paths(workspace_root).project_dir,
+        updated.id,
+        "task.uncancelled",
+        {
+            "from": "cancelled",
+            "to": target,
+            "reason": uncancel_reason,
+            "actor": resolved_actor.to_dict(),
+        },
+    )
+    rebuild_v2_indexes(resolve_v2_paths(workspace_root))
+    return _lifecycle_payload("task uncancel", updated, warnings=[], changed=True)
 
 
 def close_task(
@@ -1797,6 +1863,58 @@ def list_open_questions(workspace_root: Path, task_ref: str) -> dict[str, object
     return {"kind": "task_questions", "task_id": task.id, "questions": questions}
 
 
+def _accepted_plan_record_or_none(
+    workspace_root: Path,
+    task: TaskRecord,
+) -> PlanRecord | None:
+    if task.accepted_plan_version is None:
+        return None
+    try:
+        accepted_plan = resolve_plan(
+            workspace_root,
+            task.id,
+            version=task.accepted_plan_version,
+        )
+    except LaunchError:
+        return None
+    if accepted_plan.status != "accepted":
+        return None
+    return accepted_plan
+
+
+def _require_accepted_plan_record(
+    workspace_root: Path,
+    task: TaskRecord,
+    *,
+    action: str,
+) -> PlanRecord:
+    if task.accepted_plan_version is None:
+        raise _cli_error(
+            f"{action} requires an accepted plan version.",
+            EXIT_CODE_APPROVAL_REQUIRED,
+        )
+    accepted_plan = _accepted_plan_record_or_none(workspace_root, task)
+    if accepted_plan is None:
+        try:
+            stored_plan = resolve_plan(
+                workspace_root,
+                task.id,
+                version=task.accepted_plan_version,
+            )
+        except LaunchError as exc:
+            raise _cli_error(
+                f"{action} requires a stored accepted plan record.",
+                EXIT_CODE_APPROVAL_REQUIRED,
+            ) from exc
+        if stored_plan.status != "accepted":
+            raise _cli_error(
+                f"{action} requires an accepted plan record.",
+                EXIT_CODE_APPROVAL_REQUIRED,
+            )
+        return stored_plan
+    return accepted_plan
+
+
 def start_implementation(
     workspace_root: Path,
     task_ref: str,
@@ -1810,27 +1928,7 @@ def start_implementation(
             "Implementation requires approved or failed_validation state.",
             EXIT_CODE_INVALID_TRANSITION,
         )
-    if task.accepted_plan_version is None:
-        raise _cli_error(
-            "Implementation requires an accepted plan version.",
-            EXIT_CODE_APPROVAL_REQUIRED,
-        )
-    try:
-        accepted_plan = resolve_plan(
-            workspace_root,
-            task.id,
-            version=task.accepted_plan_version,
-        )
-    except LaunchError as exc:
-        raise _cli_error(
-            "Implementation requires a stored accepted plan record.",
-            EXIT_CODE_APPROVAL_REQUIRED,
-        ) from exc
-    if accepted_plan.status != "accepted":
-        raise _cli_error(
-            "Implementation requires an accepted plan record.",
-            EXIT_CODE_APPROVAL_REQUIRED,
-        )
+    _require_accepted_plan_record(workspace_root, task, action="Implementation")
     _ensure_dependencies_done(workspace_root, task)
     run = _start_run(
         workspace_root,
@@ -1878,27 +1976,11 @@ def restart_implementation(
             "Implementation restart requires failed_validation state.",
             EXIT_CODE_INVALID_TRANSITION,
         )
-    if task.accepted_plan_version is None:
-        raise _cli_error(
-            "Implementation restart requires an accepted plan version.",
-            EXIT_CODE_APPROVAL_REQUIRED,
-        )
-    try:
-        accepted_plan = resolve_plan(
-            workspace_root,
-            task.id,
-            version=task.accepted_plan_version,
-        )
-    except LaunchError as exc:
-        raise _cli_error(
-            "Implementation restart requires a stored accepted plan record.",
-            EXIT_CODE_APPROVAL_REQUIRED,
-        ) from exc
-    if accepted_plan.status != "accepted":
-        raise _cli_error(
-            "Implementation restart requires an accepted plan record.",
-            EXIT_CODE_APPROVAL_REQUIRED,
-        )
+    _require_accepted_plan_record(
+        workspace_root,
+        task,
+        action="Implementation restart",
+    )
     if task.latest_validation_run is None:
         raise _cli_error(
             "Implementation restart requires a failed validation run.",
@@ -1984,6 +2066,85 @@ def restart_implementation(
         changed=True,
         run=restarted,
         lock=_require_lock(workspace_root, updated.id),
+    )
+
+
+def resume_implementation(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    run_id: str | None = None,
+    reason: str,
+    actor: ActorRef | None = None,
+    harness: HarnessRef | None = None,
+) -> dict[str, object]:
+    task = resolve_task(workspace_root, task_ref)
+    resume_reason = reason.strip()
+    if not resume_reason:
+        raise _cli_error(
+            "Implementation resume requires --reason.", EXIT_CODE_BAD_INPUT
+        )
+    if task.status_stage not in {"approved", "implementing"}:
+        raise _cli_error(
+            "Implementation resume requires approved or implementing state.",
+            EXIT_CODE_INVALID_TRANSITION,
+        )
+    _require_accepted_plan_record(
+        workspace_root,
+        task,
+        action="Implementation resume",
+    )
+    selected_run_id = run_id or task.latest_implementation_run
+    run = _require_run(workspace_root, task, selected_run_id)
+    if run.run_type != "implementation" or run.status != "running":
+        raise _cli_error(
+            "Implementation resume requires a running implementation run.",
+            EXIT_CODE_INVALID_TRANSITION,
+        )
+    existing_lock = _current_lock(workspace_root, task.id)
+    if existing_lock is not None:
+        if lock_is_expired(existing_lock):
+            raise _stale_lock_error(task.id, existing_lock)
+        raise _cli_error(
+            "Implementation resume requires no active lock.",
+            EXIT_CODE_LOCK_CONFLICT,
+        )
+    _ensure_dependencies_done(workspace_root, task)
+    resolved_actor = actor or _default_actor()
+    lock = _acquire_lock(
+        workspace_root,
+        task=task,
+        stage="implementing",
+        run=run,
+        reason=resume_reason,
+        actor=resolved_actor,
+        harness=harness,
+    )
+    updated = replace(
+        task,
+        latest_implementation_run=run.run_id,
+        status_stage="implementing",
+        updated_at=utc_now_iso(),
+    )
+    save_task(workspace_root, updated)
+    _append_event(
+        resolve_v2_paths(workspace_root).project_dir,
+        updated.id,
+        "run.resumed",
+        {
+            "run_id": run.run_id,
+            "run_type": "implementation",
+            "reason": resume_reason,
+        },
+    )
+    rebuild_v2_indexes(resolve_v2_paths(workspace_root))
+    return _lifecycle_payload(
+        "implement resume",
+        replace(updated, status_stage=task.status_stage),
+        warnings=[],
+        changed=True,
+        run=run,
+        lock=lock,
     )
 
 
@@ -2970,6 +3131,29 @@ def repair_task_record(
         raise _cli_error("Task repair requires --reason.", EXIT_CODE_BAD_INPUT)
     task = resolve_task(workspace_root, task_ref)
     paths = resolve_v2_paths(workspace_root)
+    warnings = [("Recorded a repair inspection event only; no task state was changed.")]
+    recovery_commands: list[str] = []
+    implementation_run = _optional_run(
+        workspace_root,
+        task,
+        task.latest_implementation_run,
+    )
+    if (
+        task.status_stage == "implementing"
+        and implementation_run is not None
+        and implementation_run.run_type == "implementation"
+        and implementation_run.status == "running"
+        and _current_lock(workspace_root, task.id) is None
+    ):
+        recovery_commands.append(
+            "taskledger implement resume "
+            '--reason "Reacquire implementation lock for existing running run."'
+        )
+    elif task.status_stage == "cancelled":
+        recovery_commands.append(
+            "taskledger task uncancel "
+            '--reason "Restore the task to a safe durable stage."'
+        )
     _append_event(
         paths.project_dir,
         task.id,
@@ -2981,6 +3165,8 @@ def repair_task_record(
         "task_id": task.id,
         "changed": False,
         "reason": reason.strip(),
+        "warnings": warnings,
+        "recovery_commands": recovery_commands,
     }
 
 
@@ -3335,6 +3521,100 @@ def _default_actor() -> ActorRef:
         host=socket.gethostname(),
         pid=os.getpid(),
     )
+
+
+def _infer_uncancel_target(
+    workspace_root: Path,
+    task: TaskRecord,
+) -> TaskStatusStage:
+    validation_run = _optional_run(workspace_root, task, task.latest_validation_run)
+    if (
+        validation_run is not None
+        and validation_run.run_type == "validation"
+        and validation_run.status in {"failed", "blocked"}
+        and validation_run.result in {"failed", "blocked"}
+        and _accepted_plan_record_or_none(workspace_root, task) is not None
+    ):
+        return "failed_validation"
+    implementation_run = _optional_run(
+        workspace_root,
+        task,
+        task.latest_implementation_run,
+    )
+    if (
+        implementation_run is not None
+        and implementation_run.run_type == "implementation"
+        and implementation_run.status == "finished"
+    ):
+        return "implemented"
+    if _accepted_plan_record_or_none(workspace_root, task) is not None:
+        return "approved"
+    latest_plan = _latest_plan_or_none(workspace_root, task.id)
+    if latest_plan is not None and latest_plan.status == "proposed":
+        return "plan_review"
+    return "draft"
+
+
+def _validate_uncancel_target(
+    workspace_root: Path,
+    task: TaskRecord,
+    target: TaskStatusStage,
+) -> None:
+    if target == "draft":
+        return
+    if target == "plan_review":
+        latest_plan = _latest_plan_or_none(workspace_root, task.id)
+        if latest_plan is None or latest_plan.status != "proposed":
+            raise _cli_error(
+                "Uncancel to plan_review requires a proposed plan.",
+                EXIT_CODE_INVALID_TRANSITION,
+            )
+        return
+    if target == "approved":
+        if _accepted_plan_record_or_none(workspace_root, task) is None:
+            raise _cli_error(
+                "Uncancel to approved requires an accepted plan record.",
+                EXIT_CODE_INVALID_TRANSITION,
+            )
+        return
+    if target == "implemented":
+        implementation_run = _optional_run(
+            workspace_root,
+            task,
+            task.latest_implementation_run,
+        )
+        if (
+            implementation_run is None
+            or implementation_run.run_type != "implementation"
+            or implementation_run.status != "finished"
+        ):
+            raise _cli_error(
+                "Uncancel to implemented requires a finished implementation run.",
+                EXIT_CODE_INVALID_TRANSITION,
+            )
+        return
+    if target == "failed_validation":
+        validation_run = _optional_run(workspace_root, task, task.latest_validation_run)
+        if _accepted_plan_record_or_none(workspace_root, task) is None:
+            raise _cli_error(
+                "Uncancel to failed_validation requires an accepted plan record.",
+                EXIT_CODE_INVALID_TRANSITION,
+            )
+        if (
+            validation_run is None
+            or validation_run.run_type != "validation"
+            or validation_run.status not in {"failed", "blocked"}
+            or validation_run.result not in {"failed", "blocked"}
+        ):
+            raise _cli_error(
+                (
+                    "Uncancel to failed_validation requires a failed or blocked "
+                    "validation run."
+                ),
+                EXIT_CODE_INVALID_TRANSITION,
+            )
+        return
+    raise _cli_error(f"Invalid uncancel target: {target}", EXIT_CODE_BAD_INPUT)
 
 
 def _default_harness() -> HarnessRef:

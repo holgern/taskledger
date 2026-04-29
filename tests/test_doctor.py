@@ -287,6 +287,41 @@ def test_inspect_running_run_without_matching_lock(tmp_path: Path) -> None:
     )
 
 
+def test_doctor_reports_missing_lock_for_running_implementation_with_recovery_hint(
+    tmp_path: Path,
+) -> None:
+    task = _task(
+        status_stage="implementing",
+        latest_plan_version=1,
+        accepted_plan_version=1,
+        latest_implementation_run="run-0002",
+    )
+    save_task(tmp_path, task)
+    save_plan(
+        tmp_path,
+        PlanRecord(
+            task_id=task.id,
+            plan_version=1,
+            body="plan 1",
+            status="accepted",
+            created_by=_actor(),
+            criteria=(AcceptanceCriterion(id="ac-1", text="test"),),
+        ),
+    )
+    save_run(
+        tmp_path,
+        _run(run_id="run-0002", run_type="implementation", status="running"),
+    )
+    result = inspect_v2_project(tmp_path)
+    assert any(
+        "running run without a matching active lock" in e for e in result["errors"]
+    )
+    assert any(
+        "taskledger implement resume --task task-0001 --reason" in hint
+        for hint in result["repair_hints"]
+    )
+
+
 def test_inspect_lock_without_running_run(tmp_path: Path) -> None:
     task = _task()
     save_task(tmp_path, task)

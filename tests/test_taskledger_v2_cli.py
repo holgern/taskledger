@@ -1,12 +1,20 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import yaml
 from typer.testing import CliRunner
 
 from taskledger.cli import app
+from taskledger.storage.task_store import (
+    list_runs,
+    resolve_run,
+    resolve_task,
+    save_run,
+    save_task,
+)
 
 
 def _make_runner() -> CliRunner:
@@ -129,6 +137,122 @@ def _json(result) -> dict[str, object]:
     payload = json.loads(result.stdout)
     assert payload["ok"] is True
     return payload
+
+
+def _prepare_resumable_implementation_task(tmp_path: Path) -> tuple[str, str]:
+    _init_project(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "create",
+                "resume-task",
+                "--description",
+                "Exercise implement resume.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "task", "activate", "resume-task"],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "plan", "start", "--task", "resume-task"],
+        ).exit_code
+        == 0
+    )
+    plan_text = """---
+goal: Recover a running implementation.
+acceptance_criteria:
+  - id: ac-0001
+    text: Implementation can resume safely.
+todos:
+  - id: todo-0001
+    text: Add the resume flow.
+    validation_hint: pytest tests/test_taskledger_v2_cli.py -q
+---
+
+# Plan
+
+Recover a running implementation after its lock is broken.
+"""
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "plan",
+                "propose",
+                "--task",
+                "resume-task",
+                "--text",
+                plan_text,
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "plan",
+                "approve",
+                "--task",
+                "resume-task",
+                "--version",
+                "1",
+                "--actor",
+                "user",
+                "--note",
+                "Ready to implement.",
+            ],
+        ).exit_code
+        == 0
+    )
+    start = _json(
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "--json",
+                "implement",
+                "start",
+                "--task",
+                "resume-task",
+            ],
+        )
+    )
+    return "task-0001", str(start["result"]["run_id"])
+
+
+def _break_task_lock(tmp_path: Path, task_ref: str = "resume-task") -> None:
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "lock",
+            "break",
+            "--task",
+            task_ref,
+            "--reason",
+            "Recover stale implementation lock.",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
 
 
 def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
@@ -710,6 +834,388 @@ def test_v2_lock_break_and_expired_lock_report(tmp_path: Path) -> None:
     assert break_result.exit_code == 0
     assert _json(break_result)["result"]["command"] == "lock break"
     assert not lock_path.exists()
+
+
+def test_implement_resume_reacquires_lock_after_break(tmp_path: Path) -> None:
+    task_id, run_id = _prepare_resumable_implementation_task(tmp_path)
+    _break_task_lock(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "implement",
+            "resume",
+            "--task",
+            "resume-task",
+            "--reason",
+            "Continue implementation after a stale lock break.",
+        ],
+    )
+    payload = _json(result)
+    resume = payload["result"]
+    assert payload["command"] == "implement.resume"
+    assert resume["run_id"] == run_id
+    assert resume["status_stage"] == "implementing"
+    assert resume["active_stage"] == "implementation"
+
+    task_show = _json(
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "--json", "task", "show", "--task", "resume-task"],
+        )
+    )
+    assert task_show["result"]["task"]["id"] == task_id
+    assert task_show["result"]["task"]["active_stage"] == "implementation"
+
+
+def test_implement_resume_does_not_create_new_run(tmp_path: Path) -> None:
+    task_id, run_id = _prepare_resumable_implementation_task(tmp_path)
+    _break_task_lock(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "implement",
+            "resume",
+            "--task",
+            "resume-task",
+            "--reason",
+            "Continue implementation after a stale lock break.",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+
+    implementation_runs = [
+        run for run in list_runs(tmp_path, task_id) if run.run_type == "implementation"
+    ]
+    assert len(implementation_runs) == 1
+    assert implementation_runs[0].run_id == run_id
+
+
+def test_implement_resume_requires_reason(tmp_path: Path) -> None:
+    _prepare_resumable_implementation_task(tmp_path)
+    _break_task_lock(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "implement",
+            "resume",
+            "--task",
+            "resume-task",
+            "--reason",
+            "",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "Implementation resume requires --reason." in result.stdout
+
+
+def test_implement_resume_rejects_missing_accepted_plan(tmp_path: Path) -> None:
+    task_id, _ = _prepare_resumable_implementation_task(tmp_path)
+    _break_task_lock(tmp_path)
+    task = resolve_task(tmp_path, task_id)
+    save_task(tmp_path, replace(task, accepted_plan_version=None))
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "implement",
+            "resume",
+            "--task",
+            "resume-task",
+            "--reason",
+            "Continue implementation after a stale lock break.",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "Implementation resume requires an accepted plan version." in result.stdout
+
+
+def test_implement_resume_rejects_non_running_implementation_run(
+    tmp_path: Path,
+) -> None:
+    task_id, run_id = _prepare_resumable_implementation_task(tmp_path)
+    _break_task_lock(tmp_path)
+    run = resolve_run(tmp_path, task_id, run_id)
+    save_run(tmp_path, replace(run, status="finished"))
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "implement",
+            "resume",
+            "--task",
+            "resume-task",
+            "--reason",
+            "Continue implementation after a stale lock break.",
+        ],
+    )
+    assert result.exit_code != 0
+    assert (
+        "Implementation resume requires a running implementation run." in result.stdout
+    )
+
+
+def test_implement_resume_rejects_non_implementation_run(tmp_path: Path) -> None:
+    task_id, run_id = _prepare_resumable_implementation_task(tmp_path)
+    _break_task_lock(tmp_path)
+    run = resolve_run(tmp_path, task_id, run_id)
+    save_run(tmp_path, replace(run, run_type="planning"))
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "implement",
+            "resume",
+            "--task",
+            "resume-task",
+            "--reason",
+            "Continue implementation after a stale lock break.",
+        ],
+    )
+    assert result.exit_code != 0
+    assert (
+        "Implementation resume requires a running implementation run." in result.stdout
+    )
+
+
+def test_implement_resume_rejects_existing_lock(tmp_path: Path) -> None:
+    _prepare_resumable_implementation_task(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "implement",
+            "resume",
+            "--task",
+            "resume-task",
+            "--reason",
+            "Continue implementation after a stale lock break.",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "Implementation resume requires no active lock." in result.stdout
+
+
+def test_implement_resume_rejects_completed_task(tmp_path: Path) -> None:
+    task_id, _ = _prepare_resumable_implementation_task(tmp_path)
+    _break_task_lock(tmp_path)
+    task = resolve_task(tmp_path, task_id)
+    save_task(tmp_path, replace(task, status_stage="implemented"))
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "implement",
+            "resume",
+            "--task",
+            "resume-task",
+            "--reason",
+            "Continue implementation after a stale lock break.",
+        ],
+    )
+    assert result.exit_code != 0
+    assert (
+        "Implementation resume requires approved or implementing state."
+        in result.stdout
+    )
+
+
+def test_implement_resume_rejects_cancelled_task(tmp_path: Path) -> None:
+    _prepare_resumable_implementation_task(tmp_path)
+    cancel = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "cancel",
+            "--task",
+            "resume-task",
+            "--reason",
+            "Cancelled during recovery test.",
+        ],
+    )
+    assert cancel.exit_code == 0, cancel.stdout
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "implement",
+            "resume",
+            "--task",
+            "resume-task",
+            "--reason",
+            "Continue implementation after a stale lock break.",
+        ],
+    )
+    assert result.exit_code != 0
+    assert (
+        "Implementation resume requires approved or implementing state."
+        in result.stdout
+    )
+
+
+def test_task_uncancel_restores_cancelled_task_to_approved(tmp_path: Path) -> None:
+    task_id, _ = _prepare_resumable_implementation_task(tmp_path)
+    cancel = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "cancel",
+            "--task",
+            "resume-task",
+            "--reason",
+            "Cancelled accidentally.",
+        ],
+    )
+    assert cancel.exit_code == 0, cancel.stdout
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "task",
+            "uncancel",
+            "--task",
+            "resume-task",
+            "--actor",
+            "agent",
+            "--allow-agent-uncancel",
+            "--reason",
+            "User explicitly requested continuation in the harness.",
+        ],
+    )
+    payload = _json(result)
+    uncancel = payload["result"]
+    assert payload["command"] == "task.uncancel"
+    assert uncancel["task_id"] == task_id
+    assert uncancel["status_stage"] == "approved"
+    assert uncancel["active_stage"] is None
+
+    task_show = _json(
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "--json", "task", "show", "--task", "resume-task"],
+        )
+    )
+    assert task_show["result"]["task"]["status_stage"] == "approved"
+
+
+def test_task_uncancel_rejects_active_stage_target(tmp_path: Path) -> None:
+    _prepare_resumable_implementation_task(tmp_path)
+    cancel = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "cancel",
+            "--task",
+            "resume-task",
+            "--reason",
+            "Cancelled accidentally.",
+        ],
+    )
+    assert cancel.exit_code == 0, cancel.stdout
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "task",
+            "uncancel",
+            "--task",
+            "resume-task",
+            "--actor",
+            "agent",
+            "--allow-agent-uncancel",
+            "--to",
+            "implementing",
+            "--reason",
+            "User explicitly requested continuation in the harness.",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "Invalid uncancel target: implementing" in result.stdout
+
+
+def test_repair_task_human_output_records_inspection_and_recovery_hint(
+    tmp_path: Path,
+) -> None:
+    _prepare_resumable_implementation_task(tmp_path)
+    cancel = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "cancel",
+            "--task",
+            "resume-task",
+            "--reason",
+            "Cancelled accidentally.",
+        ],
+    )
+    assert cancel.exit_code == 0, cancel.stdout
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "repair",
+            "task",
+            "--task",
+            "resume-task",
+            "--reason",
+            "Inspect recovery options.",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    assert "recorded repair inspection for task-0001" in result.stdout
+    assert (
+        "warning: Recorded a repair inspection event only; no task state was changed."
+        in result.stdout
+    )
+    assert (
+        "recovery: taskledger task uncancel "
+        '--reason "Restore the task to a safe durable stage."' in result.stdout
+    )
 
 
 def test_task_first_support_commands_are_available(tmp_path: Path) -> None:

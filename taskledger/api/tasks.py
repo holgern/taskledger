@@ -28,6 +28,7 @@ from taskledger.services.tasks import (
     show_todo,
     task_dossier,
     todo_status,
+    uncancel_task,
     waive_requirement,
 )
 
@@ -42,6 +43,7 @@ __all__ = [
     "show_task",
     "edit_task",
     "cancel_task",
+    "uncancel_task",
     "close_task",
     "create_follow_up_task",
     "add_requirement",

@@ -89,6 +89,18 @@ includes the primary command hint. JSON output preserves the existing
 Agents should inspect ``next_item`` first, run ``next_command`` when it is safe,
 avoid inventing question answers, and only mark todos done after evidence exists.
 
+If ``next-action`` reports an orphaned implementation state, inspect the task and
+lock first, then resume the existing run instead of starting a new one or
+pretending the task is cancelled:
+
+.. code-block:: bash
+
+   taskledger task show
+   taskledger lock show
+   taskledger doctor
+   taskledger lock break --reason "Recover stale implementation lock."
+   taskledger implement resume --reason "Reacquire implementation lock for existing running run."
+
 Compact implementation loop
 ---------------------------
 
@@ -278,6 +290,8 @@ Integrity and recovery
    taskledger doctor locks
    taskledger lock show
    taskledger lock break --reason "recover stale planning lock"
+   taskledger implement resume --reason "Reacquire implementation lock for existing running run."
+   taskledger task uncancel --reason "Restore the task to a safe durable stage."
    taskledger repair index
 
 Export and snapshots

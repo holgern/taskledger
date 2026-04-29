@@ -7,6 +7,7 @@ from taskledger.services.tasks import (
     finish_validation,
     log_implementation,
     restart_implementation,
+    resume_implementation,
     run_implementation_command,
     scan_changes,
     show_task_run,
@@ -20,6 +21,7 @@ from taskledger.storage.task_store import list_changes, list_runs
 __all__ = [
     "start_implementation",
     "restart_implementation",
+    "resume_implementation",
     "log_implementation",
     "add_implementation_deviation",
     "add_implementation_artifact",

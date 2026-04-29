@@ -27,6 +27,7 @@ when explicitly targeting another task.
 
    taskledger plan start
    taskledger plan start --task task-0001
+   taskledger implement resume --task task-0001 --reason "Reacquire implementation lock."
    taskledger implement restart --task task-0001 --summary "Fix validation findings."
    taskledger implement finish --task task-0001 --summary "Implemented."
    taskledger validate status --task task-0001
@@ -107,6 +108,14 @@ avoid inventing question answers, and never mark todos done without evidence.
 
 When a task is in ``failed_validation``, ``next-action`` should direct agents
 back to implementation with ``taskledger implement restart --summary SUMMARY``.
+
+When a task persists ``planning``, ``implementing``, or ``validating`` as its
+status but ``active_stage`` is missing, ``next-action`` must not report
+``The task is cancelled.`` For an orphaned implementation with a still-running
+latest implementation run and no active lock, it should direct agents to
+``taskledger implement resume --task TASK_REF --reason "..."``.
+Truly cancelled tasks recover through ``taskledger task uncancel --reason "..."``
+to a durable non-active stage rather than directly re-entering an active stage.
 
 Post-completion follow-up deltas
 --------------------------------

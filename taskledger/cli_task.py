@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import getpass
 from pathlib import Path
 from typing import Annotated, cast
 
@@ -17,6 +18,7 @@ from taskledger.api.tasks import (
     show_active_task,
     show_task,
     task_dossier,
+    uncancel_task,
 )
 from taskledger.cli_common import (
     TaskOption,
@@ -28,6 +30,7 @@ from taskledger.cli_common import (
     resolve_cli_task,
 )
 from taskledger.errors import LaunchError
+from taskledger.services.actors import resolve_actor
 from taskledger.services.tasks import list_events as _list_events
 
 
@@ -281,6 +284,68 @@ def register_task_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, payload, human=f"cancelled task {payload['task_id']}")
+
+    @app.command("uncancel")
+    def uncancel_command(
+        ctx: typer.Context,
+        task_ref: TaskOption = None,
+        reason: Annotated[str, typer.Option("--reason")] = "",
+        target_stage: Annotated[
+            str | None,
+            typer.Option("--to", help="Target durable stage to restore."),
+        ] = None,
+        actor: Annotated[
+            str | None,
+            typer.Option("--actor", help="Actor type: user or agent."),
+        ] = None,
+        actor_name: Annotated[
+            str | None,
+            typer.Option("--actor-name", help="Actor name."),
+        ] = None,
+        allow_agent_uncancel: Annotated[
+            bool,
+            typer.Option(
+                "--allow-agent-uncancel",
+                help="Allow an agent actor to uncancel after explicit user direction.",
+            ),
+        ] = False,
+        session_id: Annotated[
+            str | None,
+            typer.Option("--session-id", help="Session identifier."),
+        ] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = resolve_cli_task(state.cwd, task_ref)
+            if actor is None and actor_name is None and session_id is None:
+                resolved_actor = resolve_actor(
+                    workspace_root=state.cwd,
+                    session_id=session_id,
+                )
+            else:
+                resolved_actor = resolve_actor(
+                    actor_type=actor or "agent",
+                    actor_name=actor_name
+                    or (
+                        (getpass.getuser() or "user")
+                        if actor == "user"
+                        else "taskledger"
+                    ),
+                    session_id=session_id,
+                    workspace_root=state.cwd,
+                )
+            payload = uncancel_task(
+                state.cwd,
+                task.id,
+                target_stage=target_stage,
+                reason=reason,
+                actor=resolved_actor,
+                allow_agent_uncancel=allow_agent_uncancel,
+            )
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, payload, human=f"uncancelled task {payload['task_id']}")
 
     @app.command("close")
     def close_command(

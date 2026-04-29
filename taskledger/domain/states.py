@@ -77,6 +77,7 @@ EventName = Literal[
     "task.created",
     "task.updated",
     "task.cancelled",
+    "task.uncancelled",
     "stage.entered",
     "stage.completed",
     "stage.failed",

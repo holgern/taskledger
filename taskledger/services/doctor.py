@@ -175,10 +175,32 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
             errors.append(
                 f"Task {task.id} has a running run without a matching active lock."
             )
-            repair_hints.append(
-                "Inspect the run/lock pair and either repair it or break the lock "
-                f"for task {task.id} explicitly."
+            running_implementation = next(
+                (
+                    run
+                    for run in running_runs
+                    if run.run_type == "implementation"
+                    and run.run_id == task.latest_implementation_run
+                ),
+                None,
             )
+            if (
+                active_lock is None
+                and task.status_stage == "implementing"
+                and task.accepted_plan_version is not None
+                and running_implementation is not None
+            ):
+                repair_hints.append(
+                    "After confirming the previous lock was intentionally "
+                    "broken, resume the running implementation with "
+                    f"`taskledger implement resume --task {task.id} --reason "
+                    '"Reacquire implementation lock for existing running run."`.'
+                )
+            else:
+                repair_hints.append(
+                    "Inspect the run/lock pair and either repair it or break the lock "
+                    f"for task {task.id} explicitly."
+                )
         if active_lock is not None and active_stage is None and not running_runs:
             errors.append(
                 f"Task {task.id} has a {active_lock.stage} lock without a running run."

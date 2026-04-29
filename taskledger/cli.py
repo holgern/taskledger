@@ -510,7 +510,12 @@ def repair_task_command(
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-    emit_payload(ctx, payload, human=f"inspected repair for {payload['task_id']}")
+    human_lines = [f"recorded repair inspection for {payload['task_id']}"]
+    for warning in cast(list[str], payload.get("warnings", [])):
+        human_lines.append(f"warning: {warning}")
+    for command in cast(list[str], payload.get("recovery_commands", [])):
+        human_lines.append(f"recovery: {command}")
+    emit_payload(ctx, payload, human="\n".join(human_lines))
 
 
 @repair_app.command("task-dirs")

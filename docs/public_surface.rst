@@ -20,7 +20,8 @@ Supported CLI groups
 keep using the CLI and JSON command surface for automation.
 
 The supported implementation lifecycle includes ``implement restart --summary
-"..."`` when a task is in ``failed_validation``.
+"..."`` when a task is in ``failed_validation`` and ``implement resume --reason
+"..."`` when an existing running implementation run has lost its lock.
 
 Small post-completion deltas use ``task follow-up PARENT_REF TITLE`` to create a
 new child task instead of reopening a ``done`` task.
@@ -62,8 +63,10 @@ Supported Python API modules
 - ``taskledger.api.search``
 
 ``taskledger.api.task_runs`` includes the public lifecycle helpers
-``start_implementation``, ``restart_implementation``, ``start_validation``, and
-``finish_validation``.
+``start_implementation``, ``restart_implementation``, ``resume_implementation``,
+``start_validation``, and ``finish_validation``. ``taskledger.api.tasks`` also
+exposes ``uncancel_task`` for restoring truly cancelled tasks to a safe durable
+stage.
 
 Removed legacy surfaces
 -----------------------

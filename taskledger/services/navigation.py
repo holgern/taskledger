@@ -12,8 +12,13 @@ from taskledger.domain.models import (
     TaskRecord,
     TaskTodo,
 )
-from taskledger.domain.states import EXIT_CODE_BAD_INPUT, IMPLEMENTABLE_TASK_STAGES
+from taskledger.domain.states import (
+    ACTIVE_TASK_STAGES,
+    EXIT_CODE_BAD_INPUT,
+    IMPLEMENTABLE_TASK_STAGES,
+)
 from taskledger.services.tasks import (
+    _accepted_plan_record_or_none,
     _build_todo_gate_report,
     _cli_error,
     _current_lock,
@@ -148,98 +153,16 @@ def next_action(workspace_root: Path, task_ref: str) -> dict[str, object]:
                 "Validation is complete enough to finish.",
             )
             next_item = _task_next_item(task)
-    elif task.status_stage == "draft":
-        action, reason = "plan", "Draft tasks need planning before work starts."
-    elif task.status_stage == "plan_review":
-        questions = list_questions(workspace_root, task.id)
-        open_questions = _required_open_question_ids(questions)
-        latest_plan = _latest_plan_or_none(workspace_root, task.id)
-        stale_answers = (
-            _stale_answer_question_ids(questions, latest_plan)
-            if latest_plan is not None
-            else []
-        )
-        if open_questions:
-            action, reason = (
-                "question-answer",
-                "Required planning questions are open.",
-            )
-            question = _first_question_by_ids(questions, open_questions)
-            next_item = _question_next_item(question) if question is not None else None
-            progress["questions"] = {
-                "required_open": len(open_questions),
-                "required_open_ids": open_questions,
-            }
-            blockers.append(
-                {
-                    "kind": "open_questions",
-                    "question_ids": open_questions,
-                    "message": "Required planning questions must be answered.",
-                }
-            )
-        elif stale_answers:
-            action, reason = (
-                "plan-regenerate",
-                "Answered planning questions are not reflected in the latest plan.",
-            )
-            question = _first_question_by_ids(questions, stale_answers)
-            next_item = (
-                _answered_question_next_item(question) if question is not None else None
-            )
-            progress["questions"] = {
-                "required_open": 0,
-                "required_open_ids": [],
-                "answered_since_latest_plan": stale_answers,
-            }
-            blockers.append(
-                {
-                    "kind": "stale_answers",
-                    "question_ids": stale_answers,
-                    "message": "Regenerate the plan from answered questions.",
-                }
-            )
-        else:
-            action, reason = "plan-approve", "A proposed plan is waiting for review."
-            if latest_plan is not None:
-                next_item = _plan_next_item(latest_plan)
-    elif task.status_stage == "approved":
-        action, reason = "implement", "The approved plan is ready for implementation."
-        next_item = _task_next_item(task)
-        if task.accepted_plan_version is None:
-            blockers.append(
-                {"kind": "approval", "message": "No accepted plan version is recorded."}
-            )
-        blockers.extend(
-            cast(list[dict[str, object]], _dependency_blockers(workspace_root, task))
-        )
-    elif task.status_stage == "implemented":
-        action, reason = "validate", "Implementation is complete and ready to validate."
-        next_item = _task_next_item(task)
-        impl_run = _optional_run(workspace_root, task, task.latest_implementation_run)
-        if (
-            impl_run is None
-            or impl_run.run_type != "implementation"
-            or impl_run.status != "finished"
-        ):
-            blockers.append(
-                {
-                    "kind": "implementation",
-                    "message": "Validation requires a finished implementation run.",
-                }
-            )
-    elif task.status_stage == "failed_validation":
-        action, reason = (
-            "implement-restart",
-            "Validation failed; restart implementation.",
-        )
-        next_item = _task_next_item(task)
-        blockers.extend(
-            cast(list[dict[str, object]], _dependency_blockers(workspace_root, task))
-        )
-    elif task.status_stage == "done":
-        action, reason = "none", "The task is complete."
     else:
-        action, reason = "none", "The task is cancelled."
+        (
+            action,
+            reason,
+            next_item,
+            status_blockers,
+            status_progress,
+        ) = _inactive_status_next_action(workspace_root, task, lock)
+        blockers.extend(status_blockers)
+        progress.update(status_progress)
     if lock is not None and active_stage is None:
         blockers.append(
             {
@@ -270,6 +193,192 @@ def next_action(workspace_root: Path, task_ref: str) -> dict[str, object]:
             "progress": progress,
         }
     )
+
+
+def _orphaned_active_stage_action(
+    workspace_root: Path,
+    task: TaskRecord,
+    lock: TaskLock | None,
+) -> tuple[str, str, dict[str, object], list[dict[str, object]]]:
+    blockers: list[dict[str, object]] = [
+        {
+            "kind": "active_stage",
+            "message": (
+                f"Task status is {task.status_stage}, but active_stage is missing."
+            ),
+        }
+    ]
+    action = "repair-active-stage"
+    reason = f"Task is {task.status_stage}, but no matching active lock/run exists."
+    next_item = _task_next_item(task)
+    if task.status_stage == "implementing":
+        latest_run = _optional_run(workspace_root, task, task.latest_implementation_run)
+        if (
+            latest_run is not None
+            and latest_run.run_type == "implementation"
+            and latest_run.status == "running"
+            and lock is None
+            and _accepted_plan_record_or_none(workspace_root, task) is not None
+        ):
+            action = "implement-resume"
+            reason = "Implementation run is running but the lock is missing."
+            blockers.append(
+                {
+                    "kind": "lock",
+                    "message": (
+                        "Missing active implementation lock "
+                        f"for run {latest_run.run_id}."
+                    ),
+                }
+            )
+    return action, reason, next_item, blockers
+
+
+def _inactive_status_next_action(
+    workspace_root: Path,
+    task: TaskRecord,
+    lock: TaskLock | None,
+) -> tuple[
+    str,
+    str,
+    dict[str, object] | None,
+    list[dict[str, object]],
+    dict[str, object],
+]:
+    blockers: list[dict[str, object]] = []
+    progress: dict[str, object] = {}
+    next_item: dict[str, object] | None = None
+    if task.status_stage == "draft":
+        return (
+            "plan",
+            "Draft tasks need planning before work starts.",
+            None,
+            blockers,
+            progress,
+        )
+    if task.status_stage == "plan_review":
+        questions = list_questions(workspace_root, task.id)
+        open_questions = _required_open_question_ids(questions)
+        latest_plan = _latest_plan_or_none(workspace_root, task.id)
+        stale_answers = (
+            _stale_answer_question_ids(questions, latest_plan)
+            if latest_plan is not None
+            else []
+        )
+        if open_questions:
+            question = _first_question_by_ids(questions, open_questions)
+            next_item = _question_next_item(question) if question is not None else None
+            progress["questions"] = {
+                "required_open": len(open_questions),
+                "required_open_ids": open_questions,
+            }
+            blockers.append(
+                {
+                    "kind": "open_questions",
+                    "question_ids": open_questions,
+                    "message": "Required planning questions must be answered.",
+                }
+            )
+            return (
+                "question-answer",
+                "Required planning questions are open.",
+                next_item,
+                blockers,
+                progress,
+            )
+        if stale_answers:
+            question = _first_question_by_ids(questions, stale_answers)
+            next_item = (
+                _answered_question_next_item(question) if question is not None else None
+            )
+            progress["questions"] = {
+                "required_open": 0,
+                "required_open_ids": [],
+                "answered_since_latest_plan": stale_answers,
+            }
+            blockers.append(
+                {
+                    "kind": "stale_answers",
+                    "question_ids": stale_answers,
+                    "message": "Regenerate the plan from answered questions.",
+                }
+            )
+            return (
+                "plan-regenerate",
+                "Answered planning questions are not reflected in the latest plan.",
+                next_item,
+                blockers,
+                progress,
+            )
+        if latest_plan is not None:
+            next_item = _plan_next_item(latest_plan)
+        return (
+            "plan-approve",
+            "A proposed plan is waiting for review.",
+            next_item,
+            blockers,
+            progress,
+        )
+    if task.status_stage == "approved":
+        next_item = _task_next_item(task)
+        if task.accepted_plan_version is None:
+            blockers.append(
+                {"kind": "approval", "message": "No accepted plan version is recorded."}
+            )
+        blockers.extend(
+            cast(list[dict[str, object]], _dependency_blockers(workspace_root, task))
+        )
+        return (
+            "implement",
+            "The approved plan is ready for implementation.",
+            next_item,
+            blockers,
+            progress,
+        )
+    if task.status_stage == "implemented":
+        next_item = _task_next_item(task)
+        impl_run = _optional_run(workspace_root, task, task.latest_implementation_run)
+        if (
+            impl_run is None
+            or impl_run.run_type != "implementation"
+            or impl_run.status != "finished"
+        ):
+            blockers.append(
+                {
+                    "kind": "implementation",
+                    "message": "Validation requires a finished implementation run.",
+                }
+            )
+        return (
+            "validate",
+            "Implementation is complete and ready to validate.",
+            next_item,
+            blockers,
+            progress,
+        )
+    if task.status_stage == "failed_validation":
+        next_item = _task_next_item(task)
+        blockers.extend(
+            cast(list[dict[str, object]], _dependency_blockers(workspace_root, task))
+        )
+        return (
+            "implement-restart",
+            "Validation failed; restart implementation.",
+            next_item,
+            blockers,
+            progress,
+        )
+    if task.status_stage in ACTIVE_TASK_STAGES:
+        action, reason, next_item, orphaned_blockers = _orphaned_active_stage_action(
+            workspace_root,
+            task,
+            lock,
+        )
+        blockers.extend(orphaned_blockers)
+        return action, reason, next_item, blockers, progress
+    if task.status_stage == "done":
+        return "none", "The task is complete.", None, blockers, progress
+    return "none", "The task is cancelled.", None, blockers, progress
 
 
 def _finalize_next_action_payload(payload: dict[str, object]) -> dict[str, object]:
@@ -745,6 +854,15 @@ def _next_action_command(action: str) -> str | None:
     }.get(action)
 
 
+def _implement_resume_command(task_id: str | None = None) -> str:
+    command = "taskledger implement resume"
+    if task_id is not None:
+        command += f" --task {task_id}"
+    return (
+        command + ' --reason "Reacquire implementation lock for existing running run."'
+    )
+
+
 def _primary_command_for_next_item(
     action: str,
     next_item: dict[str, object] | None,
@@ -768,6 +886,11 @@ def _primary_command_for_next_item(
         version = next_item.get("version")
         if isinstance(version, int):
             return f"taskledger plan show --version {version}"
+    if kind == "task" and isinstance(item_id, str):
+        if action == "implement-resume":
+            return _implement_resume_command(item_id)
+        if action == "repair-active-stage":
+            return f"taskledger task show --task {item_id}"
     if kind == "lock":
         task_id = next_item.get("task_id")
         if isinstance(task_id, str):
@@ -882,6 +1005,31 @@ def _commands_for_next_item(
                     )
                 )
             return commands
+    if item_kind == "task" and isinstance(item_id, str):
+        if action == "implement-resume":
+            return [
+                _command(
+                    "resume",
+                    "Resume implementation",
+                    _implement_resume_command(item_id),
+                    primary=True,
+                ),
+                _command(
+                    "context",
+                    "Show implementation checklist",
+                    "taskledger implement checklist",
+                ),
+            ]
+        if action == "repair-active-stage":
+            return [
+                _command(
+                    "inspect",
+                    "Inspect task state",
+                    f"taskledger task show --task {item_id}",
+                    primary=True,
+                ),
+                _command("inspect", "Run doctor", "taskledger doctor"),
+            ]
     if item_kind == "lock":
         task_id = next_item.get("task_id")
         if isinstance(task_id, str):
@@ -901,14 +1049,18 @@ def _commands_for_next_item(
     label = {
         "implement": "Start implementation",
         "implement-restart": "Restart implementation",
+        "implement-resume": "Resume implementation",
         "implement-finish": "Finish implementation",
+        "repair-active-stage": "Inspect task state",
         "validate": "Start validation",
         "validate-finish": "Finish validation",
     }.get(action, "Show next action")
     kind_name = {
         "implement": "start",
         "implement-restart": "restart",
+        "implement-resume": "resume",
         "implement-finish": "finish",
+        "repair-active-stage": "inspect",
         "validate": "start",
         "validate-finish": "finish",
     }.get(action, "context")

@@ -47,6 +47,7 @@ Task API
 - ``show_task``
 - ``edit_task``
 - ``cancel_task``
+- ``uncancel_task``
 - ``close_task``
 - ``create_follow_up_task``
 - ``add_requirement``
@@ -101,6 +102,7 @@ Run API
 
 - ``start_implementation``
 - ``restart_implementation``
+- ``resume_implementation``
 - ``log_implementation``
 - ``add_implementation_deviation``
 - ``add_implementation_artifact``

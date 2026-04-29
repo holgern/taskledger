@@ -28,6 +28,8 @@ def test_inventory_marks_core_and_repair_commands() -> None:
     assert COMMAND_METADATA["task create"][0] == STABLE_FOR_AGENTS
     assert COMMAND_METADATA["plan approve"][0] == STABLE_FOR_AGENTS
     assert COMMAND_METADATA["implement restart"][0] == STABLE_FOR_AGENTS
+    assert COMMAND_METADATA["implement resume"][0] == STABLE_FOR_AGENTS
+    assert COMMAND_METADATA["task uncancel"][0] == STABLE_FOR_AGENTS
     assert COMMAND_METADATA["serve"][0] == HUMAN_ORIENTED
     assert COMMAND_METADATA["lock break"][0] == REPAIR
     assert COMMAND_METADATA["doctor"][0] == REPAIR
@@ -59,10 +61,12 @@ def test_mutating_commands_are_not_marked_safe_read_only() -> None:
         "propose",
         "reject",
         "remove",
+        "resume",
         "revise",
         "scan-changes",
         "start",
         "task",
+        "uncancel",
         "undone",
         "unlink",
         "waive",

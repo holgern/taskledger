@@ -67,6 +67,7 @@ from taskledger.errors import (
 - `show_task`
 - `edit_task`
 - `cancel_task`
+- `uncancel_task`
 - `close_task`
 - `create_follow_up_task`
 - `add_requirement`
@@ -118,6 +119,7 @@ from taskledger.errors import (
 
 - `start_implementation`
 - `restart_implementation`
+- `resume_implementation`
 - `log_implementation`
 - `add_implementation_deviation`
 - `add_implementation_artifact`
@@ -266,6 +268,12 @@ Workflow additions:
   needed, including plan-template hints when answered questions require a plan update.
 - `implement restart --summary ...` starts a new implementation run from
   `failed_validation` while preserving the prior failed validation history.
+- `implement resume --reason ...` reacquires an implementation lock for an
+  existing running implementation run after a lock break or other orphaned-lock
+  recovery.
+- `task uncancel --reason ... [--to STAGE]` restores truly cancelled tasks to a
+  safe durable non-active stage; active work still resumes through the normal
+  stage-specific commands.
 - `todo done` records evidence with `--evidence`, `--artifact`, and `--change`.
 - `handoff create|list|show|claim|close|cancel` are available on the main
   task-first handoff command group.

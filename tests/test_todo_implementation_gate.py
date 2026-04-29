@@ -937,6 +937,86 @@ class TestNextActionTodoOutput:
             "status_stage": "implementing",
         }
 
+    def test_next_action_orphaned_implementation_recommends_resume(
+        self, tmp_path: Path
+    ) -> None:
+        _prepare_task_with_planned_todo(tmp_path)
+        broken = runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "lock",
+                "break",
+                "--reason",
+                "Recover stale implementation lock.",
+            ],
+        )
+        assert broken.exit_code == 0, broken.stdout
+
+        result = runner.invoke(app, ["--cwd", str(tmp_path), "--json", "next-action"])
+        assert result.exit_code == 0, result.stdout
+        payload = _json(result)["result"]
+
+        assert payload["action"] == "implement-resume"
+        assert (
+            payload["reason"]
+            == "Implementation run is running but the lock is missing."
+        )
+        assert payload["next_item"] == {
+            "kind": "task",
+            "id": "task-0001",
+            "status_stage": "implementing",
+        }
+        assert payload["next_command"] == (
+            "taskledger implement resume --task task-0001 "
+            '--reason "Reacquire implementation lock for existing running run."'
+        )
+        assert any(
+            blocker["message"]
+            == "Task status is implementing, but active_stage is missing."
+            for blocker in payload["blocking"]
+        )
+        assert any(
+            blocker["message"] == "Missing active implementation lock for run run-0002."
+            for blocker in payload["blocking"]
+        )
+
+    def test_next_action_does_not_call_orphaned_implementation_cancelled(
+        self, tmp_path: Path
+    ) -> None:
+        _prepare_task_with_planned_todo(tmp_path)
+        broken = runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "lock",
+                "break",
+                "--reason",
+                "Recover stale implementation lock.",
+            ],
+        )
+        assert broken.exit_code == 0, broken.stdout
+
+        result = runner.invoke(app, ["--cwd", str(tmp_path), "next-action"])
+        assert result.exit_code == 0, result.stdout
+        assert "The task is cancelled." not in result.stdout
+        assert (
+            "implement-resume: Implementation run is running but the lock is missing."
+            in result.stdout
+        )
+        assert "Next task: task-0001" in result.stdout
+        assert (
+            "Command: taskledger implement resume --task task-0001 "
+            '--reason "Reacquire implementation lock for existing running run."'
+            in result.stdout
+        )
+        assert (
+            "Blocker: Missing active implementation lock for run run-0002."
+            in result.stdout
+        )
+
 
 class TestLegacyTodoSidecars:
     """Legacy sidecars are ignored during normal v2 operation."""
