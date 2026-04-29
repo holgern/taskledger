@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any, cast
 
 from typer.testing import CliRunner
 
@@ -10,18 +11,19 @@ from taskledger.storage.frontmatter import read_markdown_front_matter
 
 
 def _make_runner() -> CliRunner:
+    runner_factory = cast(Any, CliRunner)
     try:
-        return CliRunner(mix_stderr=False)
+        return cast(CliRunner, runner_factory(mix_stderr=False))
     except TypeError:
-        return CliRunner()
+        return cast(CliRunner, runner_factory())
 
 
 runner = _make_runner()
 
 
-def _json(result) -> dict[str, object]:
+def _json(result: Any) -> dict[str, Any]:
     assert result.exit_code == 0, result.stdout
-    payload = json.loads(result.stdout)
+    payload = cast(dict[str, Any], json.loads(result.stdout))
     assert payload["ok"] is True
     return payload
 

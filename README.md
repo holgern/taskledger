@@ -1,3 +1,8 @@
+[![PyPI - Version](https://img.shields.io/pypi/v/taskledger)](https://pypi.org/project/taskledger/)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/taskledger)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/taskledger)
+[![codecov](https://codecov.io/gh/holgern/taskledger/graph/badge.svg?token=6usFHwM5Ul)](https://codecov.io/gh/holgern/taskledger)
+
 # taskledger
 
 `taskledger` is a task-first durable state layer for staged coding work. It keeps

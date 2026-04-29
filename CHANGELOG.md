@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.1.1 - 2026-04-29
+
+### Added
+
+- Added `task follow-up` to create linked post-completion child tasks, preserve closure metadata, and show parent and follow-up relationships in task and handoff views.
+- Added durable release records and a new `taskledger release` command group with `tag`, `list`, `show`, and `changelog`, including export/import support and public API coverage.
+- Added planning helpers with `question add-many`, `plan template`, richer regeneration hints in `next-action`, and recovery commands for orphaned implementation work with `implement resume`, `task uncancel`, and `can implement-resume`.
+
+### Changed
+
+- Hardened CLI startup so optional command-group import failures no longer block core commands, and launcher failures return structured diagnostics.
+
+### Fixed
+
+- Fixed recovery guidance for uncancelled tasks with orphaned implementation runs so `next-action` and `can implement` recommend `implement resume` instead of a fresh start.
+
+### Documentation
+
+- Documented release tagging, changelog generation, planning helpers, follow-up task workflow, and recovery semantics across README, RST docs, API docs, and the taskledger skill.
+
+### Quality
+
+- Expanded regression coverage for follow-up tasks, release workflow, CLI import resilience, planning helpers, and implementation recovery. Repo-wide pytest, ruff, and mypy passed.
+
 ## v0.1.0 - 2026-04-29
 
 ### Added
