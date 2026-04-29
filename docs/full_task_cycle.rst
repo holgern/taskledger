@@ -330,4 +330,6 @@ lock and recording a reason. If a broken stale lock leaves an implementation run
 still marked ``running``, continue with ``implement resume`` instead of starting a
 new implementation run. If a task is truly ``cancelled``, use ``task uncancel``
 to restore a safe durable stage before re-entering planning, implementation, or
-validation through the normal stage-specific commands.
+validation through the normal stage-specific commands. After ``task uncancel``,
+run ``next-action`` again; if it reports ``implement-resume``, reacquire the
+existing implementation run rather than running ``implement start``.

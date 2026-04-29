@@ -101,6 +101,12 @@ pretending the task is cancelled:
    taskledger lock break --reason "Recover stale implementation lock."
    taskledger implement resume --reason "Reacquire implementation lock for existing running run."
 
+If the task is actually ``cancelled`` and the user wants to continue, restore it
+with ``task uncancel`` first, then run ``next-action`` again. A restored task may
+return to a safe durable stage such as ``approved`` while an implementation run
+is still ``running``; in that case use ``implement resume`` instead of
+``implement start``.
+
 Compact implementation loop
 ---------------------------
 
@@ -292,6 +298,7 @@ Integrity and recovery
    taskledger lock break --reason "recover stale planning lock"
    taskledger implement resume --reason "Reacquire implementation lock for existing running run."
    taskledger task uncancel --reason "Restore the task to a safe durable stage."
+   taskledger next-action
    taskledger repair index
 
 Export and snapshots

@@ -527,6 +527,13 @@ def uncancel_task(
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, ref)
     if task.status_stage != "cancelled":
+        resumable_run = _resumable_implementation_run(
+            workspace_root,
+            task,
+            lock=_current_lock(workspace_root, task.id),
+        )
+        if resumable_run is not None and task.status_stage == "implementing":
+            raise _uncancel_resumable_implementation_error(task, resumable_run)
         raise _cli_error(
             "Only cancelled tasks can be uncancelled.",
             EXIT_CODE_INVALID_TRANSITION,
@@ -3374,6 +3381,25 @@ def _optional_run(
         return None
 
 
+def _resumable_implementation_run(
+    workspace_root: Path,
+    task: TaskRecord,
+    *,
+    lock: TaskLock | None,
+) -> TaskRunRecord | None:
+    if lock is not None:
+        return None
+    run = _optional_run(workspace_root, task, task.latest_implementation_run)
+    if (
+        run is not None
+        and run.run_type == "implementation"
+        and run.status == "running"
+        and _accepted_plan_record_or_none(workspace_root, task) is not None
+    ):
+        return run
+    return None
+
+
 def _require_running_run(
     workspace_root: Path,
     task: TaskRecord,
@@ -4713,6 +4739,28 @@ def _lifecycle_payload(
 def _cli_error(message: str, exit_code: int) -> LaunchError:
     error = LaunchError(message)
     error.taskledger_exit_code = exit_code
+    return error
+
+
+def _uncancel_resumable_implementation_error(
+    task: TaskRecord,
+    run: TaskRunRecord,
+) -> LaunchError:
+    command = (
+        f"taskledger implement resume --task {task.id} "
+        '--reason "Reacquire implementation lock for existing running run."'
+    )
+    error = LaunchError(
+        (
+            f"Task {task.id} is not cancelled; it has a running implementation "
+            "run with no active lock."
+        ),
+        remediation=[command],
+        details={"run_id": run.run_id, "status_stage": task.status_stage},
+        task_id=task.id,
+    )
+    error.taskledger_exit_code = EXIT_CODE_INVALID_TRANSITION
+    error.taskledger_error_code = "INVALID_TRANSITION"
     return error
 
 

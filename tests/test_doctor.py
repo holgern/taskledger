@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import py_compile
 from pathlib import Path
 
 from taskledger.domain.models import (
@@ -104,6 +105,10 @@ def test_inspect_healthy_project(tmp_path: Path) -> None:
     assert result["errors"] == []
     counts = result["counts"]
     assert counts["tasks"] == 1
+
+
+def test_doctor_module_compiles_without_syntaxwarning() -> None:
+    py_compile.compile("taskledger/services/doctor.py", doraise=True)
 
 
 def test_inspect_project_with_active_task(tmp_path: Path) -> None:

@@ -37,6 +37,7 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 4. Run `taskledger context --for planning|implementation|validation --format markdown`.
 5. Inspect `taskledger lock show` before active work.
 6. Use `taskledger can implement` or `taskledger can validate` before those stages.
+   - Use `taskledger can implement-resume` when `next-action` recommends resuming an existing implementation run.
 7. If a durable handoff exists, claim it with `taskledger handoff claim handoff-0001` before continuing and close it after the intended next action starts.
 
 Example human output:
@@ -220,6 +221,8 @@ To receive work:
 
 - If a lock is stale, inspect it first, then run `taskledger lock break --reason "..."`.
 - If breaking an implementation lock leaves a running implementation run behind, use `taskledger implement resume --reason "..."` instead of `implement start`.
+- If `task show` reports `status_stage=implementing` but `active_stage` is missing, do not run `task uncancel`; run `taskledger next-action` and resume when it reports `implement-resume`.
+- If a cancelled task is restored with `task uncancel`, run `taskledger next-action` before starting work. If the task still has a running implementation run, resume that run instead of starting a new one.
 - If validation fails, record the failure and return to implementation or replanning.
 - If indexes are stale, run `taskledger repair index`; `taskledger reindex` is a compatibility alias.
 - If a task is truly cancelled and the user wants to continue, use `taskledger task uncancel --reason "..." [--to STAGE]` to restore a safe durable stage before re-entering an active stage.

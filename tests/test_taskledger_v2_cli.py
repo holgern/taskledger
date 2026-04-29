@@ -1134,6 +1134,189 @@ def test_task_uncancel_restores_cancelled_task_to_approved(tmp_path: Path) -> No
     assert task_show["result"]["task"]["status_stage"] == "approved"
 
 
+def test_next_action_after_uncancel_running_implementation_recommends_resume(
+    tmp_path: Path,
+) -> None:
+    _, run_id = _prepare_resumable_implementation_task(tmp_path)
+    cancel = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "cancel",
+            "--task",
+            "resume-task",
+            "--reason",
+            "Cancelled accidentally.",
+        ],
+    )
+    assert cancel.exit_code == 0, cancel.stdout
+    uncancel = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "uncancel",
+            "--task",
+            "resume-task",
+            "--actor",
+            "agent",
+            "--allow-agent-uncancel",
+            "--reason",
+            "User explicitly requested continuation.",
+        ],
+    )
+    assert uncancel.exit_code == 0, uncancel.stdout
+
+    result = runner.invoke(app, ["--cwd", str(tmp_path), "--json", "next-action"])
+    payload = _json(result)["result"]
+
+    assert payload["status_stage"] == "approved"
+    assert payload["action"] == "implement-resume"
+    assert payload["next_command"] == (
+        "taskledger implement resume --task task-0001 "
+        '--reason "Reacquire implementation lock for existing running run."'
+    )
+    assert any(
+        blocker["message"] == f"Missing active implementation lock for run {run_id}."
+        for blocker in payload["blocking"]
+    )
+
+
+def test_can_implement_blocks_existing_running_run_after_uncancel(
+    tmp_path: Path,
+) -> None:
+    _prepare_resumable_implementation_task(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "cancel",
+                "--task",
+                "resume-task",
+                "--reason",
+                "Cancelled accidentally.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "uncancel",
+                "--task",
+                "resume-task",
+                "--actor",
+                "agent",
+                "--allow-agent-uncancel",
+                "--reason",
+                "User explicitly requested continuation.",
+            ],
+        ).exit_code
+        == 0
+    )
+
+    result = runner.invoke(app, ["--cwd", str(tmp_path), "--json", "can", "implement"])
+    payload = _json(result)["result"]
+
+    assert payload["ok"] is False
+    assert any(
+        "running implementation run" in blocker["message"]
+        and "taskledger implement resume" in blocker["command_hint"]
+        for blocker in payload["blocking"]
+    )
+
+
+def test_can_implement_resume_after_uncancel_running_implementation(
+    tmp_path: Path,
+) -> None:
+    _prepare_resumable_implementation_task(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "cancel",
+                "--task",
+                "resume-task",
+                "--reason",
+                "Cancelled accidentally.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "uncancel",
+                "--task",
+                "resume-task",
+                "--actor",
+                "agent",
+                "--allow-agent-uncancel",
+                "--reason",
+                "User explicitly requested continuation.",
+            ],
+        ).exit_code
+        == 0
+    )
+
+    result = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "--json", "can", "implement-resume"],
+    )
+    payload = _json(result)["result"]
+
+    assert payload["ok"] is True
+    assert payload["reason"] == "Implementation resume is ready."
+
+
+def test_uncancel_non_cancelled_orphan_hints_resume(tmp_path: Path) -> None:
+    _prepare_resumable_implementation_task(tmp_path)
+    _break_task_lock(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "task",
+            "uncancel",
+            "--task",
+            "resume-task",
+            "--actor",
+            "agent",
+            "--allow-agent-uncancel",
+            "--reason",
+            "User requested continuation.",
+        ],
+    )
+
+    assert result.exit_code != 0
+    payload = json.loads(result.stdout)
+    assert "not cancelled" in payload["error"]["message"]
+    assert any(
+        "taskledger implement resume" in item
+        for item in payload["error"]["remediation"]
+    )
+
+
 def test_task_uncancel_rejects_active_stage_target(tmp_path: Path) -> None:
     _prepare_resumable_implementation_task(tmp_path)
     cancel = runner.invoke(

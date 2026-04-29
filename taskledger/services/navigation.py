@@ -25,6 +25,7 @@ from taskledger.services.tasks import (
     _dependency_blockers,
     _optional_run,
     _planning_template_hints,
+    _resumable_implementation_run,
     _task_active_stage,
     _task_with_sidecars,
     _todo_command_hints,
@@ -321,6 +322,28 @@ def _inactive_status_next_action(
         )
     if task.status_stage == "approved":
         next_item = _task_next_item(task)
+        resumable_run = _resumable_implementation_run(
+            workspace_root,
+            task,
+            lock=lock,
+        )
+        if resumable_run is not None:
+            blockers.append(
+                {
+                    "kind": "lock",
+                    "message": (
+                        "Missing active implementation lock "
+                        f"for run {resumable_run.run_id}."
+                    ),
+                }
+            )
+            return (
+                "implement-resume",
+                "Implementation run is running but the lock is missing.",
+                next_item,
+                blockers,
+                progress,
+            )
         if task.accepted_plan_version is None:
             blockers.append(
                 {"kind": "approval", "message": "No accepted plan version is recorded."}
@@ -414,10 +437,16 @@ def can_perform(workspace_root: Path, task_ref: str, action: str) -> dict[str, o
                 }
             )
     elif action == "implement":
+        running_runs = [
+            item
+            for item in list_runs(workspace_root, task.id)
+            if item.status == "running"
+        ]
         ok = (
             task.status_stage in IMPLEMENTABLE_TASK_STAGES
             and task.accepted_plan_version is not None
             and not _dependency_blockers(workspace_root, task)
+            and not running_runs
             and lock is None
             and active_stage is None
         )
@@ -434,6 +463,78 @@ def can_perform(workspace_root: Path, task_ref: str, action: str) -> dict[str, o
                 {"kind": "approval", "message": "No accepted plan version."}
             )
         blocking.extend(_dependency_blockers(workspace_root, task))
+        if running_runs:
+            running_run = running_runs[0]
+            blocking.append(
+                {
+                    "kind": "implementation",
+                    "message": (
+                        f"Task already has running {running_run.run_type} run "
+                        f"{running_run.run_id}; use taskledger implement resume."
+                    ),
+                    "command_hint": _implement_resume_command(task.id),
+                }
+            )
+        if lock is not None:
+            blocking.append(
+                {
+                    "kind": "lock",
+                    "message": (
+                        f"Task has an active {lock.stage} lock from {lock.run_id}."
+                    ),
+                }
+            )
+    elif action == "implement-resume":
+        implementation_run = _optional_run(
+            workspace_root,
+            task,
+            task.latest_implementation_run,
+        )
+        dependency_blockers = _dependency_blockers(workspace_root, task)
+        ok = (
+            task.status_stage in {"approved", "implementing"}
+            and task.accepted_plan_version is not None
+            and implementation_run is not None
+            and implementation_run.run_type == "implementation"
+            and implementation_run.status == "running"
+            and not dependency_blockers
+            and lock is None
+            and active_stage is None
+        )
+        reason = (
+            "Implementation resume is ready."
+            if ok
+            else (
+                "Implementation resume requires approved or implementing state, "
+                "an accepted plan, a running implementation run, no active lock, "
+                "and completed dependencies."
+            )
+        )
+        if task.status_stage not in {"approved", "implementing"}:
+            blocking.append(
+                {
+                    "kind": "stage",
+                    "message": (
+                        "Implementation resume requires approved or implementing state."
+                    ),
+                }
+            )
+        if task.accepted_plan_version is None:
+            blocking.append(
+                {"kind": "approval", "message": "No accepted plan version."}
+            )
+        if (
+            implementation_run is None
+            or implementation_run.run_type != "implementation"
+            or implementation_run.status != "running"
+        ):
+            blocking.append(
+                {
+                    "kind": "implementation",
+                    "message": "No running implementation run is available to resume.",
+                }
+            )
+        blocking.extend(dependency_blockers)
         if lock is not None:
             blocking.append(
                 {
