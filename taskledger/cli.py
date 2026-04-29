@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, Any, cast
@@ -53,15 +54,10 @@ from taskledger.cli_misc import (
 )
 from taskledger.cli_plan import register_plan_v2_commands
 from taskledger.cli_question import register_question_v2_commands
-from taskledger.cli_release import register_release_commands
 from taskledger.cli_task import register_task_v2_commands
 from taskledger.cli_validate import register_validate_v2_commands
-from taskledger.errors import LaunchError
+from taskledger.errors import LaunchError, OptionalCommandGroupUnavailable
 from taskledger.services.dashboard import dashboard, render_dashboard_text
-from taskledger.services.web_dashboard import (
-    DashboardServerConfig,
-    launch_dashboard_server,
-)
 
 app = typer.Typer(add_completion=False, help="Manage staged taskledger coding work.")
 task_app = typer.Typer(add_completion=False, help="Manage coding tasks.")
@@ -121,7 +117,101 @@ register_link_v2_commands(link_app)
 register_require_v2_commands(require_app)
 register_lock_v2_commands(lock_app)
 register_handoff_v2_commands(handoff_app)
-register_release_commands(release_app)
+
+
+def _optional_group_failure(
+    *,
+    group_name: str,
+    module_name: str,
+    exc: Exception,
+) -> OptionalCommandGroupUnavailable:
+    diagnostic_path = module_name.replace(".", "/") + ".py"
+    diagnostic_command = f"python -m py_compile {diagnostic_path}"
+    return OptionalCommandGroupUnavailable(
+        (
+            f"taskledger command group '{group_name}' failed to load from "
+            f"{module_name}: {type(exc).__name__}: {exc}. "
+            f"Run: {diagnostic_command}"
+        ),
+        details={
+            "command_group": group_name,
+            "module_name": module_name,
+            "exception_type": type(exc).__name__,
+            "diagnostic_command": diagnostic_command,
+        },
+        remediation=[f"Run: {diagnostic_command}"],
+    )
+
+
+def _emit_optional_group_failure(
+    ctx: typer.Context,
+    error: OptionalCommandGroupUnavailable,
+) -> None:
+    emit_error(ctx, error)
+    raise typer.Exit(code=launch_error_exit_code(error)) from error
+
+
+def _register_failed_group_placeholder(
+    app: typer.Typer,
+    *,
+    error: OptionalCommandGroupUnavailable,
+    command_names: tuple[str, ...],
+) -> None:
+    @app.callback(invoke_without_command=True)
+    def failed_group_callback(ctx: typer.Context) -> None:
+        if ctx.invoked_subcommand is None:
+            _emit_optional_group_failure(ctx, error)
+
+    def _placeholder(
+        failed_error: OptionalCommandGroupUnavailable,
+    ) -> Callable[[typer.Context], None]:
+        def placeholder_command(ctx: typer.Context) -> None:
+            _emit_optional_group_failure(ctx, failed_error)
+
+        return placeholder_command
+
+    for command_name in command_names:
+        app.command(
+            command_name,
+            context_settings={
+                "allow_extra_args": True,
+                "ignore_unknown_options": True,
+            },
+        )(_placeholder(error))
+
+
+def _register_optional_group(
+    app: typer.Typer,
+    *,
+    group_name: str,
+    module_name: str,
+    register_name: str,
+    command_names: tuple[str, ...],
+) -> None:
+    try:
+        module = importlib.import_module(module_name)
+        register = getattr(module, register_name)
+    except Exception as exc:
+        _register_failed_group_placeholder(
+            app,
+            error=_optional_group_failure(
+                group_name=group_name,
+                module_name=module_name,
+                exc=exc,
+            ),
+            command_names=command_names,
+        )
+        return
+    register(app)
+
+
+_register_optional_group(
+    release_app,
+    group_name="release",
+    module_name="taskledger.cli_release",
+    register_name="register_release_commands",
+    command_names=("tag", "list", "show", "changelog"),
+)
 
 
 @app.command("context")
@@ -285,6 +375,19 @@ def serve_command(
 ) -> None:
     state = ctx.obj
     assert isinstance(state, CLIState)
+    try:
+        from taskledger.services.web_dashboard import (
+            DashboardServerConfig,
+            launch_dashboard_server,
+        )
+    except Exception as exc:
+        error = _optional_group_failure(
+            group_name="serve",
+            module_name="taskledger.services.web_dashboard",
+            exc=exc,
+        )
+        emit_error(ctx, error)
+        raise typer.Exit(code=launch_error_exit_code(error)) from error
     try:
         handle = launch_dashboard_server(
             DashboardServerConfig(

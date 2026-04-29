@@ -64,9 +64,10 @@ plan from answers, approve it, implement todos with evidence, and validate it:
 taskledger task create "Rewrite V2" --slug rewrite-v2 --description "Migrate to the task-first design."
 taskledger task activate rewrite-v2 --reason "Start planning"
 taskledger plan start
-taskledger question add --text "Should exports include the new state?" --required-for-plan
-taskledger question answer-many --text "q-0001: Yes."
+taskledger question add-many --required-for-plan --text $'Should exports include the new state?\nShould snapshots include implementation artifacts?'
+taskledger question answer-many --text $'q-0001: Yes.\nq-0002: No.'
 taskledger question status
+taskledger plan template --from-answers --file ./plan.md
 taskledger plan upsert --from-answers --file ./plan.md
 taskledger plan lint --version 1
 taskledger plan accept --version 1 --note "Ready."

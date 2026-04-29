@@ -71,6 +71,7 @@ Plan API
 
 - ``start_planning``
 - ``propose_plan``
+- ``plan_template``
 - ``upsert_plan``
 - ``list_plan_versions``
 - ``show_plan``
@@ -87,6 +88,7 @@ Question API
 ------------
 
 - ``add_question``
+- ``add_questions``
 - ``answer_question``
 - ``answer_questions``
 - ``list_questions``

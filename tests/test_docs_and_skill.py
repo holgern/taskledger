@@ -96,6 +96,7 @@ def test_skill_contains_strict_agent_protocol() -> None:
         "When to use this skill",
         "Never do these things",
         "Fresh context entry protocol",
+        "CLI failure protocol",
         "Planning protocol",
         "Implementation protocol",
         "Validation protocol",
@@ -108,6 +109,9 @@ def test_skill_contains_strict_agent_protocol() -> None:
     assert "taskledger context" in skill
     assert "Do not ask the user to run `taskledger question answer`" in skill
     assert "record the answers yourself" in skill
+    assert "Stop issuing mutating taskledger commands" in skill
+    assert "taskledger plan template --from-answers --file ./plan.md" in skill
+    assert "taskledger question add-many" in skill
 
 
 def test_docs_do_not_reference_removed_commands() -> None:

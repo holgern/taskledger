@@ -64,6 +64,43 @@ def _propose_plan(
     assert result.exit_code == 0, result.output
 
 
+def _add_and_answer_required_question(
+    tmp_path: Path,
+    slug: str,
+    answer: str = "PostgreSQL.",
+) -> None:
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "question",
+            "add",
+            "--task",
+            slug,
+            "--text",
+            "Which database?",
+            "--required-for-plan",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "question",
+            "answer",
+            "--task",
+            slug,
+            "q-0001",
+            "--text",
+            answer,
+        ],
+    )
+    assert result.exit_code == 0, result.output
+
+
 # Full plan with all required fields
 _FULL_PLAN = """\
 ---
@@ -219,6 +256,131 @@ class TestPlanLintPasses:
         summary = res["summary"]
         assert isinstance(summary, dict)
         assert summary["errors"] == 0
+
+    def test_plan_template_prints_stdout_when_no_file(self, tmp_path: Path) -> None:
+        _init_project(tmp_path)
+        _create_task(tmp_path, "template-stdout")
+        _start_planning(tmp_path, "template-stdout")
+
+        result = runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "plan", "template", "--task", "template-stdout"],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert result.stdout.startswith("---\n")
+        assert "acceptance_criteria:" in result.stdout
+
+    def test_plan_template_from_answers_writes_file(self, tmp_path: Path) -> None:
+        _init_project(tmp_path)
+        _create_task(tmp_path, "template-file")
+        _start_planning(tmp_path, "template-file")
+        _add_and_answer_required_question(tmp_path, "template-file")
+        plan_path = tmp_path / "plan.md"
+
+        result = runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "plan",
+                "template",
+                "--task",
+                "template-file",
+                "--from-answers",
+                "--file",
+                str(plan_path),
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        contents = plan_path.read_text(encoding="utf-8")
+        assert "## Notes from answered questions" in contents
+        assert "- q-0001: PostgreSQL." in contents
+
+    def test_filled_plan_template_passes_lint(self, tmp_path: Path) -> None:
+        _init_project(tmp_path)
+        _create_task(tmp_path, "template-lint")
+        _start_planning(tmp_path, "template-lint")
+        _add_and_answer_required_question(tmp_path, "template-lint")
+        plan_path = tmp_path / "plan.md"
+
+        result = runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "plan",
+                "template",
+                "--task",
+                "template-lint",
+                "--from-answers",
+                "--file",
+                str(plan_path),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+
+        contents = plan_path.read_text(encoding="utf-8")
+        contents = contents.replace(
+            "<one sentence describing the desired outcome>",
+            "Implement PostgreSQL-only behavior.",
+        )
+        contents = contents.replace("@path/to/file.py", "taskledger/services/tasks.py")
+        contents = contents.replace(
+            "pytest -q path/to/test_file.py",
+            "pytest -q tests/test_plan_lint.py",
+        )
+        contents = contents.replace(
+            "<observable acceptance criterion>",
+            (
+                "The template-based plan can be linted after concrete values are "
+                "filled in."
+            ),
+        )
+        contents = contents.replace(
+            "<specific behavior>",
+            "the PostgreSQL-only planning behavior",
+        )
+        contents = contents.replace(
+            "<repeat or expand the goal in human prose>",
+            (
+                "Implement PostgreSQL-only behavior and keep the answered planning "
+                "context visible."
+            ),
+        )
+        plan_path.write_text(contents, encoding="utf-8")
+
+        upserted = runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "plan",
+                "upsert",
+                "--task",
+                "template-lint",
+                "--from-answers",
+                "--file",
+                str(plan_path),
+            ],
+        )
+        assert upserted.exit_code == 0, upserted.output
+
+        linted = runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "--json",
+                "plan",
+                "lint",
+                "--task",
+                "template-lint",
+            ],
+        )
+        assert linted.exit_code == 0, linted.output
+        assert _json(linted)["result"]["passed"] is True
 
 
 class TestPlanLintErrors:

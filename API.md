@@ -90,6 +90,7 @@ from taskledger.errors import (
 
 - `start_planning`
 - `propose_plan`
+- `plan_template`
 - `upsert_plan`
 - `regenerate_plan_from_answers`
 - `materialize_plan_todos`
@@ -105,6 +106,7 @@ from taskledger.errors import (
 ### `taskledger.api.questions`
 
 - `add_question`
+- `add_questions`
 - `list_questions`
 - `list_open_questions`
 - `answer_question`
@@ -256,10 +258,12 @@ Workflow additions:
 - `task follow-up PARENT_REF TITLE` creates a new draft child task linked to a
   completed parent. Use it for small post-completion deltas instead of
   reopening the done task.
+- `plan template` and `question add-many` support faster plan drafting and batch
+  planning setup.
 - `plan draft`, `plan upsert --from-answers`, and
   `plan materialize-todos` support the question-answer-regenerate loop.
 - `question status` reports required open questions and whether regeneration is
-  needed.
+  needed, including plan-template hints when answered questions require a plan update.
 - `implement restart --summary ...` starts a new implementation run from
   `failed_validation` while preserving the prior failed validation history.
 - `todo done` records evidence with `--evidence`, `--artifact`, and `--change`.

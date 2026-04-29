@@ -98,6 +98,9 @@ and may also include:
 * ``next_item`` for the concrete target
 * ``commands`` for ordered command hints with one primary command
 * ``progress`` for question, todo, or validation queues
+* ``template_command`` plus ``required_plan_fields`` and
+  ``recommended_plan_fields`` when the next step is regenerating a plan from
+  answered questions
 
 Agents should inspect ``next_item``, prefer ``next_command`` when it is safe,
 avoid inventing question answers, and never mark todos done without evidence.

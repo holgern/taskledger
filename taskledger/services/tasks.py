@@ -126,6 +126,9 @@ from taskledger.storage.task_store import (
 )
 from taskledger.timeutils import utc_now_iso
 
+_REQUIRED_PLAN_FIELDS = ("goal", "acceptance_criteria", "todos")
+_RECOMMENDED_PLAN_FIELDS = ("files", "test_commands", "expected_outputs")
+
 
 def create_task(
     workspace_root: Path,
@@ -1538,6 +1541,64 @@ def add_question(
     return question
 
 
+def add_questions(
+    workspace_root: Path,
+    task_ref: str,
+    questions: Sequence[tuple[str, bool]],
+    *,
+    actor: ActorRef | None = None,
+    harness: HarnessRef | None = None,
+    allow_duplicates: bool = False,
+) -> dict[str, object]:
+    task = resolve_task(workspace_root, task_ref)
+    _enforce_decision(
+        question_add_decision(
+            task,
+            _lock_for_mutation(workspace_root, task.id),
+            actor_role="planner",
+        )
+    )
+    normalized = _normalize_question_batch(
+        questions,
+        allow_duplicates=allow_duplicates,
+    )
+    known_ids = [item.id for item in list_questions(workspace_root, task.id)]
+    created_questions: list[QuestionRecord] = []
+    for text, required_for_plan in normalized:
+        question_id = next_project_id(
+            "q",
+            [*known_ids, *[item.id for item in created_questions]],
+        )
+        created_questions.append(
+            QuestionRecord(
+                id=question_id,
+                task_id=task.id,
+                question=text,
+                plan_version=task.latest_plan_version,
+                required_for_plan=required_for_plan,
+                asked_by_actor=actor or _default_actor(),
+                asked_in_harness=harness or _default_harness(),
+            )
+        )
+    for question in created_questions:
+        save_question(workspace_root, question)
+        _append_event(
+            resolve_v2_paths(workspace_root).project_dir,
+            task.id,
+            "question.added",
+            {
+                "question_id": question.id,
+                "required_for_plan": question.required_for_plan,
+            },
+        )
+    return {
+        "kind": "question_add_many",
+        "task_id": task.id,
+        "added_question_ids": [item.id for item in created_questions],
+        "added": [item.to_dict() for item in created_questions],
+    }
+
+
 def answer_question(
     workspace_root: Path,
     task_ref: str,
@@ -1619,7 +1680,7 @@ def answer_questions(
         answered_ids.append(question.id)
         answered_questions.append(question.to_dict())
     status = question_status(workspace_root, task.id)
-    return {
+    payload = {
         "kind": "question_answer_many",
         "task_id": task.id,
         "answered_question_ids": answered_ids,
@@ -1629,6 +1690,14 @@ def answer_questions(
         "plan_regeneration_needed": status["plan_regeneration_needed"],
         "next_action": status["next_action"],
     }
+    for key in (
+        "template_command",
+        "required_plan_fields",
+        "recommended_plan_fields",
+    ):
+        if key in status:
+            payload[key] = status[key]
+    return payload
 
 
 def question_status(workspace_root: Path, task_ref: str) -> dict[str, object]:
@@ -1643,7 +1712,7 @@ def question_status(workspace_root: Path, task_ref: str) -> dict[str, object]:
         else [item.id for item in answered]
     )
     regeneration_needed = bool(answered_since_latest_plan) and not required_open
-    return {
+    payload = {
         "kind": "question_status",
         "task_id": task.id,
         "required_open": len(required_open),
@@ -1660,6 +1729,36 @@ def question_status(workspace_root: Path, task_ref: str) -> dict[str, object]:
                 else "taskledger plan propose --file plan.md"
             )
         ),
+    }
+    if regeneration_needed:
+        payload.update(_planning_template_hints(from_answers=True))
+    return payload
+
+
+def plan_template(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    from_answers: bool = False,
+) -> dict[str, object]:
+    task = resolve_task(workspace_root, task_ref)
+    answered_questions = [
+        item
+        for item in list_questions(workspace_root, task.id)
+        if item.status == "answered" and item.required_for_plan
+    ]
+    return {
+        "kind": "plan_template",
+        "task_id": task.id,
+        "from_answers": from_answers,
+        "template": _render_plan_template(
+            answered_questions if from_answers else (),
+        ),
+        "answered_question_ids": [item.id for item in answered_questions]
+        if from_answers
+        else [],
+        "required_plan_fields": list(_REQUIRED_PLAN_FIELDS),
+        "recommended_plan_fields": list(_RECOMMENDED_PLAN_FIELDS),
     }
 
 
@@ -3114,6 +3213,83 @@ def _lock_for_mutation(workspace_root: Path, task_id: str) -> TaskLock | None:
     if lock is not None and lock_is_expired(lock):
         raise _stale_lock_error(task_id, lock)
     return lock
+
+
+def _normalize_question_batch(
+    questions: Sequence[tuple[str, bool]],
+    *,
+    allow_duplicates: bool,
+) -> list[tuple[str, bool]]:
+    if not questions:
+        raise _cli_error("At least one question is required.", EXIT_CODE_BAD_INPUT)
+    normalized: list[tuple[str, bool]] = []
+    seen: set[str] = set()
+    for index, (text, required_for_plan) in enumerate(questions, start=1):
+        stripped = text.strip()
+        if not stripped:
+            raise _cli_error(
+                f"Question text must not be empty for item {index}.",
+                EXIT_CODE_BAD_INPUT,
+            )
+        key = stripped.casefold()
+        if not allow_duplicates and key in seen:
+            raise _cli_error(
+                f"Duplicate question text in batch: {stripped}",
+                EXIT_CODE_BAD_INPUT,
+            )
+        seen.add(key)
+        normalized.append((stripped, required_for_plan))
+    return normalized
+
+
+def _planning_template_hints(*, from_answers: bool) -> dict[str, object]:
+    return {
+        "template_command": _plan_template_command(from_answers=from_answers),
+        "required_plan_fields": list(_REQUIRED_PLAN_FIELDS),
+        "recommended_plan_fields": list(_RECOMMENDED_PLAN_FIELDS),
+    }
+
+
+def _plan_template_command(*, from_answers: bool) -> str:
+    command = "taskledger plan template"
+    if from_answers:
+        command += " --from-answers"
+    return f"{command} --file plan.md"
+
+
+def _render_plan_template(answered_questions: Sequence[QuestionRecord]) -> str:
+    lines = [
+        "---",
+        'goal: "<one sentence describing the desired outcome>"',
+        "files:",
+        '  - "@path/to/file.py"',
+        "test_commands:",
+        '  - "pytest -q path/to/test_file.py"',
+        "expected_outputs:",
+        '  - "pytest exits 0"',
+        "acceptance_criteria:",
+        "  - id: ac-0001",
+        '    text: "<observable acceptance criterion>"',
+        "    mandatory: true",
+        "todos:",
+        "  - id: plan-todo-0001",
+        '    text: "Edit @path/to/file.py to implement <specific behavior>."',
+        "    mandatory: true",
+        (
+            '    validation_hint: "Run pytest -q path/to/test_file.py '
+            'and inspect the expected output."'
+        ),
+        "---",
+        "",
+        "## Goal",
+        "",
+        "<repeat or expand the goal in human prose>",
+    ]
+    if answered_questions:
+        lines.extend(["", "## Notes from answered questions", ""])
+        for item in answered_questions:
+            lines.append(f"- {item.id}: {item.answer}")
+    return "\n".join(lines) + "\n"
 
 
 def _dependency_blockers(

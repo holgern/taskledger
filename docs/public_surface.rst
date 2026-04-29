@@ -32,12 +32,13 @@ question subcommands
 --------------------
 
 - ``question add``, ``question list [--status STATUS]``, ``question answers [--format markdown|json]``
+- ``question add-many [--text TEXT|--yaml-file PATH] [--required-for-plan]``
 - ``question answer``, ``question answer-many``, ``question dismiss``, ``question open``, ``question status``
 
 plan subcommands
 ----------------
 
-- ``plan start``, ``plan propose``, ``plan upsert``, ``plan lint``, ``plan approve``, ``plan accept``, ``plan reject``, ``plan show``, ``plan diff``
+- ``plan start``, ``plan propose``, ``plan template``, ``plan upsert``, ``plan lint``, ``plan approve``, ``plan accept``, ``plan reject``, ``plan show``, ``plan diff``
 - ``plan regenerate --from-answers``, ``plan materialize-todos``, ``plan command -- ...``
 
 todo subcommands

@@ -49,7 +49,7 @@ classifiers = [
 dynamic=["version"]
 
 [project.scripts]
-taskledger = "taskledger.cli:cli_main"
+taskledger = "taskledger.launcher:main"
 
 [project.urls]
 Homepage = "https://github.com/holgern/taskledger"

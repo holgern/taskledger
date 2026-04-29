@@ -812,6 +812,7 @@ def _next_action_human(payload: dict[str, object]) -> str:
     command = payload.get("next_command")
     if command:
         lines.append(f"Command: {command}")
+    _append_planning_hint_lines(lines, payload)
 
     commands = payload.get("commands")
     if isinstance(commands, list):
@@ -850,6 +851,27 @@ def _next_action_human(payload: dict[str, object]) -> str:
                     lines.append(f"Blocker: {msg}")
 
     return "\n".join(lines)
+
+
+def _append_planning_hint_lines(
+    lines: list[str],
+    payload: dict[str, object],
+) -> None:
+    template_command = payload.get("template_command")
+    if isinstance(template_command, str):
+        lines.append(f"Template: {template_command}")
+    required_plan_fields = payload.get("required_plan_fields")
+    if isinstance(required_plan_fields, list) and required_plan_fields:
+        lines.append(
+            "Required plan fields: "
+            + ", ".join(str(item) for item in required_plan_fields)
+        )
+    recommended_plan_fields = payload.get("recommended_plan_fields")
+    if isinstance(recommended_plan_fields, list) and recommended_plan_fields:
+        lines.append(
+            "Recommended plan fields: "
+            + ", ".join(str(item) for item in recommended_plan_fields)
+        )
 
 
 def emit_can_command(ctx: typer.Context, task_ref: str | None, action: str) -> None:

@@ -81,6 +81,11 @@ class LaunchError(TaskledgerError):
     error_type = "LaunchError"
 
 
+class OptionalCommandGroupUnavailable(LaunchError):
+    code = "OPTIONAL_COMMAND_GROUP_UNAVAILABLE"
+    error_type = "OptionalCommandGroupUnavailable"
+
+
 class NoActiveTask(LaunchError):
     code = "NO_ACTIVE_TASK"
     exit_code = 5

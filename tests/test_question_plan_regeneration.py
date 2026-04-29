@@ -357,6 +357,19 @@ def test_answer_many_records_harness_answers_and_requires_regeneration(
     assert result["result"]["next_action"] == (
         "taskledger plan upsert --from-answers --file plan.md"
     )
+    assert result["result"]["template_command"] == (
+        "taskledger plan template --from-answers --file plan.md"
+    )
+    assert result["result"]["required_plan_fields"] == [
+        "goal",
+        "acceptance_criteria",
+        "todos",
+    ]
+    assert result["result"]["recommended_plan_fields"] == [
+        "files",
+        "test_commands",
+        "expected_outputs",
+    ]
 
 
 def test_answer_many_rejects_duplicate_plain_text_ids(tmp_path: Path) -> None:
@@ -603,6 +616,19 @@ def test_next_action_prefers_regenerate_over_approve_for_stale_answers(
     assert result["next_command"] == (
         "taskledger plan upsert --from-answers --file plan.md"
     )
+    assert result["template_command"] == (
+        "taskledger plan template --from-answers --file plan.md"
+    )
+    assert result["required_plan_fields"] == [
+        "goal",
+        "acceptance_criteria",
+        "todos",
+    ]
+    assert result["recommended_plan_fields"] == [
+        "files",
+        "test_commands",
+        "expected_outputs",
+    ]
     assert result["blocking"][0]["kind"] == "stale_answers"
     assert result["next_item"] == {
         "kind": "answered_question",

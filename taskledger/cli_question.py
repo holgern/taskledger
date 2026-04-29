@@ -9,6 +9,7 @@ import yaml
 
 from taskledger.api.questions import (
     add_question,
+    add_questions,
     answer_question,
     answer_questions,
     dismiss_question,
@@ -119,6 +120,117 @@ def _add_command(
     emit_payload(ctx, question.to_dict(), human=f"added question {question.id}")
 
 
+def _parse_question_add_many_text(
+    raw: str,
+    *,
+    required_for_plan: bool,
+) -> list[tuple[str, bool]]:
+    questions: list[tuple[str, bool]] = []
+    for line_number, line in enumerate(raw.splitlines(), start=1):
+        stripped = line.strip()
+        if not stripped:
+            raise LaunchError(
+                "Question batch text must not contain empty or whitespace-only "
+                f"lines; line {line_number} was empty."
+            )
+        questions.append((stripped, required_for_plan))
+    if not questions:
+        raise LaunchError("At least one question is required.")
+    return questions
+
+
+def _parse_question_add_many_yaml(
+    raw: str,
+    *,
+    required_for_plan: bool,
+) -> list[tuple[str, bool]]:
+    try:
+        parsed = yaml.load(raw, Loader=_UniqueKeyLoader)
+    except yaml.YAMLError as exc:
+        raise LaunchError(f"Invalid questions YAML: {exc}") from exc
+    raw_questions = (
+        parsed.get("questions", parsed) if isinstance(parsed, dict) else parsed
+    )
+    if not isinstance(raw_questions, list):
+        raise LaunchError(
+            "questions input must be a list or a mapping with `questions`."
+        )
+    questions: list[tuple[str, bool]] = []
+    for index, item in enumerate(raw_questions, start=1):
+        if isinstance(item, str):
+            questions.append((item, required_for_plan))
+            continue
+        if not isinstance(item, dict):
+            raise LaunchError(f"Question item {index} must be text or a mapping.")
+        text = item.get("text")
+        if not isinstance(text, str):
+            raise LaunchError(f"Question item {index} must define text.")
+        raw_required = item.get("required_for_plan", required_for_plan)
+        if not isinstance(raw_required, bool):
+            raise LaunchError(
+                f"Question item {index} has non-boolean required_for_plan."
+            )
+        questions.append((text, raw_required))
+    if not questions:
+        raise LaunchError("At least one question is required.")
+    return questions
+
+
+def _add_many_command(
+    ctx: typer.Context,
+    text: Annotated[str | None, typer.Option("--text")] = None,
+    yaml_file: Annotated[Path | None, typer.Option("--yaml-file")] = None,
+    required_for_plan: Annotated[
+        bool,
+        typer.Option("--required-for-plan"),
+    ] = False,
+    allow_duplicates: Annotated[
+        bool,
+        typer.Option("--allow-duplicates"),
+    ] = False,
+    task_ref: Annotated[
+        str | None,
+        typer.Option("--task", help="Task ref. Defaults to the active task."),
+    ] = None,
+) -> None:
+    state = cli_state_from_context(ctx)
+    try:
+        if (text is None) == (yaml_file is None):
+            raise LaunchError("Provide exactly one of --text or --yaml-file.")
+        task = resolve_cli_task(state.cwd, task_ref)
+        if text is not None:
+            questions = _parse_question_add_many_text(
+                text,
+                required_for_plan=required_for_plan,
+            )
+        else:
+            assert yaml_file is not None
+            raw = read_text_input(
+                text=None,
+                from_file=yaml_file,
+                text_label="--yaml-file",
+            )
+            questions = _parse_question_add_many_yaml(
+                raw,
+                required_for_plan=required_for_plan,
+            )
+        payload = add_questions(
+            state.cwd,
+            task.id,
+            questions,
+            allow_duplicates=allow_duplicates,
+        )
+    except LaunchError as exc:
+        emit_error(ctx, exc)
+        raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+    added_ids = cast(list[str], payload["added_question_ids"])
+    emit_payload(
+        ctx,
+        payload,
+        human=f"added {len(added_ids)} questions: {', '.join(added_ids)}",
+    )
+
+
 def _list_command(
     ctx: typer.Context,
     status: Annotated[
@@ -220,10 +332,7 @@ def _answer_many_command(
         payload,
         human=(
             f"answered {len(cast(list[object], payload['answered_question_ids']))} "
-            "questions\n"
-            f"Required open: {payload['required_open']}\n"
-            f"Plan regeneration needed: {payload['plan_regeneration_needed']}\n"
-            f"Next: {payload['next_action']}"
+            "questions\n" + _render_question_status_human(payload)
         ),
     )
 
@@ -331,16 +440,36 @@ def _status_command(
     emit_payload(
         ctx,
         payload,
-        human=(
-            f"Required open: {payload['required_open']}\n"
-            f"Plan regeneration needed: {payload['plan_regeneration_needed']}\n"
-            f"Next: {payload['next_action']}"
-        ),
+        human=_render_question_status_human(payload),
     )
+
+
+def _render_question_status_human(payload: dict[str, object]) -> str:
+    lines = [
+        f"Required open: {payload['required_open']}",
+        f"Plan regeneration needed: {payload['plan_regeneration_needed']}",
+        f"Next: {payload['next_action']}",
+    ]
+    template_command = payload.get("template_command")
+    if isinstance(template_command, str):
+        lines.append(f"Template: {template_command}")
+    required_fields = payload.get("required_plan_fields")
+    if isinstance(required_fields, list) and required_fields:
+        lines.append(
+            "Required front matter: " + ", ".join(str(item) for item in required_fields)
+        )
+    recommended_fields = payload.get("recommended_plan_fields")
+    if isinstance(recommended_fields, list) and recommended_fields:
+        lines.append(
+            "Recommended front matter: "
+            + ", ".join(str(item) for item in recommended_fields)
+        )
+    return "\n".join(lines)
 
 
 def register_question_v2_commands(app: typer.Typer) -> None:
     app.command("add")(_add_command)
+    app.command("add-many")(_add_many_command)
     app.command("list")(_list_command)
     app.command("answer")(_answer_command)
     app.command("answer-many")(_answer_many_command)

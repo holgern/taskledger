@@ -11,6 +11,7 @@ from taskledger.api.plans import (
     lint_plan,
     list_plan_versions,
     materialize_plan_todos,
+    plan_template,
     propose_plan,
     regenerate_plan_from_answers,
     reject_plan,
@@ -28,6 +29,7 @@ from taskledger.cli_common import (
     launch_error_exit_code,
     read_text_input,
     resolve_cli_task,
+    write_text_output,
 )
 from taskledger.domain.states import EXIT_CODE_VALIDATION_FAILED
 from taskledger.errors import LaunchError
@@ -131,6 +133,36 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, payload, human=str(payload["next_action"]))
+
+    @app.command("template")
+    def template_command(
+        ctx: typer.Context,
+        task_ref: TaskOption = None,
+        from_answers: Annotated[bool, typer.Option("--from-answers")] = False,
+        output: Annotated[Path | None, typer.Option("--file")] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = resolve_cli_task(state.cwd, task_ref)
+            payload = plan_template(
+                state.cwd,
+                task.id,
+                from_answers=from_answers,
+            )
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        template_text = str(payload["template"])
+        if output is not None:
+            target = write_text_output(output, template_text)
+            emit_payload(
+                ctx,
+                {**payload, "output_path": str(target)},
+                human=f"wrote plan template to {target}",
+                result_type="plan_template",
+            )
+            return
+        emit_payload(ctx, payload, human=template_text, result_type="plan_template")
 
     @app.command("regenerate")
     def regenerate_command(

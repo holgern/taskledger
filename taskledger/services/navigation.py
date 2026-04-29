@@ -19,6 +19,7 @@ from taskledger.services.tasks import (
     _current_lock,
     _dependency_blockers,
     _optional_run,
+    _planning_template_hints,
     _task_active_stage,
     _task_with_sidecars,
     _todo_command_hints,
@@ -254,19 +255,27 @@ def next_action(workspace_root: Path, task_ref: str) -> dict[str, object]:
         next_item = _lock_next_item(task, lock)
     next_command = _primary_command_for_next_item(action, next_item)
     commands = _commands_for_next_item(action, next_item)
-    return {
-        "kind": "task_next_action",
-        "task_id": task.id,
-        "status_stage": task.status_stage,
-        "active_stage": active_stage,
-        "action": action,
-        "reason": reason,
-        "blocking": blockers,
-        "next_command": next_command,
-        "next_item": next_item,
-        "commands": commands,
-        "progress": progress,
-    }
+    return _finalize_next_action_payload(
+        {
+            "kind": "task_next_action",
+            "task_id": task.id,
+            "status_stage": task.status_stage,
+            "active_stage": active_stage,
+            "action": action,
+            "reason": reason,
+            "blocking": blockers,
+            "next_command": next_command,
+            "next_item": next_item,
+            "commands": commands,
+            "progress": progress,
+        }
+    )
+
+
+def _finalize_next_action_payload(payload: dict[str, object]) -> dict[str, object]:
+    if payload.get("action") == "plan-regenerate":
+        payload.update(_planning_template_hints(from_answers=True))
+    return payload
 
 
 def can_perform(workspace_root: Path, task_ref: str, action: str) -> dict[str, object]:
