@@ -32,7 +32,7 @@ The supported command surface is organized as:
 
 **Project lifecycle:**
 
-- `init`, `status`, `export`, `import`, `snapshot`
+- `init`, `status`, `export`, `import`, `snapshot`, `release`
 
 ## Install
 
@@ -107,6 +107,22 @@ taskledger next-action
 taskledger context --for implementation --format markdown
 taskledger implement restart --summary "Fix failed validation findings."
 ```
+
+## Release tagging and changelog context
+
+Use durable release tags to mark completed task boundaries and generate
+provider-neutral changelog source packs from finished tasks:
+
+```bash
+taskledger release tag 0.4.1 --at-task task-0030 --note "0.4.1 released"
+taskledger release changelog 0.4.2 --since 0.4.1 --until-task task-0035 --output /tmp/taskledger-0.4.2-changelog-source.md
+taskledger release show 0.4.1
+taskledger release list
+```
+
+`release changelog` does not call an LLM API. It renders compact Markdown or JSON
+from done tasks, implementation logs, code changes, and validation evidence so a
+separate coding harness can draft the final human changelog.
 
 `taskledger next-action` is the preferred fresh-context entrypoint. It stays
 read-only and points at the next concrete question, todo, criterion, or repair
@@ -212,6 +228,7 @@ records under the configured storage root:
 taskledger.toml
 .taskledger/
   intros/
+  releases/
   tasks/
   events/
   indexes/   # optional derived caches and registries
@@ -230,6 +247,7 @@ taskledger init --taskledger-dir /mnt/cloud/taskledger/project-a
 ```text
 /home/me/src/project-a/taskledger.toml
 /mnt/cloud/taskledger/project-a/storage.yaml
+/mnt/cloud/taskledger/project-a/releases/
 /mnt/cloud/taskledger/project-a/tasks/
 /mnt/cloud/taskledger/project-a/events/
 /mnt/cloud/taskledger/project-a/indexes/

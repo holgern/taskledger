@@ -11,6 +11,7 @@ This repository exposes a task-first public API. The supported modules are:
 - `taskledger.api.introductions`
 - `taskledger.api.locks`
 - `taskledger.api.handoff`
+- `taskledger.api.releases`
 - `taskledger.api.search`
 
 ## Import boundary
@@ -193,6 +194,13 @@ Focused handoffs store the generated Markdown context snapshot in the handoff
 record body and return compact metadata, including `context_hash` and
 `context_path`.
 
+### `taskledger.api.releases`
+
+- `build_changelog_context`
+- `list_release_records`
+- `show_release`
+- `tag_release`
+
 ### `taskledger.api.search`
 
 - `search_workspace`
@@ -214,6 +222,7 @@ The public task-first CLI surface is organized around these command groups:
 - `file`
 - `link`
 - `require`
+- `release`
 - `lock`
 - `context`
 - `handoff`

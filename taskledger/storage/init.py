@@ -61,6 +61,7 @@ def init_project_state(
         paths.taskledger_dir / "tasks",
         paths.taskledger_dir / "events",
         paths.taskledger_dir / "indexes",
+        paths.releases_dir,
     ):
         if directory.exists():
             continue
@@ -116,6 +117,7 @@ def ensure_project_exists(workspace_root: Path) -> ProjectPaths:
             paths.taskledger_dir / "intros",
             paths.taskledger_dir / "events",
             paths.taskledger_dir / "indexes",
+            paths.releases_dir,
         )
         if not path.exists()
     ]
@@ -134,6 +136,7 @@ def _ensure_additive_project_files(paths: ProjectPaths) -> None:
         paths.taskledger_dir / "tasks",
         paths.taskledger_dir / "events",
         paths.taskledger_dir / "indexes",
+        paths.releases_dir,
     ):
         if directory.exists():
             continue

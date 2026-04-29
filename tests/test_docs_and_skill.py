@@ -24,6 +24,7 @@ PUBLIC_API_MODULES = (
     "taskledger.api.introductions",
     "taskledger.api.locks",
     "taskledger.api.handoff",
+    "taskledger.api.releases",
     "taskledger.api.search",
 )
 
@@ -57,6 +58,7 @@ def test_api_docs_mentions_all_task_first_command_groups() -> None:
         "link",
         "file",
         "require",
+        "release",
         "lock",
         "context",
         "handoff",

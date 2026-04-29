@@ -7,6 +7,7 @@ __all__ = [
     "plans",
     "project",
     "questions",
+    "releases",
     "search",
     "task_runs",
     "tasks",

@@ -27,6 +27,7 @@ class ProjectPaths:
     project_dir: Path
     taskledger_dir: Path
     config_path: Path
+    releases_dir: Path
     repos_dir: Path
     repo_index_path: Path
 
@@ -133,6 +134,7 @@ def project_paths_for_root(
         project_dir=project_dir,
         taskledger_dir=project_dir,
         config_path=config_path or workspace_root / CANONICAL_PROJECT_CONFIG_FILENAME,
+        releases_dir=project_dir / "releases",
         repos_dir=project_dir / "repos",
         repo_index_path=indexes_dir / "repos.json",
     )

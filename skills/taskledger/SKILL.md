@@ -233,6 +233,8 @@ taskledger context --for implementation --format markdown
 taskledger context --for implementer --todo todo-0003
 taskledger context --for spec-reviewer --run run-0008
 taskledger context --for code-reviewer --run run-0008
+taskledger release tag 0.4.1 --at-task task-0030 --note "0.4.1 released"
+taskledger release changelog 0.4.2 --since 0.4.1 --until-task task-0035 --output /tmp/taskledger-0.4.2-changelog-source.md
 taskledger implement restart --summary "Fix failed validation findings."
 taskledger implement change --path taskledger/services/tasks.py --kind edit --summary "Hardened validation gates."
 taskledger todo done todo-0001 --evidence "uv run pytest -q" --artifact tests/test_parser.py

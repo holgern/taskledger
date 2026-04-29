@@ -11,7 +11,7 @@ Supported CLI groups
 --------------------
 
 - ``task``, ``plan``, ``question``, ``implement``, ``validate``, ``todo``
-- ``intro``, ``file``, ``link``, ``require``, ``lock``, ``handoff``
+- ``intro``, ``file``, ``link``, ``require``, ``release``, ``lock``, ``handoff``
 - ``doctor``, ``repair``, ``next-action``, ``can``, ``reindex``
 - ``init``, ``status``, ``export``, ``import``, ``snapshot``
 - ``context``, ``view``, ``serve``, ``search``, ``grep``, ``symbols``, ``deps``
@@ -24,6 +24,9 @@ The supported implementation lifecycle includes ``implement restart --summary
 
 Small post-completion deltas use ``task follow-up PARENT_REF TITLE`` to create a
 new child task instead of reopening a ``done`` task.
+
+Release boundaries are tracked separately from task lifecycle state with
+``release tag`` and ``release changelog``.
 
 question subcommands
 --------------------
@@ -54,6 +57,7 @@ Supported Python API modules
 - ``taskledger.api.introductions``
 - ``taskledger.api.locks``
 - ``taskledger.api.handoff``
+- ``taskledger.api.releases``
 - ``taskledger.api.search``
 
 ``taskledger.api.task_runs`` includes the public lifecycle helpers

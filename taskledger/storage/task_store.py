@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -26,6 +27,7 @@ from taskledger.domain.models import (
     LinkCollection,
     PlanRecord,
     QuestionRecord,
+    ReleaseRecord,
     RequirementCollection,
     TaskHandoffRecord,
     TaskLock,
@@ -46,7 +48,7 @@ from taskledger.storage.frontmatter import (
     write_markdown_front_matter,
 )
 from taskledger.storage.locks import read_lock, update_lock, write_lock
-from taskledger.storage.paths import resolve_taskledger_root
+from taskledger.storage.paths import ProjectPaths, resolve_taskledger_root
 from taskledger.timeutils import utc_now_iso
 
 T = TypeVar("T")
@@ -75,6 +77,7 @@ class V2Paths:
     workspace_root: Path
     project_dir: Path
     introductions_dir: Path
+    releases_dir: Path
     tasks_dir: Path
     plans_dir: Path
     questions_dir: Path
@@ -97,6 +100,7 @@ def resolve_v2_paths(workspace_root: Path) -> V2Paths:
         workspace_root=workspace_root,
         project_dir=project_dir,
         introductions_dir=project_dir / "intros",
+        releases_dir=project_dir / "releases",
         tasks_dir=project_dir / "tasks",
         plans_dir=project_dir / "plans",
         questions_dir=project_dir / "questions",
@@ -118,6 +122,7 @@ def ensure_v2_layout(workspace_root: Path) -> V2Paths:
     for directory in (
         paths.project_dir,
         paths.introductions_dir,
+        paths.releases_dir,
         paths.tasks_dir,
         paths.events_dir,
         paths.indexes_dir,
@@ -284,6 +289,31 @@ def list_introductions(workspace_root: Path) -> list[IntroductionRecord]:
         [_load_intro(path) for path in paths.introductions_dir.glob("intro-*.md")],
         key=lambda item: item.id,
     )
+
+
+def list_releases(workspace_root: Path) -> list[ReleaseRecord]:
+    paths = ensure_v2_layout(workspace_root)
+    return sorted(
+        [_load_release(path) for path in paths.releases_dir.glob("*.md")],
+        key=lambda item: (_task_numeric_sort_key(item.boundary_task_id), item.version),
+    )
+
+
+def resolve_release(workspace_root: Path, version: str) -> ReleaseRecord:
+    paths = ensure_v2_layout(workspace_root)
+    path = release_markdown_path(paths, version)
+    if not path.exists():
+        raise LaunchError(f"Release not found: {version}")
+    return _load_release(path)
+
+
+def save_release(workspace_root: Path, release: ReleaseRecord) -> ReleaseRecord:
+    paths = ensure_v2_layout(workspace_root)
+    path = release_markdown_path(paths, release.version)
+    if path.exists():
+        raise LaunchError(f"Release version already exists: {release.version}")
+    _write_markdown_record(path, release.to_dict(), release.note or "")
+    return release
 
 
 def resolve_introduction(workspace_root: Path, ref: str) -> IntroductionRecord:
@@ -638,6 +668,25 @@ def handoff_markdown_path(paths: V2Paths, task_id: str, handoff_id: str) -> Path
     return task_handoffs_dir(paths, task_id) / f"{handoff_id}.md"
 
 
+def release_filename(version: str) -> str:
+    normalized = version.strip()
+    if not normalized:
+        raise LaunchError("Release version must not be empty.")
+    if normalized != version or any(char.isspace() for char in normalized):
+        raise LaunchError("Release version must not contain whitespace.")
+    if "/" in normalized or "\\" in normalized:
+        raise LaunchError("Release version must not contain path separators.")
+    if any(ord(char) < 32 for char in normalized):
+        raise LaunchError("Release version must not contain control characters.")
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]*", normalized):
+        raise LaunchError(f"Unsupported release version: {version}")
+    return f"{normalized}.md"
+
+
+def release_markdown_path(paths: V2Paths | ProjectPaths, version: str) -> Path:
+    return paths.releases_dir / release_filename(version)
+
+
 def plan_markdown_path(paths: V2Paths, task_id: str, version: int) -> Path:
     return task_plans_dir(paths, task_id) / f"plan-v{version}.md"
 
@@ -660,6 +709,10 @@ def _load_task(path: Path) -> TaskRecord:
 
 def _load_intro(path: Path) -> IntroductionRecord:
     return _load_record(path, IntroductionRecord.from_dict)
+
+
+def _load_release(path: Path) -> ReleaseRecord:
+    return _load_record(path, ReleaseRecord.from_dict)
 
 
 def _load_plan(path: Path) -> PlanRecord:
@@ -734,6 +787,13 @@ def _normalize_numeric_ref(ref: str, prefix: str) -> str:
     if not suffix.isdigit():
         return ref
     return f"{prefix}-{int(suffix):04d}"
+
+
+def _task_numeric_sort_key(task_id: str) -> tuple[int, str]:
+    match = re.fullmatch(r"task-(\d+)", task_id)
+    if match is None:
+        return (10**9, task_id)
+    return (int(match.group(1)), task_id)
 
 
 def _render_question_body(question: QuestionRecord) -> str:

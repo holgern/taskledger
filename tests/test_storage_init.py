@@ -64,6 +64,7 @@ def test_ensure_project_exists_rejects_legacy_memory_index(tmp_path: Path) -> No
 def test_init_creates_expected_directories(tmp_path: Path) -> None:
     paths, _ = init_project_state(tmp_path)
     assert (paths.project_dir / "intros").is_dir()
+    assert paths.releases_dir.is_dir()
     assert (paths.project_dir / "tasks").is_dir()
     assert (paths.project_dir / "events").is_dir()
     assert (paths.project_dir / "indexes").is_dir()

@@ -46,6 +46,24 @@ Positional refs are reserved for the direct resource being changed or shown:
    taskledger question answer QUESTION_ID --task TASK_REF --text "Yes."
    taskledger handoff show HANDOFF_ID --task TASK_REF
    taskledger require add REQUIRED_TASK_REF --task TASK_REF
+   taskledger release show 0.4.1
+
+Release commands
+----------------
+
+Release boundaries are durable project records, not task lifecycle states:
+
+.. code-block:: bash
+
+   taskledger release tag 0.4.1 --at-task task-0030 --note "0.4.1 released"
+   taskledger release list
+   taskledger release show 0.4.1
+   taskledger release changelog 0.4.2 --since 0.4.1 --until-task task-0035 --output /tmp/taskledger-0.4.2-changelog-source.md
+
+``release tag`` writes a durable release record under ``.taskledger/releases/``.
+``release changelog`` is read-oriented: it renders Markdown or JSON changelog
+context from done tasks and may write an external output file, but it does not
+mutate ledger state.
 
 ``next-action`` result contract
 -------------------------------

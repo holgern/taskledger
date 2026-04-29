@@ -32,8 +32,24 @@ Task-first workflow
    taskledger question add --text "Should exports include v2?"
    taskledger question answer-many --text "q-0001: Yes."
    taskledger plan upsert --from-answers --criterion "Accepted workflow is implemented." --file ./plan.md
-   taskledger plan lint --version 1
-   taskledger plan accept --version 1 --note "Ready."
+    taskledger plan lint --version 1
+    taskledger plan accept --version 1 --note "Ready."
+
+Release tagging and changelog context
+-------------------------------------
+
+Use durable release tags to mark completed task boundaries and generate
+provider-neutral changelog source context from done tasks:
+
+.. code-block:: bash
+
+   taskledger release tag 0.4.1 --at-task task-0030 --note "0.4.1 released"
+   taskledger release changelog 0.4.2 --since 0.4.1 --until-task task-0035 --output /tmp/taskledger-0.4.2-changelog-source.md
+   taskledger release show 0.4.1
+   taskledger release list
+
+``release changelog`` renders Markdown or JSON context for an external LLM or
+human changelog drafting step. It does not call a model provider directly.
 
 Post-completion follow-up deltas
 --------------------------------

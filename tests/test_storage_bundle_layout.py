@@ -123,6 +123,7 @@ def test_task_create_uses_task_bundle_layout(tmp_path: Path) -> None:
 
     project_dir = tmp_path / ".taskledger"
     assert (project_dir / "intros").is_dir()
+    assert (project_dir / "releases").is_dir()
     assert (project_dir / "tasks").is_dir()
     assert (project_dir / "events").is_dir()
     assert (project_dir / "indexes").is_dir()

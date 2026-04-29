@@ -27,6 +27,7 @@ OBJECT_TYPES = frozenset(
         "requirement",
         "requirements",
         "handoff",
+        "release",
     }
 )
 
@@ -106,6 +107,7 @@ EventName = Literal[
     "handoff.claimed",
     "handoff.closed",
     "handoff.cancelled",
+    "release.tagged",
     "run.paused",
     "run.resumed",
     "actor.resolved",

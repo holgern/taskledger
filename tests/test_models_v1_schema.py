@@ -10,6 +10,7 @@ from taskledger.domain.models import (
     IntroductionRecord,
     PlanRecord,
     QuestionRecord,
+    ReleaseRecord,
     TaskEvent,
     TaskHandoffRecord,
     TaskLock,
@@ -64,6 +65,15 @@ def test_persisted_models_round_trip_with_schema_metadata() -> None:
             slug="repo-policy",
             title="Repo policy",
             body="Respect the workflow.",
+        ),
+        ReleaseRecord(
+            version="0.4.1",
+            boundary_task_id="task-0001",
+            created_by=actor,
+            note="0.4.1 released",
+            changelog_file="/tmp/changelog.md",
+            task_count=3,
+            previous_version="0.4.0",
         ),
         PlanRecord(
             task_id="task-0001",
@@ -179,6 +189,18 @@ def test_plan_record_round_trips_acceptance_criteria_and_approval_metadata() -> 
     assert restored.approved_by is not None
     assert restored.approval_note == "Looks good."
     assert restored.plan_id == "plan-v7"
+
+
+def test_release_record_rejects_wrong_object_type_and_schema() -> None:
+    release = ReleaseRecord(version="0.4.1", boundary_task_id="task-0001").to_dict()
+    release["object_type"] = "task"
+    with pytest.raises(LaunchError, match="object_type"):
+        ReleaseRecord.from_dict(release)
+
+    too_new = ReleaseRecord(version="0.4.1", boundary_task_id="task-0001").to_dict()
+    too_new["schema_version"] = 99
+    with pytest.raises(LaunchError, match="schema version"):
+        ReleaseRecord.from_dict(too_new)
 
 
 def test_handoff_record_round_trips_focused_context_metadata() -> None:

@@ -53,6 +53,7 @@ from taskledger.cli_misc import (
 )
 from taskledger.cli_plan import register_plan_v2_commands
 from taskledger.cli_question import register_question_v2_commands
+from taskledger.cli_release import register_release_commands
 from taskledger.cli_task import register_task_v2_commands
 from taskledger.cli_validate import register_validate_v2_commands
 from taskledger.errors import LaunchError
@@ -78,6 +79,10 @@ link_app = typer.Typer(
 require_app = typer.Typer(add_completion=False, help="Manage task requirements.")
 lock_app = typer.Typer(add_completion=False, help="Inspect and repair locks.")
 handoff_app = typer.Typer(add_completion=False, help="Render fresh-context handoffs.")
+release_app = typer.Typer(
+    add_completion=False,
+    help="Manage release tags and changelog context.",
+)
 repair_app = typer.Typer(add_completion=False, help="Repair taskledger state.")
 doctor_app = typer.Typer(
     add_completion=False,
@@ -97,6 +102,7 @@ app.add_typer(link_app, name="link")
 app.add_typer(require_app, name="require")
 app.add_typer(lock_app, name="lock")
 app.add_typer(handoff_app, name="handoff")
+app.add_typer(release_app, name="release")
 app.add_typer(doctor_app, name="doctor")
 app.add_typer(repair_app, name="repair")
 app.add_typer(migrate_app, name="migrate")
@@ -115,6 +121,7 @@ register_link_v2_commands(link_app)
 register_require_v2_commands(require_app)
 register_lock_v2_commands(lock_app)
 register_handoff_v2_commands(handoff_app)
+register_release_commands(release_app)
 
 
 @app.command("context")

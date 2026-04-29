@@ -280,13 +280,15 @@ After validation passes, close the task and inspect final state:
    taskledger handoff create --mode validation --summary "Parser fix is implemented and validated."
    taskledger handoff show HANDOFF_ID --format text
    taskledger task close --note "Fixed parser delimiter handling and validated parser regressions."
+   taskledger release tag 0.4.2 --at-task parser-fix --note "0.4.2 released."
    taskledger task show
    taskledger status --full
    taskledger doctor
 
-``task close`` records durable closure metadata on a task that is already
-``done``. The dossier and handoff commands preserve a fresh-context summary for
-future agents or reviewers.
+After validation passes, the task is in ``done`` state. ``task close`` is a
+final acknowledgement command for an already-done task. Release boundaries are
+tracked by ``taskledger release tag``. The dossier and handoff commands preserve
+a fresh-context summary for future agents or reviewers.
 
 Post-completion follow-up deltas
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -30,6 +30,7 @@ def _paths(tmp_path: Path) -> ProjectPaths:
         project_dir=project_dir,
         taskledger_dir=project_dir,
         config_path=project_dir / "project.toml",
+        releases_dir=project_dir / "releases",
         repos_dir=project_dir / "repos",
         repo_index_path=project_dir / "repos" / "index.json",
     )

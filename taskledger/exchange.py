@@ -13,6 +13,7 @@ from taskledger.domain.models import (
     LinkCollection,
     PlanRecord,
     QuestionRecord,
+    ReleaseRecord,
     RequirementCollection,
     TaskEvent,
     TaskHandoffRecord,
@@ -41,6 +42,7 @@ from taskledger.storage.task_store import (
     save_links,
     save_plan,
     save_question,
+    save_release,
     save_requirements,
     save_run,
     save_task,
@@ -52,6 +54,7 @@ from taskledger.storage.task_store import list_handoffs as list_v2_handoffs
 from taskledger.storage.task_store import list_introductions as list_v2_introductions
 from taskledger.storage.task_store import list_plans as list_v2_plans
 from taskledger.storage.task_store import list_questions as list_v2_questions
+from taskledger.storage.task_store import list_releases as list_v2_releases
 from taskledger.storage.task_store import list_runs as list_v2_runs
 from taskledger.storage.task_store import list_tasks as list_v2_tasks
 from taskledger.storage.task_store import load_links as load_v2_links
@@ -173,6 +176,7 @@ def _export_v2_payload(workspace_root: Path) -> dict[str, object]:
             else None
         ),
         "introductions": [item.to_dict() for item in introductions],
+        "releases": [item.to_dict() for item in list_v2_releases(workspace_root)],
         "plans": [
             plan.to_dict()
             for task in tasks
@@ -304,6 +308,7 @@ def _import_v2_payload(workspace_root: Path, payload: dict[str, object]) -> None
         save_active_task_state(workspace_root, state)
     for item in _dict_list(raw_v2.get("introductions")):
         save_introduction(workspace_root, IntroductionRecord.from_dict(item))
+    _import_releases(raw_v2, workspace_root)
     for item in _dict_list(raw_v2.get("plans")):
         plan = PlanRecord.from_dict(item)
         if plan_markdown_path(paths, plan.task_id, plan.plan_version).exists():
@@ -328,12 +333,34 @@ def _import_v2_payload(workspace_root: Path, payload: dict[str, object]) -> None
         append_event(paths.events_dir, TaskEvent.from_dict(item))
 
 
+def _import_releases(raw_v2: dict[str, object], workspace_root: Path) -> None:
+    raw_releases = _dict_list(raw_v2.get("releases"))
+    if not raw_releases:
+        return
+    task_ids_present = {task.id for task in list_v2_tasks(workspace_root)}
+    missing = sorted(
+        {
+            str(item.get("boundary_task_id") or "")
+            for item in raw_releases
+            if str(item.get("boundary_task_id") or "") not in task_ids_present
+        }
+    )
+    if missing:
+        raise LaunchError(
+            "Import release records reference missing boundary tasks: "
+            + ", ".join(missing)
+        )
+    for item in raw_releases:
+        save_release(workspace_root, ReleaseRecord.from_dict(item))
+
+
 def _clear_v2_state(paths: V2Paths) -> None:
     for directory in paths.tasks_dir.glob("task-*"):
         if directory.is_dir():
             shutil.rmtree(directory)
     for directory in (
         paths.introductions_dir,
+        paths.releases_dir,
         paths.events_dir,
     ):
         if directory.exists():
