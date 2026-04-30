@@ -7,6 +7,7 @@ from typing import Annotated, Any, cast
 
 import typer
 
+from taskledger._version import __version__
 from taskledger.api.handoff import render_handoff
 from taskledger.api.project import (
     init_project,
@@ -58,6 +59,13 @@ from taskledger.cli_task import register_task_v2_commands
 from taskledger.cli_validate import register_validate_v2_commands
 from taskledger.errors import LaunchError, OptionalCommandGroupUnavailable
 from taskledger.services.dashboard import dashboard, render_dashboard_text
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        typer.echo(f"taskledger, version {__version__}")
+        raise typer.Exit()
+
 
 app = typer.Typer(add_completion=False, help="Manage staged taskledger coding work.")
 task_app = typer.Typer(add_completion=False, help="Manage coding tasks.")
@@ -269,6 +277,14 @@ def context_command(
 @app.callback()
 def main(
     ctx: typer.Context,
+    version: Annotated[
+        bool,
+        typer.Option(
+            "--version",
+            callback=_version_callback,
+            help="Show the version and exit.",
+        ),
+    ] = False,
     cwd: Annotated[
         Path | None,
         typer.Option(

@@ -149,3 +149,9 @@ def test_global_json_only_for_task_show(tmp_path: Path) -> None:
     payload = json.loads(global_result.stdout)
     assert payload["command"] == "task.show"
     assert payload["ok"] is True
+
+
+def test_version_flag_displays_version() -> None:
+    result = runner.invoke(app, ["--version"])
+    assert result.exit_code == 0
+    assert "taskledger, version" in result.stdout
