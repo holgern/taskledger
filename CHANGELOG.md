@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.1.2 - 2026-04-30
+
+### Fixed
+
+- Fixed orphaned planning run lifecycle recovery so plan regeneration safely finishes the latest orphaned planning run with audit evidence, plan approval rejects tasks with any running run, and `implement start` reports structured conflict details including run id, run type, lock match status, and suggested diagnostic command.
+- Aligned `next-action` and `can implement` so they never recommend `implement start` when a running run or run/lock mismatch blocks implementation.
+- Expanded `taskledger doctor` and `taskledger doctor locks` to report run/lock mismatches with specific repair guidance.
+
+### Added
+
+- Added `taskledger repair run` for guarded, reasoned, audited repair of orphaned running planning runs.
+
+### Documentation
+
+- Updated taskledger skill, command contract, and API docs with running-run conflict protocol and `repair run` usage.
+
+### Quality
+
+- Expanded regression coverage for plan regeneration recovery, approval guards, next-action alignment, doctor diagnostics, and repair lifecycle. Targeted pytest, ruff, format, and mypy passed.
+
 ## v0.1.1 - 2026-04-29
 
 ### Added
