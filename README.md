@@ -94,14 +94,15 @@ taskledger validate check --criterion ac-0001 --status pass --evidence "pytest -
 taskledger validate finish --result passed --summary "Validated the rewrite."
 ```
 
-If validation finds an implementation bug, keep the accepted plan and restart
-implementation explicitly:
+For manually completed work (e.g., manual testing, operations tasks, or work
+completed outside the task-first lifecycle), use `task record` to create a
+done task directly without acquiring lifecycle locks. **Note**: `task record`
+does not replace the normal task lifecycle; it is for recording work already
+completed, not as a shortcut for active task management.
 
 ```bash
-taskledger validate finish --result failed --summary "Parser edge case still fails."
-taskledger next-action
-taskledger context --for implementation --format markdown
-taskledger implement restart --summary "Fix failed validation findings."
+taskledger task record "Deploy to production" --summary "Deployed v0.4.1 to prod" --change "infra/deploy.sh:run:Updated prod config" --evidence "Monitoring shows no errors"
+taskledger task record "Manual API testing" --summary "Tested new endpoints" --allow-empty-record --reason "Exploratory testing, no formal changes tracked"
 ```
 
 If validation finds an implementation bug, keep the accepted plan and restart

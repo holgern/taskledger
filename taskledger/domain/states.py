@@ -49,6 +49,8 @@ ContextFormat = Literal["markdown", "json", "text"]
 HandoffStatus = Literal["open", "claimed", "closed", "cancelled"]
 LockPolicy = Literal["none", "retain", "release", "transfer"]
 TodoSource = Literal["user", "planner", "implementer", "plan"]
+TaskType = Literal["managed", "recorded"]
+TASK_TYPES = frozenset({"managed", "recorded"})
 
 TaskStatusStage = Literal[
     "draft",
@@ -113,6 +115,7 @@ EventName = Literal[
     "run.resumed",
     "actor.resolved",
     "doctor.reindexed",
+    "task.recorded",
 ]
 
 ACTIVE_TASK_STAGES = frozenset({"planning", "implementing", "validating"})
@@ -251,6 +254,12 @@ def normalize_todo_status(value: str) -> TodoStatus:
 
 
 TODO_STATUSES = frozenset({"open", "active", "done", "blocked", "skipped"})
+
+
+def normalize_task_type(value: str) -> TaskType:
+    if value not in TASK_TYPES:
+        raise LaunchError(f"Unsupported task type: {value}")
+    return cast(TaskType, value)
 
 
 def normalize_actor_type(value: str) -> ActorType:

@@ -74,25 +74,26 @@ If any `taskledger ...` command fails with a Python traceback before taskledger 
 ## Planning protocol
 
 1. `taskledger task create "Short task request" --slug <slug>` when creating a fresh task.
-2. `taskledger task activate <slug>` to activate the newly created task for planning.
-3. For existing tasks, `taskledger task activate <slug>`.
-4. `taskledger plan start`
-5. Add questions with `taskledger question add --text "..." --required-for-plan` when decisions are missing.
+2. For manually completed work (operational tasks, exploratory work, or tasks finished outside the task-first workflow), use `taskledger task record "Title" --summary "..." --change PATH:KIND:SUMMARY` to create a done task directly. **Never use `task record` as a shortcut for active task management**: it records already-completed work only, and does not acquire locks or replace the normal lifecycle gates.
+3. `taskledger task activate <slug>` to activate the newly created task for planning.
+4. For existing tasks, `taskledger task activate <slug>`.
+5. `taskledger plan start`
+6. Add questions with `taskledger question add --text "..." --required-for-plan` when decisions are missing.
    - Use `taskledger question add-many --required-for-plan --text $'Question 1\nQuestion 2'` when you already know multiple questions.
-6. Ask the questions directly in the harness chat. Do not ask the user to run `taskledger question answer`.
-7. Stop after asking required questions; do not invent answers.
-8. When the user answers in chat, record the answers yourself with `taskledger question answer-many` or `taskledger question answer`.
-9. Run `taskledger question status` and review all answered questions with `taskledger question answers` before writing the plan.
-10. Before reading source files to discover plan format, run `taskledger plan template --from-answers --file ./plan.md` when answered questions exist, or `taskledger plan template --file ./plan.md` for a fresh plan skeleton.
-11. If answered questions exist, write the next plan with `taskledger plan upsert --from-answers --file ./plan.md`.
-12. Use `taskledger plan upsert --file ./plan.md` for plans that are not based on newly answered questions.
-13. Ensure the plan front matter includes `acceptance_criteria` and `todos`; approved plan todos materialize into the implementation checklist.
-14. For diagnostic commands needed to build the plan, preserve their output in a linked artifact or use `taskledger plan command -- ...`.
-15. A proposed plan must include concrete `acceptance_criteria` and `todos` in front matter unless the user explicitly says the task is trivial.
-16. After writing the plan, do not run `taskledger lock break`; planning locks are released by plan proposal/upsert. Run `taskledger next-action`.
-17. After `taskledger plan upsert --from-answers`, run `taskledger question status`. If it still reports `Plan regeneration needed: True`, do not ask for approval. Inspect `taskledger question answers`, `taskledger plan show --version N`, and `taskledger doctor`.
-18. Before asking the user to approve, run `taskledger plan lint --version N` and fix lint errors. Do not ask for approval on plans with lint errors.
-19. Record approval only with clear user intent such as approve, accept, go ahead, or start implementation: `taskledger plan approve --version N --actor user --note "User approved in harness: ..."` or `taskledger plan accept --version N --note "User approved in harness: ..."`.
+7. Ask the questions directly in the harness chat. Do not ask the user to run `taskledger question answer`.
+8. Stop after asking required questions; do not invent answers.
+9. When the user answers in chat, record the answers yourself with `taskledger question answer-many` or `taskledger question answer`.
+10. Run `taskledger question status` and review all answered questions with `taskledger question answers` before writing the plan.
+11. Before reading source files to discover plan format, run `taskledger plan template --from-answers --file ./plan.md` when answered questions exist, or `taskledger plan template --file ./plan.md` for a fresh plan skeleton.
+12. If answered questions exist, write the next plan with `taskledger plan upsert --from-answers --file ./plan.md`.
+13. Use `taskledger plan upsert --file ./plan.md` for plans that are not based on newly answered questions.
+14. Ensure the plan front matter includes `acceptance_criteria` and `todos`; approved plan todos materialize into the implementation checklist.
+15. For diagnostic commands needed to build the plan, preserve their output in a linked artifact or use `taskledger plan command -- ...`.
+16. A proposed plan must include concrete `acceptance_criteria` and `todos` in front matter unless the user explicitly says the task is trivial.
+17. After writing the plan, do not run `taskledger lock break`; planning locks are released by plan proposal/upsert. Run `taskledger next-action`.
+18. After `taskledger plan upsert --from-answers`, run `taskledger question status`. If it still reports `Plan regeneration needed: True`, do not ask for approval. Inspect `taskledger question answers`, `taskledger plan show --version N`, and `taskledger doctor`.
+19. Before asking the user to approve, run `taskledger plan lint --version N` and fix lint errors. Do not ask for approval on plans with lint errors.
+20. Record approval only with clear user intent such as approve, accept, go ahead, or start implementation: `taskledger plan approve --version N --actor user --note "User approved in harness: ..."` or `taskledger plan accept --version N --note "User approved in harness: ..."`.
 
 The plan file should use version ids like `plan-v1`, `plan-v2` in references. Do not use zero-padded forms.
 

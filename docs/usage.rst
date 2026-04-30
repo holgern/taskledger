@@ -56,6 +56,19 @@ provider-neutral changelog source context from done tasks:
 ``release changelog`` renders Markdown or JSON context for an external LLM or
 human changelog drafting step. It does not call a model provider directly.
 
+Recording manually completed work
+---------------------------------
+
+For work completed outside the task-first lifecycle (operational tasks,
+exploratory work, or manual testing), use ``task record`` to create a done
+task directly without acquiring locks or lifecycle gates. **Never use**
+``task record`` as a shortcut for active task management.
+
+.. code-block:: bash
+
+   taskledger task record "Deploy v0.4.1" --summary "Deployed to production" --change "deploy.sh:run:Updated config" --evidence "Monitoring shows no errors"
+   taskledger task record "Manual testing" --summary "Tested new API endpoints" --allow-empty-record --reason "Exploratory testing"
+
 Post-completion follow-up deltas
 --------------------------------
 

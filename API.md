@@ -58,6 +58,7 @@ from taskledger.errors import (
 ### `taskledger.api.tasks`
 
 - `create_task`
+- `record_completed_task`
 - `show_active_task`
 - `activate_task`
 - `deactivate_task`

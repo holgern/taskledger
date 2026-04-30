@@ -15,6 +15,7 @@ from taskledger.api.tasks import (
     deactivate_task,
     edit_task,
     list_task_summaries,
+    record_completed_task,
     show_active_task,
     show_task,
     task_dossier,
@@ -64,6 +65,133 @@ def register_task_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             task.to_dict(),
             human=f"created task {task.slug} ({task.id})",
         )
+
+    @app.command("record")
+    def record_command(
+        ctx: typer.Context,
+        title_arg: Annotated[
+            str, typer.Argument(..., help="Title of the completed task.")
+        ],
+        description: Annotated[
+            str | None,
+            typer.Option("--description", help="Task description."),
+        ] = None,
+        from_file: Annotated[
+            Path | None,
+            typer.Option("--from-file", help="Read description from a file."),
+        ] = None,
+        summary: Annotated[
+            str | None,
+            typer.Option(
+                "--summary",
+                help="Implementation summary of what was done.",
+            ),
+        ] = None,
+        change: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--change",
+                help=("Recorded code change in PATH:KIND:SUMMARY format. Repeatable."),
+            ),
+        ] = None,
+        evidence: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--evidence",
+                help="Validation evidence (repeatable).",
+            ),
+        ] = None,
+        label: Annotated[
+            list[str] | None, typer.Option("--label", help="Task label.")
+        ] = None,
+        slug: Annotated[str | None, typer.Option("--slug", help="Task slug.")] = None,
+        owner: Annotated[
+            str | None, typer.Option("--owner", help="Task owner.")
+        ] = None,
+        completed_by: Annotated[
+            str | None,
+            typer.Option(
+                "--completed-by",
+                help="Actor type: user, agent, or system.",
+            ),
+        ] = None,
+        completed_by_name: Annotated[
+            str | None,
+            typer.Option(
+                "--completed-by-name",
+                help="Name of the actor who completed the work.",
+            ),
+        ] = None,
+        allow_empty_record: Annotated[
+            bool,
+            typer.Option(
+                "--allow-empty-record",
+                help="Allow recording without changes or evidence.",
+            ),
+        ] = False,
+        reason: Annotated[
+            str | None,
+            typer.Option(
+                "--reason",
+                help="Reason for --allow-empty-record.",
+            ),
+        ] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        desc_text = read_text_input(text=description, from_file=from_file)
+        # Parse --change inputs
+        parsed_changes: list[tuple[str, str, str]] = []
+        for raw in change or []:
+            parts = raw.split(":", 2)
+            if len(parts) != 3:
+                emit_error(
+                    ctx,
+                    LaunchError(
+                        f"Invalid --change format: {raw!r}. Expected PATH:KIND:SUMMARY."
+                    ),
+                )
+                raise typer.Exit(code=2)
+            parsed_changes.append(
+                (parts[0].strip(), parts[1].strip(), parts[2].strip())
+            )
+        resolved_completed_by = None
+        if completed_by is not None or completed_by_name is not None:
+            from taskledger.domain.models import ActorRef
+
+            resolved_completed_by = ActorRef(
+                actor_type=completed_by or "user",  # type: ignore[arg-type]
+                actor_name=completed_by_name or (getpass.getuser() or "user")
+                if completed_by == "user"
+                else "taskledger",
+            )
+        try:
+            payload = record_completed_task(
+                state.cwd,
+                title=title_arg,
+                description=desc_text,
+                summary=summary or title_arg,
+                slug=slug,
+                labels=tuple(label or ()),
+                owner=owner,
+                changes=tuple(parsed_changes),
+                evidence=tuple(evidence or ()),
+                completed_by=resolved_completed_by,
+                allow_empty_record=allow_empty_record,
+                reason=reason,
+            )
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        task_id = payload["task_id"]
+        slug_val = payload["slug"]
+        assert isinstance(task_id, str)
+        assert isinstance(slug_val, str)
+        human = (
+            f"recorded completed task {task_id} ({slug_val})\n"
+            f"status: done\n"
+            f"type: recorded"
+        )
+        emit_payload(ctx, payload, human=human)
 
     @app.command("follow-up")
     def follow_up_command(

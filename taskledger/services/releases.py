@@ -290,6 +290,7 @@ def _task_context_payload(workspace_root: Path, task: TaskRecord) -> dict[str, o
         "slug": task.slug,
         "title": task.title,
         "status_stage": task.status_stage,
+        "task_type": task.task_type,
         "labels": list(task.labels),
         "summary": summary,
         "accepted_plan_version": task.accepted_plan_version,
@@ -435,6 +436,9 @@ def _render_markdown(payload: dict[str, object]) -> str:
 def _render_markdown_task(task: dict[str, object]) -> list[str]:
     lines = [f"### {task['task_id']} — {task['title']}", ""]
     lines.append(f"- Status: {task['status_stage']}")
+    task_type = task.get("task_type")
+    if isinstance(task_type, str) and task_type == "recorded":
+        lines.append(f"- Type: {task_type}")
     labels = task.get("labels")
     if isinstance(labels, list) and labels:
         lines.append("- Labels: " + ", ".join(str(item) for item in labels))

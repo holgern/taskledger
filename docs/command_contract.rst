@@ -41,6 +41,8 @@ Positional refs are reserved for the direct resource being changed or shown:
 
 .. code-block:: bash
 
+   taskledger task create TITLE [options]
+   taskledger task record TITLE [options]
    taskledger task activate TASK_REF
    taskledger task follow-up PARENT_REF TITLE [options]
    taskledger todo done TODO_ID --task TASK_REF --evidence "pytest -q"

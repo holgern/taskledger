@@ -258,6 +258,202 @@ def list_follow_up_tasks(workspace_root: Path, parent_ref: str) -> list[TaskReco
     ]
 
 
+def record_completed_task(
+    workspace_root: Path,
+    *,
+    title: str,
+    description: str | None = None,
+    summary: str,
+    slug: str | None = None,
+    labels: tuple[str, ...] = (),
+    owner: str | None = None,
+    changes: tuple[tuple[str, str, str], ...] = (),
+    evidence: tuple[str, ...] = (),
+    completed_by: ActorRef | None = None,
+    recorded_by: ActorRef | None = None,
+    harness: HarnessRef | None = None,
+    allow_empty_record: bool = False,
+    reason: str | None = None,
+) -> dict[str, object]:
+    """Record a manually completed task directly in done status.
+
+    Creates a task with task_type=recorded, a synthetic finished implementation
+    run, code change records, and a finished/passed validation run. Does not
+    acquire locks or activate the task.
+    """
+    if not title.strip():
+        raise _cli_error("Title must not be empty.", EXIT_CODE_BAD_INPUT)
+    if not summary.strip():
+        raise _cli_error("Summary must not be empty.", EXIT_CODE_BAD_INPUT)
+    if not changes and not evidence and not allow_empty_record:
+        raise _cli_error(
+            "At least one --change or --evidence is required. "
+            'Use --allow-empty-record --reason "..." to record without '
+            "changes or evidence.",
+            EXIT_CODE_BAD_INPUT,
+        )
+    if allow_empty_record and not (reason or "").strip():
+        raise _cli_error("--allow-empty-record requires --reason.", EXIT_CODE_BAD_INPUT)
+    # Validate change inputs
+    for raw_path, raw_kind, raw_summary in changes:
+        if not raw_path.strip():
+            raise _cli_error("Change path must not be empty.", EXIT_CODE_BAD_INPUT)
+        if not raw_kind.strip():
+            raise _cli_error("Change kind must not be empty.", EXIT_CODE_BAD_INPUT)
+        if not raw_summary.strip():
+            raise _cli_error("Change summary must not be empty.", EXIT_CODE_BAD_INPUT)
+
+    paths = ensure_v2_layout(workspace_root)
+    tasks = list_tasks(workspace_root)
+    task_slug = _unique_slug(tasks, slug or title)
+    now = utc_now_iso()
+    resolved_completed_by = completed_by or _default_actor()
+    resolved_recorded_by = recorded_by or _default_actor()
+
+    task = TaskRecord(
+        id=next_project_id("task", [item.id for item in tasks]),
+        slug=task_slug,
+        title=title.strip(),
+        body=(description or "").strip(),
+        description_summary=_summary_line(description or title),
+        labels=tuple(dict.fromkeys(labels)),
+        owner=owner,
+        status_stage="done",
+        task_type="recorded",
+        recorded_at=now,
+        recorded_by=resolved_recorded_by,
+    )
+    save_task(workspace_root, task)
+
+    runs = list_runs(workspace_root, task.id)
+    existing_run_ids = [item.run_id for item in runs]
+
+    # Synthetic finished implementation run
+    impl_run = TaskRunRecord(
+        run_id=next_project_id("run", existing_run_ids),
+        task_id=task.id,
+        run_type="implementation",
+        status="finished",
+        started_at=now,
+        finished_at=now,
+        actor=resolved_completed_by,
+        harness=harness,
+        summary=summary.strip(),
+        worklog=("Recorded completed work after it was performed outside taskledger.",),
+    )
+    save_run(workspace_root, impl_run)
+    existing_run_ids.append(impl_run.run_id)
+
+    # Code change records
+    change_ids: list[str] = []
+    all_changes = list_changes(workspace_root, task.id)
+    existing_change_ids = [item.change_id for item in all_changes]
+    for raw_path, raw_kind, raw_summary in changes:
+        change = CodeChangeRecord(
+            change_id=next_project_id("change", existing_change_ids),
+            task_id=task.id,
+            implementation_run=impl_run.run_id,
+            timestamp=now,
+            kind=raw_kind.strip(),
+            path=raw_path.strip(),
+            summary=raw_summary.strip(),
+        )
+        save_change(workspace_root, change)
+        change_ids.append(change.change_id)
+        existing_change_ids.append(change.change_id)
+
+    # Update implementation run with change refs
+    if change_ids:
+        impl_run = replace(impl_run, change_refs=tuple(change_ids))
+        save_run(workspace_root, impl_run)
+
+    # Synthetic finished/passed validation run if evidence exists
+    validation_run: TaskRunRecord | None = None
+    if evidence:
+        validation_run = TaskRunRecord(
+            run_id=next_project_id("run", existing_run_ids),
+            task_id=task.id,
+            run_type="validation",
+            status="finished",
+            started_at=now,
+            finished_at=now,
+            actor=resolved_completed_by,
+            harness=harness,
+            based_on_implementation_run=impl_run.run_id,
+            summary="Recorded validation evidence for manually completed work.",
+            evidence=evidence,
+            result="passed",
+        )
+        save_run(workspace_root, validation_run)
+
+    # Update task with run and change refs
+    updated = replace(
+        task,
+        latest_implementation_run=impl_run.run_id,
+        latest_validation_run=validation_run.run_id if validation_run else None,
+        code_change_log_refs=tuple(change_ids),
+    )
+    save_task(workspace_root, updated)
+
+    # Events
+    project_dir = paths.project_dir
+    _append_event(
+        project_dir,
+        task.id,
+        "task.created",
+        {"slug": task.slug, "title": task.title, "task_type": "recorded"},
+    )
+    _append_event(
+        project_dir,
+        task.id,
+        "task.recorded",
+        {
+            "task_type": "recorded",
+            "recorded_at": now,
+            "recorded_by": resolved_recorded_by.to_dict(),
+        },
+    )
+    for cid in change_ids:
+        _append_event(
+            project_dir,
+            task.id,
+            "change.logged",
+            {"change_id": cid},
+        )
+    _append_event(
+        project_dir,
+        task.id,
+        "implementation.finished",
+        {"run_id": impl_run.run_id, "recorded": True},
+    )
+    if validation_run is not None:
+        _append_event(
+            project_dir,
+            task.id,
+            "validation.finished",
+            {
+                "run_id": validation_run.run_id,
+                "result": "passed",
+                "recorded": True,
+            },
+        )
+
+    rebuild_v2_indexes(paths)
+
+    return {
+        "kind": "recorded_task",
+        "task_id": task.id,
+        "slug": task.slug,
+        "status_stage": "done",
+        "task_type": "recorded",
+        "implementation_run_id": impl_run.run_id,
+        "validation_run_id": validation_run.run_id if validation_run else None,
+        "change_ids": change_ids,
+        "evidence": list(evidence),
+        "next_command": f"taskledger task show {task.id}",
+    }
+
+
 def list_task_summaries(workspace_root: Path) -> list[dict[str, object]]:
     tasks = list_tasks(workspace_root)
     active_state = load_active_task_state(workspace_root)

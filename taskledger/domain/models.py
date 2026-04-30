@@ -16,6 +16,7 @@ from taskledger.domain.states import (
     RunStatus,
     RunType,
     TaskStatusStage,
+    TaskType,
     ValidationCheckStatus,
     ValidationResult,
     normalize_actor_role,
@@ -33,6 +34,7 @@ from taskledger.domain.states import (
     normalize_run_status,
     normalize_run_type,
     normalize_task_status_stage,
+    normalize_task_type,
     normalize_validation_check_status,
     normalize_validation_result,
 )
@@ -877,6 +879,9 @@ class TaskRecord:
     file_version: str = TASKLEDGER_V2_FILE_VERSION
     schema_version: int = TASKLEDGER_SCHEMA_VERSION
     object_type: str = "task"
+    task_type: TaskType = "managed"
+    recorded_at: str | None = None
+    recorded_by: ActorRef | None = None
 
     def to_dict(self) -> dict[str, object]:
         payload: dict[str, object] = {
@@ -909,6 +914,7 @@ class TaskRecord:
             "code_change_log_refs": list(self.code_change_log_refs),
             "notes": list(self.notes),
             "body": self.body,
+            "task_type": self.task_type,
         }
         if self.parent_task_id is not None:
             payload["parent_task_id"] = self.parent_task_id
@@ -920,6 +926,10 @@ class TaskRecord:
             payload["closed_by"] = self.closed_by.to_dict()
         if self.closure_note is not None:
             payload["closure_note"] = self.closure_note
+        if self.recorded_at is not None:
+            payload["recorded_at"] = self.recorded_at
+        if self.recorded_by is not None:
+            payload["recorded_by"] = self.recorded_by.to_dict()
         return payload
 
     @classmethod
@@ -971,6 +981,13 @@ class TaskRecord:
             or TASKLEDGER_V2_FILE_VERSION,
             schema_version=_int_value(data, "schema_version"),
             object_type=_string_value(data, "object_type"),
+            task_type=normalize_task_type(
+                _optional_string(data.get("task_type")) or "managed"
+            ),
+            recorded_at=_optional_string(data.get("recorded_at")),
+            recorded_by=ActorRef.from_dict(data.get("recorded_by"))
+            if data.get("recorded_by") is not None
+            else None,
         )
 
     @property
