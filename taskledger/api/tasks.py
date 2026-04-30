@@ -20,6 +20,7 @@ from taskledger.services.tasks import (
     reindex,
     remove_file_link,
     remove_requirement,
+    repair_orphaned_planning_run,
     repair_task_record,
     resolve_active_task,
     set_todo_done,
@@ -62,4 +63,5 @@ __all__ = [
     "can_perform",
     "reindex",
     "repair_task_record",
+    "repair_orphaned_planning_run",
 ]

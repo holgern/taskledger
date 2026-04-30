@@ -238,6 +238,80 @@ Recover a running implementation after its lock is broken.
     return "task-0001", str(start["result"]["run_id"])
 
 
+def _prepare_approved_task_with_orphaned_planning_run(
+    tmp_path: Path,
+) -> tuple[str, str]:
+    _init_project(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "create",
+                "orphan-plan",
+                "--description",
+                "Exercise orphaned planning run handling.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "task", "activate", "orphan-plan"],
+        ).exit_code
+        == 0
+    )
+    assert runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start"]).exit_code == 0
+    plan_text = """---
+goal: Repair an orphaned planning run.
+acceptance_criteria:
+  - id: ac-0001
+    text: Orphaned planning run blocks implementation.
+todos:
+  - id: todo-0001
+    text: Repair the orphaned planning run.
+    validation_hint: pytest tests/test_taskledger_v2_cli.py -q
+---
+
+# Plan
+
+Repair before implementation.
+"""
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "plan", "propose", "--text", plan_text],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "plan",
+                "approve",
+                "--version",
+                "1",
+                "--actor",
+                "user",
+                "--note",
+                "Approved for implementation.",
+            ],
+        ).exit_code
+        == 0
+    )
+    task = resolve_task(tmp_path, "orphan-plan")
+    assert task.latest_planning_run is not None
+    run = resolve_run(tmp_path, task.id, task.latest_planning_run)
+    save_run(tmp_path, replace(run, status="running", finished_at=None))
+    return task.id, run.run_id
+
+
 def _break_task_lock(tmp_path: Path, task_ref: str = "resume-task") -> None:
     result = runner.invoke(
         app,
@@ -918,6 +992,86 @@ def test_implement_resume_requires_reason(tmp_path: Path) -> None:
     )
     assert result.exit_code != 0
     assert "Implementation resume requires --reason." in result.stdout
+
+
+def test_next_action_recommends_repair_for_orphaned_planning_run(
+    tmp_path: Path,
+) -> None:
+    _, run_id = _prepare_approved_task_with_orphaned_planning_run(tmp_path)
+
+    result = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "--json", "next-action"],
+    )
+
+    assert result.exit_code == 0, result.stdout
+    payload = json.loads(result.stdout)
+    assert payload["result"]["action"] == "repair-run-state"
+    assert payload["result"]["next_command"] != "taskledger implement start"
+    blocker = payload["result"]["blocking"][0]
+    assert blocker["running_run"]["run_id"] == run_id
+    assert blocker["running_run"]["run_type"] == "planning"
+
+
+def test_can_implement_blocker_names_orphaned_planning_run(tmp_path: Path) -> None:
+    _, run_id = _prepare_approved_task_with_orphaned_planning_run(tmp_path)
+
+    result = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "--json", "can", "implement"],
+    )
+
+    assert result.exit_code == 0, result.stdout
+    payload = json.loads(result.stdout)
+    assert payload["result"]["ok"] is False
+    blocker = payload["result"]["blocking"][0]
+    assert blocker["running_run"]["run_id"] == run_id
+    assert blocker["running_run"]["run_type"] == "planning"
+    assert blocker["running_run"]["has_matching_lock"] is False
+
+
+def test_implement_start_reports_running_run_details(tmp_path: Path) -> None:
+    _, run_id = _prepare_approved_task_with_orphaned_planning_run(tmp_path)
+
+    result = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "--json", "implement", "start"],
+    )
+
+    assert result.exit_code != 0
+    payload = json.loads(result.stdout)
+    assert payload["error"]["code"] == "RUNNING_RUN_CONFLICT"
+    details = payload["error"]["details"]
+    assert details["running_run"]["run_id"] == run_id
+    assert details["running_run"]["run_type"] == "planning"
+    assert details["running_run"]["has_matching_lock"] is False
+    assert details["suggested_command"] == "taskledger doctor"
+
+
+def test_repair_run_finishes_orphaned_planning_run(tmp_path: Path) -> None:
+    task_id, run_id = _prepare_approved_task_with_orphaned_planning_run(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "repair",
+            "run",
+            "--task",
+            task_id,
+            "--run",
+            run_id,
+            "--reason",
+            "Planning was already completed by plan approval.",
+        ],
+    )
+
+    assert result.exit_code == 0, result.stdout
+    payload = json.loads(result.stdout)
+    assert payload["result"]["action"] == "finished_orphan_run"
+    assert resolve_run(tmp_path, task_id, run_id).status == "finished"
 
 
 def test_implement_resume_rejects_missing_accepted_plan(tmp_path: Path) -> None:

@@ -290,6 +290,31 @@ def test_inspect_running_run_without_matching_lock(tmp_path: Path) -> None:
     assert any(
         "running run without a matching active lock" in e for e in result["errors"]
     )
+    assert result["run_lock_mismatches"] == [
+        {
+            "kind": "running_run_without_matching_lock",
+            "task_id": "task-0001",
+            "run_id": "run-0001",
+            "run_type": "planning",
+            "status": "running",
+            "next_command": (
+                "taskledger repair run --task task-0001 --run run-0001 "
+                '--reason "Finish orphaned planning run."'
+            ),
+        }
+    ]
+
+
+def test_doctor_locks_reports_run_lock_mismatch(tmp_path: Path) -> None:
+    task = _task()
+    save_task(tmp_path, task)
+    save_run(tmp_path, _run(run_id="run-0001", status="running"))
+
+    result = inspect_v2_locks(tmp_path)
+
+    assert result["healthy"] is False
+    assert result["expired_locks"] == []
+    assert result["run_lock_mismatches"][0]["run_id"] == "run-0001"
 
 
 def test_doctor_reports_missing_lock_for_running_implementation_with_recovery_hint(

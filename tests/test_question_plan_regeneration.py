@@ -6,6 +6,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from taskledger.cli import app
+from taskledger.storage.task_store import resolve_run, resolve_task
 
 
 def _runner() -> CliRunner:
@@ -159,6 +160,93 @@ Use PostgreSQL only.
     assert plan["generation_reason"] == "after_questions"
     assert plan["based_on_question_ids"] == ["q-0001"]
 
+    status = _json(
+        runner.invoke(app, ["--cwd", str(tmp_path), "--json", "question", "status"])
+    )
+    assert status["result"]["plan_regeneration_needed"] is False
+
+
+def test_plan_regeneration_finishes_orphaned_latest_planning_run(
+    tmp_path: Path,
+) -> None:
+    _init_task(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "question",
+                "add",
+                "--text",
+                "Which lifecycle state?",
+                "--required-for-plan",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "question",
+                "answer",
+                "q-0001",
+                "--text",
+                "Approved with no active lock.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "lock",
+                "break",
+                "--reason",
+                "Simulate missing planning lock.",
+            ],
+        ).exit_code
+        == 0
+    )
+    task = resolve_task(tmp_path, "regen-task")
+    assert task.latest_planning_run is not None
+    assert resolve_run(tmp_path, task.id, task.latest_planning_run).status == "running"
+
+    plan_text = """---
+acceptance_criteria:
+  - text: Orphaned planning run is recovered.
+todos:
+  - text: Start implementation after approval.
+---
+
+# Plan
+
+Recover the orphaned planning run.
+"""
+    regenerated = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "plan",
+            "regenerate",
+            "--from-answers",
+            "--text",
+            plan_text,
+        ],
+    )
+
+    assert regenerated.exit_code == 0, regenerated.stdout
+    task = resolve_task(tmp_path, "regen-task")
+    run = resolve_run(tmp_path, task.id, task.latest_planning_run)
+    assert run.status == "finished"
     status = _json(
         runner.invoke(app, ["--cwd", str(tmp_path), "--json", "question", "status"])
     )

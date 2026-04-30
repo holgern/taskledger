@@ -518,6 +518,41 @@ def repair_task_command(
     emit_payload(ctx, payload, human="\n".join(human_lines))
 
 
+@repair_app.command("run")
+def repair_run_command(
+    ctx: typer.Context,
+    reason: Annotated[str, typer.Option("--reason")],
+    run_id: Annotated[str | None, typer.Option("--run")] = None,
+    task_ref: Annotated[
+        str | None,
+        typer.Option("--task", help="Task ref. Defaults to the active task."),
+    ] = None,
+) -> None:
+    from taskledger.api.tasks import repair_orphaned_planning_run
+
+    state = ctx.obj
+    assert isinstance(state, CLIState)
+    try:
+        task = resolve_cli_task(state.cwd, task_ref)
+        payload = repair_orphaned_planning_run(
+            state.cwd,
+            task.id,
+            run_id=run_id,
+            reason=reason,
+        )
+    except LaunchError as exc:
+        emit_error(ctx, exc)
+        raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+    emit_payload(
+        ctx,
+        payload,
+        human=(
+            f"finished orphaned {payload['run_type']} run {payload['run_id']} "
+            f"for {payload['task_id']}\nnext: {payload['next_command']}"
+        ),
+    )
+
+
 @repair_app.command("task-dirs")
 def repair_task_dirs_command(ctx: typer.Context) -> None:
     from taskledger.services.doctor import cleanup_orphan_slug_dirs

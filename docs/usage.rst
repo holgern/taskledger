@@ -9,6 +9,11 @@ Installation
    python -m pip install -e .
    python -m pip install -e ".[dev]"
 
+Agent workflows work best when the ``taskledger`` skill is installed in the
+coding harness. The CLI uses a task-first lifecycle with explicit planning,
+approval, implementation, validation, locks, and handoff gates; without the
+skill, an agent may not know the intended command sequence or gate semantics.
+
 Initialize state
 ----------------
 
@@ -125,6 +130,7 @@ over a broad generated context read:
 
 Rules for agents:
 
+* Install the ``taskledger`` skill in the coding harness before relying on agent-driven workflows.
 * Prefer ``next-action`` and ``todo next`` over generated context during normal work.
 * Use the todo ``validation_hint`` before marking a todo done.
 * Record concise evidence with ``todo done``.

@@ -22,7 +22,7 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 - Do not mark validation passed without checking every mandatory acceptance criterion.
 - Do not inline large source files into taskledger records by default; use `@path` references.
 - Do not import or call `taskledger.storage.*`, `taskledger.services.*`, or `taskledger.domain.*` from ad-hoc Python during normal task work. Use CLI commands or public `taskledger.api.*` only.
-- Do not use repair commands (`lock break`, `repair lock`, `repair task`, `repair index`) in the normal lifecycle. Use them only after `doctor`/`lock show` proves there is stale or corrupted state.
+- Do not use repair commands (`lock break`, `repair lock`, `repair run`, `repair task`, `repair index`) in the normal lifecycle. Use them only after `doctor`/`lock show` proves there is stale or corrupted state.
 - Do not pass approval escape hatches such as `--allow-empty-criteria`, `--allow-open-questions`, `--allow-empty-todos`, `--no-materialize-todos`, `--allow-lint-errors`, or `--allow-agent-approval` unless the user explicitly requested that bypass and gave a reason. All escape hatches require `--reason`.
 
 ## Fresh context entry protocol
@@ -90,8 +90,9 @@ If any `taskledger ...` command fails with a Python traceback before taskledger 
 14. For diagnostic commands needed to build the plan, preserve their output in a linked artifact or use `taskledger plan command -- ...`.
 15. A proposed plan must include concrete `acceptance_criteria` and `todos` in front matter unless the user explicitly says the task is trivial.
 16. After writing the plan, do not run `taskledger lock break`; planning locks are released by plan proposal/upsert. Run `taskledger next-action`.
-17. Before asking the user to approve, run `taskledger plan lint --version N` and fix lint errors. Do not ask for approval on plans with lint errors.
-18. Record approval only with clear user intent such as approve, accept, go ahead, or start implementation: `taskledger plan approve --version N --actor user --note "User approved in harness: ..."` or `taskledger plan accept --version N --note "User approved in harness: ..."`.
+17. After `taskledger plan upsert --from-answers`, run `taskledger question status`. If it still reports `Plan regeneration needed: True`, do not ask for approval. Inspect `taskledger question answers`, `taskledger plan show --version N`, and `taskledger doctor`.
+18. Before asking the user to approve, run `taskledger plan lint --version N` and fix lint errors. Do not ask for approval on plans with lint errors.
+19. Record approval only with clear user intent such as approve, accept, go ahead, or start implementation: `taskledger plan approve --version N --actor user --note "User approved in harness: ..."` or `taskledger plan accept --version N --note "User approved in harness: ..."`.
 
 The plan file should use version ids like `plan-v1`, `plan-v2` in references. Do not use zero-padded forms.
 
@@ -100,6 +101,8 @@ The plan file should use version ids like `plan-v1`, `plan-v2` in references. Do
 1. `taskledger context --for implementation --format markdown`
 2. `taskledger implement start`
    - If validation already failed and the plan is still correct, prefer `taskledger implement restart --summary "Fix failed validation findings."`
+   - If implementation start fails because another run is already running, stop and run `taskledger doctor`, not only `taskledger doctor locks`.
+   - Do not edit project code until implementation has started or a valid implementation resume command succeeds.
 3. `taskledger implement checklist` - review the mandatory and optional todo checklist before starting.
 4. If no todos exist, create a concrete checklist: `taskledger todo add --text "..."`. Todo source is inferred automatically from the active lock: `implementer` during implementation, `planner` during planning, `user` otherwise.
 5. Work one todo at a time:
@@ -223,6 +226,9 @@ To receive work:
 - If breaking an implementation lock leaves a running implementation run behind, use `taskledger implement resume --reason "..."` instead of `implement start`.
 - If `task show` reports `status_stage=implementing` but `active_stage` is missing, do not run `task uncancel`; run `taskledger next-action` and resume when it reports `implement-resume`.
 - If a cancelled task is restored with `task uncancel`, run `taskledger next-action` before starting work. If the task still has a running implementation run, resume that run instead of starting a new one.
+- If `taskledger next-action` recommends a command but `taskledger can <action>` rejects it, treat this as a lifecycle inconsistency. Run `taskledger doctor` and follow the repair guidance.
+- Use `taskledger repair run --task TASK --run RUN --reason "..."` only when diagnostics identify an orphaned running planning run with no matching active lock.
+- Never use repair to bypass approval, validation, or active implementation locks.
 - If validation fails, record the failure and return to implementation or replanning.
 - If indexes are stale, run `taskledger repair index`; `taskledger reindex` is a compatibility alias.
 - If a task is truly cancelled and the user wants to continue, use `taskledger task uncancel --reason "..." [--to STAGE]` to restore a safe durable stage before re-entering an active stage.

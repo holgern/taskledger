@@ -911,7 +911,7 @@ def emit_doctor_locks_command(ctx: typer.Context) -> None:
     emit_payload(
         ctx,
         payload,
-        human=_expired_locks_human(payload["expired_locks"]),
+        human=_lock_inspection_human(payload),
     )
 
 
@@ -994,6 +994,29 @@ def _emit_handoff(
         else None
     )
     emit_payload(ctx, payload, human=human)
+
+
+def _lock_inspection_human(payload: dict[str, object]) -> str:
+    expired = payload.get("expired_locks")
+    mismatches = payload.get("run_lock_mismatches")
+    lines = ["EXPIRED LOCKS"]
+    if isinstance(expired, list) and expired:
+        for item in expired:
+            if isinstance(item, dict):
+                lines.append(str(item.get("task_id")))
+    else:
+        lines.append("(empty)")
+    lines.append("RUN/LOCK MISMATCHES")
+    if isinstance(mismatches, list) and mismatches:
+        for item in mismatches:
+            if isinstance(item, dict):
+                lines.append(
+                    f"{item.get('task_id')} {item.get('run_type')} "
+                    f"{item.get('run_id')} next: {item.get('next_command')}"
+                )
+    else:
+        lines.append("(empty)")
+    return "\n".join(lines)
 
 
 def _expired_locks_human(payload: object) -> str:

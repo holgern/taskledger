@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 from typer.testing import CliRunner
 
 from taskledger.cli import app
+from taskledger.storage.task_store import resolve_run, resolve_task, save_run
 
 
 def _make_runner() -> CliRunner:
@@ -117,6 +119,46 @@ def test_plan_approval_records_actor_metadata_and_criteria_ids(tmp_path: Path) -
     assert plan["approved_by"]["actor_type"] == "user"
     assert plan["approval_note"] == "Reviewed and approved."
     assert plan["approved_at"]
+
+
+def test_plan_approval_blocks_running_planning_run_without_lock(
+    tmp_path: Path,
+) -> None:
+    _init_project(tmp_path)
+    _prepare_proposed_plan(tmp_path)
+    task = resolve_task(tmp_path, "approval-task")
+    assert task.latest_planning_run is not None
+    run = resolve_run(tmp_path, task.id, task.latest_planning_run)
+    save_run(tmp_path, replace(run, status="running", finished_at=None))
+
+    approve = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "plan",
+            "approve",
+            "--task",
+            "approval-task",
+            "--version",
+            "1",
+            "--actor",
+            "user",
+            "--allow-empty-todos",
+            "--reason",
+            "test",
+            "--allow-lint-errors",
+        ],
+    )
+
+    assert approve.exit_code != 0
+    payload = _json(approve)
+    assert payload["error"]["code"] == "APPROVAL_REQUIRED"
+    assert "running planning run" in payload["error"]["message"]
+    details = payload["error"]["details"]
+    assert details["running_run"]["run_id"] == run.run_id
+    assert details["running_run"]["run_type"] == "planning"
 
 
 def test_plan_approval_rejects_agent_approval_without_escape_hatch(

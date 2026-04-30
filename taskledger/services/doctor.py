@@ -39,6 +39,7 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
     errors: list[str] = []
     warnings: list[str] = []
     repair_hints: list[str] = []
+    run_lock_mismatches: list[dict[str, object]] = []
     config_candidates = [
         resolved_paths.workspace_root / filename
         for filename in PROJECT_CONFIG_FILENAMES
@@ -175,6 +176,24 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
             errors.append(
                 f"Task {task.id} has a running run without a matching active lock."
             )
+            for run in running_runs:
+                next_command = "taskledger doctor"
+                if run.run_type == "planning":
+                    next_command = (
+                        "taskledger repair run "
+                        f"--task {task.id} --run {run.run_id} "
+                        '--reason "Finish orphaned planning run."'
+                    )
+                run_lock_mismatches.append(
+                    {
+                        "kind": "running_run_without_matching_lock",
+                        "task_id": task.id,
+                        "run_id": run.run_id,
+                        "run_type": run.run_type,
+                        "status": run.status,
+                        "next_command": next_command,
+                    }
+                )
             running_implementation = next(
                 (
                     run
@@ -198,7 +217,7 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
                 )
             else:
                 repair_hints.append(
-                    "Inspect the run/lock pair and either repair it or break the lock "
+                    "Inspect the run/lock pair and repair the orphaned run "
                     f"for task {task.id} explicitly."
                 )
         if active_lock is not None and active_stage is None and not running_runs:
@@ -211,13 +230,13 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
             )
 
         for change in list_changes(workspace_root, task.id):
-            run = run_map.get((task.id, change.implementation_run))
-            if run is None:
+            change_run = run_map.get((task.id, change.implementation_run))
+            if change_run is None:
                 errors.append(
                     f"Change {change.change_id} references missing "
                     f"implementation run {change.implementation_run}."
                 )
-            elif run.run_type != "implementation":
+            elif change_run.run_type != "implementation":
                 errors.append(
                     f"Change {change.change_id} references "
                     f"non-implementation run {change.implementation_run}."
@@ -346,16 +365,19 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
         "repair_hints": repair_hints,
         "broken_links": broken_links,
         "expired_locks": expired_locks,
+        "run_lock_mismatches": run_lock_mismatches,
     }
 
 
 def inspect_v2_locks(workspace_root: Path) -> dict[str, object]:
     payload = inspect_v2_project(workspace_root)
     expired_locks = list(cast(list[object], payload["expired_locks"]))
+    run_lock_mismatches = list(cast(list[object], payload["run_lock_mismatches"]))
     return {
         "kind": "taskledger_lock_inspection",
-        "healthy": not expired_locks,
+        "healthy": not expired_locks and not run_lock_mismatches,
         "expired_locks": expired_locks,
+        "run_lock_mismatches": run_lock_mismatches,
     }
 
 

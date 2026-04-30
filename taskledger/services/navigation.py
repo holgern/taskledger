@@ -26,6 +26,8 @@ from taskledger.services.tasks import (
     _optional_run,
     _planning_template_hints,
     _resumable_implementation_run,
+    _running_run_details,
+    _running_runs,
     _task_active_stage,
     _task_with_sidecars,
     _todo_command_hints,
@@ -322,6 +324,38 @@ def _inactive_status_next_action(
         )
     if task.status_stage == "approved":
         next_item = _task_next_item(task)
+        running_runs = _running_runs(workspace_root, task)
+        non_resumable_runs = [
+            run
+            for run in running_runs
+            if not (
+                run.run_type == "implementation"
+                and run.run_id == task.latest_implementation_run
+                and lock is None
+            )
+        ]
+        if non_resumable_runs:
+            run = non_resumable_runs[0]
+            blockers.append(
+                {
+                    "kind": "running_run",
+                    "message": (
+                        f"Task has running {run.run_type} run {run.run_id}; "
+                        "run `taskledger doctor`."
+                    ),
+                    **_running_run_details(task, run, lock),
+                }
+            )
+            return (
+                "repair-run-state",
+                (
+                    f"Task is approved, but {run.run_type} run {run.run_id} "
+                    "is still marked running."
+                ),
+                next_item,
+                blockers,
+                progress,
+            )
         resumable_run = _resumable_implementation_run(
             workspace_root,
             task,
@@ -416,7 +450,7 @@ def can_perform(workspace_root: Path, task_ref: str, action: str) -> dict[str, o
     active_stage = _task_active_stage(workspace_root, task, lock=lock)
     ok = False
     reason = ""
-    blocking: list[dict[str, str]] = []
+    blocking: list[dict[str, object]] = []
     if action == "plan":
         ok = task.status_stage in {"draft", "plan_review"} and lock is None
         reason = (
@@ -437,11 +471,7 @@ def can_perform(workspace_root: Path, task_ref: str, action: str) -> dict[str, o
                 }
             )
     elif action == "implement":
-        running_runs = [
-            item
-            for item in list_runs(workspace_root, task.id)
-            if item.status == "running"
-        ]
+        running_runs = _running_runs(workspace_root, task)
         ok = (
             task.status_stage in IMPLEMENTABLE_TASK_STAGES
             and task.accepted_plan_version is not None
@@ -462,17 +492,33 @@ def can_perform(workspace_root: Path, task_ref: str, action: str) -> dict[str, o
             blocking.append(
                 {"kind": "approval", "message": "No accepted plan version."}
             )
-        blocking.extend(_dependency_blockers(workspace_root, task))
+        blocking.extend(
+            cast(list[dict[str, object]], _dependency_blockers(workspace_root, task))
+        )
         if running_runs:
             running_run = running_runs[0]
+            can_resume = (
+                running_run.run_type == "implementation"
+                and running_run.run_id == task.latest_implementation_run
+            )
             blocking.append(
                 {
                     "kind": "implementation",
                     "message": (
                         f"Task already has running {running_run.run_type} run "
-                        f"{running_run.run_id}; use taskledger implement resume."
+                        f"{running_run.run_id}; "
+                        + (
+                            "use taskledger implement resume."
+                            if can_resume
+                            else "run taskledger doctor."
+                        )
                     ),
-                    "command_hint": _implement_resume_command(task.id),
+                    "command_hint": (
+                        _implement_resume_command(task.id)
+                        if can_resume
+                        else "taskledger doctor"
+                    ),
+                    **_running_run_details(task, running_run, lock),
                 }
             )
         if lock is not None:
@@ -534,7 +580,7 @@ def can_perform(workspace_root: Path, task_ref: str, action: str) -> dict[str, o
                     "message": "No running implementation run is available to resume.",
                 }
             )
-        blocking.extend(dependency_blockers)
+        blocking.extend(cast(list[dict[str, object]], dependency_blockers))
         if lock is not None:
             blocking.append(
                 {
@@ -599,7 +645,9 @@ def can_perform(workspace_root: Path, task_ref: str, action: str) -> dict[str, o
                     "message": "No previous implementation run is available.",
                 }
             )
-        blocking.extend(_dependency_blockers(workspace_root, task))
+        blocking.extend(
+            cast(list[dict[str, object]], _dependency_blockers(workspace_root, task))
+        )
         if lock is not None:
             blocking.append(
                 {
@@ -952,6 +1000,7 @@ def _next_action_command(action: str) -> str | None:
             "taskledger validate finish --result passed --summary SUMMARY"
         ),
         "repair-lock": "taskledger lock show",
+        "repair-run-state": "taskledger doctor",
     }.get(action)
 
 

@@ -86,6 +86,7 @@ from taskledger.errors import (
 - `can_perform`
 - `reindex`
 - `repair_task_record`
+- `repair_orphaned_planning_run`
 
 ### `taskledger.api.plans`
 

@@ -1213,6 +1213,20 @@ def approve_plan(
     _enforce_decision(
         plan_approve_decision(task, _current_lock(workspace_root, task.id))
     )
+    running_runs = _running_runs(workspace_root, task)
+    if running_runs:
+        raise _running_run_conflict_error(
+            task,
+            running_runs[0],
+            _current_lock(workspace_root, task.id),
+            message=(
+                "Plan approval is blocked because this task still has a "
+                f"running {running_runs[0].run_type} run {running_runs[0].run_id}. "
+                "Run `taskledger doctor`."
+            ),
+            error_code="APPROVAL_REQUIRED",
+            exit_code=EXIT_CODE_APPROVAL_REQUIRED,
+        )
     questions = list_questions(workspace_root, task.id)
     open_questions = _required_open_question_ids(questions)
     if open_questions and not allow_open_questions:
@@ -1449,6 +1463,46 @@ def regenerate_plan_from_answers(
             "Plan regeneration requires answered questions or a previous plan.",
             EXIT_CODE_APPROVAL_REQUIRED,
         )
+    running_runs = _running_runs(workspace_root, task)
+    latest_planning_run = _optional_run(
+        workspace_root,
+        task,
+        task.latest_planning_run,
+    )
+    lock_to_release = _current_lock(workspace_root, task.id)
+    run_to_finish: TaskRunRecord | None = None
+    finish_orphaned_run: TaskRunRecord | None = None
+    if running_runs:
+        if (
+            len(running_runs) == 1
+            and latest_planning_run is not None
+            and running_runs[0].run_id == latest_planning_run.run_id
+            and latest_planning_run.run_type == "planning"
+        ):
+            if _lock_matches_run(lock_to_release, latest_planning_run):
+                run_to_finish = latest_planning_run
+            elif lock_to_release is None:
+                finish_orphaned_run = latest_planning_run
+            else:
+                raise _running_run_conflict_error(
+                    task,
+                    latest_planning_run,
+                    lock_to_release,
+                    message=(
+                        "Cannot regenerate plan because the latest planning run "
+                        "and active lock disagree. Run `taskledger doctor`."
+                    ),
+                )
+        else:
+            raise _running_run_conflict_error(
+                task,
+                running_runs[0],
+                lock_to_release,
+                message=(
+                    "Cannot regenerate plan while another run is still running. "
+                    "Run `taskledger doctor`."
+                ),
+            )
     front_matter, plan_body = _parse_plan_front_matter(body)
     version = plans[-1].plan_version + 1 if plans else 1
     plan = PlanRecord(
@@ -1481,28 +1535,27 @@ def regenerate_plan_from_answers(
         previous = plans[-1]
         if previous.status == "proposed":
             overwrite_plan(workspace_root, replace(previous, status="superseded"))
-    run_to_finish: TaskRunRecord | None = None
-    lock_to_release = _current_lock(workspace_root, task.id)
-    if task.latest_planning_run is not None:
-        candidate_run = _optional_run(workspace_root, task, task.latest_planning_run)
-        if (
-            candidate_run is not None
-            and candidate_run.run_type == "planning"
-            and candidate_run.status == "running"
-            and lock_to_release is not None
-            and lock_to_release.stage == "planning"
-            and lock_to_release.run_id == candidate_run.run_id
-        ):
-            run_to_finish = candidate_run
-            save_run(
-                workspace_root,
-                replace(
-                    candidate_run,
-                    status="finished",
-                    finished_at=utc_now_iso(),
-                    summary=_summary_line(plan_body),
-                ),
-            )
+    finish_time = utc_now_iso()
+    if run_to_finish is not None:
+        save_run(
+            workspace_root,
+            replace(
+                run_to_finish,
+                status="finished",
+                finished_at=finish_time,
+                summary=_summary_line(plan_body),
+            ),
+        )
+    if finish_orphaned_run is not None:
+        save_run(
+            workspace_root,
+            replace(
+                finish_orphaned_run,
+                status="finished",
+                finished_at=finish_time,
+                summary=_summary_line(plan_body),
+            ),
+        )
     updated = replace(
         task,
         latest_plan_version=version,
@@ -1520,6 +1573,21 @@ def regenerate_plan_from_answers(
             event_name="stage.completed",
             extra_data={"plan_version": version},
             delete_only=True,
+        )
+    if finish_orphaned_run is not None:
+        _append_event(
+            resolve_v2_paths(workspace_root).project_dir,
+            updated.id,
+            "run.recovered",
+            {
+                "stage": "planning",
+                "run_id": finish_orphaned_run.run_id,
+                "recovered_missing_lock": True,
+                "reason": (
+                    "plan regenerated from answers; planning lock was already missing"
+                ),
+                "plan_version": version,
+            },
         )
     _append_event(
         resolve_v2_paths(workspace_root).project_dir,
@@ -3177,6 +3245,81 @@ def repair_task_record(
     }
 
 
+def repair_orphaned_planning_run(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    run_id: str | None = None,
+    reason: str,
+) -> dict[str, object]:
+    repair_reason = reason.strip()
+    if not repair_reason:
+        raise _cli_error("Run repair requires --reason.", EXIT_CODE_BAD_INPUT)
+    task = resolve_task(workspace_root, task_ref)
+    selected_run_id = run_id or task.latest_planning_run
+    run = _require_run(workspace_root, task, selected_run_id)
+    if run.run_type != "planning":
+        raise _cli_error(
+            "Run repair only supports planning runs.",
+            EXIT_CODE_INVALID_TRANSITION,
+        )
+    if run.status != "running":
+        raise _cli_error(
+            "Run repair requires a running planning run.",
+            EXIT_CODE_INVALID_TRANSITION,
+        )
+    active_lock = _current_lock(workspace_root, task.id)
+    if _lock_matches_run(active_lock, run):
+        raise _cli_error(
+            "Run repair refuses to finish a planning run with a matching active lock.",
+            EXIT_CODE_LOCK_CONFLICT,
+        )
+    if active_lock is not None:
+        raise _running_run_conflict_error(
+            task,
+            run,
+            active_lock,
+            message=(
+                "Run repair requires no active lock for the selected planning run. "
+                "Run `taskledger doctor`."
+            ),
+        )
+    now = utc_now_iso()
+    save_run(
+        workspace_root,
+        replace(
+            run,
+            status="finished",
+            finished_at=now,
+            summary=f"Repaired orphaned planning run: {repair_reason}",
+        ),
+    )
+    _append_event(
+        resolve_v2_paths(workspace_root).project_dir,
+        task.id,
+        "repair.run",
+        {
+            "action": "finished_orphan_run",
+            "run_id": run.run_id,
+            "run_type": run.run_type,
+            "previous_status": run.status,
+            "new_status": "finished",
+            "reason": repair_reason,
+        },
+    )
+    rebuild_v2_indexes(resolve_v2_paths(workspace_root))
+    return {
+        "kind": "run_repair",
+        "action": "finished_orphan_run",
+        "task_id": task.id,
+        "run_id": run.run_id,
+        "run_type": run.run_type,
+        "previous_status": run.status,
+        "new_status": "finished",
+        "next_command": "taskledger implement start",
+    }
+
+
 def list_events(workspace_root: Path) -> list[dict[str, object]]:
     events_dir = resolve_v2_paths(workspace_root).events_dir
     return [item.to_dict() for item in load_events(events_dir)]
@@ -3199,14 +3342,9 @@ def _start_run(
             _lock_conflict_message(task.id, existing_lock),
             EXIT_CODE_LOCK_CONFLICT,
         )
-    running_runs = [
-        item for item in list_runs(workspace_root, task.id) if item.status == "running"
-    ]
+    running_runs = _running_runs(workspace_root, task)
     if running_runs:
-        raise _cli_error(
-            f"Task {task.id} already has a running {running_runs[0].run_type} run.",
-            EXIT_CODE_LOCK_CONFLICT,
-        )
+        raise _running_run_conflict_error(task, running_runs[0], existing_lock)
     resolved_actor = actor or _default_actor()
     run = TaskRunRecord(
         run_id=next_project_id(
@@ -3234,6 +3372,73 @@ def _start_run(
         harness=harness,
     )
     return run
+
+
+def _running_runs(workspace_root: Path, task: TaskRecord) -> list[TaskRunRecord]:
+    return [
+        item for item in list_runs(workspace_root, task.id) if item.status == "running"
+    ]
+
+
+def _lock_matches_run(lock: TaskLock | None, run: TaskRunRecord) -> bool:
+    expected_stage = {
+        "planning": "planning",
+        "implementation": "implementing",
+        "validation": "validating",
+    }[run.run_type]
+    return (
+        lock is not None
+        and not lock_is_expired(lock)
+        and lock.run_id == run.run_id
+        and lock.stage == expected_stage
+    )
+
+
+def _running_run_details(
+    task: TaskRecord,
+    run: TaskRunRecord,
+    lock: TaskLock | None,
+) -> dict[str, object]:
+    return {
+        "task_id": task.id,
+        "running_run": {
+            "run_id": run.run_id,
+            "run_type": run.run_type,
+            "status": run.status,
+            "has_matching_lock": _lock_matches_run(lock, run),
+        },
+        "suggested_command": "taskledger doctor",
+    }
+
+
+def _running_run_conflict_error(
+    task: TaskRecord,
+    run: TaskRunRecord,
+    lock: TaskLock | None,
+    *,
+    message: str | None = None,
+    error_code: str = "RUNNING_RUN_CONFLICT",
+    exit_code: int = EXIT_CODE_LOCK_CONFLICT,
+) -> LaunchError:
+    lock_phrase = (
+        "has a matching active lock"
+        if _lock_matches_run(lock, run)
+        else "has no matching active lock"
+    )
+    error = LaunchError(
+        message
+        or (
+            f"Cannot start work for {task.id} because {run.run_type} run "
+            f"{run.run_id} is still marked running and {lock_phrase}. "
+            "Run `taskledger doctor`."
+        ),
+        details=_running_run_details(task, run, lock),
+        task_id=task.id,
+    )
+    error.taskledger_exit_code = exit_code
+    error.taskledger_error_code = error_code
+    error.taskledger_data = error.to_error_payload()
+    return error
 
 
 def _acquire_lock(

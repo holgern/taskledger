@@ -114,8 +114,25 @@ status but ``active_stage`` is missing, ``next-action`` must not report
 ``The task is cancelled.`` For an orphaned implementation with a still-running
 latest implementation run and no active lock, it should direct agents to
 ``taskledger implement resume --task TASK_REF --reason "..."``.
+For an approved task with a non-implementation run still marked running,
+``next-action`` must not direct agents to ``taskledger implement start``.
+It should report a repair-oriented action and point to ``taskledger doctor``.
 Truly cancelled tasks recover through ``taskledger task uncancel --reason "..."``
 to a durable non-active stage rather than directly re-entering an active stage.
+
+Run and lock repair
+-------------------
+
+``taskledger doctor`` and ``taskledger doctor locks`` report running runs without
+matching active locks. Orphaned running planning runs can be finished only
+through an explicit repair command with a reason:
+
+.. code-block:: bash
+
+   taskledger repair run --task TASK_REF --run RUN_ID --reason "Planning was already completed."
+
+The repair command refuses to finish non-planning runs, non-running runs, or
+runs that still have a matching active lock.
 
 Post-completion follow-up deltas
 --------------------------------

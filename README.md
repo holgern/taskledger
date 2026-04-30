@@ -377,13 +377,19 @@ taskledger snapshot ./artifacts
 
 ## Skill packaging
 
+Agent workflows work best when the `taskledger` skill is installed in the
+coding harness. The CLI has a task-first lifecycle with explicit planning,
+approval, implementation, validation, locks, and handoff gates; without the
+skill, an agent may not know the intended command sequence or gate semantics.
+
 The canonical skill file lives at:
 
 ```text
 skills/taskledger/SKILL.md
 ```
 
-No additional `skills/taskledger/examples/` directory is required.
+Keep this skill outside the Python package. No additional
+`skills/taskledger/examples/` directory is required.
 
 ## Development
 
