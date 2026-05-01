@@ -8,6 +8,7 @@ REPAIR = "repair"
 COMMAND_METADATA: dict[str, tuple[str, str]] = {
     "init": (STABLE_FOR_AGENTS, "ledger_mutation"),
     "status": (STABLE_FOR_AGENTS, "safe_read_only"),
+    "tree": (STABLE_FOR_AGENTS, "safe_read_only"),
     "next-action": (STABLE_FOR_AGENTS, "safe_read_only"),
     "view": (STABLE_FOR_AGENTS, "safe_read_only"),
     "serve": (HUMAN_ORIENTED, "safe_read_only"),

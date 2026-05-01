@@ -52,6 +52,7 @@ def test_cli_command_tree_matches_task_first_contract(tmp_path: Path) -> None:
         "next-action",
         "can",
         "reindex",
+        "tree",
     ):
         assert name in result.stdout
 

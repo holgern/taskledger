@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from taskledger.domain.policies import derive_active_stage
 from taskledger.exchange import (
@@ -11,6 +11,7 @@ from taskledger.exchange import (
     write_project_snapshot,
 )
 from taskledger.services.doctor import inspect_v2_project
+from taskledger.services.tree import TreeOptions, build_tree
 from taskledger.storage.init import init_project_state
 from taskledger.storage.locks import lock_is_expired
 from taskledger.storage.paths import resolve_project_paths
@@ -193,6 +194,23 @@ def project_snapshot(
     )
 
 
+def project_tree(
+    workspace_root: Path,
+    *,
+    task_ref: str | None = None,
+    include_all_ledgers: bool = False,
+    details: bool = False,
+) -> dict[str, Any]:
+    return build_tree(
+        workspace_root,
+        TreeOptions(
+            task_ref=task_ref,
+            include_all_ledgers=include_all_ledgers,
+            details=details,
+        ),
+    )
+
+
 def _project_counts(workspace_root: Path) -> dict[str, int]:
     tasks = list_tasks(workspace_root)
     return {
@@ -229,4 +247,5 @@ __all__ = [
     "project_export",
     "project_import",
     "project_snapshot",
+    "project_tree",
 ]

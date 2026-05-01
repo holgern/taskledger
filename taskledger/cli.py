@@ -16,6 +16,7 @@ from taskledger.api.project import (
     project_snapshot,
     project_status,
     project_status_summary,
+    project_tree,
 )
 from taskledger.api.search import (
     dependencies_for_module,
@@ -373,6 +374,49 @@ def status_command(
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
     emit_payload(ctx, payload)
+
+
+@app.command("tree")
+def tree_command(
+    ctx: typer.Context,
+    task_ref: Annotated[
+        str | None,
+        typer.Option(
+            "--task", help="Render one task subtree instead of the full ledger."
+        ),
+    ] = None,
+    all_ledgers: Annotated[
+        bool,
+        typer.Option("--all-ledgers", help="Include every local ledger namespace."),
+    ] = False,
+    details: Annotated[
+        bool,
+        typer.Option("--details", help="Show compact per-task counts."),
+    ] = False,
+    plain: Annotated[
+        bool,
+        typer.Option("--plain", help="Use ASCII tree glyphs."),
+    ] = False,
+) -> None:
+    from taskledger.services.tree import render_tree_text
+
+    state = ctx.obj
+    assert isinstance(state, CLIState)
+    try:
+        payload = project_tree(
+            state.cwd,
+            task_ref=task_ref,
+            include_all_ledgers=all_ledgers,
+            details=details,
+        )
+    except LaunchError as exc:
+        emit_error(ctx, exc)
+        raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+    emit_payload(
+        ctx,
+        payload,
+        human=render_tree_text(payload, plain=plain),
+    )
 
 
 @app.command("view")

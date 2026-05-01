@@ -60,6 +60,7 @@ _SINGLE_TOKEN_COMMANDS = {
     "deps",
     "doctor",
     "snapshot",
+    "tree",
 }
 
 # Commands that are valid top-level or two-token commands from the inventory

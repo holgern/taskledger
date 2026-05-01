@@ -308,7 +308,7 @@ def list_releases(workspace_root: Path) -> list[ReleaseRecord]:
     paths = ensure_v2_layout(workspace_root)
     return sorted(
         [_load_release(path) for path in paths.releases_dir.glob("*.md")],
-        key=lambda item: (_task_numeric_sort_key(item.boundary_task_id), item.version),
+        key=lambda item: (task_numeric_sort_key(item.boundary_task_id), item.version),
     )
 
 
@@ -831,7 +831,7 @@ def _normalize_numeric_ref(ref: str, prefix: str) -> str:
     return f"{prefix}-{int(suffix):04d}"
 
 
-def _task_numeric_sort_key(task_id: str) -> tuple[int, str]:
+def task_numeric_sort_key(task_id: str) -> tuple[int, str]:
     match = re.fullmatch(r"task-(\d+)", task_id)
     if match is None:
         return (10**9, task_id)
