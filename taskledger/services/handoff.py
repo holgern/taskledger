@@ -531,7 +531,19 @@ def _append_guardrails(lines: list[str], guardrails: object) -> None:
 def _append_accepted_plan(lines: list[str], accepted_plan: object) -> None:
     if not isinstance(accepted_plan, dict):
         return
-    lines.extend(["## Accepted Plan", "", str(accepted_plan.get("body") or ""), ""])
+    lines.extend(["## Accepted Plan", ""])
+    body = str(accepted_plan.get("body") or "").strip()
+    if body:
+        lines.extend([body, ""])
+    else:
+        lines.extend(
+            [
+                "WARNING: accepted plan body is empty.",
+                "Use acceptance criteria and todos below, but"
+                "planning rationale is missing."
+                "",
+            ]
+        )
 
 
 def _append_acceptance_criteria(lines: list[str], accepted_plan: object) -> None:

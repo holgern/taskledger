@@ -142,7 +142,18 @@ def _run_lint_rules(plan: PlanRecord, strict: bool) -> list[PlanLintIssue]:
                 hint="Add `todos:` to plan front matter or set `todos_waived_reason`.",
             )
         )
-
+    # 3b. missing_plan_body
+    body_waiver = (getattr(plan, "body_waived_reason", None) or "").strip()
+    if not plan.body.strip() and not body_waiver:
+        issues.append(
+            PlanLintIssue(
+                severity="error",
+                code="missing_plan_body",
+                location="plan.body",
+                message="Plan must have a non-empty body after front matter.",
+                hint="Add implementation notes after the closing `---` separator.",
+            )
+        )
     # 4. todo_not_concrete
     for index, todo in enumerate(plan.todos):
         if not _todo_is_concrete(todo):

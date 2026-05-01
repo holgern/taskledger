@@ -233,6 +233,24 @@ todos:
 Wire compact execution hints.
 """
 
+_FRONT_MATTER_ONLY_PLAN = """\
+---
+goal: Fix something.
+files:
+  - taskledger/services/plan_lint.py
+test_commands:
+  - pytest tests/test_plan_lint.py
+expected_outputs:
+  - pytest exits 0
+acceptance_criteria:
+  - id: ac-0001
+    text: Some criterion.
+todos:
+  - text: Update `taskledger/services/plan_lint.py` to reject empty bodies.
+    validation_hint: pytest tests/test_plan_lint.py
+---
+"""
+
 
 class TestPlanLintPasses:
     def test_plan_lint_passes_for_executable_plan(self, tmp_path: Path) -> None:
@@ -716,3 +734,86 @@ class TestPlanLintApprovalGate:
             ],
         )
         assert result.exit_code == 0, result.output
+
+
+class TestPlanLintMissingBody:
+    def test_plan_lint_reports_missing_plan_body(self, tmp_path: Path) -> None:
+        _init_project(tmp_path)
+        _create_task(tmp_path, "empty-body")
+        _start_planning(tmp_path, "empty-body")
+        _propose_plan(tmp_path, _FRONT_MATTER_ONLY_PLAN, slug="empty-body")
+
+        result = runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "--json",
+                "plan",
+                "lint",
+                "--task",
+                "empty-body",
+                "--version",
+                "1",
+            ],
+        )
+
+        assert result.exit_code == EXIT_CODE_VALIDATION_FAILED
+        payload = _json(result)
+        res = payload["result"]
+        assert res["passed"] is False
+        codes = [i["code"] for i in res["issues"]]
+        assert "missing_plan_body" in codes
+        body_issues = [i for i in res["issues"] if i["code"] == "missing_plan_body"]
+        assert body_issues[0]["severity"] == "error"
+
+    def test_plan_approval_blocks_missing_body(self, tmp_path: Path) -> None:
+        _init_project(tmp_path)
+        _create_task(tmp_path, "body-approve")
+        _start_planning(tmp_path, "body-approve")
+        _propose_plan(tmp_path, _FRONT_MATTER_ONLY_PLAN, slug="body-approve")
+
+        result = runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "--json",
+                "plan",
+                "approve",
+                "--version",
+                "1",
+                "--actor",
+                "user",
+                "--note",
+                "approved",
+                "--task",
+                "body-approve",
+            ],
+        )
+        assert result.exit_code != 0
+        output = result.output.lower()
+        assert "lint" in output or "missing_plan_body" in output
+
+    def test_plan_lint_passes_with_body(self, tmp_path: Path) -> None:
+        _init_project(tmp_path)
+        _create_task(tmp_path, "has-body")
+        _start_planning(tmp_path, "has-body")
+        _propose_plan(tmp_path, _FULL_PLAN, slug="has-body")
+
+        result = runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "--json",
+                "plan",
+                "lint",
+                "--task",
+                "has-body",
+            ],
+        )
+        assert result.exit_code == 0
+        payload = _json(result)
+        codes = [i["code"] for i in payload["result"]["issues"]]
+        assert "missing_plan_body" not in codes

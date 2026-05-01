@@ -1302,13 +1302,21 @@ def propose_plan(
         {"plan_version": version},
     )
     rebuild_v2_indexes(resolve_v2_paths(workspace_root))
-    return _lifecycle_payload(
+    warnings: list[str] = []
+    if not plan_body.strip():
+        warnings.append(
+            "Plan body is empty; implementation handoff will not contain a human plan."
+        )
+    payload = _lifecycle_payload(
         "plan propose",
         updated,
-        warnings=[],
+        warnings=warnings,
         changed=True,
         plan_version=version,
     )
+    payload["plan_body_chars"] = len(plan_body)
+    payload["plan_body_lines"] = len(plan_body.splitlines())
+    return payload
 
 
 def upsert_plan(
@@ -1809,13 +1817,21 @@ def regenerate_plan_from_answers(
         {"plan_version": version, "generation_reason": "after_questions"},
     )
     rebuild_v2_indexes(resolve_v2_paths(workspace_root))
-    return _lifecycle_payload(
+    regenerate_warnings: list[str] = []
+    if not plan_body.strip():
+        regenerate_warnings.append(
+            "Plan body is empty; implementation handoff will not contain a human plan."
+        )
+    payload = _lifecycle_payload(
         "plan regenerate",
         updated,
-        warnings=[],
+        warnings=regenerate_warnings,
         changed=True,
         plan_version=version,
     )
+    payload["plan_body_chars"] = len(plan_body)
+    payload["plan_body_lines"] = len(plan_body.splitlines())
+    return payload
 
 
 def reject_plan(
@@ -3988,9 +4004,18 @@ def _render_plan_template(answered_questions: Sequence[QuestionRecord]) -> str:
         ),
         "---",
         "",
+        "<!-- Required: keep this body. It is the implementation handoff context. -->",
+        "",
         "## Goal",
         "",
         "<repeat or expand the goal in human prose>",
+        "",
+        "## Implementation notes",
+        "",
+        "<describe the approach, architecture, and key decisions>",
+        "",
+        "## Validation plan",
+        "",
     ]
     if answered_questions:
         lines.extend(["", "## Notes from answered questions", ""])
