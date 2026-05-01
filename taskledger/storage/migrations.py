@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+import shutil
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -47,7 +49,16 @@ class MigrationScanIssue:
     message: str
 
 
-LAYOUT_MIGRATIONS: tuple[LayoutMigration, ...] = ()
+LAYOUT_MIGRATIONS: tuple[LayoutMigration, ...] = (
+    LayoutMigration(
+        from_version=2,
+        to_version=3,
+        name="branch-scoped-ledgers",
+        apply=lambda workspace_root: (
+            _migrate_v2_unscoped_state_to_branch_scoped_ledgers(workspace_root)
+        ),
+    ),
+)
 
 RECORD_MIGRATIONS: tuple[RecordMigration, ...] = ()
 
@@ -156,6 +167,296 @@ def apply_layout_migrations(
             write_storage_meta(workspace_root, updated)
 
     return applied
+
+
+def _scan_dir(
+    directory: Path,
+    object_type: str,
+    needed: list[MigrationNeeded],
+    issues: list[MigrationScanIssue],
+) -> None:
+    if not directory.exists():
+        return
+    for md_file in sorted(directory.glob("*.md")):
+        _scan_file(md_file, object_type, needed, issues)
+
+
+def _merge_tree_without_overwrite(source: Path, target: Path) -> None:
+    """Recursively merge source into target, raising on conflicts.
+
+    Rules:
+    1. If target does not exist, move source to target.
+    2. If both are directories, recursively merge children.
+    3. If both are .ndjson files, append lines from source to target.
+    4. If both are other files and byte-identical, delete source.
+    5. If both are other files and differ, raise LaunchError.
+    6. If file-vs-directory conflict, raise LaunchError.
+    7. Only remove source directory if empty after merge.
+    """
+    if not source.exists():
+        return
+
+    if source.is_file():
+        if not target.exists():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            source.replace(target)
+            return
+        if target.is_file():
+            # Special handling for ndjson files: merge by appending
+            if source.suffix == ".ndjson" and target.suffix == ".ndjson":
+                _merge_ndjson_files(source, target)
+                return
+            # For other files, check if identical
+            if source.read_bytes() == target.read_bytes():
+                source.unlink()
+                return
+            raise LaunchError(
+                f"Migration conflict: cannot merge {source} -> {target} (files differ)"
+            )
+        raise LaunchError(
+            f"Migration conflict: cannot merge {source} -> {target} "
+            "(target is directory)"
+        )
+
+    if target.exists() and not target.is_dir():
+        raise LaunchError(
+            f"Migration conflict: cannot merge {source} -> {target} (target is file)"
+        )
+
+    target.mkdir(parents=True, exist_ok=True)
+
+    for child in sorted(source.iterdir()):
+        _merge_tree_without_overwrite(child, target / child.name)
+
+    if not any(source.iterdir()):
+        source.rmdir()
+
+
+def _max_numeric_task_number(tasks_dir: Path) -> int | None:
+    """Find the maximum numeric task ID in format task-NNNN."""
+    if not tasks_dir.exists():
+        return None
+
+    max_number: int | None = None
+    for child in tasks_dir.glob("task-*"):
+        if not child.is_dir():
+            continue
+        match = re.fullmatch(r"task-(\d+)", child.name)
+        if match is None:
+            continue
+        number = int(match.group(1))
+        max_number = number if max_number is None else max(max_number, number)
+    return max_number
+
+
+def _get_task_created_at(task_dir: Path) -> str | None:
+    """Extract created_at timestamp from task.md."""
+    task_md = task_dir / "task.md"
+    if not task_md.exists():
+        return None
+    try:
+        from taskledger.storage.frontmatter import read_markdown_front_matter
+
+        metadata, _ = read_markdown_front_matter(task_md)
+        return metadata.get("created_at")
+    except Exception:
+        return None
+
+
+def _find_task_conflicts(
+    root_tasks_dir: Path, ledger_tasks_dir: Path
+) -> dict[str, tuple[Path, Path]]:
+    """Find task IDs that exist in both root and ledger directories.
+
+    Returns mapping of task_id -> (root_path, ledger_path) for all conflicting tasks.
+    """
+    conflicts: dict[str, tuple[Path, Path]] = {}
+    if not root_tasks_dir.exists() or not ledger_tasks_dir.exists():
+        return conflicts
+
+    root_ids = {d.name for d in root_tasks_dir.glob("task-*") if d.is_dir()}
+    ledger_ids = {d.name for d in ledger_tasks_dir.glob("task-*") if d.is_dir()}
+
+    for task_id in root_ids & ledger_ids:
+        conflicts[task_id] = (root_tasks_dir / task_id, ledger_tasks_dir / task_id)
+    return conflicts
+
+
+def _merge_ndjson_files(source: Path, target: Path) -> None:
+    """Merge ndjson files by appending lines from source to target.
+
+    Preserves event order: lines from source are appended to target.
+    """
+    if not source.exists() or not target.exists():
+        return
+
+    if source.is_dir() or target.is_dir():
+        return
+
+    # Read lines from both files
+    source_lines = source.read_text(encoding="utf-8").splitlines(keepends=True)
+    target_lines = target.read_text(encoding="utf-8").splitlines(keepends=True)
+
+    # Append source lines to target (avoiding duplicates)
+    target_set = {line.rstrip() for line in target_lines}
+    for line in source_lines:
+        if line.rstrip() not in target_set:
+            target_lines.append(line if line.endswith("\n") else line + "\n")
+
+    # Write merged content back to target
+    target.write_text("".join(target_lines), encoding="utf-8")
+
+
+def _renumber_root_task(old_task_dir: Path, new_task_id: str) -> None:
+    """Renumber a task directory and update all task_id references within it.
+
+    Args:
+        old_task_dir: Current path to the task directory
+        new_task_id: New task ID (e.g., 'task-0005')
+    """
+    from taskledger.storage.frontmatter import (
+        read_markdown_front_matter,
+        write_markdown_front_matter,
+    )
+
+    old_task_id = old_task_dir.name
+    if old_task_id == new_task_id:
+        return  # Already correct
+
+    # Rename directory
+    new_task_dir = old_task_dir.parent / new_task_id
+    old_task_dir.rename(new_task_dir)
+
+    # Update all files: id and task_id fields
+    for md_file in new_task_dir.rglob("*.md"):
+        try:
+            # For task.md and other files with front matter, parse and update
+            metadata, body = read_markdown_front_matter(md_file)
+
+            # Update id or task_id field
+            if "id" in metadata:
+                metadata["id"] = new_task_id
+            if "task_id" in metadata:
+                metadata["task_id"] = new_task_id
+
+            # Rewrite file with updated metadata using proper writer
+            write_markdown_front_matter(md_file, metadata, body)
+        except Exception:
+            # If front matter parsing fails, fall back to regex replacement
+            content = md_file.read_text(encoding="utf-8")
+            content = re.sub(
+                f"^id: {re.escape(old_task_id)}$",
+                f"id: {new_task_id}",
+                content,
+                flags=re.MULTILINE,
+            )
+            content = re.sub(
+                f"^task_id: {re.escape(old_task_id)}$",
+                f"task_id: {new_task_id}",
+                content,
+                flags=re.MULTILINE,
+            )
+            md_file.write_text(content, encoding="utf-8")
+
+
+def _renumber_ledger_task(old_task_dir: Path, new_task_id: str) -> None:
+    """Renumber a ledger task (newer task gets higher ID).
+
+    Uses same logic as root task renumbering.
+    """
+    _renumber_root_task(old_task_dir, new_task_id)
+
+
+def _migrate_v2_unscoped_state_to_branch_scoped_ledgers(workspace_root: Path) -> None:
+    """Migrate legacy root-level task state into branch-scoped ledgers (layout v2→v3).
+
+    This migration:
+    - Detects task ID conflicts between root and ledger tasks
+    - Renumbers older root tasks to next available IDs
+    - Moves/merges legacy root tasks/events/intros/releases into ledger namespace
+    - Moves active-task.yaml with conflict detection
+    - Removes and rebuilds indexes
+    - Repairs ledger_next_task_number
+    """
+    from taskledger.storage.indexes import rebuild_v2_indexes
+    from taskledger.storage.ledger_config import (
+        LedgerConfigPatch,
+        load_ledger_config,
+        update_ledger_config,
+    )
+    from taskledger.storage.paths import load_project_locator
+    from taskledger.storage.task_store import resolve_v2_paths
+
+    locator = load_project_locator(workspace_root)
+    root = locator.taskledger_dir
+    config = load_ledger_config(locator.config_path)
+    ledger_dir = root / "ledgers" / config.ref
+
+    # Ensure target ledger structure exists
+    for subdir in ("tasks", "events", "indexes", "intros", "releases"):
+        (ledger_dir / subdir).mkdir(parents=True, exist_ok=True)
+
+    # Handle task ID conflicts: keep older root tasks at lower IDs,
+    # renumber newer ledger tasks
+    root_tasks_dir = root / "tasks"
+    ledger_tasks_dir = ledger_dir / "tasks"
+    conflicts = _find_task_conflicts(root_tasks_dir, ledger_tasks_dir)
+
+    if conflicts:
+        # Get current max task number to determine renumbering for newer ledger tasks
+        root_max = _max_numeric_task_number(root_tasks_dir) or 0
+        next_available_id = root_max + 1
+
+        # Sort conflicts by task ID number (ascending) so renumbering is predictable
+        sorted_conflicts = sorted(
+            conflicts.items(), key=lambda x: int(x[0].split("-")[1])
+        )
+
+        for _task_id, (root_task_path, ledger_task_path) in sorted_conflicts:
+            # Compare timestamps to identify which is older
+            root_created_at = _get_task_created_at(root_task_path)
+            ledger_created_at = _get_task_created_at(ledger_task_path)
+
+            # If ledger task is newer, renumber it to higher ID
+            # (keep older root tasks at lower IDs)
+            if (
+                root_created_at is not None
+                and ledger_created_at is not None
+                and ledger_created_at > root_created_at
+            ):
+                new_task_id = f"task-{next_available_id:04d}"
+                # Renumber the newer ledger task
+                _renumber_ledger_task(ledger_task_path, new_task_id)
+                next_available_id += 1
+
+    # Move/merge canonical legacy directories
+    for name in ("tasks", "events", "intros", "releases"):
+        source = root / name
+        target = ledger_dir / name
+        if source.exists():
+            _merge_tree_without_overwrite(source, target)
+
+    # Move active task state
+    source_active = root / "active-task.yaml"
+    target_active = ledger_dir / "active-task.yaml"
+    if source_active.exists():
+        _merge_tree_without_overwrite(source_active, target_active)
+
+    # Root indexes are derived cache. Remove them after canonical data is moved.
+    root_indexes = root / "indexes"
+    if root_indexes.exists():
+        shutil.rmtree(root_indexes)
+
+    # Rebuild target ledger indexes from canonical records
+    rebuild_v2_indexes(resolve_v2_paths(workspace_root))
+
+    # Repair task counter: ensure it's higher than any task now in ledger
+    max_task_number = _max_numeric_task_number(ledger_dir / "tasks")
+    if max_task_number is not None and config.next_task_number <= max_task_number:
+        update_ledger_config(
+            locator.config_path,
+            LedgerConfigPatch(next_task_number=max_task_number + 1),
+        )
 
 
 def _scan_dir(

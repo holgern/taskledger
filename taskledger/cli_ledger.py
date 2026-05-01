@@ -506,8 +506,11 @@ def ledger_doctor_command(ctx: typer.Context) -> None:
                 {
                     "check": "legacy_unscoped_state",
                     "status": "warn",
-                    "message": f"Legacy unscoped path exists: {lp.relative_to(root)}."
-                    " Run: taskledger migrate branch-scoped-ledgers",
+                    "message": (
+                        f"Legacy unscoped path exists: {lp.relative_to(root)}. "
+                        "Run: taskledger migrate status && "
+                        "taskledger migrate apply --backup"
+                    ),
                 }
             )
 

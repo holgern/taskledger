@@ -29,8 +29,8 @@ from taskledger.storage.meta import StorageMeta, read_storage_meta, write_storag
 
 
 class TestStorageVersionConstants:
-    def test_storage_layout_version_is_2(self) -> None:
-        assert TASKLEDGER_STORAGE_LAYOUT_VERSION == 2
+    def test_storage_layout_version_is_3(self) -> None:
+        assert TASKLEDGER_STORAGE_LAYOUT_VERSION == 3
 
     def test_record_schema_version_matches_schema_version(self) -> None:
         assert TASKLEDGER_RECORD_SCHEMA_VERSION == TASKLEDGER_SCHEMA_VERSION
@@ -427,3 +427,433 @@ class TestDoctorSchemaLayoutVersion:
 
         assert not result["healthy"]
         assert any(str(task_path) in error for error in result["errors"])
+
+
+# ---------------------------------------------------------------------------
+# Phase 4: Branch-scoped ledger migration (v2 -> v3)
+# ---------------------------------------------------------------------------
+
+
+class TestBranchScopedLedgerMigration:
+    """Tests for layout v2 -> v3 migration moving legacy root state to ledgers."""
+
+    def test_migrate_apply_moves_legacy_unscoped_state_to_current_ledger(
+        self, tmp_path: Path
+    ) -> None:
+        """Test moving root tasks and active-task into ledger namespace."""
+        import yaml
+
+        from taskledger.domain.models import ActiveTaskState
+        from taskledger.storage.init import init_project_state
+        from taskledger.storage.meta import StorageMeta, write_storage_meta
+        from taskledger.storage.migrations import apply_layout_migrations
+
+        # Initialize workspace
+        init_project_state(tmp_path)
+        root = tmp_path / ".taskledger"
+        config_path = tmp_path / ".taskledger.toml"
+
+        # Create a task in the current ledger
+        ledger_dir = root / "ledgers" / "main"
+        task_dir = ledger_dir / "tasks" / "task-0021"
+        task_dir.mkdir(parents=True, exist_ok=True)
+        task_md = task_dir / "task.md"
+        task_md.write_text(
+            """---
+schema_version: 1
+object_type: task
+file_version: v2
+id: task-0021
+slug: test-task
+title: Test Task
+status: draft
+status_stage: draft
+created_at: '2026-05-01T09:00:00+00:00'
+updated_at: '2026-05-01T09:00:00+00:00'
+---
+Test Task
+""",
+            encoding="utf-8",
+        )
+
+        # Simulate legacy root layout by moving task back to root
+        # and setting version to 2
+        legacy_tasks_dir = root / "tasks"
+        legacy_tasks_dir.mkdir(parents=True, exist_ok=True)
+        legacy_task_dir = legacy_tasks_dir / "task-0021"
+        import shutil
+
+        shutil.move(str(task_dir), str(legacy_task_dir))
+
+        # Move active-task.yaml to root
+        active_task = ActiveTaskState(task_id="task-0021", previous_task_id=None)
+        active_yaml = root / "active-task.yaml"
+        active_yaml.write_text(yaml.safe_dump(active_task.to_dict()), encoding="utf-8")
+        (ledger_dir / "active-task.yaml").unlink(missing_ok=True)
+
+        # Update storage to layout 2
+        write_storage_meta(tmp_path, StorageMeta(storage_layout_version=2))
+
+        # Set too-low task counter in TOML (not INI)
+        if not config_path.exists():
+            # Create basic config if it doesn't exist
+            config_path.write_text(
+                "ledger_ref = 'main'\nledger_next_task_number = 3\n",
+                encoding="utf-8",
+            )
+        else:
+            config_text = config_path.read_text(encoding="utf-8")
+            config_text = config_text.replace(
+                "ledger_next_task_number = 1", "ledger_next_task_number = 3"
+            )
+            config_path.write_text(config_text, encoding="utf-8")
+
+        # Apply migration
+        applied = apply_layout_migrations(tmp_path, 2, dry_run=False)
+
+        assert "branch-scoped-ledgers" in applied
+
+        # Verify legacy paths are gone
+        assert not (root / "tasks").exists()
+        assert not (root / "active-task.yaml").exists()
+
+        # Verify task moved to ledger
+        assert (ledger_dir / "tasks" / "task-0021" / "task.md").exists()
+        assert (ledger_dir / "active-task.yaml").exists()
+
+        # Verify storage updated to v3
+        from taskledger.storage.meta import read_storage_meta
+
+        meta = read_storage_meta(tmp_path)
+        assert meta is not None
+        assert meta.storage_layout_version == 3
+        assert meta.last_migrated_with_taskledger is not None
+        assert meta.last_migrated_at is not None
+
+        # Verify task counter repaired by checking toml content
+        config_text = config_path.read_text(encoding="utf-8")
+        import re
+
+        match = re.search(r"ledger_next_task_number\s*=\s*(\d+)", config_text)
+        assert match is not None
+        next_num = int(match.group(1))
+        assert next_num >= 22
+
+    def test_migrate_status_reports_branch_scoped_migration_needed(
+        self, tmp_path: Path
+    ) -> None:
+        """Test migrate status detects legacy root state."""
+        from taskledger.storage.init import init_project_state
+        from taskledger.storage.meta import StorageMeta, write_storage_meta
+        from taskledger.storage.migrations import required_layout_migrations
+
+        init_project_state(tmp_path)
+        root = tmp_path / ".taskledger"
+
+        # Create legacy root tasks directory
+        (root / "tasks").mkdir(parents=True, exist_ok=True)
+
+        # Set layout to 2
+        write_storage_meta(tmp_path, StorageMeta(storage_layout_version=2))
+
+        # Check migrations needed
+        migrations = required_layout_migrations(2, 3)
+
+        assert len(migrations) == 1
+        assert migrations[0].name == "branch-scoped-ledgers"
+        assert migrations[0].from_version == 2
+        assert migrations[0].to_version == 3
+
+    def test_migrate_apply_noop_for_already_branch_scoped_v2_workspace(
+        self, tmp_path: Path
+    ) -> None:
+        """Test migration is no-op for already-correct branch-scoped v2 workspace."""
+        from taskledger.storage.init import init_project_state
+        from taskledger.storage.meta import StorageMeta, write_storage_meta
+        from taskledger.storage.migrations import apply_layout_migrations
+
+        init_project_state(tmp_path)
+        root = tmp_path / ".taskledger"
+        ledger_dir = root / "ledgers" / "main"
+
+        # Create a task in the ledger (already correct layout)
+        task_dir = ledger_dir / "tasks" / "task-0001"
+        task_dir.mkdir(parents=True, exist_ok=True)
+        task_md = task_dir / "task.md"
+        task_md.write_text(
+            """---
+schema_version: 1
+object_type: task
+file_version: v2
+id: task-0001
+slug: test-task
+title: Test Task
+status: draft
+status_stage: draft
+created_at: '2026-05-01T09:00:00+00:00'
+updated_at: '2026-05-01T09:00:00+00:00'
+---
+Test Task
+""",
+            encoding="utf-8",
+        )
+
+        # Set layout to 2
+        write_storage_meta(tmp_path, StorageMeta(storage_layout_version=2))
+
+        # Apply migration (should succeed even though no legacy paths)
+        applied = apply_layout_migrations(tmp_path, 2, dry_run=False)
+
+        assert "branch-scoped-ledgers" in applied
+
+        # Verify task still exists
+        assert (task_dir / "task.md").exists()
+
+        # Verify layout updated to 3
+        from taskledger.storage.meta import read_storage_meta
+
+        meta = read_storage_meta(tmp_path)
+        assert meta is not None
+        assert meta.storage_layout_version == 3
+
+        # Second migration should be no-op
+        applied2 = apply_layout_migrations(tmp_path, 3, dry_run=False)
+        assert len(applied2) == 0
+
+    def test_migrate_renumbers_older_root_task_on_conflict(
+        self, tmp_path: Path
+    ) -> None:
+        """Test migration keeps older tasks at lower IDs, renumbers newer tasks.
+
+        Strategy: Older root tasks keep lower IDs, newer ledger tasks get higher IDs.
+        """
+        from datetime import datetime, timezone
+
+        from taskledger.domain.models import TaskRecord
+        from taskledger.storage.frontmatter import write_markdown_front_matter
+        from taskledger.storage.init import init_project_state
+        from taskledger.storage.meta import StorageMeta, write_storage_meta
+        from taskledger.storage.migrations import apply_layout_migrations
+
+        init_project_state(tmp_path)
+        root = tmp_path / ".taskledger"
+        ledger_dir = root / "ledgers" / "main"
+
+        # Create newer task in ledger (newer: 2026-04-30)
+        ledger_task = TaskRecord(
+            id="task-0001",
+            slug="task-0001",
+            title="Ledger Task",
+            body="Ledger task body",
+            status_stage="draft",
+            created_at=datetime(2026, 4, 30, 10, 0, 0, tzinfo=timezone.utc),
+        )
+        ledger_task_dir = ledger_dir / "tasks" / "task-0001"
+        ledger_task_dir.mkdir(parents=True, exist_ok=True)
+        ledger_metadata = ledger_task.to_dict()
+        ledger_body = ledger_metadata.pop("body", "")
+        write_markdown_front_matter(
+            ledger_task_dir / "task.md", ledger_metadata, ledger_body
+        )
+
+        # Create older conflicting task in root (older: 2026-04-28)
+        root_task = TaskRecord(
+            id="task-0001",
+            slug="task-0001",
+            title="Root Task",
+            body="Root task body",
+            status_stage="draft",
+            created_at=datetime(2026, 4, 28, 10, 0, 0, tzinfo=timezone.utc),
+        )
+        root_task_dir = root / "tasks" / "task-0001"
+        root_task_dir.mkdir(parents=True, exist_ok=True)
+        root_metadata = root_task.to_dict()
+        root_body = root_metadata.pop("body", "")
+        write_markdown_front_matter(root_task_dir / "task.md", root_metadata, root_body)
+
+        # Set layout to 2
+        write_storage_meta(tmp_path, StorageMeta(storage_layout_version=2))
+
+        # Migration should succeed
+        apply_layout_migrations(tmp_path, 2, dry_run=False)
+
+        # Root task-0001 (older) should remain at task-0001
+        assert (ledger_dir / "tasks" / "task-0001" / "task.md").exists()
+        root_content = (ledger_dir / "tasks" / "task-0001" / "task.md").read_text()
+        assert "Root Task" in root_content
+        assert "id: task-0001" in root_content
+
+        # Ledger task (newer) should be renumbered to task-0002
+        assert (ledger_dir / "tasks" / "task-0002" / "task.md").exists()
+        ledger_content = (ledger_dir / "tasks" / "task-0002" / "task.md").read_text()
+        assert "Ledger Task" in ledger_content
+        assert "id: task-0002" in ledger_content
+
+    def test_migrate_handles_multiple_task_id_conflicts(self, tmp_path: Path) -> None:
+        """Test migration handles multiple simultaneous task conflicts.
+
+        Strategy: Older root tasks keep lower IDs, newer ledger tasks get higher IDs.
+        """
+        from datetime import datetime, timezone
+
+        from taskledger.domain.models import TaskRecord
+        from taskledger.storage.frontmatter import write_markdown_front_matter
+        from taskledger.storage.init import init_project_state
+        from taskledger.storage.meta import StorageMeta, write_storage_meta
+        from taskledger.storage.migrations import apply_layout_migrations
+
+        init_project_state(tmp_path)
+        root = tmp_path / ".taskledger"
+        ledger_dir = root / "ledgers" / "main"
+
+        # Create multiple tasks in ledger (newer)
+        for i in [1, 2, 3]:
+            task = TaskRecord(
+                id=f"task-{i:04d}",
+                slug=f"task-{i:04d}",
+                title=f"Ledger Task {i}",
+                body=f"Ledger task {i} body",
+                status_stage="draft",
+                created_at=datetime(2026, 4, 30, 10, 0, i, tzinfo=timezone.utc),
+            )
+            task_dir = ledger_dir / "tasks" / f"task-{i:04d}"
+            task_dir.mkdir(parents=True, exist_ok=True)
+            metadata = task.to_dict()
+            body = metadata.pop("body", "")
+            write_markdown_front_matter(task_dir / "task.md", metadata, body)
+
+        # Create conflicting older tasks in root
+        for i in [1, 2, 3]:
+            task = TaskRecord(
+                id=f"task-{i:04d}",
+                slug=f"task-{i:04d}",
+                title=f"Root Task {i}",
+                body=f"Root task {i} body",
+                status_stage="draft",
+                created_at=datetime(2026, 4, 28, 10, 0, i, tzinfo=timezone.utc),
+            )
+            task_dir = root / "tasks" / f"task-{i:04d}"
+            task_dir.mkdir(parents=True, exist_ok=True)
+            metadata = task.to_dict()
+            body = metadata.pop("body", "")
+            write_markdown_front_matter(task_dir / "task.md", metadata, body)
+
+        # Set layout to 2
+        write_storage_meta(tmp_path, StorageMeta(storage_layout_version=2))
+
+        # Migration should succeed
+        apply_layout_migrations(tmp_path, 2, dry_run=False)
+
+        # All root tasks (older) should remain at task-0001-0003
+        for i in [1, 2, 3]:
+            assert (ledger_dir / "tasks" / f"task-{i:04d}" / "task.md").exists()
+            content = (ledger_dir / "tasks" / f"task-{i:04d}" / "task.md").read_text()
+            assert f"Root Task {i}" in content
+
+        # All ledger tasks (newer) should be renumbered to task-0004-0006
+        for i, new_id in [(1, 4), (2, 5), (3, 6)]:
+            assert (ledger_dir / "tasks" / f"task-{new_id:04d}" / "task.md").exists()
+            content = (
+                ledger_dir / "tasks" / f"task-{new_id:04d}" / "task.md"
+            ).read_text()
+            assert f"Ledger Task {i}" in content
+            assert f"id: task-{new_id:04d}" in content
+
+    def test_migrate_preserves_task_timestamps_after_renumbering(
+        self, tmp_path: Path
+    ) -> None:
+        """Test that task creation timestamps are preserved during renumbering.
+
+        Strategy: Older root tasks keep lower IDs, newer ledger tasks get higher IDs.
+        """
+        from datetime import datetime, timezone
+
+        from taskledger.domain.models import TaskRecord
+        from taskledger.storage.frontmatter import write_markdown_front_matter
+        from taskledger.storage.init import init_project_state
+        from taskledger.storage.meta import StorageMeta, write_storage_meta
+        from taskledger.storage.migrations import apply_layout_migrations
+
+        init_project_state(tmp_path)
+        root = tmp_path / ".taskledger"
+        ledger_dir = root / "ledgers" / "main"
+
+        # Create root task with specific timestamp (older: 2026-01-01)
+        original_ts = datetime(2026, 1, 1, 12, 34, 56, tzinfo=timezone.utc)
+        root_task = TaskRecord(
+            id="task-0001",
+            slug="task-0001",
+            title="Original Task",
+            body="Original task body",
+            status_stage="draft",
+            created_at=original_ts,
+        )
+        root_task_dir = root / "tasks" / "task-0001"
+        root_task_dir.mkdir(parents=True, exist_ok=True)
+        root_metadata = root_task.to_dict()
+        root_body = root_metadata.pop("body", "")
+        write_markdown_front_matter(root_task_dir / "task.md", root_metadata, root_body)
+
+        # Create newer ledger task with conflicting ID (newer: 2026-04-30)
+        newer_ts = datetime(2026, 4, 30, 10, 0, 0, tzinfo=timezone.utc)
+        ledger_task = TaskRecord(
+            id="task-0001",
+            slug="task-0001",
+            title="Ledger Task",
+            body="Ledger task body",
+            status_stage="draft",
+            created_at=newer_ts,
+        )
+        ledger_task_dir = ledger_dir / "tasks" / "task-0001"
+        ledger_task_dir.mkdir(parents=True, exist_ok=True)
+        ledger_metadata = ledger_task.to_dict()
+        ledger_body = ledger_metadata.pop("body", "")
+        write_markdown_front_matter(
+            ledger_task_dir / "task.md", ledger_metadata, ledger_body
+        )
+
+        # Set layout to 2
+        write_storage_meta(tmp_path, StorageMeta(storage_layout_version=2))
+
+        # Migrate
+        apply_layout_migrations(tmp_path, 2, dry_run=False)
+
+        # Root task (older) should remain at task-0001 with original timestamp
+        root_content = (ledger_dir / "tasks" / "task-0001" / "task.md").read_text()
+        assert "2026-01-01 12:34:56" in root_content
+        assert "id: task-0001" in root_content
+        assert "Original Task" in root_content
+
+        # Ledger task (newer) should be renumbered to task-0002
+        ledger_content = (ledger_dir / "tasks" / "task-0002" / "task.md").read_text()
+        assert "id: task-0002" in ledger_content
+        assert "Ledger Task" in ledger_content
+
+    def test_migrate_apply_removes_legacy_root_indexes_and_rebuilds(
+        self, tmp_path: Path
+    ) -> None:
+        """Test that root indexes are removed and ledger indexes rebuilt."""
+        from taskledger.storage.init import init_project_state
+        from taskledger.storage.meta import StorageMeta, write_storage_meta
+        from taskledger.storage.migrations import apply_layout_migrations
+
+        init_project_state(tmp_path)
+        root = tmp_path / ".taskledger"
+        ledger_dir = root / "ledgers" / "main"
+
+        # Create legacy root indexes
+        root_indexes = root / "indexes"
+        root_indexes.mkdir(parents=True, exist_ok=True)
+        (root_indexes / "legacy.json").write_text("[]", encoding="utf-8")
+
+        # Set layout to 2
+        write_storage_meta(tmp_path, StorageMeta(storage_layout_version=2))
+
+        # Apply migration
+        apply_layout_migrations(tmp_path, 2, dry_run=False)
+
+        # Root indexes should be gone
+        assert not root_indexes.exists()
+
+        # Ledger indexes should be rebuilt
+        assert (ledger_dir / "indexes").is_dir()

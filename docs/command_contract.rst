@@ -284,6 +284,11 @@ Taskledger uses:
 * per-record ``object_type``
 * per-file ``file_version`` for durable Markdown/YAML/JSON record files
 
+Storage layout version history:
+
+* Layout 2: Introduced branch-scoped ledgers under ``taskledger_dir/ledgers/<ledger_ref>/``
+* Layout 3: Consolidates layout-2 root-level task state into branch-scoped ledgers; migrates legacy root ``tasks/``, ``events/``, ``intros/``, ``releases/``, and ``active-task.yaml`` into the active ledger namespace
+
 Taskledger does not silently rewrite storage during read-only commands.
 
 If the installed taskledger version can read but not write an older workspace,
@@ -297,7 +302,14 @@ To migrate:
    taskledger migrate plan
    taskledger migrate apply --backup
 
-Indexes under ``taskledger_dir/indexes/`` are optional derived caches or
+After migration to layout 3, verify health with:
+
+.. code-block:: bash
+
+   taskledger doctor
+   taskledger ledger doctor
+
+Indexes under ``taskledger_dir/ledgers/<ledger_ref>/indexes/`` are optional derived caches or
 registries. Task, plan, and run commands must continue to work from canonical
 Markdown/YAML records even when task/run/plan JSON cache files are absent. The
 remaining derived caches may be plain JSON arrays with no version metadata and

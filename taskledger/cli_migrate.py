@@ -64,8 +64,17 @@ def migrate_status_command(ctx: typer.Context) -> None:
         pending = required_layout_migrations(
             meta.storage_layout_version, TASKLEDGER_STORAGE_LAYOUT_VERSION
         )
-    except LaunchError:
-        pending = []
+    except LaunchError as exc:
+        payload = {
+            "ok": False,
+            "status": "migration_unavailable",
+            "message": str(exc),
+            "current_layout_version": meta.storage_layout_version,
+            "target_layout_version": TASKLEDGER_STORAGE_LAYOUT_VERSION,
+        }
+        emit_error(ctx, exc)
+        emit_payload(ctx, payload, human=f"MIGRATE STATUS\n  Error: {exc}")
+        raise typer.Exit(code=launch_error_exit_code(exc)) from exc
 
     try:
         records = scan_records_for_migration(state.cwd)
