@@ -358,10 +358,6 @@ def _renumber_root_task(old_task_dir: Path, new_task_id: str) -> None:
         old_task_dir: Current path to the task directory
         new_task_id: New task ID (e.g., 'task-0005')
     """
-    from taskledger.storage.frontmatter import (
-        read_markdown_front_matter,
-        write_markdown_front_matter,
-    )
 
     old_task_id = old_task_dir.name
     if old_task_id == new_task_id:
@@ -371,36 +367,9 @@ def _renumber_root_task(old_task_dir: Path, new_task_id: str) -> None:
     new_task_dir = old_task_dir.parent / new_task_id
     old_task_dir.rename(new_task_dir)
 
-    # Update all files: id and task_id fields
-    for md_file in new_task_dir.rglob("*.md"):
-        try:
-            # For task.md and other files with front matter, parse and update
-            metadata, body = read_markdown_front_matter(md_file)
+    from taskledger.storage.task_store import rewrite_task_refs
 
-            # Update id or task_id field
-            if "id" in metadata:
-                metadata["id"] = new_task_id
-            if "task_id" in metadata:
-                metadata["task_id"] = new_task_id
-
-            # Rewrite file with updated metadata using proper writer
-            write_markdown_front_matter(md_file, metadata, body)
-        except Exception:
-            # If front matter parsing fails, fall back to regex replacement
-            content = md_file.read_text(encoding="utf-8")
-            content = re.sub(
-                f"^id: {re.escape(old_task_id)}$",
-                f"id: {new_task_id}",
-                content,
-                flags=re.MULTILINE,
-            )
-            content = re.sub(
-                f"^task_id: {re.escape(old_task_id)}$",
-                f"task_id: {new_task_id}",
-                content,
-                flags=re.MULTILINE,
-            )
-            md_file.write_text(content, encoding="utf-8")
+    rewrite_task_refs(new_task_dir, old_task_id, new_task_id)
 
 
 def _renumber_ledger_task(old_task_dir: Path, new_task_id: str) -> None:

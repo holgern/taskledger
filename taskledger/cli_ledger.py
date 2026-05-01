@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -367,9 +366,10 @@ def ledger_adopt_command(
             metadata["adopted_from_task_id"] = task_ref
             write_markdown_front_matter(task_md, metadata, body)
 
-        # Rewrite child records if renumbered
-        if new_task_id != task_ref:
-            _rewrite_child_refs(target_task_dir, task_ref, new_task_id)
+            # Rewrite child records if renumbered
+            from taskledger.storage.task_store import rewrite_task_refs
+
+            rewrite_task_refs(target_task_dir, task_ref, new_task_id)
 
         # Advance config counter if needed
         if new_next != config.next_task_number:
@@ -397,31 +397,6 @@ def ledger_adopt_command(
         f"  {verb} {from_ledger}/{task_ref} as {config.ref}/{new_task_id}",
     ]
     emit_payload(ctx, payload, human="\n".join(human_lines))
-
-
-def _rewrite_child_refs(task_dir: Path, old_id: str, new_id: str) -> None:
-    """Rewrite task ID references in child records after renumbering."""
-    for subdir in (
-        "plans",
-        "questions",
-        "todos",
-        "links",
-        "requirements",
-        "runs",
-        "changes",
-        "handoffs",
-    ):
-        child_dir = task_dir / subdir
-        if not child_dir.exists():
-            continue
-        for md_file in child_dir.glob("*.md"):
-            try:
-                text = md_file.read_text(encoding="utf-8")
-                if old_id in text:
-                    text = text.replace(old_id, new_id)
-                    md_file.write_text(text, encoding="utf-8")
-            except Exception:
-                pass
 
 
 @ledger_app.command("doctor")

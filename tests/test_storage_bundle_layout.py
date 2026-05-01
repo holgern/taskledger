@@ -7,7 +7,12 @@ from typer.testing import CliRunner
 
 from taskledger.cli import app
 from taskledger.storage.indexes import rebuild_v2_indexes
-from taskledger.storage.task_store import ensure_v2_layout, resolve_v2_paths
+from taskledger.storage.task_store import (
+    ensure_v2_layout,
+    list_plans,
+    resolve_v2_paths,
+    rewrite_task_refs,
+)
 
 
 def _make_runner() -> CliRunner:
@@ -315,3 +320,212 @@ def test_repair_task_dirs_removes_orphans(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.stdout
     assert "1" in result.stdout
     assert not (tasks_dir / "orphan-parent").exists()
+
+
+def test_list_plans_skips_malformed_plan_files(tmp_path: Path) -> None:
+    """list_plans should skip plan files with missing required fields."""
+    _init_project(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "create",
+            "test task",
+            "--description",
+            "Task with a broken plan.",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+
+    paths = ensure_v2_layout(tmp_path)
+    plans_dir = paths.tasks_dir / "task-0001" / "plans"
+    plans_dir.mkdir(parents=True, exist_ok=True)
+
+    # Write a plan file missing task_id
+    broken_plan = plans_dir / "plan-v1.md"
+    broken_plan.write_text(
+        "---\nschema_version: 1\nobject_type: plan\nversion: 1\n---\n\nBroken body.\n",
+        encoding="utf-8",
+    )
+
+    # Should not raise; should return empty list since plan is malformed
+    plans = list_plans(tmp_path, "task-0001")
+    assert len(plans) == 0
+
+
+def test_list_plans_loads_valid_plan_with_malformed_sibling(tmp_path: Path) -> None:
+    """list_plans loads valid plans even when a sibling plan is malformed."""
+    _init_project(tmp_path)
+    from taskledger.domain.models import PlanRecord
+    from taskledger.storage.task_store import (
+        save_plan,
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "create",
+            "test task",
+            "--description",
+            "Task with a mixed set of plans.",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+
+    paths = ensure_v2_layout(tmp_path)
+    plans_dir = paths.tasks_dir / "task-0001" / "plans"
+    plans_dir.mkdir(parents=True, exist_ok=True)
+
+    # Write a malformed plan first (version 1)
+    (plans_dir / "plan-v1.md").write_text(
+        "---\nschema_version: 1\nobject_type: plan\nversion: 1\n---\n\nBroken.\n",
+        encoding="utf-8",
+    )
+
+    # Write a valid plan (version 2) via save_plan
+    valid_plan = PlanRecord(
+        task_id="task-0001",
+        plan_version=2,
+        body="Valid body.",
+        status="proposed",
+    )
+    save_plan(tmp_path, valid_plan)
+
+    plans = list_plans(tmp_path, "task-0001")
+    assert len(plans) == 1
+    assert plans[0].plan_version == 2
+
+
+def test_rewrite_task_refs_updates_id_and_task_id(tmp_path: Path) -> None:
+    """rewrite_task_refs updates id and task_id in all child records."""
+    _init_project(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "create",
+            "test task",
+            "--description",
+            "Task for renumbering test.",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+
+    paths = ensure_v2_layout(tmp_path)
+    task_dir = paths.tasks_dir / "task-0001"
+
+    # Create a plan with task_id
+    plans_dir = task_dir / "plans"
+    plans_dir.mkdir(parents=True, exist_ok=True)
+    (plans_dir / "plan-v1.md").write_text(
+        "---\nschema_version: 1\nobject_type: plan\n"
+        "task_id: task-0001\nplan_version: 1\n"
+        "version: 1\nstatus: proposed\n---\n\nBody.\n",
+        encoding="utf-8",
+    )
+
+    # Create a question with id matching old task_id
+    questions_dir = task_dir / "questions"
+    questions_dir.mkdir(parents=True, exist_ok=True)
+    (questions_dir / "q-0001.md").write_text(
+        "---\nid: task-0001\ntask_id: task-0001\nquestion: Test?\nstatus: open\n---\n",
+        encoding="utf-8",
+    )
+
+    rewrite_task_refs(task_dir, "task-0001", "task-0005")
+
+    # Verify plan file was updated
+    from taskledger.storage.frontmatter import read_markdown_front_matter
+
+    plan_meta, _ = read_markdown_front_matter(plans_dir / "plan-v1.md")
+    assert plan_meta["task_id"] == "task-0005"
+
+    # Verify question id and task_id were updated
+    q_meta, _ = read_markdown_front_matter(questions_dir / "q-0001.md")
+    assert q_meta["id"] == "task-0005"
+    assert q_meta["task_id"] == "task-0005"
+
+
+def test_rewrite_task_refs_adds_missing_task_id(tmp_path: Path) -> None:
+    """rewrite_task_refs adds task_id when it is missing from front matter."""
+    _init_project(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "create",
+            "test task",
+            "--description",
+            "Task for renumbering test.",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+
+    paths = ensure_v2_layout(tmp_path)
+    task_dir = paths.tasks_dir / "task-0001"
+
+    # Create a plan file missing task_id
+    plans_dir = task_dir / "plans"
+    plans_dir.mkdir(parents=True, exist_ok=True)
+    (plans_dir / "plan-v1.md").write_text(
+        "---\nschema_version: 1\nobject_type: plan\n"
+        "plan_version: 1\nversion: 1\nstatus: proposed\n---\n\nBody.\n",
+        encoding="utf-8",
+    )
+
+    rewrite_task_refs(task_dir, "task-0001", "task-0003")
+
+    from taskledger.storage.frontmatter import read_markdown_front_matter
+
+    plan_meta, _ = read_markdown_front_matter(plans_dir / "plan-v1.md")
+    assert plan_meta["task_id"] == "task-0003"
+
+
+def test_rewrite_task_refs_noop_on_same_id(tmp_path: Path) -> None:
+    """rewrite_task_refs does nothing when old and new IDs match."""
+    _init_project(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "create",
+            "test task",
+            "--description",
+            "Task for renumbering test.",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+
+    paths = ensure_v2_layout(tmp_path)
+    task_dir = paths.tasks_dir / "task-0001"
+
+    plans_dir = task_dir / "plans"
+    plans_dir.mkdir(parents=True, exist_ok=True)
+    (plans_dir / "plan-v1.md").write_text(
+        "---\nschema_version: 1\nobject_type: plan\n"
+        "task_id: task-0001\nplan_version: 1\n"
+        "version: 1\nstatus: proposed\n---\n\nBody.\n",
+        encoding="utf-8",
+    )
+
+    rewrite_task_refs(task_dir, "task-0001", "task-0001")
+
+    from taskledger.storage.frontmatter import read_markdown_front_matter
+
+    plan_meta, _ = read_markdown_front_matter(plans_dir / "plan-v1.md")
+    assert plan_meta["task_id"] == "task-0001"

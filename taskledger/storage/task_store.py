@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -345,13 +346,42 @@ def save_introduction(
     return introduction
 
 
+def rewrite_task_refs(task_dir: Path, old_task_id: str, new_task_id: str) -> None:
+    """Rewrite old_task_id -> new_task_id in all .md files under task_dir.
+
+    Parses front matter, updates:
+    - ``id`` when its current value equals old_task_id
+    - ``task_id`` always set to new_task_id (adds it if missing)
+
+    Falls back to plain string replacement for files that cannot be parsed.
+    """
+    if old_task_id == new_task_id:
+        return
+    for md_file in sorted(task_dir.rglob("*.md")):
+        try:
+            metadata, body = read_markdown_front_matter(md_file)
+            if metadata.get("id") == old_task_id:
+                metadata["id"] = new_task_id
+            metadata["task_id"] = new_task_id
+            write_markdown_front_matter(md_file, metadata, body)
+        except Exception:
+            # Fall back to plain string replacement for unparseable files.
+            content = md_file.read_text(encoding="utf-8")
+            if old_task_id in content:
+                content = content.replace(old_task_id, new_task_id)
+                md_file.write_text(content, encoding="utf-8")
+
+
 def list_plans(workspace_root: Path, task_id: str) -> list[PlanRecord]:
     paths = ensure_v2_layout(workspace_root)
     directory = task_plans_dir(paths, task_id)
-    return sorted(
-        [_load_plan(path) for path in directory.glob("plan-v*.md")],
-        key=lambda item: item.plan_version,
-    )
+    plans: list[PlanRecord] = []
+    for path in directory.glob("plan-v*.md"):
+        try:
+            plans.append(_load_plan(path))
+        except LaunchError as exc:
+            logging.warning("Skipping malformed plan file %s: %s", path, exc)
+    return sorted(plans, key=lambda item: item.plan_version)
 
 
 def save_plan(workspace_root: Path, plan: PlanRecord) -> PlanRecord:
