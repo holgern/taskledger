@@ -40,7 +40,8 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
    - Use `taskledger can implement-resume` when `next-action` recommends resuming an existing implementation run.
 7. If a durable handoff exists, claim it with `taskledger handoff claim handoff-0001` before continuing and close it after the intended next action starts.
 
-Example human output:
+8. Mutation commands (`todo add`, `todo done`, `todo undone`, `implement finish`) emit compact acknowledgements. For full task or todo detail, use `task show`, `status`, `next-action`, or `todo show`.
+   Example human output:
 
 ```text
 todo-work: Implementation is in progress; 1 todos remain.

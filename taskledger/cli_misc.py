@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, cast
+from typing import Annotated, Any, cast
 
 import typer
 
@@ -61,11 +61,14 @@ from taskledger.storage.task_store import (
 )
 
 
-def _todo_status_label(todo: dict[str, object]) -> str:
-    status = todo.get("status")
+def _todo_status_label(todo: Any) -> str:
+    status = (
+        getattr(todo, "status", None) if hasattr(todo, "status") else todo.get("status")
+    )
     if isinstance(status, str) and status.strip():
         return status
-    return "done" if todo.get("done") else "open"
+    done = getattr(todo, "done", None) if hasattr(todo, "done") else todo.get("done")
+    return "done" if done else "open"
 
 
 def _todo_done_command_hint(todo: dict[str, object]) -> str | None:
@@ -95,6 +98,37 @@ def _todo_detail_lines(todo: dict[str, object]) -> list[str]:
         lines.append("Done command:")
         lines.append(done_command)
     return lines
+
+
+def _compact_todo_dict(todo: Any) -> dict[str, object]:
+    """Extract compact fields for a todo mutation response."""
+    return {
+        "id": todo.id,
+        "text": todo.text,
+        "status": _todo_status_label(todo),
+        "done": todo.done,
+        "mandatory": todo.mandatory,
+        "source": todo.source,
+        "evidence_count": len(todo.evidence or ()),
+    }
+
+
+def _todo_progress_from_task(task: Any) -> dict[str, object]:
+    """Compute todo progress from a task object."""
+    todos = getattr(task, "todos", []) or []
+    total = len(todos)
+    done = sum(1 for t in todos if getattr(t, "done", False))
+    open_ids = [getattr(t, "id", None) for t in todos if not getattr(t, "done", False)]
+    return {"total": total, "done": done, "open": total - done, "open_ids": open_ids}
+
+
+def _next_todo_or_finish_command(progress: dict[str, object]) -> str:
+    """Return the next command hint based on todo progress."""
+    open_ids = progress.get("open_ids", [])
+    if open_ids and isinstance(open_ids, list) and len(open_ids) > 0:
+        next_id = open_ids[0]
+        return f"taskledger todo show {next_id}"
+    return "taskledger implement finish --summary SUMMARY"
 
 
 def register_todo_v2_commands(app: typer.Typer) -> None:  # noqa: C901
@@ -131,11 +165,26 @@ def register_todo_v2_commands(app: typer.Typer) -> None:  # noqa: C901
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-        payload = {"kind": "task", "task": task.to_dict()}
-        if state.json_output:
-            emit_payload(ctx, payload, human=f"added todo on {task.id}")
-        else:
-            typer.echo(render_json(payload))
+        # Find the newly added todo (last in the list)
+        new_todo = task.todos[-1]
+        progress = _todo_progress_from_task(task)
+        next_command = _next_todo_or_finish_command(progress)
+        compact = {
+            "kind": "todo_added",
+            "todo": _compact_todo_dict(new_todo),
+            "task_id": task.id,
+            "progress": progress,
+            "next_command": next_command,
+        }
+        emit_payload(
+            ctx,
+            compact,
+            result_type="todo_added",
+            human=(
+                f"added {new_todo.id} on {task.id}"
+                f"  ({progress['done']}/{progress['total']} done)"
+            ),
+        )
 
     @app.command("list")
     def list_command(
@@ -996,11 +1045,31 @@ def _emit_todo_update(
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-    payload = {"kind": "task", "task": task.to_dict()}
-    if state.json_output:
-        emit_payload(ctx, payload, human=f"updated todo {todo_id}")
-    else:
-        typer.echo(render_json(payload))
+    updated_todo = next((t for t in task.todos if t.id == todo_id), None)
+    progress = _todo_progress_from_task(task)
+    next_command = _next_todo_or_finish_command(progress)
+    compact: dict[str, object] = {
+        "kind": "todo_update",
+        "todo_id": todo_id,
+        "task_id": task.id,
+        "status": _todo_status_label(updated_todo) if updated_todo else None,
+        "done": updated_todo.done if updated_todo else None,
+        "evidence_recorded": bool(evidence),
+        "artifact_refs_added": len(artifacts or ()),
+        "change_refs_added": len(changes or ()),
+        "progress": progress,
+        "next_command": next_command,
+    }
+    label = "done" if done else "undone"
+    emit_payload(
+        ctx,
+        compact,
+        result_type="todo_update",
+        human=(
+            f"{label} {todo_id} on {task.id}"
+            f"  ({progress['done']}/{progress['total']} done)"
+        ),
+    )
 
 
 def _emit_handoff(

@@ -141,6 +141,35 @@ For an approved task with a non-implementation run still marked running,
 ``next-action`` must not direct agents to ``taskledger implement start``.
 It should report a repair-oriented action and point to ``taskledger doctor``.
 Truly cancelled tasks recover through ``taskledger task uncancel --reason "..."``
+
+Compact mutation output
+........................
+
+Mutation commands emit compact acknowledgements instead of full task or run records.
+This reduces LLM context consumption during implementation loops.
+
+The following commands produce compact output:
+
+- ``todo add``: emits ``todo_added`` result with new todo, progress, and next command.
+- ``todo done`` / ``todo undone``: emits ``todo_update`` result with todo id, status, progress, and next command.
+- ``implement finish``: emits ``task_lifecycle`` result with task id, run id, status, and next command.
+
+Human mode shows a one-line summary:
+
+.. code-block:: text
+
+   added todo-0001 on task-0001  (0/3 done)
+   done todo-0001 on task-0001  (1/3 done)
+   finished implementation run-0001  task task-0001 -> implemented
+
+JSON mode wraps the compact result in the standard success envelope with ``result_type``.
+
+For full task, run, or todo details after a mutation, use:
+
+- ``taskledger task show`` or ``taskledger status`` for task-level detail.
+- ``taskledger todo show TODO_ID`` for individual todo detail.
+- ``taskledger next-action`` for the next concrete step.
+- ``taskledger todo next`` for the next open todo.
 to a durable non-active stage rather than directly re-entering an active stage.
 
 Run and lock repair

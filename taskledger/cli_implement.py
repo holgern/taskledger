@@ -24,7 +24,6 @@ from taskledger.cli_common import (
     emit_error,
     emit_payload,
     launch_error_exit_code,
-    render_json,
     resolve_cli_task,
 )
 from taskledger.errors import LaunchError
@@ -348,32 +347,28 @@ def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             task = resolve_cli_task(state.cwd, task_ref)
             payload = finish_implementation(state.cwd, task.id, summary=summary)
         except LaunchError as exc:
-            if state.json_output:
-                emit_error(ctx, exc)
-            else:
-                from taskledger.cli_common import _error_envelope
-
-                typer.echo(
-                    render_json(
-                        _error_envelope(
-                            ctx,
-                            exc,
-                            data=None,
-                            remediation=None,
-                            exit_code=None,
-                            error_type=None,
-                        )
-                    )
-                )
+            emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-        if state.json_output:
-            emit_payload(
-                ctx,
-                payload,
-                human=f"finished implementation {payload['run_id']}",
-            )
-        else:
-            typer.echo(render_json(payload))
+        compact = {
+            "kind": "task_lifecycle",
+            "command": "implement finish",
+            "task_id": payload.get("task_id"),
+            "run_id": payload.get("run_id"),
+            "status": payload.get("status"),
+            "status_stage": payload.get("status"),
+            "active_stage": payload.get("active_stage"),
+            "changed": payload.get("changed"),
+            "next_command": "taskledger validate check --criterion CRITERION",
+        }
+        emit_payload(
+            ctx,
+            compact,
+            result_type="task_lifecycle",
+            human=(
+                f"finished implementation {compact['run_id']}"
+                f"  task {compact['task_id']} -> {compact['status']}"
+            ),
+        )
 
     @app.command("show")
     def show_command(

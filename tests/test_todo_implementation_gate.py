@@ -258,6 +258,7 @@ class TestTodoImplementationGate:
             [
                 "--cwd",
                 str(tmp_path),
+                "--json",
                 "implement",
                 "finish",
                 "--summary",
@@ -279,6 +280,7 @@ class TestTodoImplementationGate:
             [
                 "--cwd",
                 str(tmp_path),
+                "--json",
                 "todo",
                 "add",
                 "--text",
@@ -287,7 +289,7 @@ class TestTodoImplementationGate:
         )
         assert result.exit_code == 0
         todo_data = _json(result)
-        todo_id = todo_data["task"]["todos"][0]["id"]
+        todo_id = todo_data["result"]["todo"]["id"]
 
         # Mark todo as done
         result = runner.invoke(
@@ -308,6 +310,7 @@ class TestTodoImplementationGate:
             [
                 "--cwd",
                 str(tmp_path),
+                "--json",
                 "implement",
                 "finish",
                 "--summary",
@@ -317,7 +320,7 @@ class TestTodoImplementationGate:
         assert result.exit_code == 0
         data = _json(result)
         assert data.get("ok") is True
-        assert data.get("run", {}).get("status") == "finished"
+        assert data["result"]["status"] == "implemented"
 
     def test_finish_succeeds_with_no_todos(self, tmp_path: Path) -> None:
         """Verify that implement finish succeeds when no todos exist."""
@@ -329,6 +332,7 @@ class TestTodoImplementationGate:
             [
                 "--cwd",
                 str(tmp_path),
+                "--json",
                 "implement",
                 "finish",
                 "--summary",
@@ -378,6 +382,7 @@ class TestTodoImplementationGate:
             [
                 "--cwd",
                 str(tmp_path),
+                "--json",
                 "implement",
                 "finish",
                 "--summary",
@@ -402,6 +407,7 @@ class TestTodoImplementationGate:
                 [
                     "--cwd",
                     str(tmp_path),
+                    "--json",
                     "todo",
                     "add",
                     "--text",
@@ -409,14 +415,14 @@ class TestTodoImplementationGate:
                 ],
             )
             assert result.exit_code == 0
-            task_data = _json(result)
-            todo_ids.append(task_data["task"]["todos"][-1]["id"])
+            todo_data = _json(result)
+            todo_ids.append(todo_data["result"]["todo"]["id"])
 
         # Mark all todos as done
         for todo_id in todo_ids:
             result = runner.invoke(
                 app,
-                ["--cwd", str(tmp_path), "todo", "done", todo_id],
+                ["--cwd", str(tmp_path), "--json", "todo", "done", todo_id],
             )
             assert result.exit_code == 0
 
@@ -426,6 +432,7 @@ class TestTodoImplementationGate:
             [
                 "--cwd",
                 str(tmp_path),
+                "--json",
                 "implement",
                 "finish",
                 "--summary",
@@ -435,7 +442,7 @@ class TestTodoImplementationGate:
         assert result.exit_code == 0
         data = _json(result)
         assert data.get("ok") is True
-        assert data.get("run", {}).get("status") == "finished"
+        assert data["result"]["status"] == "implemented"
 
     def test_validation_status_open_todo_hint_uses_existing_command(
         self,
@@ -612,6 +619,7 @@ Implement the feature.
             [
                 "--cwd",
                 str(tmp_path),
+                "--json",
                 "implement",
                 "finish",
                 "--summary",
@@ -653,6 +661,7 @@ Implement the feature.
             [
                 "--cwd",
                 str(tmp_path),
+                "--json",
                 "implement",
                 "finish",
                 "--summary",
@@ -691,6 +700,7 @@ class TestTodoObservability:
                 [
                     "--cwd",
                     str(tmp_path),
+                    "--json",
                     "todo",
                     "add",
                     "--text",
@@ -699,7 +709,7 @@ class TestTodoObservability:
             )
             assert result.exit_code == 0, f"todo add {i + 1} failed: {result.stderr}"
             task_data = _json(result)
-            new_todo = task_data["task"]["todos"][-1]
+            new_todo = task_data["result"]["todo"]
             todo_ids.append(new_todo["id"])
 
         # Check status shows all four
@@ -903,6 +913,7 @@ class TestNextActionTodoOutput:
             [
                 "--cwd",
                 str(tmp_path),
+                "--json",
                 "todo",
                 "add",
                 "--text",
@@ -910,7 +921,7 @@ class TestNextActionTodoOutput:
             ],
         )
         assert added.exit_code == 0
-        todo_id = _json(added)["task"]["todos"][0]["id"]
+        todo_id = _json(added)["result"]["todo"]["id"]
         done = runner.invoke(
             app,
             [

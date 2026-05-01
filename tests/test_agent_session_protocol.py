@@ -783,10 +783,9 @@ def test_todo_added_during_implementation_is_implementer_sourced(
     )
     assert result.exit_code == 0
     payload = _json(result)
-    todos = payload["result"]["task"]["todos"]
-    added = [t for t in todos if t["text"] == "Implementation todo"]
-    assert len(added) == 1
-    assert added[0]["source"] == "implementer"
+    added_todo = payload["result"]["todo"]
+    assert added_todo["text"] == "Implementation todo"
+    assert added_todo["source"] == "implementer"
 
 
 def test_todo_added_during_planning_is_planner_sourced(tmp_path: Path) -> None:
@@ -830,10 +829,9 @@ def test_todo_added_during_planning_is_planner_sourced(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0
     payload = _json(result)
-    todos = payload["result"]["task"]["todos"]
-    added = [t for t in todos if t["text"] == "Planning todo"]
-    assert len(added) == 1
-    assert added[0]["source"] == "planner"
+    added_todo = payload["result"]["todo"]
+    assert added_todo["text"] == "Planning todo"
+    assert added_todo["source"] == "planner"
 
 
 def test_todo_added_without_active_stage_defaults_to_user(
@@ -872,7 +870,6 @@ def test_todo_added_without_active_stage_defaults_to_user(
     )
     assert result.exit_code == 0
     payload = _json(result)
-    todos = payload["result"]["task"]["todos"]
-    added = [t for t in todos if t["text"] == "User todo"]
-    assert len(added) == 1
-    assert added[0]["source"] == "user"
+    added_todo = payload["result"]["todo"]
+    assert added_todo["text"] == "User todo"
+    assert added_todo["source"] == "user"
