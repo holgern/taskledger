@@ -403,6 +403,100 @@ class TestAllLedgers:
         assert config_before == config_after
 
 
+class TestReleaseRendering:
+    def test_current_ledger_release_is_rendered(self, tmp_path: Path) -> None:
+        _init(tmp_path)
+        result = runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "record",
+                "Done parent",
+                "--slug",
+                "done-parent",
+                "--description",
+                "done",
+                "--allow-empty-record",
+                "--reason",
+                "test",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        result = runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "release",
+                "tag",
+                "0.1.0",
+                "--at-task",
+                "done-parent",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+
+        result = _tree(tmp_path)
+        assert result.exit_code == 0, result.output
+        assert "releases" in result.output
+        assert "0.1.0 -> task-0001" in result.output
+
+        data = _json_tree(tmp_path)
+        ledger = data["result"]["ledgers"][0]
+        assert ledger["release_count"] == 1
+        assert ledger["releases"][0]["version"] == "0.1.0"
+        assert ledger["releases"][0]["boundary_task_id"] == "task-0001"
+
+    def test_all_ledgers_uses_each_ledger_release_records(self, tmp_path: Path) -> None:
+        _init(tmp_path)
+        result = runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "record",
+                "Main done",
+                "--slug",
+                "main-done",
+                "--description",
+                "done",
+                "--allow-empty-record",
+                "--reason",
+                "test",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        result = runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "release",
+                "tag",
+                "0.1.0",
+                "--at-task",
+                "main-done",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        result = runner.invoke(
+            app, ["--cwd", str(tmp_path), "ledger", "fork", "feature-a"]
+        )
+        assert result.exit_code == 0, result.output
+
+        data = _json_tree(tmp_path, "--all-ledgers")
+        ledgers = {ledger["ref"]: ledger for ledger in data["result"]["ledgers"]}
+        assert ledgers["main"]["releases"][0]["version"] == "0.1.0"
+        assert ledgers["feature-a"]["releases"] == []
+
+        result = _tree(tmp_path, "--all-ledgers")
+        assert result.exit_code == 0, result.output
+        assert result.output.count("0.1.0 -> task-0001") == 1
+
+
 # ---------------------------------------------------------------------------
 # Plain ASCII output
 # ---------------------------------------------------------------------------

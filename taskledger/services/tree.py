@@ -7,8 +7,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from taskledger.domain.models import TaskLock, TaskRecord
+from taskledger.domain.models import ReleaseRecord, TaskLock, TaskRecord
 from taskledger.domain.policies import derive_active_stage
+from taskledger.storage.frontmatter import read_markdown_front_matter
 from taskledger.storage.locks import lock_is_expired
 from taskledger.storage.paths import load_project_locator
 from taskledger.storage.task_store import (
@@ -72,6 +73,7 @@ def build_tree(workspace_root: Path, options: TreeOptions) -> dict[str, Any]:
                 if ledger_path.is_dir():
                     ref = ledger_path.name
                     is_current = ref == current_ref
+                    tasks, releases = _ledger_records(ledger_path)
                     ledger_data = _build_ledger(
                         workspace_root,
                         ref,
@@ -79,6 +81,8 @@ def build_tree(workspace_root: Path, options: TreeOptions) -> dict[str, Any]:
                         active_task_id=active_task_id if is_current else None,
                         task_ref=options.task_ref if is_current else None,
                         details=options.details,
+                        tasks=tasks,
+                        releases=releases,
                     )
                     ledgers.append(ledger_data)
     else:
@@ -103,6 +107,43 @@ def _current_ledger_ref(config_path: Path) -> str:
     return config.ref
 
 
+def _ledger_records(ledger_dir: Path) -> tuple[list[TaskRecord], list[ReleaseRecord]]:
+    tasks_dir = ledger_dir / "tasks"
+    releases_dir = ledger_dir / "releases"
+
+    tasks: list[TaskRecord] = []
+    if tasks_dir.exists():
+        tasks = [_load_task_record(path) for path in tasks_dir.glob("task-*/task.md")]
+        tasks = sorted(tasks, key=lambda item: task_numeric_sort_key(item.id))
+
+    releases: list[ReleaseRecord] = []
+    if releases_dir.exists():
+        releases = [_load_release_record(path) for path in releases_dir.glob("*.md")]
+        releases = sorted(
+            releases,
+            key=lambda item: (
+                task_numeric_sort_key(item.boundary_task_id),
+                item.version,
+            ),
+        )
+
+    return tasks, releases
+
+
+def _load_task_record(path: Path) -> TaskRecord:
+    metadata, body = read_markdown_front_matter(path)
+    payload = dict(metadata)
+    payload["body"] = body.rstrip("\n")
+    return TaskRecord.from_dict(payload)
+
+
+def _load_release_record(path: Path) -> ReleaseRecord:
+    metadata, body = read_markdown_front_matter(path)
+    payload = dict(metadata)
+    payload["body"] = body.rstrip("\n")
+    return ReleaseRecord.from_dict(payload)
+
+
 def _build_ledger(
     workspace_root: Path,
     ledger_ref: str,
@@ -111,9 +152,13 @@ def _build_ledger(
     active_task_id: str | None,
     task_ref: str | None,
     details: bool,
+    tasks: list[TaskRecord] | None = None,
+    releases: list[ReleaseRecord] | None = None,
 ) -> dict[str, Any]:
-    tasks = list_tasks(workspace_root)
-    releases = list_releases(workspace_root)
+    if tasks is None:
+        tasks = list_tasks(workspace_root)
+    if releases is None:
+        releases = list_releases(workspace_root)
 
     locks = load_active_locks(workspace_root) if is_current else []
     lock_by_task: dict[str, TaskLock] = {}
