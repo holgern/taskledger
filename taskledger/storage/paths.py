@@ -127,14 +127,24 @@ def project_paths_for_root(
     project_dir: Path,
     *,
     config_path: Path | None = None,
+    ledger_ref: str = "main",
 ) -> ProjectPaths:
-    indexes_dir = project_dir / "indexes"
+    from taskledger.storage.ledger_config import load_ledger_config
+
+    if config_path is not None and config_path.exists():
+        try:
+            ledger = load_ledger_config(config_path)
+            ledger_ref = ledger.ref
+        except Exception:
+            pass
+    ledger_dir = project_dir / "ledgers" / ledger_ref
+    indexes_dir = ledger_dir / "indexes"
     return ProjectPaths(
         workspace_root=workspace_root,
-        project_dir=project_dir,
+        project_dir=ledger_dir,
         taskledger_dir=project_dir,
         config_path=config_path or workspace_root / CANONICAL_PROJECT_CONFIG_FILENAME,
-        releases_dir=project_dir / "releases",
+        releases_dir=ledger_dir / "releases",
         repos_dir=project_dir / "repos",
         repo_index_path=indexes_dir / "repos.json",
     )

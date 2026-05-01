@@ -229,21 +229,47 @@ fresh-context transfer.
 ## Storage layout
 
 `taskledger` keeps project-local configuration in the workspace root and durable
-records under the configured storage root:
+records under the configured storage root. The checked-in `.taskledger.toml`
+stores only a branch-scoped ledger pointer and next task number. Operational task
+state remains ignored under `.taskledger/ledgers/<ledger_ref>/`:
 
 ```text
-taskledger.toml
+.taskledger.toml
 .taskledger/
-  intros/
-  releases/
-  tasks/
-  events/
-  indexes/   # optional derived caches and registries
+  storage.yaml
+  ledgers/
+    main/
+      intros/
+      releases/
+      tasks/
+      events/
+      indexes/   # optional derived caches and registries
 ```
 
-Markdown files are canonical. Task, plan, and run listings scan those records
-directly. JSON files under `.taskledger/indexes/` are optional derived caches or
-registries and are not required for task correctness.
+Markdown files are canonical. Task, plan, and run listings scan only the current
+ledger by default. JSON files under the current ledger's `indexes/` directory are
+optional derived caches or registries and are not required for task correctness.
+
+### Branch-scoped ledgers
+
+`.taskledger/` stays ignored and local. `.taskledger.toml` is safe to commit and
+contains the current `ledger_ref`, optional parent ref, and the next logical task
+number for the checked-out source branch.
+
+When starting long-lived branch-local work, fork the ledger pointer after creating
+the Git branch:
+
+```bash
+git checkout -b feature-a
+taskledger ledger fork feature-a
+git add .taskledger.toml
+```
+
+Returning to a branch whose `.taskledger.toml` points back to `main` hides the
+feature branch's active task and task list. Two ledgers may both contain a logical
+`task-0030`; this is expected because task IDs are scoped by `ledger_ref`. Use
+`taskledger ledger adopt --from REF TASK_REF` when branch-local task history
+should be copied into the current ledger.
 
 You can also point `taskledger.toml` at an external storage root:
 

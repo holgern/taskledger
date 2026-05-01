@@ -44,17 +44,64 @@ def init_project(
     }
 
 
-def project_status_summary(workspace_root: Path) -> dict[str, object]:
-    doctor = inspect_v2_project(workspace_root)
+def _project_counts_fast(workspace_root: Path) -> dict[str, int]:
+    """Fast count using file globbing instead of parsing all records."""
     paths = resolve_project_paths(workspace_root)
+    ledgers_dir = paths.taskledger_dir / "ledgers"
+
+    tasks_count = 0
+    intros_count = 0
+    plans_count = 0
+    questions_count = 0
+    runs_count = 0
+    changes_count = 0
+
+    if ledgers_dir.exists():
+        for task_dir in ledgers_dir.glob("*/"):
+            if task_dir.is_dir():
+                tasks_count += 1
+                plans_count += len(list(task_dir.glob("plans/*.yaml")))
+                questions_count += len(list(task_dir.glob("questions/*.yaml")))
+                runs_count += len(list(task_dir.glob("runs/*.yaml")))
+                changes_count += len(list(task_dir.glob("changes/*.yaml")))
+
+        intros_dir = ledgers_dir / "introductions"
+        if intros_dir.exists():
+            intros_count = len(list(intros_dir.glob("*.yaml")))
+
+    locks_count = len(load_active_locks(workspace_root))
+
+    return {
+        "tasks": tasks_count,
+        "introductions": intros_count,
+        "plans": plans_count,
+        "questions": questions_count,
+        "runs": runs_count,
+        "changes": changes_count,
+        "locks": locks_count,
+    }
+
+
+def project_status_summary(
+    workspace_root: Path, *, check_health: bool = False
+) -> dict[str, object]:
+    paths = resolve_project_paths(workspace_root)
+    health: dict[str, object] = {"checked": check_health}
+
+    if check_health:
+        doctor = inspect_v2_project(workspace_root)
+        health["healthy"] = bool(doctor["healthy"])
+    else:
+        health["healthy"] = None
+
     return {
         "kind": "taskledger_status",
         "workspace_root": str(paths.workspace_root),
         "config_path": str(paths.config_path),
         "taskledger_dir": str(paths.taskledger_dir),
         "project_dir": str(paths.project_dir),
-        "counts": _project_counts(workspace_root),
-        "healthy": bool(doctor["healthy"]),
+        "counts": _project_counts_fast(workspace_root),
+        "health": health,
         "active_task": _active_task_status(workspace_root),
     }
 

@@ -892,16 +892,52 @@ def emit_reindex_command(ctx: typer.Context) -> None:
     emit_payload(ctx, payload, human="reindexed v2 task state")
 
 
+def _doctor_human(payload: dict[str, object], *, limit: int = 20) -> str:
+    """Render doctor diagnostics in human-readable format."""
+    diagnostics = [
+        item
+        for item in cast(list[object], payload.get("diagnostics", []))
+        if isinstance(item, dict)
+    ]
+    lines = [
+        f"healthy: {str(payload['healthy']).lower()}",
+        f"errors: {len(cast(list[object], payload['errors']))}  "
+        f"warnings: {len(cast(list[object], payload['warnings']))}",
+    ]
+    if diagnostics:
+        lines.append("")
+        lines.append("Diagnostics:")
+        for item in diagnostics[:limit]:
+            code = item.get("code", "unknown")
+            severity = item.get("severity", "error")
+            message = item.get("message", "")
+            task_id = item.get("task_id")
+            prefix = f"- [{severity}:{code}]"
+            if task_id:
+                prefix += f" {task_id}"
+            lines.append(f"{prefix} {message}")
+            for key in ("change_path", "run_path"):
+                value = item.get(key)
+                if value:
+                    lines.append(f"  {key}: {value}")
+            for hint in cast(list[object], item.get("repair_hints", []))[:2]:
+                if isinstance(hint, str):
+                    lines.append(f"  next: {hint}")
+        if len(diagnostics) > limit:
+            lines.append(
+                f"... {len(diagnostics) - limit} more diagnostics; "
+                "use --json for full details."
+            )
+    return "\n".join(lines)
+
+
 def emit_doctor_command(ctx: typer.Context) -> None:
     state = cli_state_from_context(ctx)
     payload = inspect_v2_project(state.cwd)
     emit_payload(
         ctx,
         payload,
-        human=(
-            f"healthy: {payload['healthy']} "
-            f"errors: {len(cast(list[object], payload['errors']))}"
-        ),
+        human=_doctor_human(payload),
     )
 
 

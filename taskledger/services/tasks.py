@@ -75,7 +75,7 @@ from taskledger.domain.states import (
     require_transition,
 )
 from taskledger.errors import LaunchError, LockConflict, NoActiveTask
-from taskledger.ids import next_project_id, slugify_project_ref
+from taskledger.ids import allocate_ledger_task_id, next_project_id, slugify_project_ref
 from taskledger.services.plan_lint import lint_plan
 from taskledger.storage.atomic import atomic_write_text
 from taskledger.storage.events import append_event, load_events, next_event_id
@@ -120,6 +120,7 @@ from taskledger.storage.task_store import (
     save_todos,
     task_artifacts_dir,
     task_audit_dir,
+    task_dir,
     task_lock_path,
 )
 from taskledger.storage.task_store import (
@@ -129,6 +130,22 @@ from taskledger.timeutils import utc_now_iso
 
 _REQUIRED_PLAN_FIELDS = ("goal", "acceptance_criteria", "todos")
 _RECOMMENDED_PLAN_FIELDS = ("files", "test_commands", "expected_outputs")
+
+
+def _allocate_task_id_and_advance(workspace_root: Path, existing_ids: list[str]) -> str:
+    """Allocate a ledger-scoped task ID and advance the config counter."""
+    from taskledger.storage.ledger_config import LedgerConfigPatch, update_ledger_config
+    from taskledger.storage.paths import load_project_locator
+
+    locator = load_project_locator(workspace_root)
+    config_path = locator.config_path
+    from taskledger.storage.ledger_config import load_ledger_config
+
+    ledger = load_ledger_config(config_path)
+    task_id, new_next = allocate_ledger_task_id(existing_ids, ledger.next_task_number)
+    if new_next != ledger.next_task_number:
+        update_ledger_config(config_path, LedgerConfigPatch(next_task_number=new_next))
+    return task_id
 
 
 def create_task(
@@ -145,7 +162,7 @@ def create_task(
     tasks = list_tasks(workspace_root)
     task_slug = _unique_slug(tasks, slug or title)
     task = TaskRecord(
-        id=next_project_id("task", [item.id for item in tasks]),
+        id=_allocate_task_id_and_advance(workspace_root, [item.id for item in tasks]),
         slug=task_slug,
         title=title,
         body=description.strip(),
@@ -197,7 +214,7 @@ def create_follow_up_task(
         copy_links=copy_links,
     )
     child = TaskRecord(
-        id=next_project_id("task", [item.id for item in tasks]),
+        id=_allocate_task_id_and_advance(workspace_root, [item.id for item in tasks]),
         slug=task_slug,
         title=title,
         body=body,
@@ -311,7 +328,7 @@ def record_completed_task(
     resolved_recorded_by = recorded_by or _default_actor()
 
     task = TaskRecord(
-        id=next_project_id("task", [item.id for item in tasks]),
+        id=_allocate_task_id_and_advance(workspace_root, [item.id for item in tasks]),
         slug=task_slug,
         title=title.strip(),
         body=(description or "").strip(),
@@ -2667,49 +2684,34 @@ def run_planning_command(
             run.run_id,
             output,
         )
-    change = CodeChangeRecord(
-        change_id=next_project_id(
-            "change",
-            [item.change_id for item in list_changes(workspace_root, task.id)],
-        ),
-        task_id=task.id,
-        implementation_run=run.run_id,
-        timestamp=utc_now_iso(),
-        kind="command",
-        path=".",
-        summary=_command_summary(argv, completed.returncode, artifact_ref),
-        command=shlex.join(argv),
-        exit_code=completed.returncode,
-    )
-    save_change(workspace_root, change)
-    save_run(
-        workspace_root,
-        replace(
-            run,
-            change_refs=tuple([*run.change_refs, change.change_id]),
-            artifact_refs=tuple(
-                [*run.artifact_refs, *((artifact_ref,) if artifact_ref else ())]
-            ),
+    summary = _command_summary(argv, completed.returncode, artifact_ref)
+    updated_run = replace(
+        run,
+        worklog=tuple([*run.worklog, summary]),
+        artifact_refs=tuple(
+            [*run.artifact_refs, *((artifact_ref,) if artifact_ref else ())]
         ),
     )
+    save_run(workspace_root, updated_run)
     save_task(
         workspace_root,
-        replace(
-            task,
-            code_change_log_refs=tuple([*task.code_change_log_refs, change.change_id]),
-            updated_at=utc_now_iso(),
-        ),
+        replace(task, updated_at=utc_now_iso()),
     )
     _append_event(
         resolve_v2_paths(workspace_root).project_dir,
         task.id,
-        "change.logged",
-        {"change_id": change.change_id, "path": "."},
+        "plan.command",
+        {
+            "run_id": run.run_id,
+            "command": shlex.join(argv),
+            "exit_code": completed.returncode,
+            "artifact_ref": artifact_ref,
+        },
     )
     return {
         "kind": "planning_command",
-        "task_id": change.task_id,
-        "change": change.to_dict(),
+        "task_id": task.id,
+        "change": None,
         "exit_code": completed.returncode,
         "artifact_path": artifact_ref,
         "stdout": completed.stdout,
@@ -3513,6 +3515,98 @@ def repair_orphaned_planning_run(
         "previous_status": run.status,
         "new_status": "finished",
         "next_command": "taskledger implement start",
+    }
+
+
+def repair_planning_command_changes(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    reason: str,
+    dry_run: bool = False,
+) -> dict[str, object]:
+    repair_reason = reason.strip()
+    if not repair_reason:
+        raise _cli_error(
+            "Planning command changes repair requires --reason.",
+            EXIT_CODE_BAD_INPUT,
+        )
+    task = resolve_task(workspace_root, task_ref)
+    paths = resolve_v2_paths(workspace_root)
+    changes = list_changes(workspace_root, task.id)
+    repaired_changes: list[str] = []
+    dry_run_summary: list[str] = []
+
+    for change in changes:
+        if change.kind != "command":
+            continue
+        run = _optional_run(workspace_root, task, change.implementation_run)
+        if run is None or run.run_type != "planning":
+            continue
+
+        repaired_changes.append(change.change_id)
+        change_path = task_dir(paths, task.id) / "changes" / f"{change.change_id}.yaml"
+
+        if not dry_run:
+            updated_run = replace(
+                run,
+                worklog=tuple([*run.worklog, change.summary]),
+                artifact_refs=tuple(
+                    [
+                        *run.artifact_refs,
+                        *(
+                            (change.change_id,)
+                            if not change.change_id.startswith("artifact_")
+                            else ()
+                        ),
+                    ]
+                ),
+            )
+            save_run(workspace_root, updated_run)
+
+            if change_path.exists():
+                change_path.unlink()
+
+            save_task(
+                workspace_root,
+                replace(
+                    task,
+                    code_change_log_refs=tuple(
+                        ref
+                        for ref in task.code_change_log_refs
+                        if ref != change.change_id
+                    ),
+                    updated_at=utc_now_iso(),
+                ),
+            )
+
+            _append_event(
+                paths.project_dir,
+                task.id,
+                "repair.change",
+                {
+                    "action": "moved_planning_command_to_worklog",
+                    "change_id": change.change_id,
+                    "run_id": run.run_id,
+                    "reason": repair_reason,
+                },
+            )
+        else:
+            dry_run_summary.append(
+                f"Would move change {change.change_id} summary to planning "
+                f"run {run.run_id} worklog"
+            )
+
+    if not dry_run:
+        rebuild_v2_indexes(paths)
+
+    return {
+        "kind": "planning_command_changes_repair",
+        "task_id": task.id,
+        "dry_run": dry_run,
+        "repaired_changes": repaired_changes,
+        "reason": repair_reason,
+        "summary": dry_run_summary if dry_run else None,
     }
 
 

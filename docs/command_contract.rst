@@ -63,11 +63,32 @@ Release boundaries are durable project records, not task lifecycle states:
    taskledger release show 0.4.1
    taskledger release changelog 0.4.2 --since 0.4.1 --until-task task-0035 --output /tmp/taskledger-0.4.2-changelog-source.md
 
-``release tag`` writes a durable release record under ``.taskledger/releases/``.
+``release tag`` writes a durable release record under the current ledger's
+``releases/`` directory.
 ``release changelog`` is read-oriented: it renders Markdown or JSON changelog
 context from done tasks and may write an external output file, but it does not
 mutate ledger state.
 
+Ledger commands
+---------------
+
+Branch-scoped ledgers isolate ignored local task state by the checked-in
+``ledger_ref`` stored in ``.taskledger.toml``:
+
+.. code-block:: bash
+
+   taskledger ledger status
+   taskledger ledger list
+   taskledger ledger fork feature-a
+   taskledger ledger switch main
+   taskledger ledger adopt --from feature-a task-0030
+   taskledger ledger doctor
+
+``ledger fork`` creates a new local namespace under
+``.taskledger/ledgers/<ref>/`` and updates only Taskledger-owned ledger keys in
+``.taskledger.toml``. ``ledger switch`` changes the checked-in pointer to an
+existing local ledger. ``ledger adopt`` copies a task from another local ledger
+into the current ledger and renumbers on collision.
 ``next-action`` result contract
 -------------------------------
 

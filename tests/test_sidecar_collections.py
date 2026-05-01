@@ -91,7 +91,7 @@ def test_todos_links_and_requirements_use_per_record_markdown(tmp_path: Path) ->
         ],
     )
 
-    task_dir = tmp_path / ".taskledger" / "tasks" / "task-0002"
+    task_dir = tmp_path / ".taskledger" / "ledgers" / "main" / "tasks" / "task-0002"
     task_markdown = (task_dir / "task.md").read_text(encoding="utf-8")
     assert "todos:" not in task_markdown
     assert "file_links:" not in task_markdown

@@ -22,10 +22,29 @@ Initialize state
    taskledger init
    taskledger init --taskledger-dir /mnt/cloud/taskledger/project-a
 
-``taskledger init`` writes ``taskledger.toml`` in the workspace root. The config
-defaults to ``taskledger_dir = ".taskledger"``, but ``--taskledger-dir`` can
-store durable taskledger state outside the source tree.
+``taskledger init`` writes ``.taskledger.toml`` in the workspace root. The
+config defaults to ``taskledger_dir = ".taskledger"`` and stores only safe
+branch-scoped ledger state such as ``ledger_ref`` and
+``ledger_next_task_number``. ``.taskledger/`` remains ignored and stores
+operational task state under ``.taskledger/ledgers/<ledger_ref>/``.
 
+Branch-local task work
+----------------------
+
+When creating a long-lived Git branch, fork the Taskledger ledger pointer so
+active task state, plans, todos, events, indexes, and releases stay isolated
+from the parent branch:
+
+.. code-block:: bash
+
+   git checkout -b feature-a
+   taskledger ledger fork feature-a
+   git add .taskledger.toml
+
+When Git later restores the parent branch's ``.taskledger.toml``, default
+commands read the parent ledger again. Duplicate logical IDs such as
+``task-0030`` in two ledgers are expected. Use ``taskledger ledger adopt --from
+feature-a task-0030`` to copy branch-local task history into the current ledger.
 Task-first workflow
 -------------------
 

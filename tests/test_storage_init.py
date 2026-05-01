@@ -44,7 +44,7 @@ def test_ensure_project_exists_raises_without_init(tmp_path: Path) -> None:
 def test_ensure_project_exists_rejects_legacy_item_index(tmp_path: Path) -> None:
     init_project_state(tmp_path)
     paths, _ = init_project_state(tmp_path)
-    items_dir = paths.project_dir / "items"
+    items_dir = paths.taskledger_dir / "items"
     items_dir.mkdir(parents=True, exist_ok=True)
     (items_dir / "index.json").write_text("[]")
     with pytest.raises(LaunchError, match="Legacy item"):
@@ -54,7 +54,7 @@ def test_ensure_project_exists_rejects_legacy_item_index(tmp_path: Path) -> None
 def test_ensure_project_exists_rejects_legacy_memory_index(tmp_path: Path) -> None:
     init_project_state(tmp_path)
     paths, _ = init_project_state(tmp_path)
-    mem_dir = paths.project_dir / "memories"
+    mem_dir = paths.taskledger_dir / "memories"
     mem_dir.mkdir(parents=True, exist_ok=True)
     (mem_dir / "index.json").write_text("[]")
     with pytest.raises(LaunchError, match="Legacy memory"):

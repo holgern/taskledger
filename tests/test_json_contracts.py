@@ -178,7 +178,7 @@ def test_status_json_reports_workspace_and_storage_paths(tmp_path: Path) -> None
     assert status["workspace_root"] == str(tmp_path)
     assert status["config_path"] == str(tmp_path / "taskledger.toml")
     assert status["taskledger_dir"] == str(tmp_path / ".taskledger")
-    assert status["project_dir"] == str(tmp_path / ".taskledger")
+    assert status["project_dir"] == str(tmp_path / ".taskledger" / "ledgers" / "main")
 
 
 def test_python_m_taskledger_uses_canonical_json_command_names(tmp_path: Path) -> None:

@@ -87,6 +87,7 @@ EventName = Literal[
     "plan.proposed",
     "plan.approved",
     "plan.rejected",
+    "plan.command",
     "question.added",
     "question.answered",
     "question.dismissed",

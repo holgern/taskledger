@@ -1038,7 +1038,7 @@ class TestLegacyTodoSidecars:
         )
         assert result.exit_code == 0
 
-        task_dir = tmp_path / ".taskledger" / "tasks" / "task-0001"
+        task_dir = tmp_path / ".taskledger" / "ledgers" / "main" / "tasks" / "task-0001"
         todos_file = task_dir / "todos.yaml"
 
         legacy_todos = """schema_version: 1
@@ -1074,7 +1074,7 @@ todos:
     def test_legacy_todos_yaml_does_not_block_finish(self, tmp_path: Path) -> None:
         _prepare_task_for_implementation(tmp_path)
 
-        task_dir = tmp_path / ".taskledger" / "tasks" / "task-0001"
+        task_dir = tmp_path / ".taskledger" / "ledgers" / "main" / "tasks" / "task-0001"
         todos_file = task_dir / "todos.yaml"
 
         legacy_todos = """schema_version: 1

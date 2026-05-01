@@ -31,7 +31,7 @@ def _init_project(tmp_path: Path) -> None:
 
 
 def _removed_index_paths(tmp_path: Path) -> tuple[Path, Path, Path]:
-    indexes_dir = tmp_path / ".taskledger" / "indexes"
+    indexes_dir = tmp_path / ".taskledger" / "ledgers" / "main" / "indexes"
     return (
         indexes_dir / "tasks.json",
         indexes_dir / "plan_versions.json",
@@ -121,7 +121,7 @@ Use task bundles instead of derived task, plan, and run indexes.
 def test_task_create_uses_task_bundle_layout(tmp_path: Path) -> None:
     _init_project(tmp_path)
 
-    project_dir = tmp_path / ".taskledger"
+    project_dir = tmp_path / ".taskledger" / "ledgers" / "main"
     assert (project_dir / "intros").is_dir()
     assert (project_dir / "releases").is_dir()
     assert (project_dir / "tasks").is_dir()
@@ -282,7 +282,7 @@ def test_task_create_no_orphan_slug_directory(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0, result.stdout
 
-    tasks_dir = tmp_path / ".taskledger" / "tasks"
+    tasks_dir = tmp_path / ".taskledger" / "ledgers" / "main" / "tasks"
     child_names = [p.name for p in tasks_dir.iterdir()]
     # Only the canonical task-NNNN directory should exist
     assert child_names == ["task-0001"], f"unexpected directories: {child_names}"
@@ -306,7 +306,7 @@ def test_repair_task_dirs_removes_orphans(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0, result.stdout
 
-    tasks_dir = tmp_path / ".taskledger" / "tasks"
+    tasks_dir = tmp_path / ".taskledger" / "ledgers" / "main" / "tasks"
     # Manually create an empty slug-like directory
     (tasks_dir / "orphan-parent").mkdir()
     assert (tasks_dir / "orphan-parent").exists()

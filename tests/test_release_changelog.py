@@ -396,7 +396,7 @@ def test_release_tag_persists_release_record(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0, result.stdout
 
-    path = tmp_path / ".taskledger" / "releases" / "0.4.1.md"
+    path = tmp_path / ".taskledger" / "ledgers" / "main" / "releases" / "0.4.1.md"
     metadata, _ = read_markdown_front_matter(path)
     assert metadata["object_type"] == "release"
     assert metadata["version"] == "0.4.1"

@@ -36,6 +36,7 @@ from taskledger.cli_common import (
     resolve_workspace_root,
 )
 from taskledger.cli_implement import register_implement_v2_commands
+from taskledger.cli_ledger import ledger_app
 from taskledger.cli_migrate import migrate_app
 from taskledger.cli_misc import (
     emit_can_command,
@@ -112,6 +113,7 @@ app.add_typer(repair_app, name="repair")
 app.add_typer(migrate_app, name="migrate")
 app.add_typer(actors_app, name="actor")
 app.add_typer(harness_app, name="harness")
+app.add_typer(ledger_app, name="ledger")
 
 register_task_v2_commands(task_app)
 register_plan_v2_commands(plan_app)
@@ -351,13 +353,22 @@ def status_command(
             help="Show the full status payload instead of the compact summary.",
         ),
     ] = False,
+    check: Annotated[
+        bool,
+        typer.Option(
+            "--check",
+            help="Run doctor health check (slower, not done by default).",
+        ),
+    ] = False,
 ) -> None:
+
     state = ctx.obj
     assert isinstance(state, CLIState)
     try:
-        payload = (
-            project_status(state.cwd) if full else project_status_summary(state.cwd)
-        )
+        if full:
+            payload = project_status(state.cwd)
+        else:
+            payload = project_status_summary(state.cwd, check_health=check)
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -567,6 +578,51 @@ def repair_run_command(
             f"for {payload['task_id']}\nnext: {payload['next_command']}"
         ),
     )
+
+
+@repair_app.command("planning-command-changes")
+def repair_planning_command_changes_command(
+    ctx: typer.Context,
+    reason: Annotated[str, typer.Option("--reason")],
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            help="Show what would be repaired without making changes.",
+        ),
+    ] = False,
+    task_ref: Annotated[
+        str | None,
+        typer.Option("--task", help="Task ref. Defaults to the active task."),
+    ] = None,
+) -> None:
+    from taskledger.api.tasks import repair_planning_command_changes
+
+    state = ctx.obj
+    assert isinstance(state, CLIState)
+    try:
+        task = resolve_cli_task(state.cwd, task_ref)
+        payload = repair_planning_command_changes(
+            state.cwd,
+            task.id,
+            reason=reason,
+            dry_run=dry_run,
+        )
+    except LaunchError as exc:
+        emit_error(ctx, exc)
+        raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+    repaired = cast(list[str], payload.get("repaired_changes", []))
+    dry_run_str = " (dry run)" if payload.get("dry_run") else ""
+    if repaired:
+        human_lines = [
+            f"repaired {len(repaired)} planning command changes{dry_run_str}:",
+        ]
+        for change_id in repaired:
+            human_lines.append(f"  - {change_id}")
+        human = "\n".join(human_lines)
+    else:
+        human = f"no planning command changes to repair{dry_run_str}"
+    emit_payload(ctx, payload, human=human)
 
 
 @repair_app.command("task-dirs")

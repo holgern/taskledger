@@ -876,7 +876,15 @@ def test_v2_lock_break_and_expired_lock_report(tmp_path: Path) -> None:
     )
     runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start", "--task", "lock-task"])
 
-    lock_path = tmp_path / ".taskledger" / "tasks" / "task-0001" / "lock.yaml"
+    lock_path = (
+        tmp_path
+        / ".taskledger"
+        / "ledgers"
+        / "main"
+        / "tasks"
+        / "task-0001"
+        / "lock.yaml"
+    )
     payload = yaml.safe_load(lock_path.read_text(encoding="utf-8"))
     payload["expires_at"] = "2000-01-01T00:00:00+00:00"
     lock_path.write_text(
@@ -1729,7 +1737,15 @@ def test_expired_lock_requires_explicit_break_json_error(tmp_path: Path) -> None
         app, ["--cwd", str(tmp_path), "plan", "start", "--task", "stale-lock-task"]
     )
 
-    lock_path = tmp_path / ".taskledger" / "tasks" / "task-0001" / "lock.yaml"
+    lock_path = (
+        tmp_path
+        / ".taskledger"
+        / "ledgers"
+        / "main"
+        / "tasks"
+        / "task-0001"
+        / "lock.yaml"
+    )
     payload = yaml.safe_load(lock_path.read_text(encoding="utf-8"))
     payload["expires_at"] = "2000-01-01T00:00:00+00:00"
     lock_path.write_text(
@@ -1883,3 +1899,129 @@ def test_handoff_create_and_show_focused_todo_snapshot(tmp_path: Path) -> None:
     assert "## Worker Role" in show_result.stdout
     assert "## Focused Todo" in show_result.stdout
     assert "todo-0001" in show_result.stdout
+
+
+def test_repair_planning_command_changes_dry_run(tmp_path: Path) -> None:
+    """Test repair planning-command-changes with dry-run flag."""
+    _init_project(tmp_path)
+
+    # Create task
+    create_result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "task",
+            "create",
+            "repair-test",
+            "--description",
+            "Test.",
+        ],
+    )
+    assert create_result.exit_code == 0
+    create_payload = _json(create_result)
+    task_id = create_payload["result"]["id"]
+
+    # Test repair with dry-run flag
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "repair",
+            "planning-command-changes",
+            "--task",
+            task_id,
+            "--reason",
+            "Test dry run.",
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = _json(result)
+    assert payload["result"]["dry_run"] is True
+    assert payload["result"]["task_id"] == task_id
+
+
+def test_repair_planning_command_changes_requires_reason(tmp_path: Path) -> None:
+    """Test repair planning-command-changes requires --reason."""
+    _init_project(tmp_path)
+
+    create_result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "task",
+            "create",
+            "reason-test",
+            "--description",
+            "Test.",
+        ],
+    )
+    assert create_result.exit_code == 0
+    create_payload = _json(create_result)
+    task_id = create_payload["result"]["id"]
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "repair",
+            "planning-command-changes",
+            "--task",
+            task_id,
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Missing option '--reason'" in result.stdout or result.exit_code == 2
+
+
+def test_status_command_with_check_flag(tmp_path: Path) -> None:
+    """Test status --check runs doctor health check."""
+    _init_project(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "status",
+            "--check",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = _json(result)
+    assert payload["result"]["health"]["checked"] is True
+    assert isinstance(payload["result"]["health"]["healthy"], bool)
+
+
+def test_status_command_without_check_flag_fast(tmp_path: Path) -> None:
+    """Test status without --check flag uses fast counts."""
+    _init_project(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "status",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = _json(result)
+    assert payload["result"]["health"]["checked"] is False
+    assert payload["result"]["health"]["healthy"] is None
+    assert "counts" in payload["result"]
+    assert isinstance(payload["result"]["counts"]["tasks"], int)

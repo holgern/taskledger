@@ -65,7 +65,7 @@ def test_init_with_external_taskledger_dir_uses_directory_directly(
     config_text = (workspace / "taskledger.toml").read_text(encoding="utf-8")
     assert storage.as_posix() in config_text
     assert (storage / "storage.yaml").exists()
-    assert (storage / "tasks").is_dir()
+    assert (storage / "ledgers" / "main" / "tasks").is_dir()
     assert not (storage / ".taskledger").exists()
     assert not (workspace / ".taskledger").exists()
 
@@ -95,7 +95,7 @@ def test_task_create_uses_configured_external_storage(tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 0, result.stdout
-    assert any((storage / "tasks").glob("task-*"))
+    assert any((storage / "ledgers" / "main" / "tasks").glob("task-*"))
     assert not (workspace / ".taskledger" / "tasks").exists()
 
 

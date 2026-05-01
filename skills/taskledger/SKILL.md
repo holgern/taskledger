@@ -71,6 +71,18 @@ If any `taskledger ...` command fails with a Python traceback before taskledger 
 5. If the health probe succeeds, rerun the failed command once, then continue.
 6. For repeated setup mutations, prefer batch commands such as `question add-many` when available.
 
+## Branch-scoped ledger protocol
+
+- `.taskledger/` is ignored local state. `.taskledger.toml` is checked in and
+  stores the current `ledger_ref` and next task number.
+- After creating a long-lived Git branch, run `taskledger ledger fork REF` and
+  commit the `.taskledger.toml` change with the branch work.
+- Default commands read only the current ledger under
+  `.taskledger/ledgers/<ledger_ref>/`.
+- Duplicate logical task IDs in different ledgers are expected. Use
+  `taskledger ledger adopt --from REF TASK_REF` when branch-local task history
+  should be copied into the current ledger.
+
 ## Planning protocol
 
 1. `taskledger task create "Short task request" --slug <slug>` when creating a fresh task.
@@ -262,6 +274,11 @@ taskledger context --for spec-reviewer --run run-0008
 taskledger context --for code-reviewer --run run-0008
 taskledger release tag 0.4.1 --at-task task-0030 --note "0.4.1 released"
 taskledger release changelog 0.4.2 --since 0.4.1 --until-task task-0035 --output /tmp/taskledger-0.4.2-changelog-source.md
+taskledger ledger status
+taskledger ledger fork feature-a
+taskledger ledger switch main
+taskledger ledger adopt --from feature-a task-0030
+taskledger ledger doctor
 taskledger implement resume --reason "Reacquire implementation lock for existing running run."
 taskledger implement restart --summary "Fix failed validation findings."
 taskledger implement change --path taskledger/services/tasks.py --kind edit --summary "Hardened validation gates."

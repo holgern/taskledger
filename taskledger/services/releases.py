@@ -85,8 +85,10 @@ def tag_release(
         },
     )
     rebuild_v2_indexes(resolve_v2_paths(workspace_root))
+    paths = resolve_v2_paths(workspace_root)
     return {
         "kind": "release",
+        "ledger_ref": paths.ledger_ref,
         "release": release.to_dict(),
         "boundary_task": _task_summary(boundary_task),
         "events": [event_id],
@@ -100,8 +102,10 @@ def list_release_records(workspace_root: Path) -> list[dict[str, object]]:
 def show_release(workspace_root: Path, version: str) -> dict[str, object]:
     release = resolve_release(workspace_root, version)
     boundary_task = resolve_task(workspace_root, release.boundary_task_id)
+    paths = resolve_v2_paths(workspace_root)
     return {
         "kind": "release",
+        "ledger_ref": paths.ledger_ref,
         "release": release.to_dict(),
         "boundary_task": _task_summary(boundary_task),
     }
@@ -137,6 +141,7 @@ def build_changelog_context(
     payload: dict[str, object] = {
         "kind": "release_changelog_context",
         "version": version,
+        "ledger_ref": resolve_v2_paths(workspace_root).ledger_ref,
         "since_version": resolved_since_version,
         "since_task_id": lower_boundary.id,
         "until_task_id": upper_boundary.id,

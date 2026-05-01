@@ -152,7 +152,15 @@ def test_handoff_list_raises_for_malformed_record() -> None:
         workspace = Path(tmpdir)
         init_project(workspace)
         create_task(workspace, title="Test Task", description="Test", slug="task-0001")
-        handoff_dir = workspace / ".taskledger" / "tasks" / "task-0001" / "handoffs"
+        handoff_dir = (
+            workspace
+            / ".taskledger"
+            / "ledgers"
+            / "main"
+            / "tasks"
+            / "task-0001"
+            / "handoffs"
+        )
         handoff_dir.mkdir(parents=True, exist_ok=True)
         (handoff_dir / "handoff-0001.md").write_text(
             "---\nobject_type: handoff\ncontext_hash: [\n---\n",

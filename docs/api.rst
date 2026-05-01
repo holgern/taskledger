@@ -68,6 +68,7 @@ Task API
 - ``reindex``
 - ``repair_task_record``
 - ``repair_orphaned_planning_run``
+- ``repair_planning_command_changes``
 
 Plan API
 --------

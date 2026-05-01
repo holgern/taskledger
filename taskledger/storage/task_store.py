@@ -48,7 +48,7 @@ from taskledger.storage.frontmatter import (
     write_markdown_front_matter,
 )
 from taskledger.storage.locks import read_lock, update_lock, write_lock
-from taskledger.storage.paths import ProjectPaths, resolve_taskledger_root
+from taskledger.storage.paths import ProjectPaths
 from taskledger.timeutils import utc_now_iso
 
 T = TypeVar("T")
@@ -75,7 +75,10 @@ def _requirement_id_from_task(task_id: str) -> str:
 @dataclass(slots=True, frozen=True)
 class V2Paths:
     workspace_root: Path
-    project_dir: Path
+    taskledger_root: Path
+    ledger_ref: str
+    ledger_dir: Path
+    project_dir: Path  # alias for ledger_dir
     introductions_dir: Path
     releases_dir: Path
     tasks_dir: Path
@@ -94,23 +97,32 @@ class V2Paths:
 
 
 def resolve_v2_paths(workspace_root: Path) -> V2Paths:
-    project_dir = resolve_taskledger_root(workspace_root)
-    indexes_dir = project_dir / "indexes"
+    from taskledger.storage.ledger_config import load_ledger_config
+    from taskledger.storage.paths import load_project_locator
+
+    locator = load_project_locator(workspace_root)
+    taskledger_root = locator.taskledger_dir
+    config = load_ledger_config(locator.config_path)
+    ledger_dir = taskledger_root / "ledgers" / config.ref
+    indexes_dir = ledger_dir / "indexes"
     return V2Paths(
         workspace_root=workspace_root,
-        project_dir=project_dir,
-        introductions_dir=project_dir / "intros",
-        releases_dir=project_dir / "releases",
-        tasks_dir=project_dir / "tasks",
-        plans_dir=project_dir / "plans",
-        questions_dir=project_dir / "questions",
-        runs_dir=project_dir / "runs",
-        changes_dir=project_dir / "changes",
-        events_dir=project_dir / "events",
+        taskledger_root=taskledger_root,
+        ledger_ref=config.ref,
+        ledger_dir=ledger_dir,
+        project_dir=ledger_dir,
+        introductions_dir=ledger_dir / "intros",
+        releases_dir=ledger_dir / "releases",
+        tasks_dir=ledger_dir / "tasks",
+        plans_dir=ledger_dir / "plans",
+        questions_dir=ledger_dir / "questions",
+        runs_dir=ledger_dir / "runs",
+        changes_dir=ledger_dir / "changes",
+        events_dir=ledger_dir / "events",
         indexes_dir=indexes_dir,
-        active_task_path=project_dir / "active-task.yaml",
-        actor_path=project_dir / "actor.yaml",
-        harness_path=project_dir / "harness.yaml",
+        active_task_path=ledger_dir / "active-task.yaml",
+        actor_path=taskledger_root / "actor.yaml",
+        harness_path=taskledger_root / "harness.yaml",
         active_locks_index_path=indexes_dir / "active_locks.json",
         dependencies_index_path=indexes_dir / "dependencies.json",
         introductions_index_path=indexes_dir / "introductions.json",

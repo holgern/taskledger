@@ -73,7 +73,7 @@ def test_break_lock_writes_audit_file_and_repair_event(tmp_path: Path) -> None:
         "tasks/task-0001/audit/broken-lock-"
     )
 
-    project_dir = tmp_path / ".taskledger"
+    project_dir = tmp_path / ".taskledger" / "ledgers" / "main"
     audit_path = project_dir / payload["result"]["audit_path"]
     audit_payload = yaml.safe_load(audit_path.read_text(encoding="utf-8"))
     assert audit_payload["broken_reason"] == "recover stale planning lock"
@@ -112,7 +112,15 @@ def test_stale_lock_blocks_new_run_until_explicit_break(tmp_path: Path) -> None:
         == 0
     )
 
-    lock_path = tmp_path / ".taskledger" / "tasks" / "task-0001" / "lock.yaml"
+    lock_path = (
+        tmp_path
+        / ".taskledger"
+        / "ledgers"
+        / "main"
+        / "tasks"
+        / "task-0001"
+        / "lock.yaml"
+    )
     lock_payload = yaml.safe_load(lock_path.read_text(encoding="utf-8"))
     lock_payload["expires_at"] = "2000-01-01T00:00:00+00:00"
     lock_path.write_text(

@@ -16,6 +16,14 @@ except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
     tomllib = importlib.import_module("tomli")
 
 LOCATION_CONFIG_KEYS = frozenset({"config_version", "taskledger_dir"})
+LEDGER_CONFIG_KEYS = frozenset(
+    {
+        "ledger_ref",
+        "ledger_parent_ref",
+        "ledger_next_task_number",
+        "ledger_branch_guard",
+    }
+)
 WORKFLOW_CONFIG_KEYS = frozenset(
     {
         "default_memory_update_mode",
@@ -32,7 +40,9 @@ WORKFLOW_CONFIG_KEYS = frozenset(
         "default_artifact_order",
     }
 )
-SUPPORTED_PROJECT_CONFIG_KEYS = LOCATION_CONFIG_KEYS | WORKFLOW_CONFIG_KEYS
+SUPPORTED_PROJECT_CONFIG_KEYS = (
+    LOCATION_CONFIG_KEYS | LEDGER_CONFIG_KEYS | WORKFLOW_CONFIG_KEYS
+)
 
 MemoryUpdateMode = Literal["replace", "append", "prepend"]
 FileRenderMode = Literal["content", "reference"]
@@ -90,28 +100,53 @@ class ProjectConfig:
     default_artifact_order: tuple[str, ...] = ()
 
 
-def render_default_taskledger_toml(taskledger_dir: str = ".taskledger") -> str:
-    return f"""# Project-local taskledger configuration.
-# This file lives in the source project root.
-config_version = 1
-taskledger_dir = {taskledger_dir!r}
-
-# Project-local taskledger overrides.
-# The source-budget settings below are the active composition defaults.
-# Lower them for stricter prompts, or raise them when a run needs more context.
-# Supported keys:
-# default_memory_update_mode = "replace"
-# default_file_render_mode = "content"
-# default_save_run_reports = true
-# default_source_max_chars = {DEFAULT_PROJECT_SOURCE_MAX_CHARS}
-# default_total_source_max_chars = {DEFAULT_PROJECT_TOTAL_SOURCE_MAX_CHARS}
-# default_source_head_lines = {DEFAULT_PROJECT_SOURCE_HEAD_LINES}
-# default_source_tail_lines = {DEFAULT_PROJECT_SOURCE_TAIL_LINES}
-# default_context_order = ["memory", "file", "item", "inline", "loop_artifact"]
-# workflow_schema = "opsx-lite"
-# project_context = "Project-specific workflow guidance."
-# default_artifact_order = ["analysis", "plan", "implementation", "validation"]
-"""
+def render_default_taskledger_toml(
+    taskledger_dir: str = ".taskledger",
+    config_version: int = 2,
+    ledger_ref: str = "main",
+    ledger_parent_ref: str = "",
+    ledger_next_task_number: int = 1,
+) -> str:
+    ledger_block = ""
+    if config_version >= 2:
+        ledger_block = (
+            "\n"
+            "# Taskledger branch-scoped state."
+            " This block is intentionally safe to commit.\n"
+            f"ledger_ref = {ledger_ref!r}\n"
+            f"ledger_parent_ref = {ledger_parent_ref!r}\n"
+            f"ledger_next_task_number = {ledger_next_task_number}\n"
+            'ledger_branch_guard = "off"\n'
+        )
+    return (
+        f"# Project-local taskledger configuration.\n"
+        f"# This file lives in the source project root.\n"
+        f"config_version = {config_version}\n"
+        f"taskledger_dir = {taskledger_dir!r}"
+        f"{ledger_block}"
+        f"\n"
+        "# Project-local taskledger overrides.\n"
+        "# The source-budget settings below are the active composition defaults.\n"
+        "# Lower them for stricter prompts,"
+        ".or raise them when a run needs more context.\n"
+        "# Supported keys:\n"
+        '# default_memory_update_mode = "replace"\n'
+        '# default_file_render_mode = "content"\n'
+        "# default_save_run_reports = true\n"
+        f"# default_source_max_chars = {DEFAULT_PROJECT_SOURCE_MAX_CHARS}\n"
+        f"# default_total_source_max_chars"
+        f" = {DEFAULT_PROJECT_TOTAL_SOURCE_MAX_CHARS}\n"
+        f"# default_source_head_lines"
+        f" = {DEFAULT_PROJECT_SOURCE_HEAD_LINES}\n"
+        f"# default_source_tail_lines"
+        f" = {DEFAULT_PROJECT_SOURCE_TAIL_LINES}\n"
+        '# default_context_order = ["memory", "file",'
+        ' "item", "inline", "loop_artifact"]\n'
+        '# workflow_schema = "opsx-lite"\n'
+        '# project_context = "Project-specific workflow guidance."\n'
+        '# default_artifact_order = ["analysis", "plan",'
+        ' "implementation", "validation"]\n'
+    )
 
 
 DEFAULT_TASKLEDGER_TOML = render_default_taskledger_toml()
@@ -247,8 +282,10 @@ def _validate_project_config_overrides(data: dict[str, object], path: Path) -> N
         if key not in SUPPORTED_PROJECT_CONFIG_KEYS:
             raise LaunchError(f"Unsupported project config key '{key}' in {path}")
     config_version = data.get("config_version")
-    if config_version is not None and config_version != 1:
-        raise LaunchError(f"Project config key 'config_version' must be 1 in {path}")
+    if config_version is not None and config_version not in (1, 2):
+        raise LaunchError(
+            f"Project config key 'config_version' must be 1 or 2 in {path}"
+        )
     taskledger_dir = data.get("taskledger_dir")
     if taskledger_dir is not None and not isinstance(taskledger_dir, str):
         raise LaunchError(

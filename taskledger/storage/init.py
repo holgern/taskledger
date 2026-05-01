@@ -55,13 +55,21 @@ def init_project_state(
         config_path=requested.config_path,
     )
     created: list[str] = []
+    # Create the taskledger root directory
+    for directory in (paths.taskledger_dir,):
+        if directory.exists():
+            continue
+        directory.mkdir(parents=True, exist_ok=True)
+        created.append(str(directory))
+    # Create the scoped ledger directory structure
+    ledger_dir = paths.taskledger_dir / "ledgers" / "main"
     for directory in (
-        paths.taskledger_dir,
-        paths.taskledger_dir / "intros",
-        paths.taskledger_dir / "tasks",
-        paths.taskledger_dir / "events",
-        paths.taskledger_dir / "indexes",
-        paths.releases_dir,
+        ledger_dir,
+        ledger_dir / "intros",
+        ledger_dir / "tasks",
+        ledger_dir / "events",
+        ledger_dir / "indexes",
+        ledger_dir / "releases",
     ):
         if directory.exists():
             continue
@@ -75,21 +83,24 @@ def init_project_state(
         config_spec = [
             (
                 paths.config_path,
-                render_default_taskledger_toml(taskledger_dir=taskledger_dir_value),
+                render_default_taskledger_toml(
+                    taskledger_dir=taskledger_dir_value,
+                    config_version=2,
+                ),
             )
         ]
     for path, contents in (
         *config_spec,
         (paths.repo_index_path, "[]\n"),
-        (paths.taskledger_dir / "indexes" / "active_locks.json", "[]\n"),
-        (paths.taskledger_dir / "indexes" / "dependencies.json", "[]\n"),
-        (paths.taskledger_dir / "indexes" / "introductions.json", "[]\n"),
+        (ledger_dir / "indexes" / "active_locks.json", "[]\n"),
+        (ledger_dir / "indexes" / "dependencies.json", "[]\n"),
+        (ledger_dir / "indexes" / "introductions.json", "[]\n"),
     ):
         if path.exists():
             continue
         write_text(path, contents)
         created.append(str(path))
-    # Write storage.yaml
+    # Write storage.yaml at taskledger root
     storage_path = paths.taskledger_dir / "storage.yaml"
     if not storage_path.exists():
         try:
@@ -109,14 +120,14 @@ def ensure_project_exists(workspace_root: Path) -> ProjectPaths:
         locator.taskledger_dir,
         config_path=locator.config_path,
     )
-    _reject_legacy_item_memory_indexes(paths)
+    ledger_dir = paths.taskledger_dir / "ledgers" / "main"
     missing = [
         path
         for path in (
-            paths.taskledger_dir / "tasks",
-            paths.taskledger_dir / "intros",
-            paths.taskledger_dir / "events",
-            paths.taskledger_dir / "indexes",
+            ledger_dir / "tasks",
+            ledger_dir / "intros",
+            ledger_dir / "events",
+            ledger_dir / "indexes",
             paths.releases_dir,
         )
         if not path.exists()
@@ -126,6 +137,7 @@ def ensure_project_exists(workspace_root: Path) -> ProjectPaths:
             "Project state is not initialized. Run 'taskledger init' first."
         )
     _ensure_additive_project_files(paths)
+    _reject_legacy_item_memory_indexes(paths)
     return paths
 
 

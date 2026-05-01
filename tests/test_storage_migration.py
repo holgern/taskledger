@@ -404,7 +404,7 @@ class TestDoctorSchemaLayoutVersion:
         from taskledger.storage.migrations import inspect_records_for_migration
 
         init_project_state(tmp_path)
-        task_dir = tmp_path / ".taskledger" / "tasks" / "task-0001"
+        task_dir = tmp_path / ".taskledger" / "ledgers" / "main" / "tasks" / "task-0001"
         task_dir.mkdir(parents=True, exist_ok=True)
         task_path = task_dir / "task.md"
         task_path.write_text("---\nobject_type: task\nslug: [\n---\n", encoding="utf-8")
@@ -418,7 +418,7 @@ class TestDoctorSchemaLayoutVersion:
         from taskledger.storage.init import init_project_state
 
         init_project_state(tmp_path)
-        task_dir = tmp_path / ".taskledger" / "tasks" / "task-0001"
+        task_dir = tmp_path / ".taskledger" / "ledgers" / "main" / "tasks" / "task-0001"
         task_dir.mkdir(parents=True, exist_ok=True)
         task_path = task_dir / "task.md"
         task_path.write_text("---\nobject_type: task\nslug: [\n---\n", encoding="utf-8")

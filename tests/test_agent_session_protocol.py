@@ -490,6 +490,70 @@ def test_plan_command_fails_without_active_planning(tmp_path: Path) -> None:
     assert payload["ok"] is False
 
 
+def test_plan_command_no_change_records(tmp_path: Path) -> None:
+    """Verify plan command stores summary in worklog, not as change records."""
+    _init_project(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "create",
+                "no-change-cmd",
+                "--description",
+                "No change record test.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app, ["--cwd", str(tmp_path), "plan", "start", "--task", "no-change-cmd"]
+        ).exit_code
+        == 0
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "plan",
+            "command",
+            "--task",
+            "no-change-cmd",
+            "--",
+            "echo",
+            "test",
+        ],
+    )
+    payload = _json(result)
+    assert result.exit_code == 0
+    assert payload["result"]["change"] is None, (
+        "plan command should not create change records"
+    )
+
+    view_result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "view",
+            "--task",
+            "no-change-cmd",
+        ],
+    )
+    view_payload = _json(view_result)
+    task_data = view_payload["result"]["task"]
+    assert len(task_data.get("code_change_log", [])) == 0, (
+        "plan command should not add to code_change_log"
+    )
+
+
 # --- Validation finish gate ---
 
 
