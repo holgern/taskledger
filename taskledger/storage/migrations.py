@@ -188,10 +188,11 @@ def _merge_tree_without_overwrite(source: Path, target: Path) -> None:
     1. If target does not exist, move source to target.
     2. If both are directories, recursively merge children.
     3. If both are .ndjson files, append lines from source to target.
-    4. If both are other files and byte-identical, delete source.
-    5. If both are other files and differ, raise LaunchError.
-    6. If file-vs-directory conflict, raise LaunchError.
-    7. Only remove source directory if empty after merge.
+    4. If both are active-task.yaml files, keep more recent activation.
+    5. If both are other files and byte-identical, delete source.
+    6. If both are other files and differ, raise LaunchError.
+    7. If file-vs-directory conflict, raise LaunchError.
+    8. Only remove source directory if empty after merge.
     """
     if not source.exists():
         return
@@ -205,6 +206,10 @@ def _merge_tree_without_overwrite(source: Path, target: Path) -> None:
             # Special handling for ndjson files: merge by appending
             if source.suffix == ".ndjson" and target.suffix == ".ndjson":
                 _merge_ndjson_files(source, target)
+                return
+            # Special handling for active-task.yaml: keep more recent
+            if source.name == "active-task.yaml" and target.name == "active-task.yaml":
+                _merge_active_task_files(source, target)
                 return
             # For other files, check if identical
             if source.read_bytes() == target.read_bytes():
@@ -305,6 +310,45 @@ def _merge_ndjson_files(source: Path, target: Path) -> None:
 
     # Write merged content back to target
     target.write_text("".join(target_lines), encoding="utf-8")
+
+
+def _merge_active_task_files(source: Path, target: Path) -> None:
+    """Merge active-task.yaml files by keeping the more recent activation.
+
+    Compares activated_at timestamps and keeps the state with the later timestamp.
+    """
+    if not source.exists() or not target.exists():
+        return
+
+    if source.is_dir() or target.is_dir():
+        return
+
+    try:
+        import yaml
+
+        from taskledger.domain.models import ActiveTaskState
+
+        # Read both YAML files as pure YAML
+        source_data = yaml.safe_load(source.read_text(encoding="utf-8"))
+        target_data = yaml.safe_load(target.read_text(encoding="utf-8"))
+
+        # Parse as ActiveTaskState objects
+        source_state = ActiveTaskState.from_dict(source_data)
+        target_state = ActiveTaskState.from_dict(target_data)
+
+        # Compare timestamps (ISO format strings are comparable)
+        if source_state.activated_at > target_state.activated_at:
+            # Source is newer, use source state and write to target
+            metadata = source_state.to_dict()
+            yaml_content = yaml.dump(
+                metadata, default_flow_style=False, sort_keys=False
+            )
+            target.write_text(yaml_content, encoding="utf-8")
+        # Otherwise keep target (it's newer or equal)
+
+        source.unlink()
+    except Exception as e:
+        raise LaunchError(f"Failed to merge active-task.yaml files: {e}") from e
 
 
 def _renumber_root_task(old_task_dir: Path, new_task_id: str) -> None:

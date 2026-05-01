@@ -857,3 +857,109 @@ Test Task
 
         # Ledger indexes should be rebuilt
         assert (ledger_dir / "indexes").is_dir()
+
+    def test_migrate_merges_active_task_keeping_newer(self, tmp_path: Path) -> None:
+        """Test that active-task.yaml files merge by keeping the newer activation."""
+        import yaml
+
+        from taskledger.domain.models import ActiveTaskState, ActorRef
+        from taskledger.storage.init import init_project_state
+        from taskledger.storage.meta import StorageMeta, write_storage_meta
+        from taskledger.storage.migrations import apply_layout_migrations
+
+        init_project_state(tmp_path)
+        root = tmp_path / ".taskledger"
+        ledger_dir = root / "ledgers" / "main"
+
+        # Create older active-task.yaml in root
+        old_active = ActiveTaskState(
+            task_id="task-0001",
+            activated_at="2026-04-20T10:00:00+00:00",
+            activated_by=ActorRef(actor_type="user", actor_name="user1"),
+        )
+        root_active_path = root / "active-task.yaml"
+        root_active_path.write_text(
+            yaml.dump(old_active.to_dict(), default_flow_style=False, sort_keys=False),
+            encoding="utf-8",
+        )
+
+        # Create newer active-task.yaml in ledger
+        new_active = ActiveTaskState(
+            task_id="task-0005",
+            activated_at="2026-04-25T15:30:00+00:00",
+            activated_by=ActorRef(actor_type="user", actor_name="user2"),
+        )
+        ledger_dir.mkdir(parents=True, exist_ok=True)
+        ledger_active_path = ledger_dir / "active-task.yaml"
+        ledger_active_path.write_text(
+            yaml.dump(new_active.to_dict(), default_flow_style=False, sort_keys=False),
+            encoding="utf-8",
+        )
+
+        # Set layout to 2
+        write_storage_meta(tmp_path, StorageMeta(storage_layout_version=2))
+
+        # Apply migration
+        apply_layout_migrations(tmp_path, 2, dry_run=False)
+
+        # Root active-task.yaml should be gone
+        assert not root_active_path.exists()
+
+        # Ledger active-task.yaml should contain newer activation
+        result_content = ledger_active_path.read_text()
+        assert "task-0005" in result_content  # Newer activation kept
+        assert "2026-04-25" in result_content  # Newer timestamp
+
+    def test_migrate_merges_active_task_from_root_if_newer(
+        self, tmp_path: Path
+    ) -> None:
+        """Test that active-task.yaml merge uses root version if it's newer."""
+        import yaml
+
+        from taskledger.domain.models import ActiveTaskState, ActorRef
+        from taskledger.storage.init import init_project_state
+        from taskledger.storage.meta import StorageMeta, write_storage_meta
+        from taskledger.storage.migrations import apply_layout_migrations
+
+        init_project_state(tmp_path)
+        root = tmp_path / ".taskledger"
+        ledger_dir = root / "ledgers" / "main"
+
+        # Create newer active-task.yaml in root
+        new_active = ActiveTaskState(
+            task_id="task-0003",
+            activated_at="2026-04-28T14:00:00+00:00",
+            activated_by=ActorRef(actor_type="user", actor_name="user1"),
+        )
+        root_active_path = root / "active-task.yaml"
+        root_active_path.write_text(
+            yaml.dump(new_active.to_dict(), default_flow_style=False, sort_keys=False),
+            encoding="utf-8",
+        )
+
+        # Create older active-task.yaml in ledger
+        old_active = ActiveTaskState(
+            task_id="task-0002",
+            activated_at="2026-04-15T09:00:00+00:00",
+            activated_by=ActorRef(actor_type="user", actor_name="user2"),
+        )
+        ledger_dir.mkdir(parents=True, exist_ok=True)
+        ledger_active_path = ledger_dir / "active-task.yaml"
+        ledger_active_path.write_text(
+            yaml.dump(old_active.to_dict(), default_flow_style=False, sort_keys=False),
+            encoding="utf-8",
+        )
+
+        # Set layout to 2
+        write_storage_meta(tmp_path, StorageMeta(storage_layout_version=2))
+
+        # Apply migration
+        apply_layout_migrations(tmp_path, 2, dry_run=False)
+
+        # Root active-task.yaml should be gone
+        assert not root_active_path.exists()
+
+        # Ledger active-task.yaml should contain newer activation from root
+        result_content = ledger_active_path.read_text()
+        assert "task-0003" in result_content  # Newer activation from root kept
+        assert "2026-04-28" in result_content  # Newer timestamp from root
