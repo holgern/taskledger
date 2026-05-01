@@ -33,6 +33,7 @@ Project API
 - ``project_export``
 - ``project_import``
 - ``project_snapshot``
+- ``project_tree``
 
 Task API
 --------

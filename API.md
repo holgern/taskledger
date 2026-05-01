@@ -54,6 +54,7 @@ from taskledger.errors import (
 - `project_export`
 - `project_import`
 - `project_snapshot`
+- `project_tree`
 
 ### `taskledger.api.tasks`
 
