@@ -396,6 +396,9 @@ ARCHIVE_KIND = "taskledger_archive"
 ARCHIVE_VERSION = 1
 MANIFEST_MEMBER = "manifest.json"
 PAYLOAD_MEMBER = "payload/taskledger-export.json"
+MAX_ARCHIVE_MEMBERS = 16
+MAX_MANIFEST_BYTES = 256_000
+MAX_PAYLOAD_BYTES = 50_000_000
 
 
 def write_project_archive(
@@ -632,6 +635,10 @@ def _validate_archive_members(members: dict[str, tarfile.TarInfo]) -> None:
     if PAYLOAD_MEMBER not in members:
         raise LaunchError(f"Archive missing {PAYLOAD_MEMBER}")
 
+    if len(members) > MAX_ARCHIVE_MEMBERS:
+        raise LaunchError(
+            f"Archive contains too many members: {len(members)} > {MAX_ARCHIVE_MEMBERS}"
+        )
     required = {MANIFEST_MEMBER, PAYLOAD_MEMBER}
     for name, info in members.items():
         if name.startswith("/") or ".." in Path(name).parts:
@@ -639,6 +646,16 @@ def _validate_archive_members(members: dict[str, tarfile.TarInfo]) -> None:
         if name in required:
             if not info.isfile():
                 raise LaunchError(f"Archive member {name!r} is not a regular file")
+            if name == MANIFEST_MEMBER and info.size > MAX_MANIFEST_BYTES:
+                raise LaunchError(
+                    "Archive manifest is too large: "
+                    f"{info.size} > {MAX_MANIFEST_BYTES} bytes"
+                )
+            if name == PAYLOAD_MEMBER and info.size > MAX_PAYLOAD_BYTES:
+                raise LaunchError(
+                    "Archive payload is too large: "
+                    f"{info.size} > {MAX_PAYLOAD_BYTES} bytes"
+                )
             required.discard(name)
     if required:
         raise LaunchError(f"Missing required archive members: {sorted(required)}")

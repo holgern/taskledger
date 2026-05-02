@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from taskledger.domain.models import TaskRecord, TaskRunRecord, ValidationCheck
-from taskledger.services.tasks import _dependency_blockers, _optional_run
+from taskledger.services.task_queries import dependency_blockers, optional_run
 from taskledger.storage.task_store import load_todos, resolve_plan
 
 
@@ -14,7 +14,7 @@ def build_validation_gate_report(
     run: TaskRunRecord | None = None,
 ) -> dict[str, object]:
     """Build a comprehensive validation gate report."""
-    run = run or _optional_run(workspace_root, task, task.latest_validation_run)
+    run = run or optional_run(workspace_root, task, task.latest_validation_run)
 
     report: dict[str, Any] = {
         "kind": "validation_status",
@@ -39,7 +39,7 @@ def build_validation_gate_report(
         }
 
     report["implementation"] = {}
-    impl_run = _optional_run(workspace_root, task, task.latest_implementation_run)
+    impl_run = optional_run(workspace_root, task, task.latest_implementation_run)
     if impl_run:
         report["implementation"] = {
             "run_id": impl_run.run_id,
@@ -119,7 +119,7 @@ def build_validation_gate_report(
     open_todos = [todo.id for todo in todos if todo.mandatory and not todo.done]
     cast(dict[str, object], report["todos"])["open_mandatory"] = open_todos
 
-    report["dependencies"] = {"blockers": _dependency_blockers(workspace_root, task)}
+    report["dependencies"] = {"blockers": dependency_blockers(workspace_root, task)}
 
     blockers: list[dict[str, object]] = []
 
@@ -198,8 +198,8 @@ def build_validation_gate_report(
         )
 
     dependency_report = cast(dict[str, object], report["dependencies"])
-    dependency_blockers = cast(list[object], dependency_report["blockers"])
-    for dep_blocker in dependency_blockers:
+    dependency_blocker_items = cast(list[object], dependency_report["blockers"])
+    for dep_blocker in dependency_blocker_items:
         blockers.append(
             {
                 "kind": "dependency_blocker",

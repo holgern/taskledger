@@ -77,6 +77,18 @@ from taskledger.domain.states import (
 from taskledger.errors import LaunchError, LockConflict, NoActiveTask
 from taskledger.ids import allocate_ledger_task_id, next_project_id, slugify_project_ref
 from taskledger.services.plan_lint import lint_plan
+from taskledger.services.task_queries import (
+    accepted_plan_record_or_none as _task_query_accepted_plan_record_or_none,
+)
+from taskledger.services.task_queries import (
+    dependency_blockers as _task_query_dependency_blockers,
+)
+from taskledger.services.task_queries import (
+    optional_run as _task_query_optional_run,
+)
+from taskledger.services.validation import (
+    build_validation_gate_report as _build_validation_gate_report_impl,
+)
 from taskledger.storage.atomic import atomic_write_text
 from taskledger.storage.events import append_event, load_events, next_event_id
 from taskledger.storage.indexes import rebuild_v2_indexes
@@ -2171,19 +2183,7 @@ def _accepted_plan_record_or_none(
     workspace_root: Path,
     task: TaskRecord,
 ) -> PlanRecord | None:
-    if task.accepted_plan_version is None:
-        return None
-    try:
-        accepted_plan = resolve_plan(
-            workspace_root,
-            task.id,
-            version=task.accepted_plan_version,
-        )
-    except LaunchError:
-        return None
-    if accepted_plan.status != "accepted":
-        return None
-    return accepted_plan
+    return _task_query_accepted_plan_record_or_none(workspace_root, task)
 
 
 def _require_accepted_plan_record(
@@ -3042,9 +3042,7 @@ def _build_validation_gate_report(
     task: TaskRecord,
     run: TaskRunRecord | None = None,
 ) -> dict[str, object]:
-    from taskledger.services.validation import build_validation_gate_report
-
-    return build_validation_gate_report(workspace_root, task, run)
+    return _build_validation_gate_report_impl(workspace_root, task, run)
 
 
 def validation_status(
@@ -3884,12 +3882,7 @@ def _optional_run(
     task: TaskRecord,
     run_id: str | None,
 ) -> TaskRunRecord | None:
-    if run_id is None:
-        return None
-    try:
-        return resolve_run(workspace_root, task.id, run_id)
-    except LaunchError:
-        return None
+    return _task_query_optional_run(workspace_root, task, run_id)
 
 
 def _resumable_implementation_run(
@@ -4027,21 +4020,7 @@ def _render_plan_template(answered_questions: Sequence[QuestionRecord]) -> str:
 def _dependency_blockers(
     workspace_root: Path, task: TaskRecord
 ) -> list[dict[str, str]]:
-    blockers: list[dict[str, str]] = []
-    for requirement in load_requirements(workspace_root, task.id).requirements:
-        if _has_user_waiver(requirement.waiver):
-            continue
-        required = resolve_task(workspace_root, requirement.task_id)
-        if required.status_stage != "done":
-            blockers.append(
-                {
-                    "kind": "dependency",
-                    "message": (
-                        f"Requirement {required.id} is still {required.status_stage}."
-                    ),
-                }
-            )
-    return blockers
+    return _task_query_dependency_blockers(workspace_root, task)
 
 
 def _lock_conflict_message(task_id: str, lock: TaskLock) -> str:

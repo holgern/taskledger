@@ -424,3 +424,9 @@ Keep this skill outside the Python package. No additional
 pytest -q
 ruff check .
 ```
+
+Full release-readiness sweep:
+
+```bash
+make release-check
+```

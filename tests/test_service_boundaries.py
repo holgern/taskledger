@@ -251,3 +251,47 @@ def test_except_exception_sites_are_whitelisted() -> None:
 
     assert not unexpected, f"Unapproved except Exception sites: {unexpected}"
     assert not stale, f"Whitelist sites no longer present: {stale}"
+
+
+def test_validation_module_has_no_private_tasks_imports() -> None:
+    path = ROOT / "taskledger" / "services" / "validation.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+
+    forbidden: list[str] = []
+    for node in tree.body:
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        if node.module != "taskledger.services.tasks":
+            continue
+        for alias in node.names:
+            if alias.name.startswith("_"):
+                forbidden.append(alias.name)
+
+    assert not forbidden, (
+        "validation.py must not import private helpers from services.tasks: "
+        f"{sorted(forbidden)}"
+    )
+
+
+def test_tasks_validation_gate_wrapper_has_no_local_import_workaround() -> None:
+    path = ROOT / "taskledger" / "services" / "tasks.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+
+    target: ast.FunctionDef | ast.AsyncFunctionDef | None = None
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if node.name == "_build_validation_gate_report":
+                target = node
+                break
+
+    assert target is not None, "_build_validation_gate_report not found"
+    local_imports = [
+        node
+        for node in ast.walk(target)
+        if isinstance(node, ast.ImportFrom)
+        and node.module == "taskledger.services.validation"
+    ]
+    assert not local_imports, (
+        "_build_validation_gate_report should call a top-level imported validation "
+        "helper instead of using a local import workaround."
+    )

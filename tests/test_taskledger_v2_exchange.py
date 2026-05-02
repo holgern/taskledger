@@ -1,18 +1,32 @@
 from __future__ import annotations
 
+import hashlib
+import io
 import json
+import tarfile
 from pathlib import Path
+from typing import Any, cast
 
+import pytest
+from click.testing import Result
 from typer.testing import CliRunner
 
 from taskledger.cli import app
+from taskledger.errors import LaunchError
+from taskledger.exchange import (
+    ARCHIVE_KIND,
+    ARCHIVE_VERSION,
+    MANIFEST_MEMBER,
+    MAX_ARCHIVE_MEMBERS,
+    MAX_MANIFEST_BYTES,
+    MAX_PAYLOAD_BYTES,
+    PAYLOAD_MEMBER,
+    read_project_archive,
+)
 
 
 def _make_runner() -> CliRunner:
-    try:
-        return CliRunner(mix_stderr=False)
-    except TypeError:
-        return CliRunner()
+    return CliRunner()
 
 
 runner = _make_runner()
@@ -30,11 +44,68 @@ def _copy_project_uuid(src_root: Path, dst_root: Path) -> None:
     copy2(src_root / "taskledger.toml", dst_root / "taskledger.toml")
 
 
-def _json(result) -> dict[str, object]:
+def _json(result: Result) -> dict[str, Any]:
     assert result.exit_code == 0, result.stdout
     payload = json.loads(result.stdout)
-    assert payload["ok"] is True
-    return payload
+    payload_dict = cast(dict[str, Any], payload)
+    assert payload_dict.get("ok") is True
+    return payload_dict
+
+
+def _valid_archive_bytes(*, extra_members: int = 0) -> bytes:
+    project_uuid = "11111111-1111-1111-1111-111111111111"
+    payload_dict = {
+        "version": 3,
+        "project_uuid": project_uuid,
+        "ledgers": [],
+    }
+    payload_bytes = json.dumps(payload_dict).encode("utf-8")
+    payload_sha = hashlib.sha256(payload_bytes).hexdigest()
+    manifest_dict = {
+        "kind": ARCHIVE_KIND,
+        "archive_version": ARCHIVE_VERSION,
+        "project": {"uuid": project_uuid},
+        "payload": {"sha256": payload_sha},
+    }
+    manifest_bytes = json.dumps(manifest_dict).encode("utf-8")
+
+    out = io.BytesIO()
+    with tarfile.open(fileobj=out, mode="w:gz") as tar:
+        manifest_info = tarfile.TarInfo(MANIFEST_MEMBER)
+        manifest_info.size = len(manifest_bytes)
+        tar.addfile(manifest_info, io.BytesIO(manifest_bytes))
+
+        payload_info = tarfile.TarInfo(PAYLOAD_MEMBER)
+        payload_info.size = len(payload_bytes)
+        tar.addfile(payload_info, io.BytesIO(payload_bytes))
+
+        for index in range(extra_members):
+            data = b"x"
+            info = tarfile.TarInfo(f"extra/{index}.txt")
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+
+    return out.getvalue()
+
+
+def _archive_with_member_sizes(*, manifest_size: int, payload_size: int) -> bytes:
+    out = io.BytesIO()
+    with tarfile.open(fileobj=out, mode="w:gz") as tar:
+        manifest_data = b"x" * manifest_size
+        manifest_info = tarfile.TarInfo(MANIFEST_MEMBER)
+        manifest_info.size = len(manifest_data)
+        tar.addfile(manifest_info, io.BytesIO(manifest_data))
+
+        payload_data = b"x" * payload_size
+        payload_info = tarfile.TarInfo(PAYLOAD_MEMBER)
+        payload_info.size = len(payload_data)
+        tar.addfile(payload_info, io.BytesIO(payload_data))
+
+    return out.getvalue()
+
+
+def _write_archive(path: Path, data: bytes) -> None:
+    path.write_bytes(data)
 
 
 def test_export_and_import_include_v2_state(tmp_path: Path) -> None:
@@ -374,3 +445,36 @@ Finish the boundary task.
     )
     payload = _json(show_result)
     assert payload["result"]["release"]["boundary_task_id"] == "task-0001"
+
+
+def test_read_project_archive_rejects_too_many_members(tmp_path: Path) -> None:
+    archive_path = tmp_path / "too-many-members.tar.gz"
+    data = _valid_archive_bytes(extra_members=MAX_ARCHIVE_MEMBERS - 1)
+    _write_archive(archive_path, data)
+
+    with pytest.raises(LaunchError, match="too many members"):
+        read_project_archive(archive_path)
+
+
+def test_read_project_archive_rejects_oversized_manifest(tmp_path: Path) -> None:
+    archive_path = tmp_path / "oversized-manifest.tar.gz"
+    data = _archive_with_member_sizes(
+        manifest_size=MAX_MANIFEST_BYTES + 1,
+        payload_size=128,
+    )
+    _write_archive(archive_path, data)
+
+    with pytest.raises(LaunchError, match="manifest is too large"):
+        read_project_archive(archive_path)
+
+
+def test_read_project_archive_rejects_oversized_payload(tmp_path: Path) -> None:
+    archive_path = tmp_path / "oversized-payload.tar.gz"
+    data = _archive_with_member_sizes(
+        manifest_size=128,
+        payload_size=MAX_PAYLOAD_BYTES + 1,
+    )
+    _write_archive(archive_path, data)
+
+    with pytest.raises(LaunchError, match="payload is too large"):
+        read_project_archive(archive_path)
