@@ -18,7 +18,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: npm
 
       - name: Install Python tools
         run: |
@@ -27,10 +26,6 @@ jobs:
 
       - name: Install Node tools
         run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
+          npm install -g prettier@2.7.1 @prettier/plugin-xml@2.2.0 eslint
 
       - uses: pre-commit/action@v3.0.1
