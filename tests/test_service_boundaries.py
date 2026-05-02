@@ -295,3 +295,81 @@ def test_tasks_validation_gate_wrapper_has_no_local_import_workaround() -> None:
         "_build_validation_gate_report should call a top-level imported validation "
         "helper instead of using a local import workaround."
     )
+
+
+def _function_node(path: Path, name: str) -> ast.FunctionDef | ast.AsyncFunctionDef:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    for node in tree.body:
+        if (
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == name
+        ):
+            return node
+    raise AssertionError(f"{name} not found in {path}")
+
+
+def _assert_wrapper_imports_module(
+    path: Path,
+    *,
+    function_name: str,
+    module_name: str,
+) -> None:
+    target = _function_node(path, function_name)
+    local_imports = [
+        node
+        for node in ast.walk(target)
+        if isinstance(node, ast.ImportFrom) and node.module == module_name
+    ]
+    assert local_imports, (
+        f"{function_name} should delegate via local import from {module_name}."
+    )
+
+
+def test_tasks_planning_entrypoints_delegate_to_planning_flow() -> None:
+    path = ROOT / "taskledger" / "services" / "tasks.py"
+    for function_name in (
+        "start_planning",
+        "propose_plan",
+        "upsert_plan",
+        "approve_plan",
+    ):
+        _assert_wrapper_imports_module(
+            path,
+            function_name=function_name,
+            module_name="taskledger.services.planning_flow",
+        )
+
+
+def test_tasks_implementation_entrypoints_delegate_to_implementation_flow() -> None:
+    path = ROOT / "taskledger" / "services" / "tasks.py"
+    for function_name in (
+        "start_implementation",
+        "restart_implementation",
+        "resume_implementation",
+        "log_implementation",
+        "add_implementation_deviation",
+        "add_implementation_artifact",
+        "run_implementation_command",
+        "finish_implementation",
+    ):
+        _assert_wrapper_imports_module(
+            path,
+            function_name=function_name,
+            module_name="taskledger.services.implementation_flow",
+        )
+
+
+def test_tasks_validation_entrypoints_delegate_to_validation_flow() -> None:
+    path = ROOT / "taskledger" / "services" / "tasks.py"
+    for function_name in (
+        "start_validation",
+        "validation_status",
+        "add_validation_check",
+        "waive_criterion",
+        "finish_validation",
+    ):
+        _assert_wrapper_imports_module(
+            path,
+            function_name=function_name,
+            module_name="taskledger.services.validation_flow",
+        )

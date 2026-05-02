@@ -10,6 +10,17 @@ The whitelist is debt tracking, not a permanent exception list. When an item dro
 | ------------------------------ | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `taskledger/services/tasks.py` | Compatibility facade still contains multiple workflows in one file. | Split into `task_lifecycle.py`, `planning.py`, `implementation.py`, `validation_flow.py`, `task_queries.py`, `task_repair.py`, `command_capture.py`. Keep `services/tasks.py` as transitional facade until imports migrate. |
 
+## Current split status
+
+Implemented in this tranche:
+
+- `taskledger/services/planning_flow.py`
+- `taskledger/services/implementation_flow.py`
+- `taskledger/services/validation_flow.py`
+- `taskledger/services/tasks.py` delegates plan/implement/validate entrypoints to the new modules.
+
+Remaining target: continue reducing `taskledger/services/tasks.py` to a smaller compatibility facade and move residual helpers into focused modules.
+
 ## Function line budget whitelist (>250 lines)
 
 | Function                                                         | Current reason                           | Target split direction                                                         |

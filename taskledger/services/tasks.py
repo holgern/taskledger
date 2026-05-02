@@ -20,7 +20,6 @@ from taskledger.domain.models import (
     ActiveTaskState,
     ActorRef,
     CodeChangeRecord,
-    CriterionWaiver,
     DependencyRequirement,
     DependencyWaiver,
     FileLink,
@@ -45,14 +44,12 @@ from taskledger.domain.policies import (
     metadata_edit_decision,
     plan_approve_decision,
     plan_command_decision,
-    plan_propose_decision,
     plan_revise_decision,
     question_add_decision,
     question_mutation_decision,
     require_known_actor_role,
     todo_add_decision,
     todo_toggle_decision,
-    validation_check_decision,
 )
 from taskledger.domain.states import (
     ACTIVE_TASK_STAGES,
@@ -65,18 +62,14 @@ from taskledger.domain.states import (
     EXIT_CODE_MISSING,
     EXIT_CODE_STALE_LOCK_REQUIRES_BREAK,
     EXIT_CODE_VALIDATION_FAILED,
-    IMPLEMENTABLE_TASK_STAGES,
     TaskStatusStage,
     normalize_file_link_kind,
     normalize_run_type,
     normalize_task_status_stage,
-    normalize_validation_check_status,
-    normalize_validation_result,
     require_transition,
 )
 from taskledger.errors import LaunchError, LockConflict, NoActiveTask
 from taskledger.ids import allocate_ledger_task_id, next_project_id, slugify_project_ref
-from taskledger.services.plan_lint import lint_plan
 from taskledger.services.task_queries import (
     accepted_plan_record_or_none as _task_query_accepted_plan_record_or_none,
 )
@@ -1200,40 +1193,13 @@ def start_planning(
     actor: ActorRef | None = None,
     harness: HarnessRef | None = None,
 ) -> dict[str, object]:
-    task = resolve_task(workspace_root, task_ref)
-    if task.status_stage not in {"draft", "plan_review"}:
-        raise _cli_error(
-            "Planning can only start from draft or plan_review.",
-            EXIT_CODE_INVALID_TRANSITION,
-        )
-    run = _start_run(
+    from taskledger.services.planning_flow import start_planning as _start_planning
+
+    return _start_planning(
         workspace_root,
-        task,
-        run_type="planning",
-        stage="planning",
+        task_ref,
         actor=actor,
         harness=harness,
-    )
-    updated = replace(
-        resolve_task(workspace_root, task.id),
-        latest_planning_run=run.run_id,
-        updated_at=utc_now_iso(),
-    )
-    save_task(workspace_root, updated)
-    _append_event(
-        resolve_v2_paths(workspace_root).project_dir,
-        updated.id,
-        "plan.started",
-        {"run_id": run.run_id},
-    )
-    rebuild_v2_indexes(resolve_v2_paths(workspace_root))
-    return _lifecycle_payload(
-        "plan start",
-        updated,
-        warnings=[],
-        changed=True,
-        run=run,
-        lock=_require_lock(workspace_root, updated.id),
     )
 
 
@@ -1244,91 +1210,14 @@ def propose_plan(
     body: str,
     criteria: tuple[str, ...] = (),
 ) -> dict[str, object]:
-    task = resolve_task(workspace_root, task_ref)
-    run = _require_run(workspace_root, task, task.latest_planning_run)
-    lock = _lock_for_mutation(workspace_root, task.id)
-    _enforce_decision(plan_propose_decision(task, lock, run=run))
-    plans = list_plans(workspace_root, task.id)
-    version = plans[-1].plan_version + 1 if plans else 1
-    front_matter, plan_body = _parse_plan_front_matter(body)
-    questions = list_questions(workspace_root, task.id)
-    plan = PlanRecord(
-        task_id=task.id,
-        plan_version=version,
-        body=plan_body.strip(),
-        status="proposed",
-        created_by=_default_actor(),
-        supersedes=plans[-1].plan_version if plans else None,
-        question_refs=tuple(item.id for item in questions if item.status == "open"),
-        criteria=_criteria_from_plan_input(front_matter, criteria),
-        todos=_todos_from_plan_input(front_matter),
-        generation_reason=_optional_front_matter_string(
-            front_matter, "generation_reason"
-        )
-        or "initial",
-        based_on_question_ids=tuple(
-            item.id for item in questions if item.status == "answered"
-        ),
-        based_on_answer_hash=_answer_snapshot_hash(questions),
-        goal=_optional_front_matter_string(front_matter, "goal"),
-        files=_string_tuple_from_front_matter(front_matter, "files"),
-        test_commands=_string_tuple_from_front_matter(front_matter, "test_commands"),
-        expected_outputs=_string_tuple_from_front_matter(
-            front_matter, "expected_outputs"
-        ),
-        todos_waived_reason=(
-            _optional_front_matter_string(front_matter, "todos_waived_reason")
-            or _optional_front_matter_string(front_matter, "todo_waiver_reason")
-            or _optional_front_matter_string(front_matter, "no_todos_reason")
-        ),
-    )
-    save_plan(workspace_root, plan)
-    finished_run = replace(
-        run,
-        status="finished",
-        finished_at=utc_now_iso(),
-        summary=_summary_line(plan_body),
-    )
-    save_run(workspace_root, finished_run)
-    updated = replace(
-        task,
-        latest_plan_version=version,
-        status_stage="plan_review",
-        updated_at=utc_now_iso(),
-    )
-    save_task(workspace_root, updated)
-    _release_lock(
+    from taskledger.services.planning_flow import propose_plan as _propose_plan
+
+    return _propose_plan(
         workspace_root,
-        task=updated,
-        expected_stage="planning",
-        run_id=run.run_id,
-        target_stage="plan_review",
-        event_name="stage.completed",
-        extra_data={"plan_version": version},
-        delete_only=True,
+        task_ref,
+        body=body,
+        criteria=criteria,
     )
-    _append_event(
-        resolve_v2_paths(workspace_root).project_dir,
-        updated.id,
-        "plan.proposed",
-        {"plan_version": version},
-    )
-    rebuild_v2_indexes(resolve_v2_paths(workspace_root))
-    warnings: list[str] = []
-    if not plan_body.strip():
-        warnings.append(
-            "Plan body is empty; implementation handoff will not contain a human plan."
-        )
-    payload = _lifecycle_payload(
-        "plan propose",
-        updated,
-        warnings=warnings,
-        changed=True,
-        plan_version=version,
-    )
-    payload["plan_body_chars"] = len(plan_body)
-    payload["plan_body_lines"] = len(plan_body.splitlines())
-    return payload
 
 
 def upsert_plan(
@@ -1340,40 +1229,16 @@ def upsert_plan(
     from_answers: bool = False,
     allow_open_questions: bool = False,
 ) -> dict[str, object]:
-    task = resolve_task(workspace_root, task_ref)
-    questions = list_questions(workspace_root, task.id)
-    open_required = _required_open_question_ids(questions)
-    if open_required and not allow_open_questions:
-        raise _cli_error(
-            "Plan upsert is blocked by required open questions: "
-            + ", ".join(open_required),
-            EXIT_CODE_APPROVAL_REQUIRED,
-        )
-    latest_plan = _latest_plan_or_none(workspace_root, task.id)
-    stale_answers = (
-        _stale_answer_question_ids(questions, latest_plan)
-        if latest_plan is not None
-        else [
-            item.id
-            for item in questions
-            if item.status == "answered" and item.required_for_plan
-        ]
+    from taskledger.services.planning_flow import upsert_plan as _upsert_plan
+
+    return _upsert_plan(
+        workspace_root,
+        task_ref,
+        body=body,
+        criteria=criteria,
+        from_answers=from_answers,
+        allow_open_questions=allow_open_questions,
     )
-    if from_answers or stale_answers:
-        payload = regenerate_plan_from_answers(
-            workspace_root,
-            task.id,
-            body=body,
-            criteria=criteria,
-            allow_open_questions=allow_open_questions,
-        )
-        payload["operation"] = "regenerated"
-        payload["command"] = "plan upsert"
-        return payload
-    payload = propose_plan(workspace_root, task.id, body=body, criteria=criteria)
-    payload["operation"] = "proposed"
-    payload["command"] = "plan upsert"
-    return payload
 
 
 def show_plan(
@@ -1442,156 +1307,23 @@ def approve_plan(
     allow_empty_todos: bool = False,
     allow_lint_errors: bool = False,
 ) -> dict[str, object]:
-    task = resolve_task(workspace_root, task_ref)
-    _enforce_decision(
-        plan_approve_decision(task, _current_lock(workspace_root, task.id))
-    )
-    running_runs = _running_runs(workspace_root, task)
-    if running_runs:
-        raise _running_run_conflict_error(
-            task,
-            running_runs[0],
-            _current_lock(workspace_root, task.id),
-            message=(
-                "Plan approval is blocked because this task still has a "
-                f"running {running_runs[0].run_type} run {running_runs[0].run_id}. "
-                "Run `taskledger doctor`."
-            ),
-            error_code="APPROVAL_REQUIRED",
-            exit_code=EXIT_CODE_APPROVAL_REQUIRED,
-        )
-    questions = list_questions(workspace_root, task.id)
-    open_questions = _required_open_question_ids(questions)
-    if open_questions and not allow_open_questions:
-        raise _cli_error(
-            "Plan approval is blocked by open planning questions: "
-            + ", ".join(open_questions),
-            EXIT_CODE_APPROVAL_REQUIRED,
-        )
-    if allow_open_questions and not (reason or "").strip():
-        raise _cli_error(
-            "--allow-open-questions requires --reason.", EXIT_CODE_BAD_INPUT
-        )
-    target = resolve_plan(workspace_root, task.id, version=version)
-    if target.status != "proposed":
-        raise _cli_error(
-            "Only proposed plan versions can be approved. "
-            f"v{target.plan_version} is {target.status}.",
-            EXIT_CODE_INVALID_TRANSITION,
-        )
-    stale_answer_ids = _stale_answer_question_ids(questions, target)
-    if stale_answer_ids:
-        error = _cli_error(
-            "Plan approval is blocked by answered planning questions that are not "
-            "reflected in this plan. Regenerate the plan from answers first: "
-            + ", ".join(stale_answer_ids),
-            EXIT_CODE_APPROVAL_REQUIRED,
-        )
-        error.taskledger_error_code = "APPROVAL_REQUIRED"
-        raise error
-    if not target.criteria and not allow_empty_criteria:
-        raise _cli_error(
-            "Plan approval requires at least one acceptance criterion.",
-            EXIT_CODE_APPROVAL_REQUIRED,
-        )
-    if allow_empty_criteria and not (reason or "").strip():
-        raise _cli_error(
-            "--allow-empty-criteria requires --reason.", EXIT_CODE_BAD_INPUT
-        )
-    if not target.todos and not allow_empty_todos:
-        raise _cli_error(
-            "Plan approval requires at least one todo. "
-            'Use --allow-empty-todos --reason "..." for trivial tasks.',
-            EXIT_CODE_APPROVAL_REQUIRED,
-        )
-    if allow_empty_todos and not (reason or "").strip():
-        raise _cli_error("--allow-empty-todos requires --reason.", EXIT_CODE_BAD_INPUT)
-    if not materialize_todos and not (reason or "").strip():
-        raise _cli_error(
-            "--no-materialize-todos requires --reason.", EXIT_CODE_BAD_INPUT
-        )
-    approved_by = _approval_actor(
+    from taskledger.services.planning_flow import approve_plan as _approve_plan
+
+    return _approve_plan(
+        workspace_root,
+        task_ref,
+        version=version,
         actor_type=actor_type,
         actor_name=actor_name,
         note=note,
         allow_agent_approval=allow_agent_approval,
         reason=reason,
+        allow_empty_criteria=allow_empty_criteria,
+        materialize_todos=materialize_todos,
+        allow_open_questions=allow_open_questions,
+        allow_empty_todos=allow_empty_todos,
+        allow_lint_errors=allow_lint_errors,
     )
-    lint_payload = lint_plan(workspace_root, task.id, version=version, strict=False)
-    if not lint_payload["passed"] and not allow_lint_errors:
-        lint_error = _cli_error(
-            "Plan approval is blocked by plan lint errors. "
-            "Run `taskledger plan lint --version ...`.",
-            EXIT_CODE_APPROVAL_REQUIRED,
-        )
-        lint_error.taskledger_error_code = "APPROVAL_REQUIRED"
-        lint_error.taskledger_data = {
-            **lint_error.taskledger_data,
-            "details": {"plan_lint": lint_payload},
-        }
-        raise lint_error
-    if allow_lint_errors and not (reason or "").strip():
-        raise _cli_error("--allow-lint-errors requires --reason.", EXIT_CODE_BAD_INPUT)
-    approval_note = (note or reason or "").strip()
-    for plan in list_plans(workspace_root, task.id):
-        if plan.plan_version == target.plan_version:
-            updated_plan = replace(
-                plan,
-                status="accepted",
-                approved_at=utc_now_iso(),
-                approved_by=approved_by,
-                approval_note=approval_note,
-            )
-        elif plan.status == "rejected":
-            updated_plan = plan
-        else:
-            updated_plan = replace(plan, status="superseded")
-        overwrite_plan(workspace_root, updated_plan)
-    updated = replace(
-        task,
-        accepted_plan_version=target.plan_version,
-        status_stage="approved",
-        updated_at=utc_now_iso(),
-    )
-    save_task(workspace_root, updated)
-    materialized = 0
-    if materialize_todos:
-        materialized_result = materialize_plan_todos(
-            workspace_root,
-            updated.id,
-            version=target.plan_version,
-        )
-        materialized = materialized_result["materialized_todos"]
-        updated = resolve_task(workspace_root, updated.id)
-    _append_event(
-        resolve_v2_paths(workspace_root).project_dir,
-        updated.id,
-        "plan.approved",
-        {
-            "plan_version": target.plan_version,
-            "approved_by": approved_by.to_dict(),
-            "approval_note": approval_note,
-        },
-    )
-    rebuild_v2_indexes(resolve_v2_paths(workspace_root))
-    payload = _lifecycle_payload(
-        "plan approve",
-        updated,
-        warnings=[],
-        changed=True,
-        plan_version=target.plan_version,
-        result=f"materialized_todos={materialized}",
-    )
-    payload["materialized_todos"] = materialized
-    payload["mandatory_todos"] = len(
-        [
-            todo
-            for todo in load_todos(workspace_root, updated.id).todos
-            if todo.mandatory
-        ]
-    )
-    payload["next_action"] = "taskledger implement start"
-    return payload
 
 
 class PlanTodoMaterializationPayload(TypedDict):
@@ -2226,43 +1958,15 @@ def start_implementation(
     actor: ActorRef | None = None,
     harness: HarnessRef | None = None,
 ) -> dict[str, object]:
-    task = resolve_task(workspace_root, task_ref)
-    if task.status_stage not in IMPLEMENTABLE_TASK_STAGES:
-        raise _cli_error(
-            "Implementation requires approved or failed_validation state.",
-            EXIT_CODE_INVALID_TRANSITION,
-        )
-    _require_accepted_plan_record(workspace_root, task, action="Implementation")
-    _ensure_dependencies_done(workspace_root, task)
-    run = _start_run(
+    from taskledger.services.implementation_flow import (
+        start_implementation as _start_implementation,
+    )
+
+    return _start_implementation(
         workspace_root,
-        task,
-        run_type="implementation",
-        stage="implementing",
+        task_ref,
         actor=actor,
         harness=harness,
-    )
-    updated = replace(
-        resolve_task(workspace_root, task.id),
-        latest_implementation_run=run.run_id,
-        status_stage="implementing",
-        updated_at=utc_now_iso(),
-    )
-    save_task(workspace_root, updated)
-    _append_event(
-        resolve_v2_paths(workspace_root).project_dir,
-        updated.id,
-        "implementation.started",
-        {"run_id": run.run_id},
-    )
-    rebuild_v2_indexes(resolve_v2_paths(workspace_root))
-    return _lifecycle_payload(
-        "implement start",
-        replace(updated, status_stage=task.status_stage),
-        warnings=[],
-        changed=True,
-        run=run,
-        lock=_require_lock(workspace_root, updated.id),
     )
 
 
@@ -2274,102 +1978,16 @@ def restart_implementation(
     actor: ActorRef | None = None,
     harness: HarnessRef | None = None,
 ) -> dict[str, object]:
-    task = resolve_task(workspace_root, task_ref)
-    if task.status_stage != "failed_validation":
-        raise _cli_error(
-            "Implementation restart requires failed_validation state.",
-            EXIT_CODE_INVALID_TRANSITION,
-        )
-    _require_accepted_plan_record(
-        workspace_root,
-        task,
-        action="Implementation restart",
+    from taskledger.services.implementation_flow import (
+        restart_implementation as _restart_implementation,
     )
-    if task.latest_validation_run is None:
-        raise _cli_error(
-            "Implementation restart requires a failed validation run.",
-            EXIT_CODE_INVALID_TRANSITION,
-        )
-    validation_run = _require_run(workspace_root, task, task.latest_validation_run)
-    if (
-        validation_run.run_type != "validation"
-        or validation_run.status not in {"failed", "blocked"}
-        or validation_run.result not in {"failed", "blocked"}
-    ):
-        raise _cli_error(
-            (
-                "Implementation restart requires the latest validation run "
-                "to be failed or blocked."
-            ),
-            EXIT_CODE_INVALID_TRANSITION,
-        )
-    if task.latest_implementation_run is None:
-        raise _cli_error(
-            "Implementation restart requires a previous implementation run.",
-            EXIT_CODE_INVALID_TRANSITION,
-        )
-    previous_run = _require_run(workspace_root, task, task.latest_implementation_run)
-    if previous_run.run_type != "implementation":
-        raise _cli_error(
-            "Implementation restart requires a previous implementation run.",
-            EXIT_CODE_INVALID_TRANSITION,
-        )
-    restart_summary = summary.strip()
-    if not restart_summary:
-        raise _cli_error(
-            "Implementation restart requires a non-empty summary.",
-            EXIT_CODE_BAD_INPUT,
-        )
-    _ensure_dependencies_done(workspace_root, task)
-    run = _start_run(
+
+    return _restart_implementation(
         workspace_root,
-        task,
-        run_type="implementation",
-        stage="implementing",
+        task_ref,
+        summary=summary,
         actor=actor,
         harness=harness,
-    )
-    restarted = replace(
-        run,
-        resumes_run_id=previous_run.run_id,
-        worklog=(
-            f"Restart summary: {restart_summary}",
-            (
-                "Restarted after "
-                f"validation run {validation_run.run_id} "
-                f"({validation_run.result})."
-            ),
-            *run.worklog,
-        ),
-    )
-    save_run(workspace_root, restarted)
-    updated = replace(
-        resolve_task(workspace_root, task.id),
-        latest_implementation_run=restarted.run_id,
-        status_stage="implementing",
-        updated_at=utc_now_iso(),
-    )
-    save_task(workspace_root, updated)
-    _append_event(
-        resolve_v2_paths(workspace_root).project_dir,
-        updated.id,
-        "implementation.started",
-        {
-            "run_id": restarted.run_id,
-            "restart": True,
-            "summary": restart_summary,
-            "after_validation_run": validation_run.run_id,
-            "resumes_run_id": previous_run.run_id,
-        },
-    )
-    rebuild_v2_indexes(resolve_v2_paths(workspace_root))
-    return _lifecycle_payload(
-        "implement restart",
-        replace(updated, status_stage=task.status_stage),
-        warnings=[],
-        changed=True,
-        run=restarted,
-        lock=_require_lock(workspace_root, updated.id),
     )
 
 
@@ -2382,73 +2000,17 @@ def resume_implementation(
     actor: ActorRef | None = None,
     harness: HarnessRef | None = None,
 ) -> dict[str, object]:
-    task = resolve_task(workspace_root, task_ref)
-    resume_reason = reason.strip()
-    if not resume_reason:
-        raise _cli_error(
-            "Implementation resume requires --reason.", EXIT_CODE_BAD_INPUT
-        )
-    if task.status_stage not in {"approved", "implementing"}:
-        raise _cli_error(
-            "Implementation resume requires approved or implementing state.",
-            EXIT_CODE_INVALID_TRANSITION,
-        )
-    _require_accepted_plan_record(
-        workspace_root,
-        task,
-        action="Implementation resume",
+    from taskledger.services.implementation_flow import (
+        resume_implementation as _resume_implementation,
     )
-    selected_run_id = run_id or task.latest_implementation_run
-    run = _require_run(workspace_root, task, selected_run_id)
-    if run.run_type != "implementation" or run.status != "running":
-        raise _cli_error(
-            "Implementation resume requires a running implementation run.",
-            EXIT_CODE_INVALID_TRANSITION,
-        )
-    existing_lock = _current_lock(workspace_root, task.id)
-    if existing_lock is not None:
-        if lock_is_expired(existing_lock):
-            raise _stale_lock_error(task.id, existing_lock)
-        raise _cli_error(
-            "Implementation resume requires no active lock.",
-            EXIT_CODE_LOCK_CONFLICT,
-        )
-    _ensure_dependencies_done(workspace_root, task)
-    resolved_actor = actor or _default_actor()
-    lock = _acquire_lock(
+
+    return _resume_implementation(
         workspace_root,
-        task=task,
-        stage="implementing",
-        run=run,
-        reason=resume_reason,
-        actor=resolved_actor,
+        task_ref,
+        run_id=run_id,
+        reason=reason,
+        actor=actor,
         harness=harness,
-    )
-    updated = replace(
-        task,
-        latest_implementation_run=run.run_id,
-        status_stage="implementing",
-        updated_at=utc_now_iso(),
-    )
-    save_task(workspace_root, updated)
-    _append_event(
-        resolve_v2_paths(workspace_root).project_dir,
-        updated.id,
-        "run.resumed",
-        {
-            "run_id": run.run_id,
-            "run_type": "implementation",
-            "reason": resume_reason,
-        },
-    )
-    rebuild_v2_indexes(resolve_v2_paths(workspace_root))
-    return _lifecycle_payload(
-        "implement resume",
-        replace(updated, status_stage=task.status_stage),
-        warnings=[],
-        changed=True,
-        run=run,
-        lock=lock,
     )
 
 
@@ -2458,30 +2020,15 @@ def log_implementation(
     *,
     message: str,
 ) -> TaskRunRecord:
-    task = resolve_task(workspace_root, task_ref)
-    run = _require_running_run(
+    from taskledger.services.implementation_flow import (
+        log_implementation as _log_implementation,
+    )
+
+    return _log_implementation(
         workspace_root,
-        task,
-        task.latest_implementation_run,
-        expected_type="implementation",
+        task_ref,
+        message=message,
     )
-    _enforce_decision(
-        implementation_mutation_decision(
-            task,
-            _lock_for_mutation(workspace_root, task.id),
-            run=run,
-            action="log implementation work",
-        )
-    )
-    updated = replace(run, worklog=tuple([*run.worklog, message.strip()]))
-    save_run(workspace_root, updated)
-    _append_event(
-        resolve_v2_paths(workspace_root).project_dir,
-        task.id,
-        "implementation.logged",
-        {"run_id": run.run_id, "message": message.strip()},
-    )
-    return updated
 
 
 def add_implementation_deviation(
@@ -2490,33 +2037,15 @@ def add_implementation_deviation(
     *,
     message: str,
 ) -> TaskRunRecord:
-    task = resolve_task(workspace_root, task_ref)
-    run = _require_running_run(
+    from taskledger.services.implementation_flow import (
+        add_implementation_deviation as _add_implementation_deviation,
+    )
+
+    return _add_implementation_deviation(
         workspace_root,
-        task,
-        task.latest_implementation_run,
-        expected_type="implementation",
+        task_ref,
+        message=message,
     )
-    _enforce_decision(
-        implementation_mutation_decision(
-            task,
-            _lock_for_mutation(workspace_root, task.id),
-            run=run,
-            action="record implementation deviations",
-        )
-    )
-    updated = replace(
-        run,
-        deviations_from_plan=tuple([*run.deviations_from_plan, message.strip()]),
-    )
-    save_run(workspace_root, updated)
-    _append_event(
-        resolve_v2_paths(workspace_root).project_dir,
-        task.id,
-        "implementation.logged",
-        {"run_id": run.run_id, "deviation": message.strip()},
-    )
-    return updated
 
 
 def add_implementation_artifact(
@@ -2526,33 +2055,16 @@ def add_implementation_artifact(
     path: str,
     summary: str,
 ) -> TaskRunRecord:
-    task = resolve_task(workspace_root, task_ref)
-    run = _require_running_run(
+    from taskledger.services.implementation_flow import (
+        add_implementation_artifact as _add_implementation_artifact,
+    )
+
+    return _add_implementation_artifact(
         workspace_root,
-        task,
-        task.latest_implementation_run,
-        expected_type="implementation",
+        task_ref,
+        path=path,
+        summary=summary,
     )
-    _enforce_decision(
-        implementation_mutation_decision(
-            task,
-            _lock_for_mutation(workspace_root, task.id),
-            run=run,
-            action="record implementation artifacts",
-        )
-    )
-    updated = replace(
-        run,
-        artifact_refs=tuple([*run.artifact_refs, f"{path}: {summary.strip()}"]),
-    )
-    save_run(workspace_root, updated)
-    _append_event(
-        resolve_v2_paths(workspace_root).project_dir,
-        task.id,
-        "implementation.logged",
-        {"run_id": run.run_id, "artifact": path, "summary": summary.strip()},
-    )
-    return updated
 
 
 def add_change(
@@ -2741,60 +2253,15 @@ def run_implementation_command(
     *,
     argv: tuple[str, ...],
 ) -> dict[str, object]:
-    if not argv:
-        raise _cli_error(
-            "implement command requires a command to run.", EXIT_CODE_BAD_INPUT
-        )
-    task = resolve_task(workspace_root, task_ref)
-    run = _require_running_run(
-        workspace_root,
-        task,
-        task.latest_implementation_run,
-        expected_type="implementation",
+    from taskledger.services.implementation_flow import (
+        run_implementation_command as _run_implementation_command,
     )
-    _enforce_decision(
-        implementation_mutation_decision(
-            task,
-            _lock_for_mutation(workspace_root, task.id),
-            run=run,
-            action="record implementation commands",
-        )
-    )
-    completed = subprocess.run(
-        list(argv),
-        cwd=workspace_root,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    output = _command_output(argv, completed.stdout, completed.stderr)
-    artifact_ref: str | None = None
-    if len(output) > 4000 or output.count("\n") > 50:
-        artifact_ref = _write_command_artifact(
-            workspace_root,
-            task.id,
-            run.run_id,
-            output,
-        )
-    change = add_change(
+
+    return _run_implementation_command(
         workspace_root,
         task_ref,
-        path=".",
-        kind="command",
-        summary=_command_summary(argv, completed.returncode, artifact_ref),
-        command=shlex.join(argv),
-        exit_code=completed.returncode,
-        artifact_refs=((artifact_ref,) if artifact_ref else ()),
+        argv=argv,
     )
-    return {
-        "kind": "implementation_command",
-        "task_id": change.task_id,
-        "change": change.to_dict(),
-        "exit_code": completed.returncode,
-        "artifact_path": artifact_ref,
-        "stdout": completed.stdout,
-        "stderr": completed.stderr,
-    }
 
 
 def _build_todo_gate_report(
@@ -2885,44 +2352,14 @@ def finish_implementation(
     *,
     summary: str,
 ) -> dict[str, object]:
-    task = resolve_task(workspace_root, task_ref)
-    run = _require_running_run(
+    from taskledger.services.implementation_flow import (
+        finish_implementation as _finish_implementation,
+    )
+
+    return _finish_implementation(
         workspace_root,
-        task,
-        task.latest_implementation_run,
-        expected_type="implementation",
-    )
-    _require_todos_complete_for_implementation_finish(workspace_root, task)
-    finished = replace(
-        run,
-        status="finished",
-        finished_at=utc_now_iso(),
-        summary=summary.strip(),
-    )
-    save_run(workspace_root, finished)
-    updated = replace(task, status_stage="implemented", updated_at=utc_now_iso())
-    save_task(workspace_root, updated)
-    _release_lock(
-        workspace_root,
-        task=updated,
-        expected_stage="implementing",
-        run_id=run.run_id,
-        target_stage="implemented",
-        event_name="stage.completed",
-    )
-    _append_event(
-        resolve_v2_paths(workspace_root).project_dir,
-        updated.id,
-        "implementation.finished",
-        {"run_id": run.run_id},
-    )
-    rebuild_v2_indexes(resolve_v2_paths(workspace_root))
-    return _lifecycle_payload(
-        "implement finish",
-        updated,
-        warnings=[],
-        changed=True,
-        run=finished,
+        task_ref,
+        summary=summary,
     )
 
 
@@ -2933,48 +2370,15 @@ def start_validation(
     actor: ActorRef | None = None,
     harness: HarnessRef | None = None,
 ) -> dict[str, object]:
-    task = resolve_task(workspace_root, task_ref)
-    if task.status_stage != "implemented":
-        raise _cli_error(
-            "Validation requires implemented state.",
-            EXIT_CODE_INVALID_TRANSITION,
-        )
-    impl_run = _require_run(workspace_root, task, task.latest_implementation_run)
-    if impl_run.run_type != "implementation" or impl_run.status != "finished":
-        raise _cli_error(
-            "Validation requires a finished implementation run.",
-            EXIT_CODE_INVALID_TRANSITION,
-        )
-    run = _start_run(
+    from taskledger.services.validation_flow import (
+        start_validation as _start_validation,
+    )
+
+    return _start_validation(
         workspace_root,
-        task,
-        run_type="validation",
-        stage="validating",
+        task_ref,
         actor=actor,
         harness=harness,
-    )
-    updated_run = replace(run, based_on_implementation_run=impl_run.run_id)
-    save_run(workspace_root, updated_run)
-    updated = replace(
-        resolve_task(workspace_root, task.id),
-        latest_validation_run=updated_run.run_id,
-        updated_at=utc_now_iso(),
-    )
-    save_task(workspace_root, updated)
-    _append_event(
-        resolve_v2_paths(workspace_root).project_dir,
-        updated.id,
-        "validation.started",
-        {"run_id": updated_run.run_id},
-    )
-    rebuild_v2_indexes(resolve_v2_paths(workspace_root))
-    return _lifecycle_payload(
-        "validate start",
-        updated,
-        warnings=[],
-        changed=True,
-        run=updated_run,
-        lock=_require_lock(workspace_root, updated.id),
     )
 
 
@@ -3051,16 +2455,15 @@ def validation_status(
     *,
     run_id: str | None = None,
 ) -> dict[str, object]:
-    """Get validation status report for a task."""
-    task = resolve_task(workspace_root, task_ref)
-    run = None
-    if run_id:
-        from taskledger.storage.task_store import resolve_run
+    from taskledger.services.validation_flow import (
+        validation_status as _validation_status,
+    )
 
-        run = resolve_run(workspace_root, task.id, run_id)
-
-    report = _build_validation_gate_report(workspace_root, task, run)
-    return {"kind": "validation_status", "result": report}
+    return _validation_status(
+        workspace_root,
+        task_ref,
+        run_id=run_id,
+    )
 
 
 def add_validation_check(
@@ -3073,54 +2476,19 @@ def add_validation_check(
     details: str | None = None,
     evidence: tuple[str, ...] = (),
 ) -> TaskRunRecord:
-    task = resolve_task(workspace_root, task_ref)
-    run = _require_running_run(
+    from taskledger.services.validation_flow import (
+        add_validation_check as _add_validation_check,
+    )
+
+    return _add_validation_check(
         workspace_root,
-        task,
-        task.latest_validation_run,
-        expected_type="validation",
+        task_ref,
+        name=name,
+        criterion_id=criterion_id,
+        status=status,
+        details=details,
+        evidence=evidence,
     )
-    _enforce_decision(
-        validation_check_decision(
-            task,
-            _lock_for_mutation(workspace_root, task.id),
-            run=run,
-        )
-    )
-    normalized_status = normalize_validation_check_status(status)
-    check_id = f"check-{len(run.checks) + 1:04d}"
-    resolved_criterion = criterion_id.strip() if criterion_id else None
-    if normalized_status != "not_run" and resolved_criterion is None:
-        raise _cli_error(
-            "Validation checks must reference --criterion unless status is not_run.",
-            EXIT_CODE_BAD_INPUT,
-        )
-
-    if resolved_criterion is not None:
-        if task.accepted_plan_version is None:
-            raise _cli_error(
-                "Cannot add criterion check without an accepted plan. "
-                "Accept a plan first with: task accept-plan",
-                EXIT_CODE_BAD_INPUT,
-            )
-        accepted_plan = resolve_plan(
-            workspace_root,
-            task.id,
-            version=task.accepted_plan_version,
-        )
-        resolved_criterion = _resolve_criterion_ref(accepted_plan, resolved_criterion)
-
-    check = ValidationCheck(
-        name=(name or resolved_criterion or check_id).strip(),
-        id=check_id,
-        criterion_id=resolved_criterion,
-        status=normalized_status,
-        details=details.strip() if details else None,
-        evidence=tuple(item.strip() for item in evidence if item.strip()),
-    )
-    updated = replace(run, checks=tuple([*run.checks, check]))
-    save_run(workspace_root, updated)
-    return updated
 
 
 def waive_criterion(
@@ -3131,59 +2499,15 @@ def waive_criterion(
     reason: str,
     actor_name: str | None = None,
 ) -> TaskRunRecord:
-    """Record a criterion waiver for a validation check."""
-    task = resolve_task(workspace_root, task_ref)
-    run = _require_running_run(
+    from taskledger.services.validation_flow import waive_criterion as _waive_criterion
+
+    return _waive_criterion(
         workspace_root,
-        task,
-        task.latest_validation_run,
-        expected_type="validation",
+        task_ref,
+        criterion_id=criterion_id,
+        reason=reason,
+        actor_name=actor_name,
     )
-    _enforce_decision(
-        validation_check_decision(
-            task,
-            _lock_for_mutation(workspace_root, task.id),
-            run=run,
-        )
-    )
-
-    if task.accepted_plan_version is None:
-        raise _cli_error(
-            "Cannot waive criterion without an accepted plan.",
-            EXIT_CODE_BAD_INPUT,
-        )
-
-    accepted_plan = resolve_plan(
-        workspace_root,
-        task.id,
-        version=task.accepted_plan_version,
-    )
-    resolved_criterion = _resolve_criterion_ref(accepted_plan, criterion_id)
-
-    if not reason.strip():
-        raise _cli_error("Waiver reason is required.", EXIT_CODE_BAD_INPUT)
-
-    waiver = CriterionWaiver(
-        actor=ActorRef(
-            actor_type="user",
-            actor_name=(actor_name or getpass.getuser() or "user").strip(),
-            tool="manual",
-        ),
-        reason=reason.strip(),
-    )
-
-    check_id = f"check-{len(run.checks) + 1:04d}"
-    check = ValidationCheck(
-        name=resolved_criterion,
-        id=check_id,
-        criterion_id=resolved_criterion,
-        status="pass",
-        waiver=waiver,
-    )
-
-    updated = replace(run, checks=tuple([*run.checks, check]))
-    save_run(workspace_root, updated)
-    return updated
 
 
 def finish_validation(
@@ -3194,72 +2518,16 @@ def finish_validation(
     summary: str,
     recommendation: str | None = None,
 ) -> dict[str, object]:
-    task = resolve_task(workspace_root, task_ref)
-    run = _require_running_run(
+    from taskledger.services.validation_flow import (
+        finish_validation as _finish_validation,
+    )
+
+    return _finish_validation(
         workspace_root,
-        task,
-        task.latest_validation_run,
-        expected_type="validation",
-    )
-    normalized_result = normalize_validation_result(result)
-    if normalized_result == "passed":
-        _ensure_validation_can_pass(workspace_root, task, run)
-    target_stage: TaskStatusStage = (
-        "done" if normalized_result == "passed" else "failed_validation"
-    )
-    if normalized_result == "passed":
-        run_status = "finished"
-    elif normalized_result == "blocked":
-        run_status = "blocked"
-    else:
-        run_status = "failed"
-    finished = replace(
-        run,
-        status=cast(
-            Literal[
-                "running",
-                "paused",
-                "finished",
-                "passed",
-                "failed",
-                "blocked",
-                "aborted",
-            ],
-            run_status,
-        ),
-        finished_at=utc_now_iso(),
-        summary=summary.strip(),
+        task_ref,
+        result=result,
+        summary=summary,
         recommendation=recommendation,
-        result=normalized_result,
-    )
-    save_run(workspace_root, finished)
-    updated = replace(task, status_stage=target_stage, updated_at=utc_now_iso())
-    save_task(workspace_root, updated)
-    _release_lock(
-        workspace_root,
-        task=updated,
-        expected_stage="validating",
-        run_id=run.run_id,
-        target_stage=target_stage,
-        event_name="stage.completed"
-        if normalized_result == "passed"
-        else "stage.failed",
-        extra_data={"result": normalized_result},
-    )
-    _append_event(
-        resolve_v2_paths(workspace_root).project_dir,
-        updated.id,
-        "validation.finished",
-        {"run_id": run.run_id, "result": normalized_result},
-    )
-    rebuild_v2_indexes(resolve_v2_paths(workspace_root))
-    return _lifecycle_payload(
-        "validate finish",
-        updated,
-        warnings=[],
-        changed=True,
-        run=finished,
-        result=normalized_result,
     )
 
 
