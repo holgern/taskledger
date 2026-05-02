@@ -176,9 +176,15 @@ def project_import(
     text: str,
     format_name: str = "json",
     replace: bool = False,
+    lock_policy: str = "quarantine",
 ) -> dict[str, object]:
     payload = parse_project_import_payload(text, format_name=format_name)
-    return import_project_payload(workspace_root, payload=payload, replace=replace)
+    return import_project_payload(
+        workspace_root,
+        payload=payload,
+        replace=replace,
+        lock_policy=lock_policy,
+    )
 
 
 def project_snapshot(
@@ -250,6 +256,7 @@ def project_import_archive(
     source_path: Path,
     replace: bool = False,
     dry_run: bool = False,
+    lock_policy: str = "quarantine",
 ) -> dict[str, object]:
     """Import a taskledger archive into the current project."""
     return import_project_archive(
@@ -257,6 +264,7 @@ def project_import_archive(
         source_path=source_path,
         replace=replace,
         dry_run=dry_run,
+        lock_policy=lock_policy,
     )
 
 

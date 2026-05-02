@@ -6,7 +6,9 @@ import shutil
 import tarfile
 from hashlib import sha256 as _sha256
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
+
+import yaml
 
 from taskledger.domain.models import (
     ActiveTaskState,
@@ -28,11 +30,13 @@ from taskledger.domain.models import (
     TodoCollection,
 )
 from taskledger.errors import LaunchError
+from taskledger.storage.atomic import atomic_write_text
 from taskledger.storage.events import append_event, load_events
 from taskledger.storage.indexes import rebuild_v2_indexes
 from taskledger.storage.locks import write_lock
 from taskledger.storage.paths import load_project_locator
 from taskledger.storage.project_identity import (
+    assert_same_project_uuid,
     ensure_project_uuid,
     normalize_project_uuid,
 )
@@ -56,6 +60,7 @@ from taskledger.storage.task_store import (
     save_run,
     save_task,
     save_todos,
+    task_audit_dir,
     task_lock_path,
 )
 from taskledger.storage.task_store import list_changes as list_v2_changes
@@ -70,6 +75,9 @@ from taskledger.storage.task_store import load_links as load_v2_links
 from taskledger.storage.task_store import load_requirements as load_v2_requirements
 from taskledger.storage.task_store import load_todos as load_v2_todos
 from taskledger.timeutils import utc_now_iso
+
+ImportLockPolicy = Literal["drop", "keep", "quarantine"]
+IMPORT_LOCK_POLICIES: tuple[ImportLockPolicy, ...] = ("drop", "keep", "quarantine")
 
 
 def export_project_payload(
@@ -126,15 +134,24 @@ def import_project_payload(
     *,
     payload: dict[str, object],
     replace: bool,
+    lock_policy: ImportLockPolicy | str = "quarantine",
 ) -> dict[str, object]:
+    normalized_lock_policy = normalize_import_lock_policy(lock_policy)
+    _assert_payload_project_uuid(workspace_root, payload)
     paths = ensure_v2_layout(workspace_root)
     if replace:
         _clear_v2_state(paths)
-    _import_v2_payload(workspace_root, payload, replace=replace)
+    _import_v2_payload(
+        workspace_root,
+        payload,
+        replace=replace,
+        lock_policy=normalized_lock_policy,
+    )
     counts = rebuild_v2_indexes(paths)
     return {
         "kind": "taskledger_import",
         "replace": replace,
+        "lock_policy": normalized_lock_policy,
         "counts": counts,
     }
 
@@ -277,8 +294,13 @@ def _import_standalone_collections(
 
 
 def _import_v2_payload(  # noqa: C901
-    workspace_root: Path, payload: dict[str, object], *, replace: bool = False
+    workspace_root: Path,
+    payload: dict[str, object],
+    *,
+    replace: bool = False,
+    lock_policy: ImportLockPolicy | str = "quarantine",
 ) -> None:
+    normalized_lock_policy = normalize_import_lock_policy(lock_policy)
     raw_v2 = payload.get("v2")
     if not isinstance(raw_v2, dict):
         raise LaunchError("Import payload is missing v2 task state.")
@@ -334,9 +356,7 @@ def _import_v2_payload(  # noqa: C901
         save_change(workspace_root, CodeChangeRecord.from_dict(item))
     for item in _dict_list(raw_v2.get("handoffs")):
         save_handoff(workspace_root, TaskHandoffRecord.from_dict(item))
-    for item in _dict_list(raw_v2.get("locks")):
-        lock = TaskLock.from_dict(item)
-        write_lock(task_lock_path(paths, lock.task_id), lock)
+    _import_locks(paths, raw_v2, lock_policy=normalized_lock_policy)
     existing_ids: set[str] = set()
     if replace:
         if paths.events_dir.exists():
@@ -533,8 +553,10 @@ def import_project_archive(
     source_path: Path,
     replace: bool = False,
     dry_run: bool = False,
+    lock_policy: ImportLockPolicy | str = "quarantine",
 ) -> dict[str, object]:
     """Import a taskledger archive into the current project."""
+    normalized_lock_policy = normalize_import_lock_policy(lock_policy)
     archive = read_project_archive(source_path)
     payload = cast(dict[str, object], archive["payload"])
     manifest = cast(dict[str, object], archive["manifest"])
@@ -543,6 +565,9 @@ def import_project_archive(
     if not isinstance(project, dict):
         raise LaunchError("Manifest missing 'project' table.")
     archive_uuid = normalize_project_uuid(project.get("uuid"))
+    locator = load_project_locator(workspace_root)
+    local_uuid = ensure_project_uuid(locator.config_path)
+    assert_same_project_uuid(archive_uuid, local_uuid)
 
     counts: dict[str, object] = {}
     if isinstance(payload.get("counts"), dict):
@@ -558,11 +583,17 @@ def import_project_archive(
             ),
             "replace": replace,
             "dry_run": True,
+            "lock_policy": normalized_lock_policy,
             "counts": counts,
             "imported": counts,
         }
 
-    result = import_project_payload(workspace_root, payload=payload, replace=replace)
+    result = import_project_payload(
+        workspace_root,
+        payload=payload,
+        replace=replace,
+        lock_policy=normalized_lock_policy,
+    )
     return {
         "kind": "taskledger_archive_import",
         "source_path": str(source_path),
@@ -572,9 +603,64 @@ def import_project_archive(
         ),
         "replace": replace,
         "dry_run": False,
+        "lock_policy": normalized_lock_policy,
         "counts": result.get("counts", {}),
         "imported": result.get("counts", {}),
     }
+
+
+def normalize_import_lock_policy(value: ImportLockPolicy | str) -> ImportLockPolicy:
+    if value == "drop":
+        return "drop"
+    if value == "keep":
+        return "keep"
+    if value == "quarantine":
+        return "quarantine"
+    raise LaunchError(
+        f"Unknown lock import policy: {value!r}. "
+        f"Expected one of: {', '.join(IMPORT_LOCK_POLICIES)}."
+    )
+
+
+def _assert_payload_project_uuid(
+    workspace_root: Path, payload: dict[str, object]
+) -> None:
+    raw_uuid = payload.get("project_uuid")
+    if raw_uuid is None:
+        return
+    payload_uuid = normalize_project_uuid(raw_uuid)
+    locator = load_project_locator(workspace_root)
+    local_uuid = ensure_project_uuid(locator.config_path)
+    assert_same_project_uuid(payload_uuid, local_uuid)
+
+
+def _import_locks(
+    paths: V2Paths, raw_v2: dict[str, object], *, lock_policy: ImportLockPolicy
+) -> None:
+    imported_locks = [
+        TaskLock.from_dict(item) for item in _dict_list(raw_v2.get("locks"))
+    ]
+    if lock_policy == "drop":
+        return
+    if lock_policy == "keep":
+        for lock in imported_locks:
+            write_lock(task_lock_path(paths, lock.task_id), lock)
+        return
+    for lock in imported_locks:
+        _write_imported_lock_audit(paths, lock)
+
+
+def _write_imported_lock_audit(paths: V2Paths, lock: TaskLock) -> None:
+    path = task_audit_dir(paths, lock.task_id) / f"imported-lock-{lock.lock_id}.yaml"
+    payload = lock.to_dict()
+    payload["imported_as_active"] = False
+    payload["import_note"] = (
+        "Lock came from a taskledger archive and was not restored as an active lock."
+    )
+    atomic_write_text(
+        path,
+        yaml.safe_dump(payload, sort_keys=False, allow_unicode=True),
+    )
 
 
 def _build_manifest(

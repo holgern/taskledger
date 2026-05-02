@@ -39,8 +39,9 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 6. Use `taskledger can implement` or `taskledger can validate` before those stages.
    - Use `taskledger can implement-resume` when `next-action` recommends resuming an existing implementation run.
 7. If a durable handoff exists, claim it with `taskledger handoff claim handoff-0001` before continuing and close it after the intended next action starts.
+8. After `taskledger import ... --replace`, assume imported locks are non-portable by default. Run `taskledger next-action`; if it reports `implement-resume`, use `taskledger implement resume --reason "Continue imported implementation."`.
 
-8. Mutation commands (`todo add`, `todo done`, `todo undone`, `implement finish`) emit compact acknowledgements. For full task or todo detail, use `task show`, `status`, `next-action`, or `todo show`.
+9. Mutation commands (`todo add`, `todo done`, `todo undone`, `implement finish`) emit compact acknowledgements. For full task or todo detail, use `task show`, `status`, `next-action`, or `todo show`.
    Example human output:
 
 ```text

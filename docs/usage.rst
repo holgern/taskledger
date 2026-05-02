@@ -344,6 +344,17 @@ Export and snapshots
 
 .. code-block:: bash
 
-   taskledger --json export
-   taskledger import ./taskledger-export.json --replace
+   taskledger export ./taskledger-transfer.tar.gz
+   taskledger import ./taskledger-transfer.tar.gz --replace
    taskledger snapshot ./artifacts
+
+Cross-machine imports preserve durable task/run records but quarantine imported
+runtime locks by default. For an imported in-progress implementation, run:
+
+.. code-block:: bash
+
+   taskledger next-action
+   taskledger implement resume --reason "Continue imported implementation."
+
+Use ``--lock-policy keep`` only when you explicitly want diagnostic lock
+restoration behavior.

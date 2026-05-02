@@ -34,6 +34,19 @@ when explicitly targeting another task.
 
 Optional positional task refs are not supported.
 
+Archive import lock policy
+--------------------------
+
+Archive imports support explicit lock handling:
+
+.. code-block:: bash
+
+   taskledger import ./taskledger-transfer.tar.gz --replace [--lock-policy drop|quarantine|keep]
+
+The default is ``quarantine`` so imported source-machine runtime locks are not
+restored as active ``lock.yaml`` files. ``keep`` is diagnostic-only behavior
+for full-fidelity lock restoration.
+
 Positional Resource Refs
 ------------------------
 

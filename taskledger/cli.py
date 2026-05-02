@@ -751,6 +751,13 @@ def import_command(
         bool,
         typer.Option("--dry-run", help="Validate archive without importing."),
     ] = False,
+    lock_policy: Annotated[
+        str,
+        typer.Option(
+            "--lock-policy",
+            help="How imported live locks are handled: drop, quarantine, keep.",
+        ),
+    ] = "quarantine",
 ) -> None:
     state = ctx.obj
     assert isinstance(state, CLIState)
@@ -758,7 +765,12 @@ def import_command(
     if source.suffix == ".json" or _is_json_content(source):
         text = source.read_text(encoding="utf-8")
         try:
-            payload = project_import(state.cwd, text=text, replace=replace)
+            payload = project_import(
+                state.cwd,
+                text=text,
+                replace=replace,
+                lock_policy=lock_policy,
+            )
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -770,6 +782,7 @@ def import_command(
             source_path=source,
             replace=replace,
             dry_run=dry_run,
+            lock_policy=lock_policy,
         )
     except LaunchError as exc:
         emit_error(ctx, exc)

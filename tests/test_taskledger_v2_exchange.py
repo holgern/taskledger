@@ -108,6 +108,86 @@ def _write_archive(path: Path, data: bytes) -> None:
     path.write_bytes(data)
 
 
+def _task_lock_paths(project_root: Path, task_id: str) -> list[Path]:
+    return sorted(
+        (project_root / ".taskledger" / "ledgers").glob(f"*/tasks/{task_id}/lock.yaml")
+    )
+
+
+def _prepare_active_implementation(project_root: Path, *, slug: str) -> None:
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(project_root),
+                "task",
+                "create",
+                slug,
+                "--description",
+                "Prepare an active implementation for archive transfer tests.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app, ["--cwd", str(project_root), "task", "activate", slug]
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(app, ["--cwd", str(project_root), "plan", "start"]).exit_code
+        == 0
+    )
+    plan_text = """---
+goal: Test cross-machine import behavior.
+acceptance_criteria:
+  - id: ac-0001
+    text: Import state can be resumed.
+    mandatory: true
+todos:
+  - id: todo-0001
+    text: Keep implementation running.
+    mandatory: true
+    validation_hint: taskledger next-action
+---
+
+# Plan
+
+Keep implementation open for export/import testing.
+"""
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(project_root), "plan", "propose", "--text", plan_text],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(project_root),
+                "plan",
+                "approve",
+                "--version",
+                "1",
+                "--actor",
+                "user",
+                "--note",
+                "Approved for exchange import tests.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(app, ["--cwd", str(project_root), "implement", "start"]).exit_code
+        == 0
+    )
+
+
 def test_export_and_import_include_v2_state(tmp_path: Path) -> None:
     source_root = tmp_path / "source"
     dest_root = tmp_path / "dest"
@@ -429,6 +509,140 @@ Finish the boundary task.
     )
     payload = _json(show_result)
     assert payload["result"]["release"]["boundary_task_id"] == "task-0001"
+
+
+def test_import_replace_quarantines_lock_and_allows_resume(tmp_path: Path) -> None:
+    source_root = tmp_path / "source"
+    dest_root = tmp_path / "dest"
+    source_root.mkdir()
+    dest_root.mkdir()
+    _init_project(source_root)
+    _init_project(dest_root)
+    _copy_project_uuid(source_root, dest_root)
+    _prepare_active_implementation(source_root, slug="portable-import")
+
+    archive_path = tmp_path / "portable-import.tar.gz"
+    export_result = runner.invoke(
+        app,
+        ["--cwd", str(source_root), "export", str(archive_path)],
+    )
+    assert export_result.exit_code == 0, export_result.stdout
+
+    import_result = runner.invoke(
+        app,
+        ["--cwd", str(dest_root), "import", str(archive_path), "--replace"],
+    )
+    assert import_result.exit_code == 0, import_result.stdout
+
+    assert not _task_lock_paths(dest_root, "task-0001")
+    imported_lock_audits = sorted(
+        (
+            dest_root
+            / ".taskledger"
+            / "ledgers"
+        ).glob("*/tasks/task-0001/audit/imported-lock-*.yaml")
+    )
+    assert imported_lock_audits
+
+    next_action_payload = _json(
+        runner.invoke(app, ["--cwd", str(dest_root), "--json", "next-action"])
+    )
+    assert next_action_payload["result"]["action"] == "implement-resume"
+
+
+def test_import_replace_lock_policy_keep_restores_lock(tmp_path: Path) -> None:
+    source_root = tmp_path / "source"
+    dest_root = tmp_path / "dest"
+    source_root.mkdir()
+    dest_root.mkdir()
+    _init_project(source_root)
+    _init_project(dest_root)
+    _copy_project_uuid(source_root, dest_root)
+    _prepare_active_implementation(source_root, slug="keep-lock-import")
+
+    archive_path = tmp_path / "keep-lock-import.tar.gz"
+    export_result = runner.invoke(
+        app,
+        ["--cwd", str(source_root), "export", str(archive_path)],
+    )
+    assert export_result.exit_code == 0, export_result.stdout
+
+    import_result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(dest_root),
+            "import",
+            str(archive_path),
+            "--replace",
+            "--lock-policy",
+            "keep",
+        ],
+    )
+    assert import_result.exit_code == 0, import_result.stdout
+    assert _task_lock_paths(dest_root, "task-0001")
+
+
+def test_import_archive_rejects_different_project_uuid_without_mutation(
+    tmp_path: Path,
+) -> None:
+    source_root = tmp_path / "source"
+    dest_root = tmp_path / "dest"
+    source_root.mkdir()
+    dest_root.mkdir()
+    _init_project(source_root)
+    _init_project(dest_root)
+
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(source_root),
+                "task",
+                "create",
+                "source-task",
+                "--description",
+                "Source state.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(dest_root),
+                "task",
+                "create",
+                "dest-task",
+                "--description",
+                "Destination state.",
+            ],
+        ).exit_code
+        == 0
+    )
+
+    archive_path = tmp_path / "mismatch.tar.gz"
+    export_result = runner.invoke(
+        app,
+        ["--cwd", str(source_root), "export", str(archive_path)],
+    )
+    assert export_result.exit_code == 0, export_result.stdout
+
+    import_result = runner.invoke(
+        app,
+        ["--cwd", str(dest_root), "import", str(archive_path), "--replace"],
+    )
+    assert import_result.exit_code != 0
+    assert "Project UUID mismatch" in (import_result.stdout + import_result.stderr)
+
+    dest_task_result = runner.invoke(
+        app,
+        ["--cwd", str(dest_root), "task", "show", "--task", "dest-task"],
+    )
+    assert dest_task_result.exit_code == 0, dest_task_result.stdout
 
 
 def test_read_project_archive_rejects_too_many_members(tmp_path: Path) -> None:

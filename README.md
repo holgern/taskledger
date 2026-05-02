@@ -397,10 +397,21 @@ for task-first handoff guidance.
 ## Export, import, and snapshots
 
 ```bash
-taskledger --json export
-taskledger import ./taskledger-export.json --replace
+taskledger export ./taskledger-transfer.tar.gz
+taskledger import ./taskledger-transfer.tar.gz --replace
 taskledger snapshot ./artifacts
 ```
+
+Cross-machine imports preserve durable task/run data, but imported runtime locks
+are quarantined by default. After importing an in-progress implementation,
+run:
+
+```bash
+taskledger next-action
+taskledger implement resume --reason "Continue imported implementation."
+```
+
+Use `--lock-policy keep` only for diagnostic full-fidelity lock restoration.
 
 ## Skill packaging
 
