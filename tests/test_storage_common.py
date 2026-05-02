@@ -137,16 +137,18 @@ def test_read_text_raises_on_missing(tmp_path: Path) -> None:
         read_text(tmp_path / "nope.txt")
 
 
-def test_write_text_raises_on_oserror(tmp_path: Path) -> None:
+def test_write_text_raises_on_oserror(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     p = tmp_path / "readonly" / "f.txt"
-    p.parent.mkdir()
-    p.write_text("x")
-    p.chmod(0o000)
-    try:
-        with pytest.raises(LaunchError, match="Failed to write"):
-            write_text(p, "new")
-    finally:
-        p.chmod(0o644)
+
+    def _raise_oserror(*_args: object, **_kwargs: object) -> int:
+        raise OSError("synthetic write failure")
+
+    monkeypatch.setattr(Path, "write_text", _raise_oserror)
+
+    with pytest.raises(LaunchError, match="Failed to write"):
+        write_text(p, "new")
 
 
 # -- relative_to_project / relative_to_workspace --
