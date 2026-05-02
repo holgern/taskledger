@@ -254,7 +254,7 @@ def _max_numeric_task_number(tasks_dir: Path) -> int | None:
     return max_number
 
 
-def _get_task_created_at(task_dir: Path) -> str | None:
+def _get_task_created_at(task_dir: Path) -> Any | None:
     """Extract created_at timestamp from task.md."""
     task_md = task_dir / "task.md"
     if not task_md.exists():
@@ -470,18 +470,6 @@ def _migrate_v2_unscoped_state_to_branch_scoped_ledgers(workspace_root: Path) ->
             locator.config_path,
             LedgerConfigPatch(next_task_number=max_task_number + 1),
         )
-
-
-def _scan_dir(
-    directory: Path,
-    object_type: str,
-    needed: list[MigrationNeeded],
-    issues: list[MigrationScanIssue],
-) -> None:
-    if not directory.exists():
-        return
-    for md_file in sorted(directory.glob("*.md")):
-        _scan_file(md_file, object_type, needed, issues)
 
 
 def _scan_file(

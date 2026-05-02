@@ -104,7 +104,7 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
     "taskledger/storage/migrations.py:350": (
         "Migration planner emits actionable diagnostics for unknown migration errors."
     ),
-    "taskledger/storage/migrations.py:497": (
+    "taskledger/storage/migrations.py:485": (
         "Migration executor records unexpected write failures in audit output."
     ),
     "taskledger/storage/paths.py:138": (
