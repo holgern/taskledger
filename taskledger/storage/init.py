@@ -12,6 +12,7 @@ from taskledger.storage.paths import (
     project_paths_for_root,
 )
 from taskledger.storage.project_config import render_default_taskledger_toml
+from taskledger.storage.project_identity import ensure_project_uuid, new_project_uuid
 
 
 def _storage_yaml_path(workspace_root: Path) -> Path:
@@ -86,6 +87,7 @@ def init_project_state(
                 render_default_taskledger_toml(
                     taskledger_dir=taskledger_dir_value,
                     config_version=2,
+                    project_uuid=new_project_uuid(),
                 ),
             )
         ]
@@ -110,6 +112,9 @@ def init_project_state(
         meta = StorageMeta(created_with_taskledger=tl_version)
         write_storage_meta(paths.workspace_root, meta)
         created.append(str(storage_path))
+    # Backfill project_uuid for existing configs that lack it.
+    if paths.config_path.exists():
+        ensure_project_uuid(paths.config_path)
     return paths, created
 
 

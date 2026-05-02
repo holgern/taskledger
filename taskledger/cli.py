@@ -11,8 +11,9 @@ from taskledger._version import __version__
 from taskledger.api.handoff import render_handoff
 from taskledger.api.project import (
     init_project,
-    project_export,
+    project_export_archive,
     project_import,
+    project_import_archive,
     project_snapshot,
     project_status,
     project_status_summary,
@@ -688,10 +689,14 @@ def repair_task_dirs_command(ctx: typer.Context) -> None:
 @app.command("export")
 def export_command(
     ctx: typer.Context,
+    output: Annotated[
+        Path | None,
+        typer.Argument(help="Output archive path (.tar.gz)."),
+    ] = None,
     include_bodies: Annotated[
         bool,
         typer.Option("--include-bodies", help="Include Markdown bodies in the export."),
-    ] = False,
+    ] = True,
     include_run_artifacts: Annotated[
         bool,
         typer.Option(
@@ -699,15 +704,39 @@ def export_command(
             help="Include run artifact files in the export payload.",
         ),
     ] = False,
+    overwrite: Annotated[
+        bool,
+        typer.Option("--overwrite", help="Allow overwriting an existing output file."),
+    ] = False,
 ) -> None:
     state = ctx.obj
     assert isinstance(state, CLIState)
-    payload = project_export(
-        state.cwd,
-        include_bodies=include_bodies,
-        include_run_artifacts=include_run_artifacts,
+    if output is not None and output.exists() and not overwrite:
+        emit_error(
+            ctx,
+            LaunchError(
+                f"Output file already exists: {output}. Use --overwrite to replace."
+            ),
+        )
+        raise typer.Exit(code=1)
+    try:
+        payload = project_export_archive(
+            state.cwd,
+            output_path=output,
+            include_bodies=include_bodies,
+            include_run_artifacts=include_run_artifacts,
+        )
+    except LaunchError as exc:
+        emit_error(ctx, exc)
+        raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+    counts = cast(dict[str, object], payload.get("counts", {}))
+    human = (
+        f"exported taskledger archive: {payload['path']}\n"
+        f"project: {payload['project_uuid']}\n"
+        f"ledger: {payload['ledger_ref']}\n"
+        f"tasks: {counts.get('tasks', 0)}"
     )
-    emit_payload(ctx, payload, human="exported taskledger state")
+    emit_payload(ctx, payload, human=human)
 
 
 @app.command("import")
@@ -718,16 +747,48 @@ def import_command(
         bool,
         typer.Option("--replace", help="Replace existing taskledger state."),
     ] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Validate archive without importing."),
+    ] = False,
 ) -> None:
     state = ctx.obj
     assert isinstance(state, CLIState)
-    text = source.read_text(encoding="utf-8")
+    # Detect .tar.gz vs legacy JSON
+    if source.suffix == ".json" or _is_json_content(source):
+        text = source.read_text(encoding="utf-8")
+        try:
+            payload = project_import(state.cwd, text=text, replace=replace)
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, payload, human="imported taskledger state")
+        return
     try:
-        payload = project_import(state.cwd, text=text, replace=replace)
+        payload = project_import_archive(
+            state.cwd,
+            source_path=source,
+            replace=replace,
+            dry_run=dry_run,
+        )
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-    emit_payload(ctx, payload, human="imported taskledger state")
+    if dry_run:
+        human = (
+            f"dry-run archive import: {source}\n"
+            f"project: {payload['project_uuid']}\n"
+            f"replace: {payload['replace']}\n"
+            f"counts: {payload.get('imported', {})}"
+        )
+    else:
+        human = (
+            f"imported taskledger archive: {source}\n"
+            f"project: {payload['project_uuid']}\n"
+            f"ledger: {payload['ledger_ref']}\n"
+            f"replace: {payload['replace']}"
+        )
+    emit_payload(ctx, payload, human=human)
 
 
 @app.command("snapshot")
@@ -860,6 +921,15 @@ def _emit_search_results(
         else f"{title}\n(empty)"
     )
     emit_payload(ctx, [item.to_dict() for item in results], human=human)
+
+
+def _is_json_content(path: Path) -> bool:
+    """Return True if file appears to contain JSON (starts with '{')."""
+    try:
+        with path.open("rb") as f:
+            return f.read(1) == b"{"
+    except OSError:
+        return False
 
 
 def cli_main() -> None:

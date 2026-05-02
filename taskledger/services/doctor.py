@@ -96,6 +96,20 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
             load_project_config_document(resolved_paths.config_path)
         except Exception as exc:
             errors.append(str(exc))
+    # Project UUID check
+    if resolved_paths.config_path.exists():
+        try:
+            from taskledger.storage.project_identity import load_project_uuid
+
+            project_uuid = load_project_uuid(resolved_paths.config_path)
+            if project_uuid is None:
+                errors.append(
+                    "Project config has no project_uuid."
+                    " Run 'taskledger init' or 'taskledger migrate apply'"
+                    " to generate one and commit the config change."
+                )
+        except Exception as exc:
+            errors.append(f"Invalid project_uuid: {exc}")
     # Ledger config check
     if resolved_paths.config_path.exists():
         try:

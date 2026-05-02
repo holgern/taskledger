@@ -23,6 +23,13 @@ def _init_project(tmp_path: Path) -> None:
     assert result.exit_code == 0
 
 
+def _copy_project_uuid(src_root: Path, dst_root: Path) -> None:
+    """Make dst_root project use the same project_uuid as src_root."""
+    from shutil import copy2
+
+    copy2(src_root / "taskledger.toml", dst_root / "taskledger.toml")
+
+
 def _json(result) -> dict[str, object]:
     assert result.exit_code == 0, result.stdout
     payload = json.loads(result.stdout)
@@ -37,6 +44,7 @@ def test_export_and_import_include_v2_state(tmp_path: Path) -> None:
     dest_root.mkdir()
     _init_project(source_root)
     _init_project(dest_root)
+    _copy_project_uuid(source_root, dest_root)
 
     assert (
         runner.invoke(
@@ -95,28 +103,28 @@ def test_export_and_import_include_v2_state(tmp_path: Path) -> None:
         == 0
     )
 
+    # Export archive to file
+    archive_path = tmp_path / "export.tar.gz"
     export_result = runner.invoke(
         app,
-        ["--cwd", str(source_root), "--json", "export"],
+        ["--cwd", str(source_root), "export", str(archive_path)],
     )
-    export_payload = _json(export_result)
-    assert export_payload["result"]["v2"]["tasks"][0]["slug"] == "migrate-v2"
-    assert (
-        export_payload["result"]["v2"]["handoffs"][0]["summary"]
-        == "Continue elsewhere."
-    )
-    export_file = tmp_path / "export.json"
-    export_file.write_text(export_result.stdout, encoding="utf-8")
+    assert export_result.exit_code == 0
+    assert archive_path.exists()
 
+    # JSON export returns metadata, not full payload
+    json_result = runner.invoke(
+        app,
+        ["--cwd", str(source_root), "--json", "export", "--overwrite"],
+    )
+    json_payload = _json(json_result)
+    assert "project_uuid" in json_payload["result"]
+    assert "v2" not in json_payload["result"]  # metadata only
+
+    # Import into dest
     import_result = runner.invoke(
         app,
-        [
-            "--cwd",
-            str(dest_root),
-            "import",
-            str(export_file),
-            "--replace",
-        ],
+        ["--cwd", str(dest_root), "import", str(archive_path)],
     )
     assert import_result.exit_code == 0
 
@@ -150,6 +158,7 @@ def test_export_and_import_include_release_records(tmp_path: Path) -> None:
     dest_root.mkdir()
     _init_project(source_root)
     _init_project(dest_root)
+    _copy_project_uuid(source_root, dest_root)
 
     assert (
         runner.invoke(
@@ -344,24 +353,18 @@ Finish the boundary task.
         == 0
     )
 
+    # Export archive
+    archive_path = tmp_path / "release-export.tar.gz"
     export_result = runner.invoke(
         app,
-        ["--cwd", str(source_root), "--json", "export"],
+        ["--cwd", str(source_root), "export", str(archive_path)],
     )
-    export_payload = _json(export_result)
-    assert export_payload["result"]["v2"]["releases"][0]["version"] == "0.4.1"
-    export_file = tmp_path / "release-export.json"
-    export_file.write_text(export_result.stdout, encoding="utf-8")
+    assert export_result.exit_code == 0
 
+    # Import into dest
     import_result = runner.invoke(
         app,
-        [
-            "--cwd",
-            str(dest_root),
-            "import",
-            str(export_file),
-            "--replace",
-        ],
+        ["--cwd", str(dest_root), "import", str(archive_path)],
     )
     assert import_result.exit_code == 0
 

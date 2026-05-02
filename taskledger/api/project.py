@@ -6,8 +6,10 @@ from typing import Any, cast
 from taskledger.domain.policies import derive_active_stage
 from taskledger.exchange import (
     export_project_payload,
+    import_project_archive,
     import_project_payload,
     parse_project_import_payload,
+    write_project_archive,
     write_project_snapshot,
 )
 from taskledger.services.doctor import inspect_v2_project
@@ -224,6 +226,38 @@ def _project_counts(workspace_root: Path) -> dict[str, int]:
         "changes": sum(len(list_changes(workspace_root, task.id)) for task in tasks),
         "locks": len(load_active_locks(workspace_root)),
     }
+
+
+def project_export_archive(
+    workspace_root: Path,
+    *,
+    output_path: Path | None = None,
+    include_bodies: bool = True,
+    include_run_artifacts: bool = False,
+) -> dict[str, object]:
+    """Export current-ledger state into a compressed archive file."""
+    return write_project_archive(
+        workspace_root,
+        output_path=output_path,
+        include_bodies=include_bodies,
+        include_run_artifacts=include_run_artifacts,
+    )
+
+
+def project_import_archive(
+    workspace_root: Path,
+    *,
+    source_path: Path,
+    replace: bool = False,
+    dry_run: bool = False,
+) -> dict[str, object]:
+    """Import a taskledger archive into the current project."""
+    return import_project_archive(
+        workspace_root,
+        source_path=source_path,
+        replace=replace,
+        dry_run=dry_run,
+    )
 
 
 def _active_task_status(workspace_root: Path) -> dict[str, object] | None:

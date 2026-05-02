@@ -16,6 +16,7 @@ except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
     tomllib = importlib.import_module("tomli")
 
 LOCATION_CONFIG_KEYS = frozenset({"config_version", "taskledger_dir"})
+IDENTITY_CONFIG_KEYS = frozenset({"project_uuid"})
 LEDGER_CONFIG_KEYS = frozenset(
     {
         "ledger_ref",
@@ -41,9 +42,11 @@ WORKFLOW_CONFIG_KEYS = frozenset(
     }
 )
 SUPPORTED_PROJECT_CONFIG_KEYS = (
-    LOCATION_CONFIG_KEYS | LEDGER_CONFIG_KEYS | WORKFLOW_CONFIG_KEYS
+    LOCATION_CONFIG_KEYS
+    | IDENTITY_CONFIG_KEYS
+    | LEDGER_CONFIG_KEYS
+    | WORKFLOW_CONFIG_KEYS
 )
-
 MemoryUpdateMode = Literal["replace", "append", "prepend"]
 FileRenderMode = Literal["content", "reference"]
 DEFAULT_PROJECT_SOURCE_MAX_CHARS = 12000
@@ -106,7 +109,15 @@ def render_default_taskledger_toml(
     ledger_ref: str = "main",
     ledger_parent_ref: str = "",
     ledger_next_task_number: int = 1,
+    project_uuid: str | None = None,
 ) -> str:
+    identity_block = ""
+    if project_uuid is not None:
+        identity_block = (
+            "\n"
+            "# Stable project identity. Commit this with your source tree.\n"
+            f'project_uuid = "{project_uuid}"\n'
+        )
     ledger_block = ""
     if config_version >= 2:
         ledger_block = (
@@ -123,6 +134,7 @@ def render_default_taskledger_toml(
         f"# This file lives in the source project root.\n"
         f"config_version = {config_version}\n"
         f"taskledger_dir = {taskledger_dir!r}"
+        f"{identity_block}"
         f"{ledger_block}"
         f"\n"
         "# Project-local taskledger overrides.\n"

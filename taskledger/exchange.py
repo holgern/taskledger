@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import io
 import json
 import shutil
+import tarfile
+from hashlib import sha256 as _sha256
 from pathlib import Path
+from typing import cast
 
 from taskledger.domain.models import (
     ActiveTaskState,
@@ -27,6 +31,11 @@ from taskledger.errors import LaunchError
 from taskledger.storage.events import append_event, load_events
 from taskledger.storage.indexes import rebuild_v2_indexes
 from taskledger.storage.locks import write_lock
+from taskledger.storage.paths import load_project_locator
+from taskledger.storage.project_identity import (
+    ensure_project_uuid,
+    normalize_project_uuid,
+)
 from taskledger.storage.task_store import (
     V2Paths,
     ensure_v2_layout,
@@ -121,7 +130,7 @@ def import_project_payload(
     paths = ensure_v2_layout(workspace_root)
     if replace:
         _clear_v2_state(paths)
-    _import_v2_payload(workspace_root, payload)
+    _import_v2_payload(workspace_root, payload, replace=replace)
     counts = rebuild_v2_indexes(paths)
     return {
         "kind": "taskledger_import",
@@ -267,7 +276,9 @@ def _import_standalone_collections(
         )
 
 
-def _import_v2_payload(workspace_root: Path, payload: dict[str, object]) -> None:
+def _import_v2_payload(  # noqa: C901
+    workspace_root: Path, payload: dict[str, object], *, replace: bool = False
+) -> None:
     raw_v2 = payload.get("v2")
     if not isinstance(raw_v2, dict):
         raise LaunchError("Import payload is missing v2 task state.")
@@ -326,11 +337,18 @@ def _import_v2_payload(workspace_root: Path, payload: dict[str, object]) -> None
     for item in _dict_list(raw_v2.get("locks")):
         lock = TaskLock.from_dict(item)
         write_lock(task_lock_path(paths, lock.task_id), lock)
-    if paths.events_dir.exists():
-        for path in paths.events_dir.glob("*.ndjson"):
-            path.unlink()
+    existing_ids: set[str] = set()
+    if replace:
+        if paths.events_dir.exists():
+            for path in paths.events_dir.glob("*.ndjson"):
+                path.unlink()
+    else:
+        existing_ids = {e.event_id for e in load_events(paths.events_dir)}
     for item in _dict_list(raw_v2.get("events")):
-        append_event(paths.events_dir, TaskEvent.from_dict(item))
+        event = TaskEvent.from_dict(item)
+        if not replace and event.event_id in existing_ids:
+            continue
+        append_event(paths.events_dir, event)
 
 
 def _import_releases(raw_v2: dict[str, object], workspace_root: Path) -> None:
@@ -368,3 +386,275 @@ def _clear_v2_state(paths: V2Paths) -> None:
         directory.mkdir(parents=True, exist_ok=True)
     if paths.active_task_path.exists():
         paths.active_task_path.unlink()
+
+
+# ---------------------------------------------------------------------------
+# Archive export / import
+# ---------------------------------------------------------------------------
+
+ARCHIVE_KIND = "taskledger_archive"
+ARCHIVE_VERSION = 1
+MANIFEST_MEMBER = "manifest.json"
+PAYLOAD_MEMBER = "payload/taskledger-export.json"
+
+
+def write_project_archive(
+    workspace_root: Path,
+    *,
+    output_path: Path | None = None,
+    include_bodies: bool = True,
+    include_run_artifacts: bool = False,
+) -> dict[str, object]:
+    """Export current-ledger state into a gzip-compressed tar archive."""
+    paths = ensure_v2_layout(workspace_root)
+    locator = load_project_locator(workspace_root)
+    project_uuid = ensure_project_uuid(locator.config_path)
+
+    payload = export_project_payload(
+        workspace_root,
+        include_bodies=include_bodies,
+        include_run_artifacts=include_run_artifacts,
+    )
+    payload["version"] = 3
+    payload["project_uuid"] = project_uuid
+    payload["ledger_ref"] = paths.ledger_ref
+
+    payload_bytes = (
+        json.dumps(payload, indent=2, sort_keys=True).encode("utf-8") + b"\n"
+    )
+    payload_sha = _sha256(payload_bytes).hexdigest()
+
+    manifest = _build_manifest(
+        project_uuid=project_uuid,
+        ledger_ref=paths.ledger_ref,
+        payload_sha=payload_sha,
+        payload=payload,
+        include_bodies=include_bodies,
+        include_run_artifacts=include_run_artifacts,
+    )
+
+    output_path = output_path or _default_archive_path(paths.ledger_ref)
+    if output_path.exists():
+        raise LaunchError(
+            f"Output file already exists: {output_path}. Use --overwrite to replace."
+        )
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with tarfile.open(output_path, "w:gz") as tar:
+        _add_json_member(tar, MANIFEST_MEMBER, manifest)
+        _add_json_member(tar, PAYLOAD_MEMBER, payload)
+
+    archive_bytes = output_path.read_bytes()
+    archive_sha = _sha256(archive_bytes).hexdigest()
+
+    return {
+        "kind": "taskledger_archive_export",
+        "path": str(output_path),
+        "archive_sha256": archive_sha,
+        "project_uuid": project_uuid,
+        "ledger_ref": paths.ledger_ref,
+        "counts": payload["counts"],
+        "include_run_artifacts": include_run_artifacts,
+    }
+
+
+def read_project_archive(source_path: Path) -> dict[str, object]:
+    """Read and validate a taskledger archive in-memory.
+
+    Never extracts tar members to disk. Returns dict with keys
+    ``manifest`` and ``payload``.
+    """
+    if not source_path.exists():
+        raise LaunchError(f"Archive not found: {source_path}")
+
+    with tarfile.open(source_path, "r:gz") as tar:
+        members = {m.name: m for m in tar.getmembers()}
+        _validate_archive_members(members)
+
+        manifest_member = members[MANIFEST_MEMBER]
+        payload_member = members[PAYLOAD_MEMBER]
+
+        manifest_bytes = tar.extractfile(manifest_member).read()  # type: ignore[union-attr]
+        payload_bytes = tar.extractfile(payload_member).read()  # type: ignore[union-attr]
+
+    try:
+        manifest = json.loads(manifest_bytes.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise LaunchError(f"Invalid manifest JSON: {exc}") from exc
+
+    if not isinstance(manifest, dict):
+        raise LaunchError("Manifest must be a JSON object.")
+
+    if manifest.get("kind") != ARCHIVE_KIND:
+        raise LaunchError(f"Unknown archive kind: {manifest.get('kind')!r}")
+
+    archive_version = manifest.get("archive_version")
+    if archive_version != ARCHIVE_VERSION:
+        raise LaunchError(
+            f"Unsupported archive version: {archive_version}."
+            f" Expected {ARCHIVE_VERSION}."
+        )
+
+    declared_sha = manifest.get("payload", {}).get("sha256")
+    if declared_sha:
+        actual_sha = _sha256(payload_bytes).hexdigest()
+        if declared_sha != actual_sha:
+            raise LaunchError(
+                f"Payload sha256 mismatch: manifest declares {declared_sha},"
+                f" computed {actual_sha}"
+            )
+
+    archive_uuid = normalize_project_uuid(manifest.get("project", {}).get("uuid"))
+
+    try:
+        payload = json.loads(payload_bytes.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise LaunchError(f"Invalid payload JSON: {exc}") from exc
+
+    if not isinstance(payload, dict):
+        raise LaunchError("Payload must be a JSON object.")
+
+    payload_uuid = normalize_project_uuid(payload.get("project_uuid"))
+    if archive_uuid != payload_uuid:
+        raise LaunchError(
+            "Archive manifest and payload project UUID differ:"
+            f" manifest={archive_uuid}, payload={payload_uuid}"
+        )
+
+    return {"manifest": manifest, "payload": payload}
+
+
+def import_project_archive(
+    workspace_root: Path,
+    *,
+    source_path: Path,
+    replace: bool = False,
+    dry_run: bool = False,
+) -> dict[str, object]:
+    """Import a taskledger archive into the current project."""
+    archive = read_project_archive(source_path)
+    payload = cast(dict[str, object], archive["payload"])
+    manifest = cast(dict[str, object], archive["manifest"])
+
+    project = manifest.get("project")
+    if not isinstance(project, dict):
+        raise LaunchError("Manifest missing 'project' table.")
+    archive_uuid = normalize_project_uuid(project.get("uuid"))
+
+    counts: dict[str, object] = {}
+    if isinstance(payload.get("counts"), dict):
+        counts = cast(dict[str, object], payload.get("counts"))
+
+    if dry_run:
+        return {
+            "kind": "taskledger_archive_import",
+            "source_path": str(source_path),
+            "project_uuid": archive_uuid,
+            "ledger_ref": (
+                str(payload.get("ledger_ref", "")) if isinstance(payload, dict) else ""
+            ),
+            "replace": replace,
+            "dry_run": True,
+            "counts": counts,
+            "imported": counts,
+        }
+
+    result = import_project_payload(workspace_root, payload=payload, replace=replace)
+    return {
+        "kind": "taskledger_archive_import",
+        "source_path": str(source_path),
+        "project_uuid": archive_uuid,
+        "ledger_ref": (
+            str(payload.get("ledger_ref", "")) if isinstance(payload, dict) else ""
+        ),
+        "replace": replace,
+        "dry_run": False,
+        "counts": result.get("counts", {}),
+        "imported": result.get("counts", {}),
+    }
+
+
+def _build_manifest(
+    *,
+    project_uuid: str,
+    ledger_ref: str,
+    payload_sha: str,
+    payload: dict[str, object],
+    include_bodies: bool,
+    include_run_artifacts: bool,
+) -> dict[str, object]:
+    return {
+        "kind": ARCHIVE_KIND,
+        "archive_version": ARCHIVE_VERSION,
+        "created_at": utc_now_iso(),
+        "producer": {
+            "name": "taskledger",
+            "version": _taskledger_version(),
+        },
+        "project": {
+            "uuid": project_uuid,
+            "ledger_ref": ledger_ref,
+        },
+        "payload": {
+            "path": PAYLOAD_MEMBER,
+            "sha256": payload_sha,
+            "encoding": "utf-8",
+        },
+        "options": {
+            "include_bodies": include_bodies,
+            "include_run_artifacts": include_run_artifacts,
+        },
+        "counts": _sanitize_counts(payload.get("counts")),
+    }
+
+
+def _add_json_member(
+    tar: tarfile.TarFile, name: str, payload: dict[str, object]
+) -> bytes:
+    data = json.dumps(payload, indent=2, sort_keys=True).encode("utf-8") + b"\n"
+    info = tarfile.TarInfo(name)
+    info.size = len(data)
+    info.mtime = 0
+    tar.addfile(info, io.BytesIO(data))
+    return data
+
+
+def _default_archive_path(ledger_ref: str) -> Path:
+    ts = utc_now_iso()
+    safe_ts = ts.replace(":", "").replace("-", "").replace("+00:00", "Z").split(".")[0]
+    filename = f"taskledger-export-{ledger_ref}-{safe_ts}.tar.gz"
+    return Path(filename)
+
+
+def _validate_archive_members(members: dict[str, tarfile.TarInfo]) -> None:
+    if MANIFEST_MEMBER not in members:
+        raise LaunchError(f"Archive missing {MANIFEST_MEMBER}")
+    if PAYLOAD_MEMBER not in members:
+        raise LaunchError(f"Archive missing {PAYLOAD_MEMBER}")
+
+    required = {MANIFEST_MEMBER, PAYLOAD_MEMBER}
+    for name, info in members.items():
+        if name.startswith("/") or ".." in Path(name).parts:
+            raise LaunchError(f"Unsafe archive member path: {name!r}")
+        if name in required:
+            if not info.isfile():
+                raise LaunchError(f"Archive member {name!r} is not a regular file")
+            required.discard(name)
+    if required:
+        raise LaunchError(f"Missing required archive members: {sorted(required)}")
+
+
+def _taskledger_version() -> str:
+    from taskledger._version import __version__
+
+    return __version__
+
+
+def _sanitize_counts(raw: object) -> dict[str, object]:
+    """Filter a dict to only include {str: int} entries."""
+    result: dict[str, object] = {}
+    if isinstance(raw, dict):
+        for key, value in raw.items():
+            if isinstance(key, str) and isinstance(value, int):
+                result[key] = value
+    return result

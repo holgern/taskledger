@@ -318,16 +318,22 @@ def test_export_import_preserves_active_task(tmp_path: Path) -> None:
     )
     assert activate.exit_code == 0
 
-    export_result = runner.invoke(app, ["--cwd", str(source), "--json", "export"])
-    export_payload = _json(export_result)
-    assert export_payload["result"]["v2"]["active_task"]["task_id"] == "task-0001"
-    export_file = tmp_path / "export.json"
-    export_file.write_text(export_result.stdout, encoding="utf-8")
+    # Export archive
+    archive_path = tmp_path / "export.tar.gz"
+    export_result = runner.invoke(
+        app, ["--cwd", str(source), "export", str(archive_path)]
+    )
+    assert export_result.exit_code == 0
+
+    # Copy project UUID to dest
+    from shutil import copy2
+
+    copy2(source / "taskledger.toml", dest / "taskledger.toml")
 
     assert (
         runner.invoke(
             app,
-            ["--cwd", str(dest), "import", str(export_file), "--replace"],
+            ["--cwd", str(dest), "import", str(archive_path), "--replace"],
         ).exit_code
         == 0
     )
