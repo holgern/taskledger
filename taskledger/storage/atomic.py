@@ -3,8 +3,30 @@ from __future__ import annotations
 import os
 import tempfile
 from pathlib import Path
+from typing import Protocol
 
 from taskledger.errors import LaunchError
+
+
+class _SupportsFileno(Protocol):
+    def fileno(self) -> int: ...
+
+
+_FAST_TEST_IO_ENV = "TASKLEDGER_TEST_FAST_IO"
+
+
+def _durability_fsync_enabled() -> bool:
+    return os.environ.get(_FAST_TEST_IO_ENV, "").lower() not in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _fsync_file(handle: _SupportsFileno) -> None:
+    if _durability_fsync_enabled():
+        os.fsync(handle.fileno())
 
 
 def atomic_write_text(path: Path, contents: str) -> None:
@@ -19,7 +41,7 @@ def atomic_write_text(path: Path, contents: str) -> None:
         ) as handle:
             handle.write(contents)
             handle.flush()
-            os.fsync(handle.fileno())
+            _fsync_file(handle)
             temp_path = Path(handle.name)
         os.replace(temp_path, path)
         _fsync_directory(path.parent)
@@ -41,13 +63,15 @@ def atomic_create_text(path: Path, contents: str) -> None:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
             handle.write(contents)
             handle.flush()
-            os.fsync(handle.fileno())
+            _fsync_file(handle)
     except OSError as exc:
         raise LaunchError(f"Failed to write {path}: {exc}") from exc
     _fsync_directory(path.parent)
 
 
 def _fsync_directory(path: Path) -> None:
+    if not _durability_fsync_enabled():
+        return
     if os.name != "posix":
         return
     directory_fd = os.open(path, os.O_RDONLY)

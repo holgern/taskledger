@@ -4,10 +4,22 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
+import pytest
 from typer.testing import CliRunner
 
 from taskledger.cli import app
 from taskledger.storage.frontmatter import read_markdown_front_matter
+from tests.support.builders import (
+    create_done_task as build_done_task,
+)
+from tests.support.builders import (
+    create_failed_validation_task as build_failed_validation_task,
+)
+from tests.support.builders import (
+    init_workspace,
+)
+
+pytestmark = [pytest.mark.cli, pytest.mark.integration, pytest.mark.slow]
 
 
 def _make_runner() -> CliRunner:
@@ -29,8 +41,7 @@ def _json(result: Any) -> dict[str, Any]:
 
 
 def _init_project(tmp_path: Path) -> None:
-    result = runner.invoke(app, ["--cwd", str(tmp_path), "init"])
-    assert result.exit_code == 0
+    init_workspace(tmp_path)
 
 
 def _plan_text(title: str) -> str:
@@ -58,320 +69,37 @@ def _create_done_task(
     slug: str,
     labels: tuple[str, ...] = (),
 ) -> str:
-    result = _json(
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "--json",
-                "task",
-                "create",
-                title,
-                "--slug",
-                slug,
-                "--description",
-                f"{title} summary.",
-            ],
-        )
+    return build_done_task(
+        tmp_path,
+        title=title,
+        slug=slug,
+        description=f"{title} summary.",
+        labels=labels,
+        plan_text=_plan_text(title),
+        validation_evidence="python -c print('ok')",
+        validation_summary=f"Validated {title}.",
+        change_path="taskledger/services/releases.py",
+        change_summary=f"Implemented {title}.",
+        implement_summary=f"Implemented {title}.",
+        approve_note="Approved.",
     )
-    task_id = str(result["result"]["id"])
-    if labels:
-        command = ["--cwd", str(tmp_path), "task", "edit", "--task", slug]
-        for label in labels:
-            command.extend(["--add-label", label])
-        assert runner.invoke(app, command).exit_code == 0
-    assert (
-        runner.invoke(app, ["--cwd", str(tmp_path), "task", "activate", slug]).exit_code
-        == 0
-    )
-    assert runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start"]).exit_code == 0
-    assert (
-        runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "plan", "propose", "--text", _plan_text(title)],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "plan",
-                "approve",
-                "--version",
-                "1",
-                "--actor",
-                "user",
-                "--note",
-                "Approved.",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(app, ["--cwd", str(tmp_path), "implement", "start"]).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "implement",
-                "change",
-                "--path",
-                "taskledger/services/releases.py",
-                "--kind",
-                "edit",
-                "--summary",
-                f"Implemented {title}.",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "implement",
-                "command",
-                "--",
-                "python",
-                "-c",
-                "print('ok')",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "todo",
-                "done",
-                "todo-0001",
-                "--evidence",
-                "python -c print('ok')",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "implement",
-                "finish",
-                "--summary",
-                f"Implemented {title}.",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(app, ["--cwd", str(tmp_path), "validate", "start"]).exit_code == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "validate",
-                "check",
-                "--criterion",
-                "ac-0001",
-                "--status",
-                "pass",
-                "--evidence",
-                "python -c print('ok')",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "validate",
-                "finish",
-                "--result",
-                "passed",
-                "--summary",
-                f"Validated {title}.",
-            ],
-        ).exit_code
-        == 0
-    )
-    return task_id
 
 
 def _create_failed_validation_task(tmp_path: Path, *, title: str, slug: str) -> str:
-    result = _json(
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "--json",
-                "task",
-                "create",
-                title,
-                "--slug",
-                slug,
-                "--description",
-                f"{title} summary.",
-            ],
-        )
+    return build_failed_validation_task(
+        tmp_path,
+        title=title,
+        slug=slug,
+        description=f"{title} summary.",
+        plan_text=_plan_text(title),
+        todo_evidence="python -c print('ok')",
+        failure_evidence="python -c print('fail')",
+        validation_summary=f"Validation failed for {title}.",
+        change_path="taskledger/services/releases.py",
+        change_summary=f"Implemented {title}.",
+        implement_summary=f"Implemented {title}.",
+        approve_note="Approved.",
     )
-    task_id = str(result["result"]["id"])
-    assert (
-        runner.invoke(app, ["--cwd", str(tmp_path), "task", "activate", slug]).exit_code
-        == 0
-    )
-    assert runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start"]).exit_code == 0
-    assert (
-        runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "plan", "propose", "--text", _plan_text(title)],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "plan",
-                "approve",
-                "--version",
-                "1",
-                "--actor",
-                "user",
-                "--note",
-                "Approved.",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(app, ["--cwd", str(tmp_path), "implement", "start"]).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "implement",
-                "change",
-                "--path",
-                "taskledger/services/releases.py",
-                "--kind",
-                "edit",
-                "--summary",
-                f"Implemented {title}.",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "implement",
-                "command",
-                "--",
-                "python",
-                "-c",
-                "print('ok')",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "todo",
-                "done",
-                "todo-0001",
-                "--evidence",
-                "python -c print('ok')",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "implement",
-                "finish",
-                "--summary",
-                f"Implemented {title}.",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(app, ["--cwd", str(tmp_path), "validate", "start"]).exit_code == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "validate",
-                "check",
-                "--criterion",
-                "ac-0001",
-                "--status",
-                "fail",
-                "--evidence",
-                "python -c print('fail')",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "validate",
-                "finish",
-                "--result",
-                "failed",
-                "--summary",
-                f"Validation failed for {title}.",
-            ],
-        ).exit_code
-        == 0
-    )
-    return task_id
 
 
 def test_release_tag_persists_release_record(tmp_path: Path) -> None:

@@ -12,9 +12,14 @@ taskledger = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-p no:odoo"
+addopts = "-p no:odoo --strict-markers"
 testpaths = ["tests"]
 python_files = "test_*.py"
+markers = [
+    "cli: exercises the Typer CLI surface",
+    "integration: exercises multiple taskledger layers or a full lifecycle",
+    "slow: intentionally slower than normal unit tests",
+]
 
 [project]
 name = "taskledger"
@@ -62,6 +67,7 @@ dev = [
     "build",
     "mypy",
     "pytest",
+    "pytest-xdist",
     "ruff",
     "twine",
     "types-PyYAML",

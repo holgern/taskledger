@@ -421,7 +421,10 @@ Keep this skill outside the Python package. No additional
 ## Development
 
 ```bash
-pytest -q
+python -m pytest -m "not slow"
+python -m pytest -m "not slow" -n auto
+python -m pytest -n auto
+python -m pytest
 ruff check .
 ```
 

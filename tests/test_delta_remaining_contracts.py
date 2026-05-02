@@ -3,10 +3,20 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 import yaml
 from typer.testing import CliRunner
 
 from taskledger.cli import app
+from taskledger.services.tasks import (
+    add_todo,
+    finish_implementation,
+    start_implementation,
+    start_validation,
+)
+from tests.support.builders import create_approved_task, init_workspace
+
+pytestmark = [pytest.mark.cli, pytest.mark.integration, pytest.mark.slow]
 
 
 def _make_runner() -> CliRunner:
@@ -24,219 +34,51 @@ def _json(result) -> dict[str, object]:
 
 
 def _init(tmp_path: Path) -> None:
-    result = runner.invoke(app, ["--cwd", str(tmp_path), "init"])
-    assert result.exit_code == 0
+    init_workspace(tmp_path)
 
 
 def _prepare_validating_task(tmp_path: Path) -> None:
     _init(tmp_path)
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "task",
-                "create",
-                "validation-gate",
-                "--description",
-                "Exercise validation gates.",
-            ],
-        ).exit_code
-        == 0
+    task_id = create_approved_task(
+        tmp_path,
+        title="validation-gate",
+        slug="validation-gate",
+        description="Exercise validation gates.",
+        plan_text="## Goal\n\nValidate objectively.",
+        criteria=("Mandatory behavior is checked.",),
+        allow_empty_todos=True,
+        allow_lint_errors=True,
+        approve_note="Approved.",
+        approve_reason="test",
     )
-    assert (
-        runner.invoke(
-            app, ["--cwd", str(tmp_path), "plan", "start", "--task", "validation-gate"]
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "plan",
-                "propose",
-                "--task",
-                "validation-gate",
-                "--criterion",
-                "Mandatory behavior is checked.",
-                "--text",
-                "## Goal\n\nValidate objectively.",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "plan",
-                "approve",
-                "--task",
-                "validation-gate",
-                "--version",
-                "1",
-                "--actor",
-                "user",
-                "--note",
-                "Approved.",
-                "--allow-empty-todos",
-                "--allow-lint-errors",
-                "--reason",
-                "test",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "implement", "start", "--task", "validation-gate"],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "implement",
-                "finish",
-                "--task",
-                "validation-gate",
-                "--summary",
-                "Implemented.",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "validate", "start", "--task", "validation-gate"],
-        ).exit_code
-        == 0
-    )
+    start_implementation(tmp_path, task_id)
+    finish_implementation(tmp_path, task_id, summary="Implemented.")
+    start_validation(tmp_path, task_id)
 
 
 def _prepare_validating_task_with_mandatory_todo(tmp_path: Path) -> None:
     _init(tmp_path)
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "task",
-                "create",
-                "validation-gate",
-                "--description",
-                "Exercise validation gates.",
-            ],
-        ).exit_code
-        == 0
+    task_id = create_approved_task(
+        tmp_path,
+        title="validation-gate",
+        slug="validation-gate",
+        description="Exercise validation gates.",
+        plan_text="## Goal\n\nValidate objectively.",
+        criteria=("Mandatory behavior is checked.",),
+        allow_empty_todos=True,
+        allow_lint_errors=True,
+        approve_note="Approved.",
+        approve_reason="test",
     )
-    assert (
-        runner.invoke(
-            app, ["--cwd", str(tmp_path), "plan", "start", "--task", "validation-gate"]
-        ).exit_code
-        == 0
+    add_todo(
+        tmp_path,
+        task_id,
+        text="Final sign-off",
+        mandatory=True,
     )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "plan",
-                "propose",
-                "--task",
-                "validation-gate",
-                "--criterion",
-                "Mandatory behavior is checked.",
-                "--text",
-                "## Goal\n\nValidate objectively.",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "plan",
-                "approve",
-                "--task",
-                "validation-gate",
-                "--version",
-                "1",
-                "--actor",
-                "user",
-                "--note",
-                "Approved.",
-                "--allow-empty-todos",
-                "--allow-lint-errors",
-                "--reason",
-                "test",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "todo",
-                "add",
-                "--task",
-                "validation-gate",
-                "--text",
-                "Final sign-off",
-                "--mandatory",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "implement", "start", "--task", "validation-gate"],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "implement",
-                "finish",
-                "--task",
-                "validation-gate",
-                "--summary",
-                "Implemented.",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "validate", "start", "--task", "validation-gate"],
-        ).exit_code
-        == 0
-    )
+    start_implementation(tmp_path, task_id)
+    finish_implementation(tmp_path, task_id, summary="Implemented.")
+    start_validation(tmp_path, task_id)
 
 
 def test_validation_pass_requires_mandatory_criteria_checks(tmp_path: Path) -> None:

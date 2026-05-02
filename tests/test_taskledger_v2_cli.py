@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import replace
 from pathlib import Path
 
+import pytest
 import yaml
 from typer.testing import CliRunner
 
 from taskledger.cli import app
+from taskledger.services.tasks import add_change, start_implementation
 from taskledger.storage.task_store import (
     list_runs,
     resolve_run,
@@ -15,6 +18,9 @@ from taskledger.storage.task_store import (
     save_run,
     save_task,
 )
+from tests.support.builders import create_approved_task, init_workspace
+
+pytestmark = [pytest.mark.cli, pytest.mark.integration, pytest.mark.slow]
 
 
 def _make_runner() -> CliRunner:
@@ -28,36 +34,17 @@ runner = _make_runner()
 
 
 def _init_project(tmp_path: Path) -> None:
-    result = runner.invoke(app, ["--cwd", str(tmp_path), "init"])
-    assert result.exit_code == 0
+    init_workspace(tmp_path)
 
 
 def _prepare_focused_context_task(tmp_path: Path) -> str:
     _init_project(tmp_path)
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "task",
-                "create",
-                "focused-contexts",
-                "--description",
-                "Exercise focused worker contexts.",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "task", "activate", "focused-contexts"],
-        ).exit_code
-        == 0
-    )
-    assert runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start"]).exit_code == 0
-    plan_text = """---
+    task_id = create_approved_task(
+        tmp_path,
+        title="focused-contexts",
+        slug="focused-contexts",
+        description="Exercise focused worker contexts.",
+        plan_text="""---
 goal: Render focused worker contexts.
 acceptance_criteria:
   - id: ac-0001
@@ -71,65 +58,19 @@ todos:
 # Plan
 
 Ship focused worker contexts.
-"""
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "plan",
-                "propose",
-                "--text",
-                plan_text,
-            ],
-        ).exit_code
-        == 0
+""",
+        approve_note="Ready to implement.",
     )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "plan",
-                "approve",
-                "--version",
-                "1",
-                "--actor",
-                "user",
-                "--note",
-                "Ready to implement.",
-            ],
-        ).exit_code
-        == 0
+    payload = start_implementation(tmp_path, task_id)
+    run_id = str(payload["run_id"])
+    add_change(
+        tmp_path,
+        task_id,
+        path="taskledger/services/handoff.py",
+        kind="edit",
+        summary="Added focused worker context handling.",
     )
-    assert (
-        runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "implement", "start"],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "implement",
-                "change",
-                "--path",
-                "taskledger/services/handoff.py",
-                "--kind",
-                "edit",
-                "--summary",
-                "Added focused worker context handling.",
-            ],
-        ).exit_code
-        == 0
-    )
-    return "run-0002"
+    return run_id
 
 
 def _json(result) -> dict[str, object]:
@@ -141,36 +82,12 @@ def _json(result) -> dict[str, object]:
 
 def _prepare_resumable_implementation_task(tmp_path: Path) -> tuple[str, str]:
     _init_project(tmp_path)
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "task",
-                "create",
-                "resume-task",
-                "--description",
-                "Exercise implement resume.",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "task", "activate", "resume-task"],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "plan", "start", "--task", "resume-task"],
-        ).exit_code
-        == 0
-    )
-    plan_text = """---
+    task_id = create_approved_task(
+        tmp_path,
+        title="resume-task",
+        slug="resume-task",
+        description="Exercise implement resume.",
+        plan_text="""---
 goal: Recover a running implementation.
 acceptance_criteria:
   - id: ac-0001
@@ -184,88 +101,23 @@ todos:
 # Plan
 
 Recover a running implementation after its lock is broken.
-"""
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "plan",
-                "propose",
-                "--task",
-                "resume-task",
-                "--text",
-                plan_text,
-            ],
-        ).exit_code
-        == 0
+""",
+        approve_note="Ready to implement.",
     )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "plan",
-                "approve",
-                "--task",
-                "resume-task",
-                "--version",
-                "1",
-                "--actor",
-                "user",
-                "--note",
-                "Ready to implement.",
-            ],
-        ).exit_code
-        == 0
-    )
-    start = _json(
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "--json",
-                "implement",
-                "start",
-                "--task",
-                "resume-task",
-            ],
-        )
-    )
-    return "task-0001", str(start["result"]["run_id"])
+    start_payload = start_implementation(tmp_path, task_id)
+    return task_id, str(start_payload["run_id"])
 
 
 def _prepare_approved_task_with_orphaned_planning_run(
     tmp_path: Path,
 ) -> tuple[str, str]:
     _init_project(tmp_path)
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "task",
-                "create",
-                "orphan-plan",
-                "--description",
-                "Exercise orphaned planning run handling.",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "task", "activate", "orphan-plan"],
-        ).exit_code
-        == 0
-    )
-    assert runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start"]).exit_code == 0
-    plan_text = """---
+    task_id = create_approved_task(
+        tmp_path,
+        title="orphan-plan",
+        slug="orphan-plan",
+        description="Exercise orphaned planning run handling.",
+        plan_text="""---
 goal: Repair an orphaned planning run.
 acceptance_criteria:
   - id: ac-0001
@@ -279,37 +131,45 @@ todos:
 # Plan
 
 Repair before implementation.
-"""
-    assert (
-        runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "plan", "propose", "--text", plan_text],
-        ).exit_code
-        == 0
+""",
+        approve_note="Approved for implementation.",
     )
-    assert (
+    task = resolve_task(tmp_path, task_id)
+    assert task.latest_planning_run is not None
+    run = resolve_run(tmp_path, task.id, task.latest_planning_run)
+    save_run(tmp_path, replace(run, status="running", finished_at=None))
+    return task.id, run.run_id
+
+
+def test_implement_command_records_stdout_stderr_and_exit_code(
+    tmp_path: Path,
+) -> None:
+    _prepare_focused_context_task(tmp_path)
+    result = _json(
         runner.invoke(
             app,
             [
                 "--cwd",
                 str(tmp_path),
-                "plan",
-                "approve",
-                "--version",
-                "1",
-                "--actor",
-                "user",
-                "--note",
-                "Approved for implementation.",
+                "--json",
+                "implement",
+                "command",
+                "--task",
+                "focused-contexts",
+                "--",
+                sys.executable,
+                "-c",
+                "import sys;print('ok');print('err', file=sys.stderr)",
             ],
-        ).exit_code
-        == 0
+        )
     )
-    task = resolve_task(tmp_path, "orphan-plan")
-    assert task.latest_planning_run is not None
-    run = resolve_run(tmp_path, task.id, task.latest_planning_run)
-    save_run(tmp_path, replace(run, status="running", finished_at=None))
-    return task.id, run.run_id
+    command_payload = result["result"]
+    assert command_payload["kind"] == "implementation_command"
+    assert command_payload["exit_code"] == 0
+    assert "ok" in command_payload["stdout"]
+    assert "err" in command_payload["stderr"]
+    assert command_payload["change"]["kind"] == "command"
+    assert command_payload["change"]["exit_code"] == 0
 
 
 def _break_task_lock(tmp_path: Path, task_ref: str = "resume-task") -> None:

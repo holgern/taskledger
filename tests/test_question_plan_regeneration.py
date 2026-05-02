@@ -3,10 +3,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from taskledger.cli import app
+from taskledger.services.tasks import activate_task, create_task, start_planning
 from taskledger.storage.task_store import resolve_run, resolve_task
+from tests.support.builders import init_workspace
+
+pytestmark = [pytest.mark.cli, pytest.mark.integration, pytest.mark.slow]
 
 
 def _runner() -> CliRunner:
@@ -24,30 +29,15 @@ def _json(result) -> dict[str, object]:
 
 
 def _init_task(tmp_path: Path) -> None:
-    assert runner.invoke(app, ["--cwd", str(tmp_path), "init"]).exit_code == 0
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "task",
-                "create",
-                "Regeneration task",
-                "--slug",
-                "regen-task",
-            ],
-        ).exit_code
-        == 0
+    init_workspace(tmp_path)
+    task = create_task(
+        tmp_path,
+        title="Regeneration task",
+        slug="regen-task",
+        description="",
     )
-    assert (
-        runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "task", "activate", "regen-task"],
-        ).exit_code
-        == 0
-    )
-    assert runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start"]).exit_code == 0
+    activate_task(tmp_path, task.id, reason="test setup")
+    start_planning(tmp_path, task.id)
 
 
 def test_required_question_blocks_approval_until_answered_and_regenerated(

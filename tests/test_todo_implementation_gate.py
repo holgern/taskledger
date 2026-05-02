@@ -9,9 +9,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from taskledger.cli import app
+from taskledger.services.tasks import start_implementation
+from tests.support.builders import create_approved_task, init_workspace
+
+pytestmark = [pytest.mark.cli, pytest.mark.integration, pytest.mark.slow]
 
 
 def _make_runner() -> CliRunner:
@@ -33,8 +38,7 @@ def _json(result) -> dict[str, object]:
 
 
 def _init(tmp_path: Path) -> None:
-    result = runner.invoke(app, ["--cwd", str(tmp_path), "init"])
-    assert result.exit_code == 0
+    init_workspace(tmp_path)
 
 
 def _prepare_task_for_implementation(
@@ -42,129 +46,25 @@ def _prepare_task_for_implementation(
 ) -> None:
     """Create, plan, approve, and start implementing a task."""
     _init(tmp_path)
-
-    # Create task
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "task",
-                "create",
-                task_id,
-                "--description",
-                "Test task for todo gate.",
-            ],
-        ).exit_code
-        == 0
+    create_approved_task(
+        tmp_path,
+        title=task_id,
+        slug=task_id,
+        description="Test task for todo gate.",
+        plan_text="## Implementation Plan\n\nImplement the feature.",
+        criteria=("Works correctly.",),
+        allow_empty_todos=True,
+        allow_lint_errors=True,
+        approve_note="Looks good.",
+        approve_reason="test",
     )
-    assert (
-        runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "task", "activate", task_id],
-        ).exit_code
-        == 0
-    )
-
-    # Start planning
-    assert (
-        runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "plan", "start", "--task", task_id],
-        ).exit_code
-        == 0
-    )
-
-    # Propose plan
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "plan",
-                "propose",
-                "--task",
-                task_id,
-                "--criterion",
-                "Works correctly.",
-                "--text",
-                "## Implementation Plan\n\nImplement the feature.",
-            ],
-        ).exit_code
-        == 0
-    )
-
-    # Approve plan
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "plan",
-                "approve",
-                "--task",
-                task_id,
-                "--version",
-                "1",
-                "--actor",
-                "user",
-                "--note",
-                "Looks good.",
-                "--allow-empty-todos",
-                "--allow-lint-errors",
-                "--reason",
-                "test",
-            ],
-        ).exit_code
-        == 0
-    )
-
-    # Start implementation
-    assert (
-        runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "implement", "start", "--task", task_id],
-        ).exit_code
-        == 0
-    )
+    start_implementation(tmp_path, task_id)
 
 
 def _prepare_task_with_planned_todo(
     tmp_path: Path, task_id: str = "planned-todo"
 ) -> None:
     _init(tmp_path)
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "task",
-                "create",
-                task_id,
-                "--description",
-                "Task with a planned todo.",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "task", "activate", task_id],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "plan", "start", "--task", task_id],
-        ).exit_code
-        == 0
-    )
     plan_text = f"""---
 goal: Expose compact todo hints.
 files:
@@ -186,49 +86,15 @@ todos:
 
 Ship compact todo hints.
 """
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "plan",
-                "propose",
-                "--task",
-                task_id,
-                "--text",
-                plan_text,
-            ],
-        ).exit_code
-        == 0
+    create_approved_task(
+        tmp_path,
+        title=task_id,
+        slug=task_id,
+        description="Task with a planned todo.",
+        plan_text=plan_text,
+        approve_note="Looks good.",
     )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "plan",
-                "approve",
-                "--task",
-                task_id,
-                "--version",
-                "1",
-                "--actor",
-                "user",
-                "--note",
-                "Looks good.",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "implement", "start", "--task", task_id],
-        ).exit_code
-        == 0
-    )
+    start_implementation(tmp_path, task_id)
 
 
 class TestTodoImplementationGate:

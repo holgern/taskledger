@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import shlex
-import subprocess
 from dataclasses import replace
 from pathlib import Path
 
 from taskledger.domain.models import ActorRef, HarnessRef, TaskRecord, TaskRunRecord
 from taskledger.domain.states import IMPLEMENTABLE_TASK_STAGES
+from taskledger.services import command_runner
 from taskledger.services import tasks as _tasks
 from taskledger.storage.indexes import rebuild_v2_indexes
 from taskledger.storage.task_store import (
@@ -386,13 +386,7 @@ def run_implementation_command(
         task_ref,
         action="record implementation commands",
     )
-    completed = subprocess.run(
-        list(argv),
-        cwd=workspace_root,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    completed = command_runner.run_command(argv, cwd=workspace_root)
     output = _tasks._command_output(argv, completed.stdout, completed.stderr)
     artifact_ref: str | None = None
     if len(output) > 4000 or output.count("\n") > 50:

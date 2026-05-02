@@ -326,22 +326,6 @@ Finish the boundary task.
             [
                 "--cwd",
                 str(source_root),
-                "implement",
-                "command",
-                "--",
-                "python",
-                "-c",
-                "print('ok')",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(source_root),
                 "todo",
                 "done",
                 "todo-0001",

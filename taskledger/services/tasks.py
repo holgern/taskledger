@@ -70,6 +70,7 @@ from taskledger.domain.states import (
 )
 from taskledger.errors import LaunchError, LockConflict, NoActiveTask
 from taskledger.ids import allocate_ledger_task_id, next_project_id, slugify_project_ref
+from taskledger.services import command_runner
 from taskledger.services.task_queries import (
     accepted_plan_record_or_none as _task_query_accepted_plan_record_or_none,
 )
@@ -2196,13 +2197,7 @@ def run_planning_command(
             run=run,
         )
     )
-    completed = subprocess.run(
-        list(argv),
-        cwd=workspace_root,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    completed = command_runner.run_command(argv, cwd=workspace_root)
     output = _command_output(argv, completed.stdout, completed.stderr)
     artifact_ref: str | None = None
     if len(output) > 4000 or output.count("\n") > 50:
