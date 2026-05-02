@@ -137,8 +137,7 @@ def _prepare_active_implementation(project_root: Path, *, slug: str) -> None:
         == 0
     )
     assert (
-        runner.invoke(app, ["--cwd", str(project_root), "plan", "start"]).exit_code
-        == 0
+        runner.invoke(app, ["--cwd", str(project_root), "plan", "start"]).exit_code == 0
     )
     plan_text = """---
 goal: Test cross-machine import behavior.
@@ -536,11 +535,9 @@ def test_import_replace_quarantines_lock_and_allows_resume(tmp_path: Path) -> No
 
     assert not _task_lock_paths(dest_root, "task-0001")
     imported_lock_audits = sorted(
-        (
-            dest_root
-            / ".taskledger"
-            / "ledgers"
-        ).glob("*/tasks/task-0001/audit/imported-lock-*.yaml")
+        (dest_root / ".taskledger" / "ledgers").glob(
+            "*/tasks/task-0001/audit/imported-lock-*.yaml"
+        )
     )
     assert imported_lock_audits
 
