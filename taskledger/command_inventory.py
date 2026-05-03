@@ -1,148 +1,434 @@
+"""Command metadata inventory with audience, effect, surface, and phase."""
+
 from __future__ import annotations
 
+from typing import NamedTuple
+
+# ── audience constants ────────────────────────────────────────────────
 STABLE_FOR_AGENTS = "stable_for_agents"
 BETA_FOR_AGENTS = "beta_for_agents"
 HUMAN_ORIENTED = "human_oriented"
 REPAIR = "repair"
 
-COMMAND_METADATA: dict[str, tuple[str, str]] = {
-    "init": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "status": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "tree": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "next-action": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "view": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "serve": (HUMAN_ORIENTED, "safe_read_only"),
-    "can": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "reindex": (REPAIR, "ledger_mutation"),
-    "export": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "import": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "snapshot": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "context": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "search": (BETA_FOR_AGENTS, "safe_read_only"),
-    "grep": (BETA_FOR_AGENTS, "safe_read_only"),
-    "symbols": (BETA_FOR_AGENTS, "safe_read_only"),
-    "deps": (BETA_FOR_AGENTS, "safe_read_only"),
-    "task create": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "task list": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "task active": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "task activate": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "task deactivate": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "task follow-up": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "task show": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "task edit": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "task cancel": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "task uncancel": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "task close": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "task record": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "task dossier": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "task transcript": (HUMAN_ORIENTED, "safe_read_only"),
-    "task report": (HUMAN_ORIENTED, "safe_read_only"),
-    "task events": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "plan start": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "plan propose": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "plan draft": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "plan template": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "plan regenerate": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "plan upsert": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "plan materialize-todos": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "plan show": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "plan list": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "plan diff": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "plan lint": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "plan guidance": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "plan approve": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "plan accept": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "plan command": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "plan reject": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "plan revise": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "question add": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "question add-many": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "question list": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "question answer": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "question answer-many": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "question dismiss": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "question open": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "question status": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "question answers": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "implement start": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "implement restart": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "implement resume": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "implement log": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "implement change": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "implement scan-changes": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "implement command": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "implement deviation": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "implement artifact": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "implement finish": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "implement show": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "implement status": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "implement checklist": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "validate start": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "validate check": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "validate finish": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "validate status": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "validate waive": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "validate show": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "todo add": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "todo list": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "todo done": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "todo undone": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "todo show": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "todo status": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "todo next": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "intro create": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "intro list": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "intro show": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "intro link": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "file add": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "file remove": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "file list": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "link add": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "link list": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "link remove": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "require add": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "require list": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "require remove": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "require waive": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "release tag": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "release list": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "release show": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "release changelog": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "lock show": (REPAIR, "safe_read_only"),
-    "lock break": (REPAIR, "ledger_mutation"),
-    "lock list": (REPAIR, "safe_read_only"),
-    "handoff show": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "handoff create": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "handoff list": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "handoff claim": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "handoff close": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "handoff cancel": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "handoff plan-context": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "handoff implementation-context": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "handoff validation-context": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "actor whoami": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "actor set": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "actor clear": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "harness set": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "harness clear": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "doctor": (REPAIR, "safe_read_only"),
-    "doctor locks": (REPAIR, "safe_read_only"),
-    "doctor schema": (REPAIR, "safe_read_only"),
-    "doctor indexes": (REPAIR, "safe_read_only"),
-    "repair index": (REPAIR, "ledger_mutation"),
-    "repair lock": (REPAIR, "ledger_mutation"),
-    "repair planning-command-changes": (REPAIR, "ledger_mutation"),
-    "repair run": (REPAIR, "ledger_mutation"),
-    "repair task": (REPAIR, "ledger_mutation"),
-    "repair task-dirs": (REPAIR, "ledger_mutation"),
-    "migrate status": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "migrate plan": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "migrate apply": (REPAIR, "ledger_mutation"),
-    "ledger status": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "ledger list": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "ledger fork": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "ledger switch": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "ledger adopt": (STABLE_FOR_AGENTS, "ledger_mutation"),
-    "ledger doctor": (STABLE_FOR_AGENTS, "safe_read_only"),
-    "commands": (HUMAN_ORIENTED, "safe_read_only"),
+# ── surface constants ─────────────────────────────────────────────────
+PRIMARY = "primary"
+SUPPORT = "support"
+ADVANCED = "advanced"
+HUMAN = "human"
+REPAIR_SURFACE = "repair"
+MIGRATION = "migration"
+BETA = "beta"
+
+# ── phase constants ───────────────────────────────────────────────────
+PHASE_SETUP = "setup"
+PHASE_PLANNING = "planning"
+PHASE_APPROVAL = "approval"
+PHASE_IMPLEMENTATION = "implementation"
+PHASE_VALIDATION = "validation"
+PHASE_REPORTING = "reporting"
+PHASE_TRANSFER = "transfer"
+PHASE_RELEASE = "release"
+PHASE_REPAIR = "repair"
+PHASE_SEARCH = "search"
+
+
+class CommandSpec(NamedTuple):
+    audience: str
+    effect: str
+    surface: str
+    phase: str
+
+
+COMMAND_METADATA: dict[str, CommandSpec] = {
+    # ── setup / identity ──────────────────────────────────────────
+    "actor whoami": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_SETUP
+    ),
+    "actor set": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_SETUP
+    ),
+    "actor clear": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_SETUP
+    ),
+    "harness set": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_SETUP
+    ),
+    "harness clear": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_SETUP
+    ),
+    # ── orientation ───────────────────────────────────────────────
+    "init": CommandSpec(STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_SETUP),
+    "next-action": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_REPORTING
+    ),
+    "can": CommandSpec(STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_REPORTING),
+    "context": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_REPORTING
+    ),
+    # ── task management ───────────────────────────────────────────
+    "task create": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_PLANNING
+    ),
+    "task activate": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_PLANNING
+    ),
+    "task deactivate": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_PLANNING
+    ),
+    "task follow-up": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_PLANNING
+    ),
+    "task record": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_PLANNING
+    ),
+    "task active": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_REPORTING
+    ),
+    "task show": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_REPORTING
+    ),
+    "task list": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_REPORTING
+    ),
+    "task edit": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_PLANNING
+    ),
+    "task cancel": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_PLANNING
+    ),
+    "task uncancel": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_PLANNING
+    ),
+    "task close": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_PLANNING
+    ),
+    "task events": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", ADVANCED, PHASE_REPORTING
+    ),
+    # ── planning ──────────────────────────────────────────────────
+    "plan start": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_PLANNING
+    ),
+    "plan template": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_PLANNING
+    ),
+    "plan guidance": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_PLANNING
+    ),
+    "plan upsert": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_PLANNING
+    ),
+    "plan lint": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_PLANNING
+    ),
+    "plan show": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_PLANNING
+    ),
+    "plan list": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_PLANNING
+    ),
+    "plan diff": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_PLANNING
+    ),
+    "plan draft": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_PLANNING
+    ),
+    "plan propose": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_PLANNING
+    ),
+    "plan regenerate": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_PLANNING
+    ),
+    "plan materialize-todos": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_PLANNING
+    ),
+    "plan command": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_PLANNING
+    ),
+    "plan revise": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_PLANNING
+    ),
+    "plan reject": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_APPROVAL
+    ),
+    # ── approval ──────────────────────────────────────────────────
+    "plan accept": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_APPROVAL
+    ),
+    "plan approve": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_APPROVAL
+    ),
+    # ── questions ─────────────────────────────────────────────────
+    "question add": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_PLANNING
+    ),
+    "question add-many": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_PLANNING
+    ),
+    "question answer": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_PLANNING
+    ),
+    "question answer-many": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_PLANNING
+    ),
+    "question status": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_PLANNING
+    ),
+    "question answers": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_PLANNING
+    ),
+    "question list": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_PLANNING
+    ),
+    "question open": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_PLANNING
+    ),
+    "question dismiss": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_PLANNING
+    ),
+    # ── implementation ────────────────────────────────────────────
+    "implement start": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_IMPLEMENTATION
+    ),
+    "implement restart": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_IMPLEMENTATION
+    ),
+    "implement resume": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_IMPLEMENTATION
+    ),
+    "implement checklist": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_IMPLEMENTATION
+    ),
+    "implement command": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_IMPLEMENTATION
+    ),
+    "implement change": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_IMPLEMENTATION
+    ),
+    "implement scan-changes": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_IMPLEMENTATION
+    ),
+    "implement finish": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_IMPLEMENTATION
+    ),
+    "implement show": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_IMPLEMENTATION
+    ),
+    "implement status": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_IMPLEMENTATION
+    ),
+    "implement log": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_IMPLEMENTATION
+    ),
+    "implement deviation": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_IMPLEMENTATION
+    ),
+    "implement artifact": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_IMPLEMENTATION
+    ),
+    # ── todos ─────────────────────────────────────────────────────
+    "todo add": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_IMPLEMENTATION
+    ),
+    "todo done": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_IMPLEMENTATION
+    ),
+    "todo undone": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_IMPLEMENTATION
+    ),
+    "todo next": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_IMPLEMENTATION
+    ),
+    "todo status": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_IMPLEMENTATION
+    ),
+    "todo show": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_IMPLEMENTATION
+    ),
+    "todo list": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_IMPLEMENTATION
+    ),
+    # ── validation ────────────────────────────────────────────────
+    "validate start": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_VALIDATION
+    ),
+    "validate status": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_VALIDATION
+    ),
+    "validate check": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_VALIDATION
+    ),
+    "validate finish": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_VALIDATION
+    ),
+    "validate waive": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_VALIDATION
+    ),
+    "validate show": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_VALIDATION
+    ),
+    # ── handoffs ──────────────────────────────────────────────────
+    "handoff create": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_TRANSFER
+    ),
+    "handoff claim": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_TRANSFER
+    ),
+    "handoff close": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_TRANSFER
+    ),
+    "handoff show": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_TRANSFER
+    ),
+    "handoff list": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_TRANSFER
+    ),
+    "handoff cancel": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_TRANSFER
+    ),
+    "handoff plan-context": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", ADVANCED, PHASE_TRANSFER
+    ),
+    "handoff implementation-context": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", ADVANCED, PHASE_TRANSFER
+    ),
+    "handoff validation-context": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", ADVANCED, PHASE_TRANSFER
+    ),
+    # ── human-oriented reads ──────────────────────────────────────
+    "status": CommandSpec(STABLE_FOR_AGENTS, "safe_read_only", HUMAN, PHASE_REPORTING),
+    "view": CommandSpec(STABLE_FOR_AGENTS, "safe_read_only", HUMAN, PHASE_REPORTING),
+    "tree": CommandSpec(STABLE_FOR_AGENTS, "safe_read_only", HUMAN, PHASE_REPORTING),
+    "serve": CommandSpec(HUMAN_ORIENTED, "safe_read_only", HUMAN, PHASE_REPORTING),
+    "task dossier": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", HUMAN, PHASE_REPORTING
+    ),
+    "task report": CommandSpec(
+        HUMAN_ORIENTED, "safe_read_only", HUMAN, PHASE_REPORTING
+    ),
+    "task transcript": CommandSpec(
+        HUMAN_ORIENTED, "safe_read_only", HUMAN, PHASE_REPORTING
+    ),
+    "commands": CommandSpec(HUMAN_ORIENTED, "safe_read_only", HUMAN, PHASE_REPORTING),
+    # ── references / metadata ─────────────────────────────────────
+    "file add": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_PLANNING
+    ),
+    "file remove": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_PLANNING
+    ),
+    "file list": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_REPORTING
+    ),
+    "link add": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_PLANNING
+    ),
+    "link remove": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_PLANNING
+    ),
+    "link list": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_REPORTING
+    ),
+    "intro create": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_PLANNING
+    ),
+    "intro link": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_PLANNING
+    ),
+    "intro list": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_REPORTING
+    ),
+    "intro show": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_REPORTING
+    ),
+    "require add": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_PLANNING
+    ),
+    "require remove": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_PLANNING
+    ),
+    "require list": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_REPORTING
+    ),
+    "require waive": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_PLANNING
+    ),
+    # ── project transfer / ledgers ────────────────────────────────
+    "export": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_TRANSFER
+    ),
+    "import": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_TRANSFER
+    ),
+    "snapshot": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_TRANSFER
+    ),
+    "ledger status": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_TRANSFER
+    ),
+    "ledger list": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_TRANSFER
+    ),
+    "ledger fork": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_TRANSFER
+    ),
+    "ledger switch": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_TRANSFER
+    ),
+    "ledger adopt": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_TRANSFER
+    ),
+    "ledger doctor": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", ADVANCED, PHASE_TRANSFER
+    ),
+    # ── release ───────────────────────────────────────────────────
+    "release tag": CommandSpec(
+        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_RELEASE
+    ),
+    "release list": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", HUMAN, PHASE_RELEASE
+    ),
+    "release show": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", HUMAN, PHASE_RELEASE
+    ),
+    "release changelog": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", HUMAN, PHASE_RELEASE
+    ),
+    # ── search ────────────────────────────────────────────────────
+    "search": CommandSpec(BETA_FOR_AGENTS, "safe_read_only", BETA, PHASE_SEARCH),
+    "grep": CommandSpec(BETA_FOR_AGENTS, "safe_read_only", BETA, PHASE_SEARCH),
+    "symbols": CommandSpec(BETA_FOR_AGENTS, "safe_read_only", BETA, PHASE_SEARCH),
+    "deps": CommandSpec(BETA_FOR_AGENTS, "safe_read_only", BETA, PHASE_SEARCH),
+    # ── repair / doctor ───────────────────────────────────────────
+    "doctor": CommandSpec(REPAIR, "safe_read_only", REPAIR_SURFACE, PHASE_REPAIR),
+    "doctor locks": CommandSpec(REPAIR, "safe_read_only", REPAIR_SURFACE, PHASE_REPAIR),
+    "doctor schema": CommandSpec(
+        REPAIR, "safe_read_only", REPAIR_SURFACE, PHASE_REPAIR
+    ),
+    "doctor indexes": CommandSpec(
+        REPAIR, "safe_read_only", REPAIR_SURFACE, PHASE_REPAIR
+    ),
+    "lock show": CommandSpec(REPAIR, "safe_read_only", REPAIR_SURFACE, PHASE_REPAIR),
+    "lock list": CommandSpec(REPAIR, "safe_read_only", REPAIR_SURFACE, PHASE_REPAIR),
+    "lock break": CommandSpec(REPAIR, "ledger_mutation", ADVANCED, PHASE_REPAIR),
+    "repair lock": CommandSpec(REPAIR, "ledger_mutation", REPAIR_SURFACE, PHASE_REPAIR),
+    "repair index": CommandSpec(
+        REPAIR, "ledger_mutation", REPAIR_SURFACE, PHASE_REPAIR
+    ),
+    "repair run": CommandSpec(REPAIR, "ledger_mutation", REPAIR_SURFACE, PHASE_REPAIR),
+    "repair task": CommandSpec(REPAIR, "ledger_mutation", REPAIR_SURFACE, PHASE_REPAIR),
+    "repair task-dirs": CommandSpec(
+        REPAIR, "ledger_mutation", REPAIR_SURFACE, PHASE_REPAIR
+    ),
+    "repair planning-command-changes": CommandSpec(
+        REPAIR, "ledger_mutation", REPAIR_SURFACE, PHASE_REPAIR
+    ),
+    "migrate status": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", MIGRATION, PHASE_REPAIR
+    ),
+    "migrate plan": CommandSpec(
+        STABLE_FOR_AGENTS, "safe_read_only", MIGRATION, PHASE_REPAIR
+    ),
+    "migrate apply": CommandSpec(REPAIR, "ledger_mutation", MIGRATION, PHASE_REPAIR),
+    "reindex": CommandSpec(REPAIR, "ledger_mutation", REPAIR_SURFACE, PHASE_REPAIR),
 }

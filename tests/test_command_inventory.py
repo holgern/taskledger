@@ -72,7 +72,7 @@ def test_mutating_commands_are_not_marked_safe_read_only() -> None:
         "waive",
     }
 
-    for command, (_, effect) in COMMAND_METADATA.items():
+    for command, spec in COMMAND_METADATA.items():
         assert not (
-            command.split()[-1] in mutating_suffixes and effect == "safe_read_only"
+            command.split()[-1] in mutating_suffixes and spec.effect == "safe_read_only"
         ), command

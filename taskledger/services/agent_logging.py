@@ -45,6 +45,7 @@ _LEDGER_MUTATION = "ledger_mutation"
 _TRUTHY = {"1", "true", "yes", "on"}
 _GLOBAL_VALUE_OPTIONS = {"--cwd", "--root"}
 _GLOBAL_BOOL_OPTIONS = {"--json", "--no-log", "--version"}
+_HELP_FLAGS = {"--help", "-h", "--show-completion", "--install-completion"}
 
 
 def _env_no_log() -> bool:
@@ -98,6 +99,8 @@ def _should_skip_cli_recording(
     no_log: bool,
 ) -> bool:
     """Determine whether CLI recording should be skipped."""
+    if _HELP_FLAGS.intersection(argv):
+        return True
     if no_log or _env_no_log():
         return True
     if not config.enabled or not config.capture_taskledger_cli:
@@ -112,7 +115,7 @@ def _should_skip_cli_recording(
         # Conservative default: unknown commands remain logged.
         return False
 
-    audience, effect = metadata
+    audience, effect, _surface, _phase = metadata
     if audience == HUMAN_ORIENTED and not config.capture_human_oriented:
         return True
     if effect == _SAFE_READ_ONLY and not config.capture_safe_read_only:

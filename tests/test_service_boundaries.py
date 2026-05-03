@@ -42,7 +42,7 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
     "taskledger/cli.py:207": (
         "Top-level command dispatch keeps unexpected crashes in structured output."
     ),
-    "taskledger/cli.py:603": (
+    "taskledger/cli.py:641": (
         "Serve command optional import fallback reports missing dashboard gracefully."
     ),
     "taskledger/cli_ledger.py:111": (

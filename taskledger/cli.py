@@ -279,6 +279,15 @@ def context_command(
     emit_payload(ctx, payload, human=human)
 
 
+_HELP_FLAGS = {"--help", "-h", "--show-completion", "--install-completion"}
+
+
+def _is_help_or_introspection(argv: tuple[str, ...]) -> bool:
+    """Return True if this is a help/completion invocation that should skip
+    workspace discovery and agent-log recording."""
+    return bool(_HELP_FLAGS.intersection(argv))
+
+
 @app.callback()
 def main(
     ctx: typer.Context,
@@ -318,6 +327,13 @@ def main(
 ) -> None:
     import sys
 
+    # Detect help/introspection invocations early to avoid workspace
+    # discovery, config loading, and agent-log recording overhead.
+    argv = tuple(sys.argv[1:])
+    if _is_help_or_introspection(argv):
+        ctx.obj = CLIState(cwd=Path.cwd(), json_output=json_output)
+        return
+
     if cwd is not None and root is not None and cwd != root:
         raise typer.BadParameter(
             "Use either --cwd or --root, not both with different values."
@@ -332,7 +348,6 @@ def main(
     ctx.obj = CLIState(cwd=resolved_cwd, json_output=json_output)
     from taskledger.services.agent_logging import start_cli_recorder
 
-    argv = tuple(sys.argv[1:])
     # When running under test runners like pytest, sys.argv contains test runner args
     # But only reject it if it's clearly not a taskledger command
     _known_commands = {
@@ -522,26 +537,44 @@ def commands_command(
             help="Filter by command effect (safe-read-only, ledger-mutation).",
         ),
     ] = None,
+    surface: Annotated[
+        str | None,
+        typer.Option(
+            "--surface",
+            help="Filter by surface tier (primary, support, advanced, etc.).",
+        ),
+    ] = None,
+    phase: Annotated[
+        str | None,
+        typer.Option(
+            "--phase",
+            help="Filter by lifecycle phase.",
+        ),
+    ] = None,
 ) -> None:
     state = ctx.obj
     assert isinstance(state, CLIState)
 
-    # Normalize filter values from CLI dashes to underscores
     audience_normalized = audience.replace("-", "_") if audience else None
     effect_normalized = effect.replace("-", "_") if effect else None
 
-    # Filter commands
     filtered_commands: list[dict[str, str]] = []
-    for cmd, (cmd_audience, cmd_effect) in sorted(COMMAND_METADATA.items()):
-        if audience_normalized and cmd_audience != audience_normalized:
+    for cmd, spec in sorted(COMMAND_METADATA.items()):
+        if audience_normalized and spec.audience != audience_normalized:
             continue
-        if effect_normalized and cmd_effect != effect_normalized:
+        if effect_normalized and spec.effect != effect_normalized:
+            continue
+        if surface and spec.surface != surface:
+            continue
+        if phase and spec.phase != phase:
             continue
         filtered_commands.append(
             {
                 "command": cmd,
-                "audience": cmd_audience,
-                "effect": cmd_effect,
+                "audience": spec.audience,
+                "effect": spec.effect,
+                "surface": spec.surface,
+                "phase": spec.phase,
             }
         )
 
@@ -553,34 +586,39 @@ def commands_command(
     if state.json_output:
         emit_payload(ctx, payload)
     else:
-        # Render human output as table
         if not filtered_commands:
             typer.echo("No commands matching the specified filters.")
             return
 
-        # Calculate column widths
         _cmd_lens = [len(cmd["command"]) for cmd in filtered_commands]
         _aud_lens = [len(cmd["audience"]) for cmd in filtered_commands]
         _eff_lens = [len(cmd["effect"]) for cmd in filtered_commands]
-        max_cmd_len = max(_cmd_lens + [len("Command")]) if filtered_commands else 10
-        max_aud_len = max(_aud_lens + [len("Audience")]) if filtered_commands else 10
-        max_eff_len = max(_eff_lens + [len("Effect")]) if filtered_commands else 10
+        _sur_lens = [len(cmd["surface"]) for cmd in filtered_commands]
+        _pha_lens = [len(cmd["phase"]) for cmd in filtered_commands]
+        max_cmd = max(_cmd_lens + [len("Command")]) if filtered_commands else 10
+        max_aud = max(_aud_lens + [len("Audience")]) if filtered_commands else 10
+        max_eff = max(_eff_lens + [len("Effect")]) if filtered_commands else 10
+        max_sur = max(_sur_lens + [len("Surface")]) if filtered_commands else 10
+        max_pha = max(_pha_lens + [len("Phase")]) if filtered_commands else 10
 
-        # Print header
         header = (
-            f"{'Command':<{max_cmd_len}}  "
-            f"{'Audience':<{max_aud_len}}  "
-            f"{'Effect':<{max_eff_len}}"
+            f"{'Command':<{max_cmd}}  "
+            f"{'Audience':<{max_aud}}  "
+            f"{'Effect':<{max_eff}}  "
+            f"{'Surface':<{max_sur}}  "
+            f"{'Phase':<{max_pha}}"
         )
         typer.echo(header)
-        typer.echo("-" * (max_cmd_len + max_aud_len + max_eff_len + 4))
+        sep_len = max_cmd + max_aud + max_eff + max_sur + max_pha + 8
+        typer.echo("-" * sep_len)
 
-        # Print rows
         for cmd_info in filtered_commands:
             typer.echo(
-                f"{cmd_info['command']:<{max_cmd_len}}  "
-                f"{cmd_info['audience']:<{max_aud_len}}  "
-                f"{cmd_info['effect']:<{max_eff_len}}"
+                f"{cmd_info['command']:<{max_cmd}}  "
+                f"{cmd_info['audience']:<{max_aud}}  "
+                f"{cmd_info['effect']:<{max_eff}}  "
+                f"{cmd_info['surface']:<{max_sur}}  "
+                f"{cmd_info['phase']:<{max_pha}}"
             )
 
 

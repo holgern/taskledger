@@ -14,7 +14,7 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 
 ## Never do these things
 
-- Do not implement before `taskledger plan approve` has recorded user approval.
+- Do not implement before a plan approval has been recorded. Prefer `plan accept` for explicit chat approval.
 - Do not validate before implementation has been finished.
 - Do not manually edit ledger files except through documented repair.
 - Do not break locks without a reason.
@@ -22,7 +22,7 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 - Do not mark validation passed without checking every mandatory acceptance criterion.
 - Do not inline large source files into taskledger records by default; use `@path` references.
 - Do not import or call `taskledger.storage.*`, `taskledger.services.*`, or `taskledger.domain.*` from ad-hoc Python during normal task work. Use CLI commands or public `taskledger.api.*` only.
-- Do not use repair commands (`lock break`, `repair lock`, `repair run`, `repair task`, `repair index`) in the normal lifecycle. Use them only after `doctor`/`lock show` proves there is stale or corrupted state.
+- Do not use repair commands (`repair lock`, `repair run`, `repair task`, `repair index`) in the normal lifecycle. Use them only after `doctor`/`lock show` proves there is stale or corrupted state. (`lock break` is a deprecated alias for `repair lock`.)
 - Do not pass approval escape hatches such as `--allow-empty-criteria`, `--allow-open-questions`, `--allow-empty-todos`, `--no-materialize-todos`, `--allow-lint-errors`, or `--allow-agent-approval` unless the user explicitly requested that bypass and gave a reason. All escape hatches require `--reason`.
 
 ## Fresh context entry protocol
@@ -105,10 +105,10 @@ If any `taskledger ...` command fails with a Python traceback before taskledger 
 14. Ensure the plan front matter includes `acceptance_criteria` and `todos`; approved plan todos materialize into the implementation checklist.
 15. For diagnostic commands needed to build the plan, preserve their output in a linked artifact or use `taskledger plan command -- ...`.
 16. A proposed plan must include concrete `acceptance_criteria` and `todos` in front matter unless the user explicitly says the task is trivial.
-17. After writing the plan, do not run `taskledger lock break`; planning locks are released by plan proposal/upsert. Run `taskledger next-action`.
+17. After writing the plan, do not run `taskledger repair lock`; planning locks are released by plan proposal/upsert. Run `taskledger next-action`.
 18. After `taskledger plan upsert --from-answers`, run `taskledger question status`. If it still reports `Plan regeneration needed: True`, do not ask for approval. Inspect `taskledger question answers`, `taskledger plan show --version N`, and `taskledger doctor`.
 19. Before asking the user to approve, run `taskledger plan lint --version N` and fix lint errors. Do not ask for approval on plans with lint errors.
-20. Record approval only with clear user intent such as approve, accept, go ahead, or start implementation: `taskledger plan approve --version N --actor user --approval-source explicit_chat --note "User approved in harness: ..."` or `taskledger plan accept --version N --note "User approved in harness: ..."`.
+20. Record approval only with clear user intent such as approve, accept, go ahead, or start implementation. Prefer `taskledger plan accept --version N --note "User approved in harness: ..."` for normal chat approval. Use `taskledger plan approve --version N --actor user --approval-source explicit_chat --note "..."` only when explicit actor/source metadata is needed (advanced).
 21. Never replace a user-provided rich plan with only generated YAML criteria and todos. Preserve the user's plan body after the front matter and use front matter only to expose machine-readable fields to Taskledger.
 22. A Taskledger plan is not just YAML front matter. The YAML block is for machine-readable `goal`, `acceptance_criteria`, `todos`, file links, and test commands. The rich human plan must remain as Markdown after the second `---`. Before approval, inspect `taskledger plan show --version N` or the saved `plan-vN.md` and verify that the accepted plan body is non-empty and contains the implementation rationale.
 
@@ -169,6 +169,19 @@ Rules for agents:
 3. Mark a todo done only after evidence exists.
 4. Record concise evidence.
 5. Do not create handoffs or context bundles unless the user explicitly asked to switch harness or session.
+
+## Which read command to use
+
+| Need                       | Command                             |
+| -------------------------- | ----------------------------------- |
+| Next step                  | `next-action`                       |
+| Next implementation item   | `todo next`                         |
+| Current task summary       | `task show`                         |
+| Project/ledger overview    | `status`, `tree`                    |
+| Human dashboard            | `serve`                             |
+| Reviewable markdown report | `task report`                       |
+| Fresh worker context       | `context` or durable `handoff show` |
+| Command audit              | `task transcript`                   |
 
 ## Validation protocol
 
@@ -244,7 +257,7 @@ To receive work:
 
 ## Failure handling
 
-- If a lock is stale, inspect it first, then run `taskledger lock break --reason "..."`.
+- If a lock is stale, inspect it first, then run `taskledger repair lock --reason "..."`.
 - If breaking an implementation lock leaves a running implementation run behind, use `taskledger implement resume --reason "..."` instead of `implement start`.
 - If `task show` reports `status_stage=implementing` but `active_stage` is missing, do not run `task uncancel`; run `taskledger next-action` and resume when it reports `implement-resume`.
 - If a cancelled task is restored with `task uncancel`, run `taskledger next-action` before starting work. If the task still has a running implementation run, resume that run instead of starting a new one.

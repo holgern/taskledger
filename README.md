@@ -39,6 +39,19 @@ The supported command surface is organized as:
 
 - `init`, `status`, `export`, `import`, `snapshot`, `release`
 
+### Which read command to use
+
+| Need                       | Command                             |
+| -------------------------- | ----------------------------------- |
+| Next step                  | `next-action`                       |
+| Next implementation item   | `todo next`                         |
+| Current task summary       | `task show`                         |
+| Project/ledger overview    | `status`, `tree`                    |
+| Human dashboard            | `serve`                             |
+| Reviewable markdown report | `task report`                       |
+| Fresh worker context       | `context` or durable `handoff show` |
+| Command audit              | `task transcript`                   |
+
 ## Planning guidance profiles
 
 Taskledger supports project-local advisory planning guidance under

@@ -304,7 +304,7 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
             )
             repair_hints.append(
                 "Break the stale lock with "
-                f'`taskledger lock break --task {task.id} --reason "..."`.'
+                f'`taskledger repair lock --task {task.id} --reason "..."`.'
             )
 
         for change in list_changes(workspace_root, task.id):
@@ -529,7 +529,7 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
         warnings.append("Expired task locks require explicit resolution.")
         repair_hints.append(
             "Break stale locks explicitly with "
-            '`taskledger lock break <task> --reason "..."`.'
+            '`taskledger repair lock <task> --reason "..."`.'
         )
 
     return {

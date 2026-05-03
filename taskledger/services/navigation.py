@@ -1113,7 +1113,7 @@ def _primary_command_for_next_item(
     if kind == "lock":
         task_id = next_item.get("task_id")
         if isinstance(task_id, str):
-            return f'taskledger lock break --task {task_id} --reason "..."'
+            return f'taskledger repair lock --task {task_id} --reason "..."'
 
     return _next_action_command(action)
 
@@ -1255,8 +1255,8 @@ def _commands_for_next_item(
             return [
                 _command(
                     "repair",
-                    "Break stale lock",
-                    f'taskledger lock break --task {task_id} --reason "..."',
+                    "Repair stale lock",
+                    f'taskledger repair lock --task {task_id} --reason "..."',
                     primary=True,
                 ),
                 _command("inspect", "Show current lock", "taskledger lock show"),
