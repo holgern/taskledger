@@ -496,16 +496,25 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
+            normalized_format = format_name.strip().lower()
+            if normalized_format not in {"markdown", "json"}:
+                raise LaunchError("Invalid --format value. Use 'markdown' or 'json'.")
             task = resolve_cli_task(state.cwd, task_ref)
             payload = planning_guidance_payload(state.cwd, task.id)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         human: str | None = None
-        if format_name == "json":
+        if normalized_format == "json":
             human = render_json(payload)
-        elif isinstance(payload.get("guidance"), str):
+        elif payload.get("has_project_guidance"):
             human = str(payload["guidance"])
+        else:
+            human = (
+                "No project planning guidance configured.\n"
+                "Add [prompt_profiles.planning] to taskledger.toml, then run "
+                "taskledger plan guidance again."
+            )
         emit_payload(ctx, payload, human=human)
 
 

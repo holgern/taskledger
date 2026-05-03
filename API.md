@@ -111,6 +111,17 @@ from taskledger.errors import (
 - `revise_plan`
 - `run_planning_command`
 
+Planning guidance API example:
+
+```python
+from pathlib import Path
+
+from taskledger.api.plans import plan_guidance
+
+payload = plan_guidance(Path.cwd(), "task-0001")
+# payload includes: kind, task_id, has_project_guidance, guidance, profile, question_policy
+```
+
 ### `taskledger.api.questions`
 
 - `add_question`

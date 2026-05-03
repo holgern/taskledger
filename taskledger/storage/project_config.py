@@ -254,6 +254,22 @@ def render_default_taskledger_toml(
         '# default_artifact_order = ["analysis", "plan",'
         ' "implementation", "validation"]\n'
         "\n"
+        "# Optional project-local planning guidance for agents.\n"
+        "# This is advisory and cannot override lifecycle gates.\n"
+        "# [prompt_profiles.planning]\n"
+        '# profile = "balanced"\n'
+        '# question_policy = "ask_when_missing"\n'
+        "# max_required_questions = 5\n"
+        "# min_acceptance_criteria = 1\n"
+        '# todo_granularity = "implementation_steps"\n'
+        "# require_files = true\n"
+        "# require_test_commands = true\n"
+        "# require_expected_outputs = true\n"
+        "# require_validation_hints = true\n"
+        '# plan_body_detail = "normal"\n'
+        '# required_question_topics = ["scope", "tests"]\n'
+        '# extra_guidance = "Mention docs and validation evidence in every plan."\n'
+        "\n"
         "# Agent command transcript logging (disabled by default).\n"
         "# [agent_logging]\n"
         "# enabled = false\n"

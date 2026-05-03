@@ -45,6 +45,10 @@ def test_render_guidance_default_profile() -> None:
     assert "project-local advisory guidance" in result
     assert "cannot override taskledger lifecycle gates" in result
     assert "balanced (moderate ceremony)" in result
+    assert (
+        "Required plan fields: files, test commands, expected outputs, "
+        "validation hints." in result
+    )
 
 
 def test_render_guidance_strict_profile() -> None:
@@ -66,7 +70,22 @@ def test_render_guidance_strict_profile() -> None:
     assert "Required question topics: scope; approach" in result
     assert "atomic (small, testable units)" in result
     assert "detailed (full architecture and decisions)" in result
+    assert (
+        "Required plan fields: files, test commands, expected outputs, "
+        "validation hints." in result
+    )
     assert "Always include a migration plan" in result
+
+
+def test_render_guidance_when_required_fields_disabled() -> None:
+    p = PromptProfile(
+        require_files=False,
+        require_test_commands=False,
+        require_expected_outputs=False,
+        require_validation_hints=False,
+    )
+    result = _render_guidance_from_profile(p)
+    assert "Required plan fields: none (all optional in this profile)." in result
 
 
 def test_render_guidance_no_extra_guidance() -> None:

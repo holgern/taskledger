@@ -34,6 +34,31 @@ when explicitly targeting another task.
 
 Optional positional task refs are not supported.
 
+Plan guidance command
+---------------------
+
+``taskledger plan guidance`` is a read-only planning helper command:
+
+.. code-block:: bash
+
+   taskledger plan guidance [--task TASK_REF] [--format markdown|json]
+
+Rules:
+
+* defaults to the active task when ``--task`` is omitted;
+* ``--format`` accepts only ``markdown`` or ``json``;
+* it does not mutate task state and does not append task events;
+* root ``--json`` continues to return the standard CLI success/error envelope.
+
+The command payload shape is:
+
+* ``kind``
+* ``task_id``
+* ``has_project_guidance``
+* ``guidance``
+* ``profile``
+* ``question_policy``
+
 Archive import lock policy
 --------------------------
 

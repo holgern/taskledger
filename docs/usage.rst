@@ -59,6 +59,69 @@ Task-first workflow
     taskledger plan lint --version 1
     taskledger plan accept --version 1 --note "Ready."
 
+Planning guidance profiles
+--------------------------
+
+Taskledger supports project-local advisory planning guidance for agents. Configure
+it in the active project config file discovered for your workspace. Newer
+projects usually use ``taskledger.toml``. Existing projects may still use
+``.taskledger.toml``; if both files exist, ``.taskledger.toml`` is discovered
+first.
+
+Configure ``[prompt_profiles.planning]`` in that active config:
+
+.. code-block:: toml
+
+   [prompt_profiles.planning]
+   profile = "strict"
+   question_policy = "always_before_plan"
+   max_required_questions = 3
+   min_acceptance_criteria = 2
+   todo_granularity = "atomic"
+   require_files = true
+   require_test_commands = true
+   require_expected_outputs = true
+   require_validation_hints = true
+   plan_body_detail = "detailed"
+   required_question_topics = ["scope", "compatibility", "test strategy"]
+   extra_guidance = "Every plan must mention docs, tests, and rollback or repair behavior."
+
+Accepted values:
+
+* ``profile``: ``compact``, ``balanced``, ``strict``, ``exploratory``
+* ``question_policy``: ``ask_when_missing``, ``always_before_plan``, ``minimal``
+* ``todo_granularity``: ``minimal``, ``implementation_steps``, ``atomic``
+* ``plan_body_detail``: ``terse``, ``normal``, ``detailed``
+* ``max_required_questions`` and ``min_acceptance_criteria`` must be positive integers
+* ``require_files``, ``require_test_commands``, ``require_expected_outputs``, and
+  ``require_validation_hints`` must be booleans
+* ``required_question_topics`` must be a list of strings
+* ``extra_guidance`` must be a string up to 4000 characters
+
+Inspect guidance for the active task:
+
+.. code-block:: bash
+
+   taskledger plan guidance
+   taskledger plan guidance --task task-0001
+   taskledger --json plan guidance
+   taskledger plan guidance --format json
+
+Planning workflow integration:
+
+.. code-block:: bash
+
+   taskledger plan start
+   taskledger plan guidance
+   taskledger plan template --include-guidance --file plan.md
+   taskledger plan lint --version 1
+   taskledger plan upsert --file plan.md
+
+Guidance output is deterministic and read-only. It is advisory only and does not
+enforce plan fields by itself. It cannot override lifecycle gates, plan approval,
+validation requirements, lock rules, required user answers, or higher-priority
+harness instructions.
+
 Release tagging and changelog context
 -------------------------------------
 

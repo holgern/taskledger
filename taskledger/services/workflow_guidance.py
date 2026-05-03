@@ -119,6 +119,19 @@ def _render_guidance_from_profile(profile: PromptProfile) -> str:
     lines.append(
         f"- Plan body detail: {_plan_body_detail_label(profile.plan_body_detail)}."
     )
+    required_fields = []
+    if profile.require_files:
+        required_fields.append("files")
+    if profile.require_test_commands:
+        required_fields.append("test commands")
+    if profile.require_expected_outputs:
+        required_fields.append("expected outputs")
+    if profile.require_validation_hints:
+        required_fields.append("validation hints")
+    if required_fields:
+        lines.append(f"- Required plan fields: {', '.join(required_fields)}.")
+    else:
+        lines.append("- Required plan fields: none (all optional in this profile).")
     if profile.extra_guidance:
         lines.append("")
         lines.append(f"Project guidance: {profile.extra_guidance}")

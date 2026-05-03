@@ -112,6 +112,26 @@ def test_skill_contains_strict_agent_protocol() -> None:
     assert "Stop issuing mutating taskledger commands" in skill
     assert "taskledger plan template --from-answers --file ./plan.md" in skill
     assert "taskledger question add-many" in skill
+    assert "taskledger plan guidance" in skill
+    assert "Treat it as advisory" in skill
+
+
+def test_planning_guidance_docs_are_present() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    usage = (ROOT / "docs" / "usage.rst").read_text(encoding="utf-8")
+    command_contract = (ROOT / "docs" / "command_contract.rst").read_text(
+        encoding="utf-8"
+    )
+    api_md = (ROOT / "API.md").read_text(encoding="utf-8")
+    api_rst = (ROOT / "docs" / "api.rst").read_text(encoding="utf-8")
+
+    assert "prompt_profiles.planning" in readme
+    assert "taskledger plan guidance" in usage
+    assert "required_question_topics" in usage
+    assert "Plan guidance command" in command_contract
+    assert "has_project_guidance" in command_contract
+    assert 'plan_guidance(Path.cwd(), "task-0001")' in api_md
+    assert 'plan_guidance(Path.cwd(), "task-0001")' in api_rst
 
 
 def test_docs_do_not_reference_removed_commands() -> None:

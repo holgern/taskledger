@@ -1870,13 +1870,19 @@ def plan_template(
         for item in list_questions(workspace_root, task.id)
         if item.status == "answered" and item.required_for_plan
     ]
+    template_text = _render_plan_template(
+        answered_questions if from_answers else (),
+    )
+    if include_guidance and guidance_text:
+        template_text = _insert_guidance_into_plan_template(
+            template_text,
+            guidance_text,
+        )
     return {
         "kind": "plan_template",
         "task_id": task.id,
         "from_answers": from_answers,
-        "template": _render_plan_template(
-            answered_questions if from_answers else (),
-        ),
+        "template": template_text,
         "answered_question_ids": [item.id for item in answered_questions]
         if from_answers
         else [],
@@ -3298,6 +3304,38 @@ def _render_plan_template(answered_questions: Sequence[QuestionRecord]) -> str:
         for item in answered_questions:
             lines.append(f"- {item.id}: {item.answer}")
     return "\n".join(lines) + "\n"
+
+
+def _insert_guidance_into_plan_template(template_text: str, guidance_text: str) -> str:
+    normalized_guidance = guidance_text.strip()
+    if not normalized_guidance:
+        return template_text
+
+    lines = template_text.splitlines()
+    front_matter_end_index: int | None = None
+    delimiter_count = 0
+    for idx, line in enumerate(lines):
+        if line.strip() == "---":
+            delimiter_count += 1
+            if delimiter_count == 2:
+                front_matter_end_index = idx
+                break
+    if front_matter_end_index is None:
+        return template_text
+
+    insertion = [
+        "",
+        "<!-- Advisory project planning guidance from taskledger plan guidance. -->",
+        "",
+        normalized_guidance,
+        "",
+    ]
+    updated_lines = (
+        lines[: front_matter_end_index + 1]
+        + insertion
+        + lines[front_matter_end_index + 1 :]
+    )
+    return "\n".join(updated_lines).rstrip() + "\n"
 
 
 def _dependency_blockers(

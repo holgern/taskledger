@@ -43,6 +43,28 @@ def _start_planning(tmp_path: Path, slug: str = "lint-task") -> None:
     assert result.exit_code == 0, result.output
 
 
+def _enable_planning_guidance(tmp_path: Path) -> None:
+    config_path = tmp_path / "taskledger.toml"
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8")
+        + "\n"
+        + "[prompt_profiles.planning]\n"
+        + 'profile = "strict"\n'
+        + 'question_policy = "always_before_plan"\n'
+        + "max_required_questions = 3\n"
+        + "min_acceptance_criteria = 2\n"
+        + 'todo_granularity = "atomic"\n'
+        + "require_files = true\n"
+        + "require_test_commands = true\n"
+        + "require_expected_outputs = true\n"
+        + "require_validation_hints = true\n"
+        + 'plan_body_detail = "detailed"\n'
+        + 'required_question_topics = ["scope", "tests"]\n'
+        + 'extra_guidance = "Always mention docs updates."\n',
+        encoding="utf-8",
+    )
+
+
 def _propose_plan(
     tmp_path: Path,
     plan_text: str,
@@ -289,6 +311,67 @@ class TestPlanLintPasses:
         assert result.stdout.startswith("---\n")
         assert "acceptance_criteria:" in result.stdout
 
+    def test_plan_guidance_human_message_when_no_profile(self, tmp_path: Path) -> None:
+        _init_project(tmp_path)
+        _create_task(tmp_path, "guidance-empty")
+
+        result = runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "plan", "guidance", "--task", "guidance-empty"],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "No project planning guidance configured." in result.stdout
+        assert "[prompt_profiles.planning]" in result.stdout
+
+    def test_plan_guidance_json_contract_when_no_profile(self, tmp_path: Path) -> None:
+        _init_project(tmp_path)
+        _create_task(tmp_path, "guidance-json-empty")
+
+        result = runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "--json",
+                "plan",
+                "guidance",
+                "--task",
+                "guidance-json-empty",
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        payload = _json(result)
+        assert payload["ok"] is True
+        result_payload = payload["result"]
+        assert isinstance(result_payload, dict)
+        assert result_payload["kind"] == "planning_guidance"
+        assert result_payload["has_project_guidance"] is False
+        assert result_payload["guidance"] == ""
+
+    def test_plan_guidance_rejects_invalid_format(self, tmp_path: Path) -> None:
+        _init_project(tmp_path)
+        _create_task(tmp_path, "guidance-invalid-format")
+
+        result = runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "plan",
+                "guidance",
+                "--task",
+                "guidance-invalid-format",
+                "--format",
+                "yaml",
+            ],
+        )
+
+        assert result.exit_code != 0
+        combined = f"{result.stdout}\n{result.stderr}"
+        assert "Invalid --format value" in combined
+
     def test_plan_template_from_answers_writes_file(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         _create_task(tmp_path, "template-file")
@@ -315,6 +398,43 @@ class TestPlanLintPasses:
         contents = plan_path.read_text(encoding="utf-8")
         assert "## Notes from answered questions" in contents
         assert "- q-0001: PostgreSQL." in contents
+
+    def test_plan_template_include_guidance_writes_guidance_in_file(
+        self, tmp_path: Path
+    ) -> None:
+        _init_project(tmp_path)
+        _enable_planning_guidance(tmp_path)
+        _create_task(tmp_path, "template-guidance")
+        _start_planning(tmp_path, "template-guidance")
+        plan_path = tmp_path / "plan.md"
+
+        result = runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "plan",
+                "template",
+                "--task",
+                "template-guidance",
+                "--include-guidance",
+                "--file",
+                str(plan_path),
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        contents = plan_path.read_text(encoding="utf-8")
+        lines = contents.splitlines()
+        markers = [idx for idx, line in enumerate(lines) if line.strip() == "---"]
+        assert len(markers) >= 2
+        assert lines[0] == "---"
+        guidance_line = lines.index("## Project planning guidance")
+        assert guidance_line > markers[1]
+        assert (
+            "<!-- Advisory project planning guidance from taskledger plan guidance. -->"
+            in contents
+        )
 
     def test_filled_plan_template_passes_lint(self, tmp_path: Path) -> None:
         _init_project(tmp_path)

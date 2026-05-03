@@ -39,6 +39,39 @@ The supported command surface is organized as:
 
 - `init`, `status`, `export`, `import`, `snapshot`, `release`
 
+## Planning guidance profiles
+
+Taskledger supports project-local advisory planning guidance under
+`[prompt_profiles.planning]` in the active project config file (`taskledger.toml`
+or `.taskledger.toml` when legacy config is still present).
+
+```toml
+[prompt_profiles.planning]
+profile = "strict"
+question_policy = "always_before_plan"
+max_required_questions = 3
+min_acceptance_criteria = 2
+todo_granularity = "atomic"
+require_files = true
+require_test_commands = true
+require_expected_outputs = true
+require_validation_hints = true
+plan_body_detail = "detailed"
+required_question_topics = ["scope", "compatibility", "test strategy"]
+extra_guidance = "Every plan must mention docs, tests, and rollback or repair behavior."
+```
+
+Inspect guidance for the active task:
+
+```bash
+taskledger plan guidance
+taskledger --json plan guidance
+```
+
+This guidance is advisory and cannot override lifecycle gates, user approval,
+validation requirements, lock rules, or higher-priority harness instructions.
+See `docs/usage.rst` for the full key reference and workflow details.
+
 ## Install
 
 ```bash

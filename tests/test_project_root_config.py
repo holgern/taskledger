@@ -18,6 +18,7 @@ from taskledger.storage.project_config import (
     PromptProfile,
     load_project_config_overrides,
     merge_project_config,
+    render_default_taskledger_toml,
 )
 
 
@@ -456,3 +457,14 @@ def test_merge_project_config_preserves_base_agent_logging() -> None:
     config = merge_project_config({}, base=base)
     assert config.agent_logging.enabled is True
     assert config.agent_logging.max_inline_chars == 2048
+
+
+def test_default_taskledger_toml_includes_commented_planning_guidance() -> None:
+    rendered = render_default_taskledger_toml()
+    assert "# [prompt_profiles.planning]" in rendered
+    assert '# profile = "balanced"' in rendered
+    assert "# require_files = true" in rendered
+    assert (
+        '# extra_guidance = "Mention docs and validation evidence in every plan."'
+        in rendered
+    )

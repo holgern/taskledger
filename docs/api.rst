@@ -83,14 +83,23 @@ Plan API
 - ``list_plan_versions``
 - ``show_plan``
 - ``diff_plan``
-    - ``lint_plan``
-    - ``plan_guidance``
+- ``lint_plan``
+- ``plan_guidance``
 - ``approve_plan``
 - ``reject_plan``
 - ``revise_plan``
 - ``regenerate_plan_from_answers``
 - ``materialize_plan_todos``
 - ``run_planning_command``
+
+Planning guidance example:
+
+.. code-block:: python
+
+   from pathlib import Path
+   from taskledger.api.plans import plan_guidance
+
+   payload = plan_guidance(Path.cwd(), "task-0001")
 
 Question API
 ------------

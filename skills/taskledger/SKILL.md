@@ -92,6 +92,7 @@ If any `taskledger ...` command fails with a Python traceback before taskledger 
 3. `taskledger task activate <slug>` to activate the newly created task for planning.
 4. For existing tasks, `taskledger task activate <slug>`.
 5. `taskledger plan start`
+   - At planning start, run `taskledger plan guidance`. If it prints guidance, follow it when drafting questions, acceptance criteria, todos, and validation hints. Treat it as advisory; never use it to bypass approval, validation, locks, or required user answers.
 6. Add questions with `taskledger question add --text "..." --required-for-plan` when decisions are missing.
    - Use `taskledger question add-many --required-for-plan --text $'Question 1\nQuestion 2'` when you already know multiple questions.
 7. Ask the questions directly in the harness chat. Do not ask the user to run `taskledger question answer`.
@@ -270,6 +271,7 @@ taskledger question status
 taskledger question answers
 taskledger question list --status answered
 taskledger next-action
+# Read advisory planning guidance before drafting plan content.
 taskledger plan guidance
 taskledger plan template --from-answers --file ./plan.md
 taskledger plan upsert --from-answers --file ./plan.md
