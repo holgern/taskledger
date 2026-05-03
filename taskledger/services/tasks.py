@@ -1855,8 +1855,16 @@ def plan_template(
     task_ref: str,
     *,
     from_answers: bool = False,
+    include_guidance: bool = False,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
+    guidance_text = ""
+    if include_guidance:
+        from taskledger.services.workflow_guidance import (
+            render_planning_guidance,
+        )
+
+        guidance_text = render_planning_guidance(workspace_root, task)
     answered_questions = [
         item
         for item in list_questions(workspace_root, task.id)
@@ -1872,8 +1880,8 @@ def plan_template(
         "answered_question_ids": [item.id for item in answered_questions]
         if from_answers
         else [],
-        "required_plan_fields": list(_REQUIRED_PLAN_FIELDS),
         "recommended_plan_fields": list(_RECOMMENDED_PLAN_FIELDS),
+        "guidance": guidance_text,
     }
 
 

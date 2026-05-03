@@ -13,6 +13,12 @@ from taskledger.services.task_reports import (
     render_task_report,
     resolve_report_sections,
 )
+from taskledger.services.tasks import (
+    activate_task,
+    create_task,
+    propose_plan,
+    start_planning,
+)
 from tests.support.builders import (
     create_approved_task,
     create_done_task,
@@ -80,6 +86,52 @@ class TestServiceReport:
         assert "## Implementation" not in content
         assert "## Validation" not in content
         assert "## Code Changes" not in content
+
+    def test_task_report_planning_report_includes_proposed_plan_details(
+        self, tmp_path: Path
+    ) -> None:
+        ws = init_workspace(tmp_path)
+        task = create_task(
+            ws,
+            title="Needs review",
+            slug="needs-review",
+            description="Task with a proposed plan.",
+        )
+        activate_task(ws, task.id, reason="test setup")
+        start_planning(ws, task.id)
+        propose_plan(
+            ws,
+            task.id,
+            body="""---
+goal: Review proposed plan visibility.
+acceptance_criteria:
+  - id: ac-0001
+    text: Proposed criterion is visible.
+todos:
+  - id: todo-0001
+    text: Proposed todo is visible.
+    validation_hint: pytest tests/test_task_report.py
+---
+
+# Proposed Plan
+
+Render this proposed plan body in the task report.
+""",
+        )
+
+        payload = render_task_report(
+            ws, task.id, options=TaskReportOptions(preset="planning")
+        )
+        content = payload["content"]
+        assert isinstance(content, str)
+
+        assert "- plan-v1 — proposed" in content
+        assert "### Reviewable Plan Details" in content
+        assert "#### plan-v1 — proposed" in content
+        assert "Render this proposed plan body in the task report." in content
+        assert "Proposed criterion is visible." in content
+        assert "Proposed todo is visible." in content
+        assert "No accepted plan." in content
 
     def test_task_report_without_removes_sections(self, tmp_path: Path) -> None:
         ws = init_workspace(tmp_path)

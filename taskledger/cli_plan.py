@@ -28,6 +28,7 @@ from taskledger.cli_common import (
     emit_payload,
     launch_error_exit_code,
     read_text_input,
+    render_json,
     resolve_cli_task,
     write_text_output,
 )
@@ -35,6 +36,9 @@ from taskledger.domain.states import EXIT_CODE_VALIDATION_FAILED
 from taskledger.errors import LaunchError
 from taskledger.services.actors import resolve_actor, resolve_harness
 from taskledger.services.plan_lint import PlanLintPayload
+from taskledger.services.workflow_guidance import (
+    planning_guidance_payload,
+)
 
 
 def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
@@ -119,10 +123,13 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
         state = cli_state_from_context(ctx)
         try:
             task = resolve_cli_task(state.cwd, task_ref)
+            guidance_payload = planning_guidance_payload(state.cwd, task.id)
             payload = {
                 "kind": "plan_draft_context",
                 "task_id": task.id,
                 "ask_questions": ask_questions,
+                "guidance": guidance_payload["guidance"],
+                "question_policy": guidance_payload["question_policy"],
                 "next_action": (
                     'taskledger question add --text "..." --required-for-plan'
                     if ask_questions
@@ -140,6 +147,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
         task_ref: TaskOption = None,
         from_answers: Annotated[bool, typer.Option("--from-answers")] = False,
         output: Annotated[Path | None, typer.Option("--file")] = None,
+        include_guidance: Annotated[bool, typer.Option("--include-guidance")] = False,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
@@ -148,6 +156,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
                 state.cwd,
                 task.id,
                 from_answers=from_answers,
+                include_guidance=include_guidance,
             )
         except LaunchError as exc:
             emit_error(ctx, exc)
@@ -478,6 +487,26 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             payload,
             human=f"ran planning command exit={payload['exit_code']}",
         )
+
+    @app.command("guidance")
+    def plan_guidance_command(
+        ctx: typer.Context,
+        task_ref: TaskOption = None,
+        format_name: Annotated[str, typer.Option("--format")] = "markdown",
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = resolve_cli_task(state.cwd, task_ref)
+            payload = planning_guidance_payload(state.cwd, task.id)
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        human: str | None = None
+        if format_name == "json":
+            human = render_json(payload)
+        elif isinstance(payload.get("guidance"), str):
+            human = str(payload["guidance"])
+        emit_payload(ctx, payload, human=human)
 
 
 def _render_plan_lint(payload: PlanLintPayload) -> str:

@@ -39,6 +39,7 @@ WORKFLOW_CONFIG_KEYS = frozenset(
         "project_context",
         "artifact_rules",
         "default_artifact_order",
+        "prompt_profiles",
     }
 )
 SUPPORTED_PROJECT_CONFIG_KEYS = (
@@ -61,6 +62,64 @@ ARTIFACT_MEMORY_REF_FIELDS = (
     "validation_memory_ref",
     "save_target_ref",
 )
+
+VALID_PROFILE_VALUES = frozenset({"compact", "balanced", "strict", "exploratory"})
+VALID_QUESTION_POLICY_VALUES = frozenset(
+    {"ask_when_missing", "always_before_plan", "minimal"}
+)
+VALID_TODO_GRANULARITY_VALUES = frozenset({"minimal", "implementation_steps", "atomic"})
+VALID_PLAN_BODY_DETAIL_VALUES = frozenset({"terse", "normal", "detailed"})
+MAX_EXTRA_GUIDANCE_CHARS = 4000
+PROMPT_PROFILE_KEYS = frozenset(
+    {
+        "profile",
+        "question_policy",
+        "max_required_questions",
+        "min_acceptance_criteria",
+        "todo_granularity",
+        "require_files",
+        "require_test_commands",
+        "require_expected_outputs",
+        "require_validation_hints",
+        "plan_body_detail",
+        "required_question_topics",
+        "extra_guidance",
+    }
+)
+
+
+@dataclass(slots=True, frozen=True)
+class PromptProfile:
+    name: str = "planning"
+    profile: str = "balanced"
+    question_policy: str = "ask_when_missing"
+    max_required_questions: int = 5
+    min_acceptance_criteria: int = 1
+    todo_granularity: str = "implementation_steps"
+    require_files: bool = True
+    require_test_commands: bool = True
+    require_expected_outputs: bool = True
+    require_validation_hints: bool = True
+    plan_body_detail: str = "normal"
+    required_question_topics: tuple[str, ...] = ()
+    extra_guidance: str | None = None
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "profile": self.profile,
+            "question_policy": self.question_policy,
+            "max_required_questions": self.max_required_questions,
+            "min_acceptance_criteria": self.min_acceptance_criteria,
+            "todo_granularity": self.todo_granularity,
+            "require_files": self.require_files,
+            "require_test_commands": self.require_test_commands,
+            "require_expected_outputs": self.require_expected_outputs,
+            "require_validation_hints": self.require_validation_hints,
+            "plan_body_detail": self.plan_body_detail,
+            "required_question_topics": list(self.required_question_topics),
+            "extra_guidance": self.extra_guidance,
+        }
 
 
 @dataclass(slots=True, frozen=True)
@@ -101,6 +160,7 @@ class ProjectConfig:
     project_context: str | None = None
     artifact_rules: tuple[ProjectArtifactRule, ...] = ()
     default_artifact_order: tuple[str, ...] = ()
+    prompt_profile: PromptProfile | None = None
 
 
 def render_default_taskledger_toml(
@@ -163,6 +223,7 @@ def render_default_taskledger_toml(
 
 DEFAULT_TASKLEDGER_TOML = render_default_taskledger_toml()
 DEFAULT_PROJECT_TOML = DEFAULT_TASKLEDGER_TOML
+_DEFAULT_CONFIG = ProjectConfig()
 
 
 def load_project_config_overrides(paths: ProjectPaths) -> dict[str, object]:
@@ -190,8 +251,10 @@ def load_project_config_document(path: Path) -> dict[str, object]:
 
 
 def merge_project_config(
-    base: ProjectConfig, overrides: dict[str, object]
+    overrides: dict[str, object], *, base: ProjectConfig | None = None
 ) -> ProjectConfig:
+    if base is None:
+        base = _DEFAULT_CONFIG
     default_memory_update_mode = overrides.get(
         "default_memory_update_mode", base.default_memory_update_mode
     )
@@ -270,6 +333,9 @@ def merge_project_config(
         artifact_rules,
         default_artifact_order=tuple(default_artifact_order),
     )
+    prompt_profile = _parse_prompt_profile(
+        overrides.get("prompt_profiles"), base.prompt_profile
+    )
     return ProjectConfig(
         default_memory_update_mode=cast(
             MemoryUpdateMode,
@@ -286,6 +352,7 @@ def merge_project_config(
         project_context=project_context,
         artifact_rules=artifact_rules,
         default_artifact_order=tuple(default_artifact_order),
+        prompt_profile=prompt_profile,
     )
 
 
@@ -319,6 +386,19 @@ def _validate_project_config_overrides(data: dict[str, object], path: Path) -> N
             default_artifact_order=default_artifact_order,
             path=path,
         )
+    prompt_profiles = data.get("prompt_profiles")
+    if prompt_profiles is not None:
+        if not isinstance(prompt_profiles, dict):
+            raise LaunchError(
+                f"Project config key 'prompt_profiles' must be a table in {path}"
+            )
+        for profile_name, profile_data in prompt_profiles.items():
+            if not isinstance(profile_data, dict):
+                raise LaunchError(
+                    f"Project config prompt_profiles.{profile_name} "
+                    f"must be a table in {path}"
+                )
+            _validate_prompt_profile(profile_name, profile_data, path)
 
 
 def _artifact_rules_from_overrides(
@@ -440,3 +520,123 @@ def _project_config_error(message: str, path: Path | None) -> str:
     if path is None:
         return message
     return f"{message} in {path}"
+
+
+def _validate_prompt_profile(name: str, data: dict[str, object], path: Path) -> None:
+    unknown_keys = set(data.keys()) - PROMPT_PROFILE_KEYS
+    if unknown_keys:
+        sorted_keys = ", ".join(sorted(unknown_keys))
+        raise LaunchError(
+            f"Unknown prompt profile keys in {path}: "
+            f"prompt_profiles.{name}: {sorted_keys}"
+        )
+    profile = data.get("profile")
+    if profile is not None and profile not in VALID_PROFILE_VALUES:
+        raise LaunchError(
+            f"Invalid profile value '{profile}' in prompt_profiles.{name} in {path}. "
+            f"Valid: {', '.join(sorted(VALID_PROFILE_VALUES))}"
+        )
+    question_policy = data.get("question_policy")
+    if (
+        question_policy is not None
+        and question_policy not in VALID_QUESTION_POLICY_VALUES
+    ):
+        raise LaunchError(
+            f"Invalid question_policy '{question_policy}' "
+            f"in prompt_profiles.{name} in {path}. "
+            f"Valid: {', '.join(sorted(VALID_QUESTION_POLICY_VALUES))}"
+        )
+    todo_granularity = data.get("todo_granularity")
+    if (
+        todo_granularity is not None
+        and todo_granularity not in VALID_TODO_GRANULARITY_VALUES
+    ):
+        raise LaunchError(
+            f"Invalid todo_granularity '{todo_granularity}' "
+            f"in prompt_profiles.{name} in {path}. "
+            f"Valid: {', '.join(sorted(VALID_TODO_GRANULARITY_VALUES))}"
+        )
+    plan_body_detail = data.get("plan_body_detail")
+    if (
+        plan_body_detail is not None
+        and plan_body_detail not in VALID_PLAN_BODY_DETAIL_VALUES
+    ):
+        raise LaunchError(
+            f"Invalid plan_body_detail '{plan_body_detail}' "
+            f"in prompt_profiles.{name} in {path}. "
+            f"Valid: {', '.join(sorted(VALID_PLAN_BODY_DETAIL_VALUES))}"
+        )
+    for int_key in ("max_required_questions", "min_acceptance_criteria"):
+        val = data.get(int_key)
+        if val is not None and not isinstance(val, int):
+            raise LaunchError(
+                f"prompt_profiles.{name}.{int_key} must be an integer in {path}"
+            )
+        if val is not None and val < 1:
+            raise LaunchError(
+                f"prompt_profiles.{name}.{int_key} must be positive in {path}"
+            )
+    for bool_key in (
+        "require_files",
+        "require_test_commands",
+        "require_expected_outputs",
+        "require_validation_hints",
+    ):
+        val = data.get(bool_key)
+        if val is not None and not isinstance(val, bool):
+            raise LaunchError(
+                f"prompt_profiles.{name}.{bool_key} must be a boolean in {path}"
+            )
+    topics = data.get("required_question_topics")
+    if topics is not None:
+        if not isinstance(topics, list) or not all(isinstance(t, str) for t in topics):
+            raise LaunchError(
+                f"prompt_profiles.{name}.required_question_topics "
+                f"must be a list of strings in {path}"
+            )
+    extra = data.get("extra_guidance")
+    if extra is not None:
+        if not isinstance(extra, str):
+            raise LaunchError(
+                f"prompt_profiles.{name}.extra_guidance must be a string in {path}"
+            )
+        if len(extra) > MAX_EXTRA_GUIDANCE_CHARS:
+            raise LaunchError(
+                f"prompt_profiles.{name}.extra_guidance exceeds "
+                f"{MAX_EXTRA_GUIDANCE_CHARS} characters in {path}"
+            )
+
+
+def _parse_prompt_profile(
+    raw: object, base: PromptProfile | None
+) -> PromptProfile | None:
+    if raw is None:
+        return base
+    if not isinstance(raw, dict):
+        return base
+    planning = raw.get("planning")
+    if planning is None:
+        return base
+    if not isinstance(planning, dict):
+        return base
+    topics_raw = planning.get("required_question_topics")
+    topics: tuple[str, ...] = ()
+    if isinstance(topics_raw, (list, tuple)):
+        topics = tuple(str(t) for t in topics_raw)
+    return PromptProfile(
+        name="planning",
+        profile=str(planning.get("profile", "balanced")),
+        question_policy=str(planning.get("question_policy", "ask_when_missing")),
+        max_required_questions=int(planning.get("max_required_questions", 5)),
+        min_acceptance_criteria=int(planning.get("min_acceptance_criteria", 1)),
+        todo_granularity=str(planning.get("todo_granularity", "implementation_steps")),
+        require_files=bool(planning.get("require_files", True)),
+        require_test_commands=bool(planning.get("require_test_commands", True)),
+        require_expected_outputs=bool(planning.get("require_expected_outputs", True)),
+        require_validation_hints=bool(planning.get("require_validation_hints", True)),
+        plan_body_detail=str(planning.get("plan_body_detail", "normal")),
+        required_question_topics=topics,
+        extra_guidance=(
+            str(planning["extra_guidance"]) if "extra_guidance" in planning else None
+        ),
+    )

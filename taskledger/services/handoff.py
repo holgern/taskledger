@@ -21,6 +21,9 @@ from taskledger.domain.states import (
     normalize_handoff_mode,
 )
 from taskledger.errors import LaunchError
+from taskledger.services.workflow_guidance import (
+    render_planning_guidance as _render_planning_guidance,
+)
 from taskledger.storage.locks import lock_is_expired, lock_status, read_lock
 from taskledger.storage.task_store import (
     list_changes,
@@ -268,6 +271,9 @@ def build_handoff_payload(
             if request.context_for in {"reviewer", "spec-reviewer", "code-reviewer"}
             else None
         ),
+        "workflow_guidance": _guidance_for_context(
+            workspace_root, task, request.context_for
+        ),
     }
 
 
@@ -300,6 +306,7 @@ def render_markdown_handoff(payload: dict[str, object]) -> str:
     _append_questions(lines, payload["questions"])
     if context_for in {"planner"}:
         _append_guardrails(lines, payload["guardrails"])
+        _append_workflow_guidance(lines, payload.get("workflow_guidance"))
         _append_required_commands(lines, payload.get("accepted_plan"))
         _append_required_output(lines, context_for)
         return "\n".join(lines).rstrip() + "\n"
@@ -1147,3 +1154,21 @@ def _canonical_mode(mode: str | None) -> str:
         "validation-context": "validation",
         "show": "full",
     }.get(mode, mode)
+
+
+def _guidance_for_context(
+    workspace_root: Path,
+    task: TaskRecord,
+    context_for: str,
+) -> str:
+    """Load workflow guidance for the given context role, if applicable."""
+    if context_for in {"planner", "planning"}:
+        return _render_planning_guidance(workspace_root, task)
+    return ""
+
+
+def _append_workflow_guidance(lines: list[str], guidance: object) -> None:
+    """Append workflow guidance section if present."""
+    if not isinstance(guidance, str) or not guidance:
+        return
+    lines.append(guidance)

@@ -578,14 +578,87 @@ def _append_plans(
         lines.append("- none")
         lines.append("")
         return
+
+    plan_records: list[PlanRecord] = []
     for plan in plans:
         if isinstance(plan, PlanRecord):
+            plan_records.append(plan)
             lines.append(f"- plan-v{plan.plan_version} — {plan.status}")
         elif isinstance(plan, dict):
             pv = plan.get("plan_version", "?")
             st = plan.get("status", "?")
             lines.append(f"- plan-v{pv} — {st}")
     lines.append("")
+
+    reviewable_plans = [
+        plan for plan in plan_records if not _plan_is_accepted_plan(plan, accepted_plan)
+    ]
+    if not reviewable_plans:
+        return
+
+    lines.append("### Reviewable Plan Details")
+    lines.append("")
+    for plan in reviewable_plans:
+        _append_plan_detail(lines, plan)
+
+
+def _plan_is_accepted_plan(plan: object, accepted_plan: object) -> bool:
+    from taskledger.domain.models import PlanRecord
+
+    return (
+        isinstance(plan, PlanRecord)
+        and isinstance(accepted_plan, PlanRecord)
+        and plan.plan_version == accepted_plan.plan_version
+    )
+
+
+def _append_plan_detail(lines: list[str], plan: object) -> None:
+    from taskledger.domain.models import PlanRecord
+
+    assert isinstance(plan, PlanRecord)
+    lines.append(f"#### plan-v{plan.plan_version} — {plan.status}")
+    lines.append("")
+    lines.append(f"- Created: {plan.created_at}")
+    if plan.created_by.actor_name:
+        lines.append(
+            f"- Created by: {plan.created_by.actor_name} ({plan.created_by.actor_type})"
+        )
+    else:
+        lines.append(f"- Created by: {plan.created_by.actor_type}")
+    if plan.supersedes is not None:
+        lines.append(f"- Supersedes: plan-v{plan.supersedes}")
+    if plan.generation_reason:
+        lines.append(f"- Generation reason: {plan.generation_reason}")
+    if plan.question_refs:
+        lines.append(f"- Based on questions: {', '.join(plan.question_refs)}")
+    if plan.files:
+        lines.append(f"- Files: {', '.join(plan.files)}")
+    if plan.test_commands:
+        lines.append(f"- Test commands: {', '.join(plan.test_commands)}")
+    lines.append("")
+
+    body = plan.body.strip()
+    if body:
+        lines.append(body)
+    else:
+        lines.append("(plan body is empty)")
+    lines.append("")
+
+    if plan.criteria:
+        lines.append("Planned acceptance criteria:")
+        for criterion in plan.criteria:
+            mandatory = "" if criterion.mandatory else " (optional)"
+            lines.append(f"- {criterion.id}: {criterion.text}{mandatory}")
+        lines.append("")
+
+    if plan.todos:
+        lines.append("Planned todos:")
+        for todo in plan.todos:
+            mandatory = "" if todo.mandatory else " (optional)"
+            lines.append(f"- [{todo.status}] {todo.id}: {todo.text}{mandatory}")
+            if todo.validation_hint:
+                lines.append(f"  - Validation hint: {todo.validation_hint}")
+        lines.append("")
 
 
 def _append_accepted_plan(

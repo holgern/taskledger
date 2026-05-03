@@ -34,6 +34,9 @@ from taskledger.services.tasks import (
     _todo_done_command,
 )
 from taskledger.services.validation import build_validation_gate_report
+from taskledger.services.workflow_guidance import (
+    has_planning_profile,
+)
 from taskledger.storage.locks import lock_is_expired
 from taskledger.storage.task_store import (
     list_plans,
@@ -181,6 +184,12 @@ def next_action(workspace_root: Path, task_ref: str) -> dict[str, object]:
         next_item = _lock_next_item(task, lock)
     next_command = _primary_command_for_next_item(action, next_item)
     commands = _commands_for_next_item(action, next_item)
+    guidance_command = (
+        "taskledger plan guidance"
+        if action in {"plan-propose", "question-answer"}
+        and has_planning_profile(workspace_root)
+        else None
+    )
     return _finalize_next_action_payload(
         {
             "kind": "task_next_action",
@@ -191,6 +200,7 @@ def next_action(workspace_root: Path, task_ref: str) -> dict[str, object]:
             "reason": reason,
             "blocking": blockers,
             "next_command": next_command,
+            "guidance_command": guidance_command,
             "next_item": next_item,
             "commands": commands,
             "progress": progress,

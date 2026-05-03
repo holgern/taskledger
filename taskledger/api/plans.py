@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from taskledger.services.plan_lint import lint_plan
 from taskledger.services.tasks import (
     approve_plan,
@@ -30,4 +32,17 @@ __all__ = [
     "revise_plan",
     "run_planning_command",
     "lint_plan",
+    "plan_guidance",
 ]
+
+
+from taskledger.services.workflow_guidance import (
+    planning_guidance_payload as _planning_guidance_payload,
+)
+
+
+def plan_guidance(
+    workspace_root: Path,
+    task_ref: str,
+) -> dict[str, object]:
+    return _planning_guidance_payload(workspace_root, task_ref)

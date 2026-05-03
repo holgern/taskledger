@@ -3,14 +3,21 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 import yaml
 from typer.testing import CliRunner
 
 from taskledger.cli import app
+from taskledger.errors import LaunchError
 from taskledger.services.doctor import inspect_v2_project
 from taskledger.storage.meta import StorageMeta
 from taskledger.storage.paths import resolve_project_paths
-from taskledger.storage.project_config import load_project_config_overrides
+from taskledger.storage.project_config import (
+    ProjectConfig,
+    PromptProfile,
+    load_project_config_overrides,
+    merge_project_config,
+)
 
 
 def _make_runner() -> CliRunner:
@@ -200,3 +207,224 @@ def test_doctor_warns_on_legacy_project_toml(tmp_path: Path) -> None:
     doctor = inspect_v2_project(tmp_path)
 
     assert any("Legacy config location" in warning for warning in doctor["warnings"])
+
+
+# --- prompt_profile tests ---
+
+
+def test_merge_project_config_with_valid_prompt_profile() -> None:
+    overrides = {
+        "prompt_profiles": {
+            "planning": {
+                "profile": "strict",
+                "question_policy": "minimal",
+                "max_required_questions": 3,
+                "min_acceptance_criteria": 2,
+                "todo_granularity": "atomic",
+                "require_files": False,
+                "require_test_commands": False,
+                "require_expected_outputs": False,
+                "require_validation_hints": False,
+                "plan_body_detail": "terse",
+                "required_question_topics": ["scope", "approach"],
+                "extra_guidance": "Always include a migration plan.",
+            }
+        }
+    }
+    config = merge_project_config(overrides)
+    assert config.prompt_profile is not None
+    p = config.prompt_profile
+    assert p.name == "planning"
+    assert p.profile == "strict"
+    assert p.question_policy == "minimal"
+    assert p.max_required_questions == 3
+    assert p.min_acceptance_criteria == 2
+    assert p.todo_granularity == "atomic"
+    assert p.require_files is False
+    assert p.require_test_commands is False
+    assert p.require_expected_outputs is False
+    assert p.require_validation_hints is False
+    assert p.plan_body_detail == "terse"
+    assert p.required_question_topics == ("scope", "approach")
+    assert p.extra_guidance == "Always include a migration plan."
+
+
+def test_merge_project_config_no_prompt_profile_is_none() -> None:
+    config = merge_project_config({})
+    assert config.prompt_profile is None
+
+
+def test_merge_project_config_partial_prompt_profile_uses_defaults() -> None:
+    overrides = {
+        "prompt_profiles": {
+            "planning": {"profile": "compact", "max_required_questions": 2}
+        }
+    }
+    config = merge_project_config(overrides)
+    assert config.prompt_profile is not None
+    p = config.prompt_profile
+    assert p.profile == "compact"
+    assert p.max_required_questions == 2
+    assert p.question_policy == "ask_when_missing"
+    assert p.todo_granularity == "implementation_steps"
+    assert p.require_files is True
+
+
+def test_merge_project_config_preserves_base_prompt_profile() -> None:
+    base = ProjectConfig()
+    overrides: dict[str, object] = {}
+    config = merge_project_config(overrides, base=base)
+    assert config.prompt_profile is None
+    # base with a prompt profile
+    base_with = ProjectConfig(
+        prompt_profile=PromptProfile(
+            name="planning",
+            profile="strict",
+            question_policy="minimal",
+        )
+    )
+    config = merge_project_config(overrides, base=base_with)
+    assert config.prompt_profile is not None
+    assert config.prompt_profile.profile == "strict"
+    assert config.prompt_profile.question_policy == "minimal"
+
+
+def test_validate_prompt_profile_rejects_unknown_keys() -> None:
+    from taskledger.storage.project_config import _validate_project_config_overrides
+
+    data: dict[str, object] = {
+        "prompt_profiles": {
+            "planning": {
+                "profile": "balanced",
+                "unknown_field": "bad",
+            }
+        }
+    }
+    with pytest.raises(LaunchError) as exc:
+        _validate_project_config_overrides(data, Path("test.toml"))
+    assert "unknown" in str(exc.value).lower()
+
+
+def test_validate_prompt_profile_rejects_invalid_profile_enum() -> None:
+    from taskledger.storage.project_config import _validate_project_config_overrides
+
+    data: dict[str, object] = {"prompt_profiles": {"planning": {"profile": "nonsense"}}}
+    with pytest.raises(LaunchError) as exc:
+        _validate_project_config_overrides(data, Path("test.toml"))
+    assert "profile" in str(exc.value).lower()
+
+
+def test_validate_prompt_profile_rejects_invalid_question_policy() -> None:
+    from taskledger.storage.project_config import _validate_project_config_overrides
+
+    data: dict[str, object] = {
+        "prompt_profiles": {"planning": {"question_policy": "ask_always"}}
+    }
+    with pytest.raises(LaunchError) as exc:
+        _validate_project_config_overrides(data, Path("test.toml"))
+    assert "question_policy" in str(exc.value).lower()
+
+
+def test_validate_prompt_profile_rejects_invalid_todo_granularity() -> None:
+    from taskledger.storage.project_config import _validate_project_config_overrides
+
+    data: dict[str, object] = {
+        "prompt_profiles": {"planning": {"todo_granularity": "mega"}}
+    }
+    with pytest.raises(LaunchError) as exc:
+        _validate_project_config_overrides(data, Path("test.toml"))
+    assert "todo_granularity" in str(exc.value).lower()
+
+
+def test_validate_prompt_profile_rejects_invalid_plan_body_detail() -> None:
+    from taskledger.storage.project_config import _validate_project_config_overrides
+
+    data: dict[str, object] = {
+        "prompt_profiles": {"planning": {"plan_body_detail": "verbose"}}
+    }
+    with pytest.raises(LaunchError) as exc:
+        _validate_project_config_overrides(data, Path("test.toml"))
+    assert "plan_body_detail" in str(exc.value).lower()
+
+
+def test_validate_prompt_profile_rejects_non_integer_max_questions() -> None:
+    from taskledger.storage.project_config import _validate_project_config_overrides
+
+    data: dict[str, object] = {
+        "prompt_profiles": {"planning": {"max_required_questions": "five"}}
+    }
+    with pytest.raises(LaunchError) as exc:
+        _validate_project_config_overrides(data, Path("test.toml"))
+    assert "max_required_questions" in str(exc.value).lower()
+
+
+def test_validate_prompt_profile_rejects_non_boolean_field() -> None:
+    from taskledger.storage.project_config import _validate_project_config_overrides
+
+    data: dict[str, object] = {
+        "prompt_profiles": {"planning": {"require_files": "yes"}}
+    }
+    with pytest.raises(LaunchError) as exc:
+        _validate_project_config_overrides(data, Path("test.toml"))
+    assert "require_files" in str(exc.value).lower()
+
+
+def test_validate_prompt_profile_rejects_excessive_extra_guidance() -> None:
+    from taskledger.storage.project_config import _validate_project_config_overrides
+
+    data: dict[str, object] = {
+        "prompt_profiles": {"planning": {"extra_guidance": "x" * 5000}}
+    }
+    with pytest.raises(LaunchError) as exc:
+        _validate_project_config_overrides(data, Path("test.toml"))
+    assert "extra_guidance" in str(exc.value).lower()
+
+
+def test_validate_prompt_profile_rejects_non_list_topics() -> None:
+    from taskledger.storage.project_config import _validate_project_config_overrides
+
+    data: dict[str, object] = {
+        "prompt_profiles": {"planning": {"required_question_topics": "just one string"}}
+    }
+    with pytest.raises(LaunchError) as exc:
+        _validate_project_config_overrides(data, Path("test.toml"))
+    assert "required_question_topics" in str(exc.value).lower()
+
+
+def test_validate_prompt_profile_rejects_negative_integer() -> None:
+    from taskledger.storage.project_config import _validate_project_config_overrides
+
+    data: dict[str, object] = {
+        "prompt_profiles": {"planning": {"max_required_questions": 0}}
+    }
+    with pytest.raises(LaunchError) as exc:
+        _validate_project_config_overrides(data, Path("test.toml"))
+    assert "positive" in str(exc.value).lower()
+
+
+def test_prompt_profile_to_dict() -> None:
+    p = PromptProfile(
+        name="planning",
+        profile="strict",
+        question_policy="minimal",
+        max_required_questions=3,
+        min_acceptance_criteria=2,
+        todo_granularity="atomic",
+        require_files=False,
+        require_test_commands=False,
+        require_expected_outputs=False,
+        require_validation_hints=False,
+        plan_body_detail="terse",
+        required_question_topics=("scope",),
+        extra_guidance="Test guidance.",
+    )
+    d = p.to_dict()
+    assert d["name"] == "planning"
+    assert d["profile"] == "strict"
+    assert d["question_policy"] == "minimal"
+    assert d["max_required_questions"] == 3
+    assert d["min_acceptance_criteria"] == 2
+    assert d["todo_granularity"] == "atomic"
+    assert d["require_files"] is False
+    assert d["required_question_topics"] == ["scope"]
+    assert d["extra_guidance"] == "Test guidance."

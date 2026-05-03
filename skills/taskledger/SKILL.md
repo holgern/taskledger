@@ -268,6 +268,7 @@ taskledger question status
 taskledger question answers
 taskledger question list --status answered
 taskledger next-action
+taskledger plan guidance
 taskledger plan template --from-answers --file ./plan.md
 taskledger plan upsert --from-answers --file ./plan.md
 taskledger plan lint --version 1

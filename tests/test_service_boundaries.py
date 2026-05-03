@@ -111,7 +111,7 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
         "Path probe falls back when environment inspection raises platform-"
         "specific errors."
     ),
-    "taskledger/storage/project_config.py:184": (
+    "taskledger/storage/project_config.py:245": (
         "Project config loader normalizes parser/runtime exceptions across "
         "Python versions."
     ),

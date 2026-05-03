@@ -83,7 +83,8 @@ Plan API
 - ``list_plan_versions``
 - ``show_plan``
 - ``diff_plan``
-- ``lint_plan``
+    - ``lint_plan``
+    - ``plan_guidance``
 - ``approve_plan``
 - ``reject_plan``
 - ``revise_plan``
