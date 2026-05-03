@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shlex
 import sys
@@ -14,6 +15,7 @@ from typing import TextIO
 import typer
 
 from taskledger.cli_common import _error_code, _task_id_from_value
+from taskledger.command_inventory import COMMAND_METADATA, HUMAN_ORIENTED
 from taskledger.domain.models import ActorRef, AgentCommandLogRecord, HarnessRef
 from taskledger.errors import LaunchError
 from taskledger.storage.agent_logs import (
@@ -37,6 +39,85 @@ _current_recorder: ContextVar[AgentCommandRecorder | None] = ContextVar(
     "taskledger_agent_command_recorder",
     default=None,
 )
+
+_SAFE_READ_ONLY = "safe_read_only"
+_LEDGER_MUTATION = "ledger_mutation"
+_TRUTHY = {"1", "true", "yes", "on"}
+_GLOBAL_VALUE_OPTIONS = {"--cwd", "--root"}
+_GLOBAL_BOOL_OPTIONS = {"--json", "--no-log", "--version"}
+
+
+def _env_no_log() -> bool:
+    """Check if TASKLEDGER_NO_LOG environment variable is set to a truthy value."""
+    value = os.environ.get("TASKLEDGER_NO_LOG", "")
+    return value.strip().lower() in _TRUTHY
+
+
+def _command_key_from_argv(argv: tuple[str, ...]) -> str | None:
+    """Extract the command key from argv, handling global options."""
+    parts: list[str] = []
+    skip_next = False
+    for arg in argv:
+        if skip_next:
+            skip_next = False
+            continue
+
+        if arg in _GLOBAL_VALUE_OPTIONS:
+            skip_next = True
+            continue
+        if any(arg.startswith(f"{opt}=") for opt in _GLOBAL_VALUE_OPTIONS):
+            continue
+        if arg in _GLOBAL_BOOL_OPTIONS:
+            continue
+
+        # Stop before command-specific options.
+        if arg.startswith("-"):
+            continue
+
+        parts.append(arg)
+        if len(parts) >= 2:
+            break
+
+    if not parts:
+        return None
+
+    # Prefer the longest metadata match.
+    two = " ".join(parts[:2])
+    if len(parts) >= 2 and two in COMMAND_METADATA:
+        return two
+    one = parts[0]
+    if one in COMMAND_METADATA:
+        return one
+    return one
+
+
+def _should_skip_cli_recording(
+    *,
+    argv: tuple[str, ...],
+    config: AgentLoggingConfig,
+    no_log: bool,
+) -> bool:
+    """Determine whether CLI recording should be skipped."""
+    if no_log or _env_no_log():
+        return True
+    if not config.enabled or not config.capture_taskledger_cli:
+        return True
+
+    command_key = _command_key_from_argv(argv)
+    if command_key is None:
+        return False
+
+    metadata = COMMAND_METADATA.get(command_key)
+    if metadata is None:
+        # Conservative default: unknown commands remain logged.
+        return False
+
+    audience, effect = metadata
+    if audience == HUMAN_ORIENTED and not config.capture_human_oriented:
+        return True
+    if effect == _SAFE_READ_ONLY and not config.capture_safe_read_only:
+        return True
+    return False
 
 
 class TeeTextStream:
@@ -284,9 +365,10 @@ def start_cli_recorder(
     workspace_root: Path,
     argv: tuple[str, ...],
     json_output: bool,
+    no_log: bool = False,
 ) -> None:
     config = _load_agent_logging_config(workspace_root)
-    if not config.enabled or not config.capture_taskledger_cli:
+    if _should_skip_cli_recording(argv=argv, config=config, no_log=no_log):
         return
     recorder = AgentCommandRecorder(
         workspace_root=workspace_root,

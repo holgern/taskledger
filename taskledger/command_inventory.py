@@ -144,4 +144,5 @@ COMMAND_METADATA: dict[str, tuple[str, str]] = {
     "ledger switch": (STABLE_FOR_AGENTS, "ledger_mutation"),
     "ledger adopt": (STABLE_FOR_AGENTS, "ledger_mutation"),
     "ledger doctor": (STABLE_FOR_AGENTS, "safe_read_only"),
+    "commands": (HUMAN_ORIENTED, "safe_read_only"),
 }

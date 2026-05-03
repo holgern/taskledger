@@ -61,6 +61,7 @@ _SINGLE_TOKEN_COMMANDS = {
     "doctor",
     "snapshot",
     "tree",
+    "commands",
 }
 
 # Commands that are valid top-level or two-token commands from the inventory

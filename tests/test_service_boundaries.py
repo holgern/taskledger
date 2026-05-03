@@ -39,11 +39,11 @@ FUNCTION_LINE_WHITELIST: dict[str, str] = {
 }
 
 EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
-    "taskledger/cli.py:206": (
+    "taskledger/cli.py:207": (
         "Top-level command dispatch keeps unexpected crashes in structured output."
     ),
-    "taskledger/cli.py:468": (
-        "Global CLI fallback converts bootstrap failures into LaunchError envelopes."
+    "taskledger/cli.py:603": (
+        "Serve command optional import fallback reports missing dashboard gracefully."
     ),
     "taskledger/cli_ledger.py:111": (
         "Ledger root fallback degrades gracefully when legacy storage probes fail."
@@ -111,9 +111,8 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
         "Path probe falls back when environment inspection raises platform-"
         "specific errors."
     ),
-    "taskledger/storage/project_config.py:295": (
-        "Project config loader normalizes parser/runtime exceptions across "
-        "Python versions."
+    "taskledger/storage/project_config.py:317": (
+        "TOML parser error handling catches runtime-specific exceptions."
     ),
     "taskledger/storage/task_store.py:367": (
         "Task-store metadata fallback keeps reads available when optional front "

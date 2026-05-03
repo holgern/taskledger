@@ -60,6 +60,7 @@ from taskledger.cli_plan import register_plan_v2_commands
 from taskledger.cli_question import register_question_v2_commands
 from taskledger.cli_task import register_task_v2_commands
 from taskledger.cli_validate import register_validate_v2_commands
+from taskledger.command_inventory import COMMAND_METADATA
 from taskledger.errors import LaunchError, OptionalCommandGroupUnavailable
 from taskledger.services.dashboard import dashboard, render_dashboard_text
 
@@ -307,6 +308,13 @@ def main(
         bool,
         typer.Option("--json", help="Render machine-readable JSON."),
     ] = False,
+    no_log: Annotated[
+        bool,
+        typer.Option(
+            "--no-log",
+            help="Skip writing an agent command-log record for this invocation.",
+        ),
+    ] = False,
 ) -> None:
     import sys
 
@@ -325,6 +333,54 @@ def main(
     from taskledger.services.agent_logging import start_cli_recorder
 
     argv = tuple(sys.argv[1:])
+    # When running under test runners like pytest, sys.argv contains test runner args
+    # But only reject it if it's clearly not a taskledger command
+    _known_commands = {
+        "can",
+        "commands",
+        "context",
+        "deps",
+        "doctor",
+        "export",
+        "grep",
+        "import",
+        "init",
+        "next-action",
+        "reindex",
+        "search",
+        "serve",
+        "snapshot",
+        "status",
+        "symbols",
+        "tree",
+        "view",
+        "task",
+        "plan",
+        "question",
+        "implement",
+        "validate",
+        "todo",
+        "intro",
+        "file",
+        "link",
+        "require",
+        "lock",
+        "handoff",
+        "ledger",
+        "release",
+        "actor",
+        "harness",
+    }
+    is_test_runner_arg = (
+        argv
+        and (argv[0].startswith("tests/") or "::" in argv[0])
+        and argv[0] not in _known_commands
+    )
+    if is_test_runner_arg:
+        # This looks like pytest args, use ctx instead
+        argv = ()
+    if not argv and ctx.invoked_subcommand:
+        argv = (ctx.invoked_subcommand,)
     if not argv:
         argv = tuple(ctx.args)
     start_cli_recorder(
@@ -332,6 +388,7 @@ def main(
         workspace_root=resolved_cwd,
         argv=argv,
         json_output=json_output,
+        no_log=no_log,
     )
 
 
@@ -446,6 +503,85 @@ def view_command(
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
     human = render_dashboard_text(payload)
     emit_payload(ctx, payload, human=human)
+
+
+@app.command("commands")
+def commands_command(
+    ctx: typer.Context,
+    audience: Annotated[
+        str | None,
+        typer.Option(
+            "--audience",
+            help="Filter by audience type.",
+        ),
+    ] = None,
+    effect: Annotated[
+        str | None,
+        typer.Option(
+            "--effect",
+            help="Filter by command effect (safe-read-only, ledger-mutation).",
+        ),
+    ] = None,
+) -> None:
+    state = ctx.obj
+    assert isinstance(state, CLIState)
+
+    # Normalize filter values from CLI dashes to underscores
+    audience_normalized = audience.replace("-", "_") if audience else None
+    effect_normalized = effect.replace("-", "_") if effect else None
+
+    # Filter commands
+    filtered_commands: list[dict[str, str]] = []
+    for cmd, (cmd_audience, cmd_effect) in sorted(COMMAND_METADATA.items()):
+        if audience_normalized and cmd_audience != audience_normalized:
+            continue
+        if effect_normalized and cmd_effect != effect_normalized:
+            continue
+        filtered_commands.append(
+            {
+                "command": cmd,
+                "audience": cmd_audience,
+                "effect": cmd_effect,
+            }
+        )
+
+    payload = {
+        "kind": "taskledger_command_inventory",
+        "commands": filtered_commands,
+    }
+
+    if state.json_output:
+        emit_payload(ctx, payload)
+    else:
+        # Render human output as table
+        if not filtered_commands:
+            typer.echo("No commands matching the specified filters.")
+            return
+
+        # Calculate column widths
+        _cmd_lens = [len(cmd["command"]) for cmd in filtered_commands]
+        _aud_lens = [len(cmd["audience"]) for cmd in filtered_commands]
+        _eff_lens = [len(cmd["effect"]) for cmd in filtered_commands]
+        max_cmd_len = max(_cmd_lens + [len("Command")]) if filtered_commands else 10
+        max_aud_len = max(_aud_lens + [len("Audience")]) if filtered_commands else 10
+        max_eff_len = max(_eff_lens + [len("Effect")]) if filtered_commands else 10
+
+        # Print header
+        header = (
+            f"{'Command':<{max_cmd_len}}  "
+            f"{'Audience':<{max_aud_len}}  "
+            f"{'Effect':<{max_eff_len}}"
+        )
+        typer.echo(header)
+        typer.echo("-" * (max_cmd_len + max_aud_len + max_eff_len + 4))
+
+        # Print rows
+        for cmd_info in filtered_commands:
+            typer.echo(
+                f"{cmd_info['command']:<{max_cmd_len}}  "
+                f"{cmd_info['audience']:<{max_aud_len}}  "
+                f"{cmd_info['effect']:<{max_eff_len}}"
+            )
 
 
 @app.command("serve")

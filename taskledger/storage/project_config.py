@@ -58,6 +58,8 @@ AGENT_LOGGING_CONFIG_KEYS = frozenset(
         "max_artifact_bytes",
         "fail_on_logging_error",
         "redact_patterns",
+        "capture_safe_read_only",
+        "capture_human_oriented",
     }
 )
 SUPPORTED_PROJECT_CONFIG_KEYS = (
@@ -154,6 +156,8 @@ class AgentLoggingConfig:
     max_artifact_bytes: int | None = 2_000_000
     fail_on_logging_error: bool = False
     redact_patterns: tuple[str, ...] = ()
+    capture_safe_read_only: bool = True
+    capture_human_oriented: bool = True
 
 
 @dataclass(slots=True, frozen=True)
@@ -284,6 +288,8 @@ def render_default_taskledger_toml(
         "# max_artifact_bytes = 2000000\n"
         "# fail_on_logging_error = false\n"
         '# redact_patterns = ["(?i)(api[_-]?key|token|password|secret)=\\\\S+"]\n'
+        "# capture_safe_read_only = true\n"
+        "# capture_human_oriented = true\n"
     )
 
 
@@ -736,6 +742,8 @@ def _validate_agent_logging(raw: object, path: Path) -> None:
         "capture_payload_metadata",
         "store_full_output_artifacts",
         "fail_on_logging_error",
+        "capture_safe_read_only",
+        "capture_human_oriented",
     ):
         value = raw.get(key)
         if value is not None and not isinstance(value, bool):
@@ -815,5 +823,11 @@ def _parse_agent_logging(
         ),
         redact_patterns=tuple(
             str(item) for item in raw.get("redact_patterns", base.redact_patterns)
+        ),
+        capture_safe_read_only=bool(
+            raw.get("capture_safe_read_only", base.capture_safe_read_only)
+        ),
+        capture_human_oriented=bool(
+            raw.get("capture_human_oriented", base.capture_human_oriented)
         ),
     )
