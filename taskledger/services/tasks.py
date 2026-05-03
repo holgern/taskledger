@@ -19,7 +19,6 @@ from taskledger.domain.models import (
     AcceptanceCriterion,
     ActiveTaskState,
     ActorRef,
-    CodeChangeRecord,
     DependencyWaiver,
     HarnessRef,
     PlanRecord,
@@ -29,15 +28,12 @@ from taskledger.domain.models import (
     TaskRecord,
     TaskRunRecord,
     TaskTodo,
-    TodoCollection,
     ValidationCheck,
 )
 from taskledger.domain.policies import (
     Decision,
     derive_active_stage,
-    implementation_mutation_decision,
     plan_approve_decision,
-    plan_command_decision,
     plan_revise_decision,
     question_add_decision,
     question_mutation_decision,
@@ -58,7 +54,6 @@ from taskledger.domain.states import (
 )
 from taskledger.errors import LaunchError, NoActiveTask
 from taskledger.ids import next_project_id, slugify_project_ref
-from taskledger.services import command_runner
 from taskledger.services.task_queries import (
     accepted_plan_record_or_none as _task_query_accepted_plan_record_or_none,
 )
@@ -72,7 +67,7 @@ from taskledger.services.validation import (
     build_validation_gate_report as _build_validation_gate_report_impl,
 )
 from taskledger.storage.atomic import atomic_write_text
-from taskledger.storage.events import append_event, load_events, next_event_id
+from taskledger.storage.events import append_event, next_event_id
 from taskledger.storage.indexes import rebuild_v2_indexes
 from taskledger.storage.locks import (
     lock_is_expired,
@@ -100,15 +95,11 @@ from taskledger.storage.task_store import (
     resolve_run,
     resolve_task,
     resolve_v2_paths,
-    save_change,
-    save_plan,
     save_question,
     save_run,
     save_task,
-    save_todos,
     task_artifacts_dir,
     task_audit_dir,
-    task_dir,
     task_lock_path,
 )
 from taskledger.storage.task_store import (
@@ -492,7 +483,9 @@ def approve_plan(
     )
 
 
-class PlanTodoMaterializationPayload(TypedDict):
+class PlanTodoMaterializationPayload(TypedDict):  # type: ignore[misc]
+    """Re-exported from plan_materialization for backward compatibility."""
+
     kind: str
     task_id: str
     plan_id: str
@@ -501,247 +494,20 @@ class PlanTodoMaterializationPayload(TypedDict):
     dry_run: bool
 
 
-def materialize_plan_todos(
-    workspace_root: Path,
-    task_ref: str,
-    *,
-    version: int,
-    dry_run: bool = False,
-) -> PlanTodoMaterializationPayload:
-    task = _task_with_sidecars(workspace_root, resolve_task(workspace_root, task_ref))
-    plan = resolve_plan(workspace_root, task.id, version=version)
-    existing_keys = {
-        (todo.source_plan_id, _normalize_todo_text(todo.text)) for todo in task.todos
-    }
-    new_todos: list[TaskTodo] = []
-    next_ids = [todo.id for todo in task.todos]
-    for plan_todo in plan.todos:
-        key = (plan.plan_id, _normalize_todo_text(plan_todo.text))
-        if key in existing_keys:
-            continue
-        todo_id = next_project_id("todo", [*next_ids, *(todo.id for todo in new_todos)])
-        new_todos.append(
-            replace(
-                plan_todo,
-                id=todo_id,
-                source="plan",
-                source_plan_id=plan.plan_id,
-                mandatory=plan_todo.mandatory,
-                status="open",
-                done=False,
-                created_at=utc_now_iso(),
-                updated_at=utc_now_iso(),
-            )
-        )
-    if new_todos and not dry_run:
-        updated = replace(
-            task,
-            todos=tuple([*task.todos, *new_todos]),
-            updated_at=utc_now_iso(),
-        )
-        save_todos(
-            workspace_root, TodoCollection(task_id=updated.id, todos=updated.todos)
-        )
-        save_task(workspace_root, updated)
-        _append_event(
-            resolve_v2_paths(workspace_root).project_dir,
-            updated.id,
-            "todo.added",
-            {
-                "source_plan_id": plan.plan_id,
-                "todo_ids": [todo.id for todo in new_todos],
-            },
-        )
-    return PlanTodoMaterializationPayload(
-        kind="plan_todo_materialization",
-        task_id=task.id,
-        plan_id=plan.plan_id,
-        materialized_todos=len(new_todos),
-        todos=[todo.to_dict() for todo in new_todos],
-        dry_run=dry_run,
+def materialize_plan_todos(*args, **kwargs):  # type: ignore[no-untyped-def]
+    from taskledger.services.plan_materialization import (
+        materialize_plan_todos as _impl,
     )
 
+    return _impl(*args, **kwargs)
 
-def regenerate_plan_from_answers(
-    workspace_root: Path,
-    task_ref: str,
-    *,
-    body: str,
-    criteria: tuple[str, ...] = (),
-    allow_open_questions: bool = False,
-) -> dict[str, object]:
-    task = resolve_task(workspace_root, task_ref)
-    questions = list_questions(workspace_root, task.id)
-    open_required = [
-        item.id
-        for item in questions
-        if item.status == "open" and item.required_for_plan
-    ]
-    if open_required and not allow_open_questions:
-        raise _cli_error(
-            "Plan regeneration is blocked by required open questions: "
-            + ", ".join(open_required),
-            EXIT_CODE_APPROVAL_REQUIRED,
-        )
-    answered = [
-        item
-        for item in questions
-        if item.status == "answered" and item.required_for_plan
-    ]
-    plans = list_plans(workspace_root, task.id)
-    if not answered and not plans:
-        raise _cli_error(
-            "Plan regeneration requires answered questions or a previous plan.",
-            EXIT_CODE_APPROVAL_REQUIRED,
-        )
-    running_runs = _running_runs(workspace_root, task)
-    latest_planning_run = _optional_run(
-        workspace_root,
-        task,
-        task.latest_planning_run,
+
+def regenerate_plan_from_answers(*args, **kwargs):  # type: ignore[no-untyped-def]
+    from taskledger.services.plan_materialization import (
+        regenerate_plan_from_answers as _impl,
     )
-    lock_to_release = _current_lock(workspace_root, task.id)
-    run_to_finish: TaskRunRecord | None = None
-    finish_orphaned_run: TaskRunRecord | None = None
-    if running_runs:
-        if (
-            len(running_runs) == 1
-            and latest_planning_run is not None
-            and running_runs[0].run_id == latest_planning_run.run_id
-            and latest_planning_run.run_type == "planning"
-        ):
-            if _lock_matches_run(lock_to_release, latest_planning_run):
-                run_to_finish = latest_planning_run
-            elif lock_to_release is None:
-                finish_orphaned_run = latest_planning_run
-            else:
-                raise _running_run_conflict_error(
-                    task,
-                    latest_planning_run,
-                    lock_to_release,
-                    message=(
-                        "Cannot regenerate plan because the latest planning run "
-                        "and active lock disagree. Run `taskledger doctor`."
-                    ),
-                )
-        else:
-            raise _running_run_conflict_error(
-                task,
-                running_runs[0],
-                lock_to_release,
-                message=(
-                    "Cannot regenerate plan while another run is still running. "
-                    "Run `taskledger doctor`."
-                ),
-            )
-    front_matter, plan_body = _parse_plan_front_matter(body)
-    version = plans[-1].plan_version + 1 if plans else 1
-    plan = PlanRecord(
-        task_id=task.id,
-        plan_version=version,
-        body=plan_body.strip(),
-        status="proposed",
-        created_by=_default_actor(),
-        supersedes=plans[-1].plan_version if plans else None,
-        question_refs=tuple(open_required),
-        criteria=_criteria_from_plan_input(front_matter, criteria),
-        todos=_todos_from_plan_input(front_matter),
-        generation_reason="after_questions",
-        based_on_question_ids=tuple(item.id for item in answered),
-        based_on_answer_hash=_answer_snapshot_hash(questions),
-        goal=_optional_front_matter_string(front_matter, "goal"),
-        files=_string_tuple_from_front_matter(front_matter, "files"),
-        test_commands=_string_tuple_from_front_matter(front_matter, "test_commands"),
-        expected_outputs=_string_tuple_from_front_matter(
-            front_matter, "expected_outputs"
-        ),
-        todos_waived_reason=(
-            _optional_front_matter_string(front_matter, "todos_waived_reason")
-            or _optional_front_matter_string(front_matter, "todo_waiver_reason")
-            or _optional_front_matter_string(front_matter, "no_todos_reason")
-        ),
-    )
-    save_plan(workspace_root, plan)
-    if plans:
-        previous = plans[-1]
-        if previous.status == "proposed":
-            overwrite_plan(workspace_root, replace(previous, status="superseded"))
-    finish_time = utc_now_iso()
-    if run_to_finish is not None:
-        save_run(
-            workspace_root,
-            replace(
-                run_to_finish,
-                status="finished",
-                finished_at=finish_time,
-                summary=_summary_line(plan_body),
-            ),
-        )
-    if finish_orphaned_run is not None:
-        save_run(
-            workspace_root,
-            replace(
-                finish_orphaned_run,
-                status="finished",
-                finished_at=finish_time,
-                summary=_summary_line(plan_body),
-            ),
-        )
-    updated = replace(
-        task,
-        latest_plan_version=version,
-        status_stage="plan_review",
-        updated_at=utc_now_iso(),
-    )
-    save_task(workspace_root, updated)
-    if run_to_finish is not None:
-        _release_lock(
-            workspace_root,
-            task=updated,
-            expected_stage="planning",
-            run_id=run_to_finish.run_id,
-            target_stage="plan_review",
-            event_name="stage.completed",
-            extra_data={"plan_version": version},
-            delete_only=True,
-        )
-    if finish_orphaned_run is not None:
-        _append_event(
-            resolve_v2_paths(workspace_root).project_dir,
-            updated.id,
-            "run.recovered",
-            {
-                "stage": "planning",
-                "run_id": finish_orphaned_run.run_id,
-                "recovered_missing_lock": True,
-                "reason": (
-                    "plan regenerated from answers; planning lock was already missing"
-                ),
-                "plan_version": version,
-            },
-        )
-    _append_event(
-        resolve_v2_paths(workspace_root).project_dir,
-        updated.id,
-        "plan.proposed",
-        {"plan_version": version, "generation_reason": "after_questions"},
-    )
-    rebuild_v2_indexes(resolve_v2_paths(workspace_root))
-    regenerate_warnings: list[str] = []
-    if not plan_body.strip():
-        regenerate_warnings.append(
-            "Plan body is empty; implementation handoff will not contain a human plan."
-        )
-    payload = _lifecycle_payload(
-        "plan regenerate",
-        updated,
-        warnings=regenerate_warnings,
-        changed=True,
-        plan_version=version,
-    )
-    payload["plan_body_chars"] = len(plan_body)
-    payload["plan_body_lines"] = len(plan_body.splitlines())
-    return payload
+
+    return _impl(*args, **kwargs)
 
 
 def reject_plan(
@@ -1247,190 +1013,28 @@ def add_implementation_artifact(
     )
 
 
-def add_change(
-    workspace_root: Path,
-    task_ref: str,
-    *,
-    path: str,
-    kind: str,
-    summary: str,
-    git_commit: str | None = None,
-    git_diff_stat: str | None = None,
-    command: str | None = None,
-    before_hash: str | None = None,
-    after_hash: str | None = None,
-    exit_code: int | None = None,
-    artifact_refs: tuple[str, ...] = (),
-) -> CodeChangeRecord:
-    task = resolve_task(workspace_root, task_ref)
-    run = _require_running_run(
-        workspace_root,
-        task,
-        task.latest_implementation_run,
-        expected_type="implementation",
-    )
-    _enforce_decision(
-        implementation_mutation_decision(
-            task,
-            _lock_for_mutation(workspace_root, task.id),
-            run=run,
-            action="record code changes",
-        )
-    )
-    change = CodeChangeRecord(
-        change_id=next_project_id(
-            "change",
-            [item.change_id for item in list_changes(workspace_root, task.id)],
-        ),
-        task_id=task.id,
-        implementation_run=run.run_id,
-        timestamp=utc_now_iso(),
-        kind=kind,
-        path=path,
-        summary=summary.strip(),
-        git_commit=git_commit,
-        git_diff_stat=git_diff_stat,
-        command=command,
-        before_hash=before_hash,
-        after_hash=after_hash,
-        exit_code=exit_code,
-    )
-    save_change(workspace_root, change)
-    save_run(
-        workspace_root,
-        replace(
-            run,
-            change_refs=tuple([*run.change_refs, change.change_id]),
-            artifact_refs=tuple([*run.artifact_refs, *artifact_refs]),
-        ),
-    )
-    save_task(
-        workspace_root,
-        replace(
-            task,
-            code_change_log_refs=tuple([*task.code_change_log_refs, change.change_id]),
-            updated_at=utc_now_iso(),
-        ),
-    )
-    _append_event(
-        resolve_v2_paths(workspace_root).project_dir,
-        task.id,
-        "change.logged",
-        {"change_id": change.change_id, "path": path},
-    )
-    return change
-
-
-def scan_changes(
-    workspace_root: Path,
-    task_ref: str,
-    *,
-    from_git: bool,
-    summary: str,
-) -> CodeChangeRecord:
-    if not from_git:
-        raise _cli_error(
-            "scan-changes currently requires --from-git.",
-            EXIT_CODE_BAD_INPUT,
-        )
-    git_state = _git_change_state(workspace_root)
-    diff_stat = "\n".join(
-        [
-            f"branch: {git_state['branch']}",
-            "status:",
-            git_state["status"] or "(clean)",
-            "diff_stat:",
-            git_state["diff_stat"] or "(no diff)",
-        ]
-    )
-    return add_change(
-        workspace_root,
-        task_ref,
-        path=".",
-        kind="scan",
-        summary=summary.strip() or "Scanned Git changes.",
-        command="git branch --show-current && git status --short && git diff --stat",
-        git_diff_stat=diff_stat,
+def add_change(*args, **kwargs):  # type: ignore[no-untyped-def]
+    from taskledger.services.change_tracking import (
+        add_change as _impl,
     )
 
+    return _impl(*args, **kwargs)
 
-def run_planning_command(
-    workspace_root: Path,
-    task_ref: str,
-    *,
-    argv: tuple[str, ...],
-) -> dict[str, object]:
-    from taskledger.services.agent_logging import record_managed_shell_command
 
-    if not argv:
-        raise _cli_error("plan command requires a command to run.", EXIT_CODE_BAD_INPUT)
-    task = resolve_task(workspace_root, task_ref)
-    run = _require_running_run(
-        workspace_root,
-        task,
-        task.latest_planning_run,
-        expected_type="planning",
+def scan_changes(*args, **kwargs):  # type: ignore[no-untyped-def]
+    from taskledger.services.change_tracking import (
+        scan_changes as _impl,
     )
-    _enforce_decision(
-        plan_command_decision(
-            task,
-            _lock_for_mutation(workspace_root, task.id),
-            run=run,
-        )
+
+    return _impl(*args, **kwargs)
+
+
+def run_planning_command(*args, **kwargs):  # type: ignore[no-untyped-def]
+    from taskledger.services.change_tracking import (
+        run_planning_command as _impl,
     )
-    completed = command_runner.run_command(argv, cwd=workspace_root)
-    record_managed_shell_command(
-        workspace_root,
-        task_id=task.id,
-        run_id=run.run_id,
-        run_type="planning",
-        argv=argv,
-        exit_code=completed.returncode,
-        stdout=completed.stdout,
-        stderr=completed.stderr,
-    )
-    output = _command_output(argv, completed.stdout, completed.stderr)
-    artifact_ref: str | None = None
-    if len(output) > 4000 or output.count("\n") > 50:
-        artifact_ref = _write_command_artifact(
-            workspace_root,
-            task.id,
-            run.run_id,
-            output,
-        )
-    summary = _command_summary(argv, completed.returncode, artifact_ref)
-    updated_run = replace(
-        run,
-        worklog=tuple([*run.worklog, summary]),
-        artifact_refs=tuple(
-            [*run.artifact_refs, *((artifact_ref,) if artifact_ref else ())]
-        ),
-    )
-    save_run(workspace_root, updated_run)
-    save_task(
-        workspace_root,
-        replace(task, updated_at=utc_now_iso()),
-    )
-    _append_event(
-        resolve_v2_paths(workspace_root).project_dir,
-        task.id,
-        "plan.command",
-        {
-            "run_id": run.run_id,
-            "command": shlex.join(argv),
-            "exit_code": completed.returncode,
-            "artifact_ref": artifact_ref,
-        },
-    )
-    return {
-        "kind": "planning_command",
-        "task_id": task.id,
-        "change": None,
-        "exit_code": completed.returncode,
-        "artifact_path": artifact_ref,
-        "stdout": completed.stdout,
-        "stderr": completed.stderr,
-    }
+
+    return _impl(*args, **kwargs)
 
 
 def run_implementation_command(
@@ -1706,29 +1310,12 @@ def finish_validation(
     )
 
 
-def show_task_run(
-    workspace_root: Path,
-    task_ref: str,
-    *,
-    run_id: str | None = None,
-    run_type: str,
-) -> dict[str, object]:
-    task = resolve_task(workspace_root, task_ref)
-    selected_run_id = run_id
-    if selected_run_id is None:
-        if run_type == "implementation":
-            selected_run_id = task.latest_implementation_run
-        elif run_type == "validation":
-            selected_run_id = task.latest_validation_run
-        else:
-            selected_run_id = task.latest_planning_run
-    run = _require_run(workspace_root, task, selected_run_id)
-    if run.run_type != run_type:
-        raise _cli_error(
-            f"Run {run.run_id} is {run.run_type}, not {run_type}.",
-            EXIT_CODE_INVALID_TRANSITION,
-        )
-    return {"kind": "task_run", "task_id": task.id, "run": run.to_dict()}
+def show_task_run(*args, **kwargs):  # type: ignore[no-untyped-def]
+    from taskledger.services.change_tracking import (
+        show_task_run as _impl,
+    )
+
+    return _impl(*args, **kwargs)
 
 
 def show_lock(workspace_root: Path, task_ref: str) -> dict[str, object]:
@@ -1851,225 +1438,36 @@ def reindex(workspace_root: Path) -> dict[str, object]:
     return {"kind": "taskledger_reindex", "counts": counts}
 
 
-def repair_task_record(
-    workspace_root: Path,
-    task_ref: str,
-    *,
-    reason: str,
-) -> dict[str, object]:
-    if not reason.strip():
-        raise _cli_error("Task repair requires --reason.", EXIT_CODE_BAD_INPUT)
-    task = resolve_task(workspace_root, task_ref)
-    paths = resolve_v2_paths(workspace_root)
-    warnings = [("Recorded a repair inspection event only; no task state was changed.")]
-    recovery_commands: list[str] = []
-    implementation_run = _optional_run(
-        workspace_root,
-        task,
-        task.latest_implementation_run,
+def repair_task_record(*args, **kwargs):  # type: ignore[no-untyped-def]
+    from taskledger.services.task_repair import (
+        repair_task_record as _impl,
     )
-    if (
-        task.status_stage == "implementing"
-        and implementation_run is not None
-        and implementation_run.run_type == "implementation"
-        and implementation_run.status == "running"
-        and _current_lock(workspace_root, task.id) is None
-    ):
-        recovery_commands.append(
-            "taskledger implement resume "
-            '--reason "Reacquire implementation lock for existing running run."'
-        )
-    elif task.status_stage == "cancelled":
-        recovery_commands.append(
-            "taskledger task uncancel "
-            '--reason "Restore the task to a safe durable stage."'
-        )
-    _append_event(
-        paths.project_dir,
-        task.id,
-        "repair.task",
-        {"reason": reason.strip()},
+
+    return _impl(*args, **kwargs)
+
+
+def repair_orphaned_planning_run(*args, **kwargs):  # type: ignore[no-untyped-def]
+    from taskledger.services.task_repair import (
+        repair_orphaned_planning_run as _impl,
     )
-    return {
-        "kind": "task_repair",
-        "task_id": task.id,
-        "changed": False,
-        "reason": reason.strip(),
-        "warnings": warnings,
-        "recovery_commands": recovery_commands,
-    }
+
+    return _impl(*args, **kwargs)
 
 
-def repair_orphaned_planning_run(
-    workspace_root: Path,
-    task_ref: str,
-    *,
-    run_id: str | None = None,
-    reason: str,
-) -> dict[str, object]:
-    repair_reason = reason.strip()
-    if not repair_reason:
-        raise _cli_error("Run repair requires --reason.", EXIT_CODE_BAD_INPUT)
-    task = resolve_task(workspace_root, task_ref)
-    selected_run_id = run_id or task.latest_planning_run
-    run = _require_run(workspace_root, task, selected_run_id)
-    if run.run_type != "planning":
-        raise _cli_error(
-            "Run repair only supports planning runs.",
-            EXIT_CODE_INVALID_TRANSITION,
-        )
-    if run.status != "running":
-        raise _cli_error(
-            "Run repair requires a running planning run.",
-            EXIT_CODE_INVALID_TRANSITION,
-        )
-    active_lock = _current_lock(workspace_root, task.id)
-    if _lock_matches_run(active_lock, run):
-        raise _cli_error(
-            "Run repair refuses to finish a planning run with a matching active lock.",
-            EXIT_CODE_LOCK_CONFLICT,
-        )
-    if active_lock is not None:
-        raise _running_run_conflict_error(
-            task,
-            run,
-            active_lock,
-            message=(
-                "Run repair requires no active lock for the selected planning run. "
-                "Run `taskledger doctor`."
-            ),
-        )
-    now = utc_now_iso()
-    save_run(
-        workspace_root,
-        replace(
-            run,
-            status="finished",
-            finished_at=now,
-            summary=f"Repaired orphaned planning run: {repair_reason}",
-        ),
+def repair_planning_command_changes(*args, **kwargs):  # type: ignore[no-untyped-def]
+    from taskledger.services.task_repair import (
+        repair_planning_command_changes as _impl,
     )
-    _append_event(
-        resolve_v2_paths(workspace_root).project_dir,
-        task.id,
-        "repair.run",
-        {
-            "action": "finished_orphan_run",
-            "run_id": run.run_id,
-            "run_type": run.run_type,
-            "previous_status": run.status,
-            "new_status": "finished",
-            "reason": repair_reason,
-        },
+
+    return _impl(*args, **kwargs)
+
+
+def list_events(*args, **kwargs):  # type: ignore[no-untyped-def]
+    from taskledger.services.change_tracking import (
+        list_events as _impl,
     )
-    rebuild_v2_indexes(resolve_v2_paths(workspace_root))
-    return {
-        "kind": "run_repair",
-        "action": "finished_orphan_run",
-        "task_id": task.id,
-        "run_id": run.run_id,
-        "run_type": run.run_type,
-        "previous_status": run.status,
-        "new_status": "finished",
-        "next_command": "taskledger implement start",
-    }
 
-
-def repair_planning_command_changes(
-    workspace_root: Path,
-    task_ref: str,
-    *,
-    reason: str,
-    dry_run: bool = False,
-) -> dict[str, object]:
-    repair_reason = reason.strip()
-    if not repair_reason:
-        raise _cli_error(
-            "Planning command changes repair requires --reason.",
-            EXIT_CODE_BAD_INPUT,
-        )
-    task = resolve_task(workspace_root, task_ref)
-    paths = resolve_v2_paths(workspace_root)
-    changes = list_changes(workspace_root, task.id)
-    repaired_changes: list[str] = []
-    dry_run_summary: list[str] = []
-
-    for change in changes:
-        if change.kind != "command":
-            continue
-        run = _optional_run(workspace_root, task, change.implementation_run)
-        if run is None or run.run_type != "planning":
-            continue
-
-        repaired_changes.append(change.change_id)
-        change_path = task_dir(paths, task.id) / "changes" / f"{change.change_id}.yaml"
-
-        if not dry_run:
-            updated_run = replace(
-                run,
-                worklog=tuple([*run.worklog, change.summary]),
-                artifact_refs=tuple(
-                    [
-                        *run.artifact_refs,
-                        *(
-                            (change.change_id,)
-                            if not change.change_id.startswith("artifact_")
-                            else ()
-                        ),
-                    ]
-                ),
-            )
-            save_run(workspace_root, updated_run)
-
-            if change_path.exists():
-                change_path.unlink()
-
-            save_task(
-                workspace_root,
-                replace(
-                    task,
-                    code_change_log_refs=tuple(
-                        ref
-                        for ref in task.code_change_log_refs
-                        if ref != change.change_id
-                    ),
-                    updated_at=utc_now_iso(),
-                ),
-            )
-
-            _append_event(
-                paths.project_dir,
-                task.id,
-                "repair.change",
-                {
-                    "action": "moved_planning_command_to_worklog",
-                    "change_id": change.change_id,
-                    "run_id": run.run_id,
-                    "reason": repair_reason,
-                },
-            )
-        else:
-            dry_run_summary.append(
-                f"Would move change {change.change_id} summary to planning "
-                f"run {run.run_id} worklog"
-            )
-
-    if not dry_run:
-        rebuild_v2_indexes(paths)
-
-    return {
-        "kind": "planning_command_changes_repair",
-        "task_id": task.id,
-        "dry_run": dry_run,
-        "repaired_changes": repaired_changes,
-        "reason": repair_reason,
-        "summary": dry_run_summary if dry_run else None,
-    }
-
-
-def list_events(workspace_root: Path) -> list[dict[str, object]]:
-    events_dir = resolve_v2_paths(workspace_root).events_dir
-    return [item.to_dict() for item in load_events(events_dir)]
+    return _impl(*args, **kwargs)
 
 
 def _start_run(
