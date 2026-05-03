@@ -1,5 +1,40 @@
 # Changelog
 
+## v0.2.0 - 2026-05-03
+
+### Added
+
+- Added `taskledger task record` for creating done tasks that represent manually completed work, with change records, evidence, and implementation summaries. Does not acquire locks or activate the task. Recorded tasks are included in release changelogs.
+- Added branch-scoped ledger state with `taskledger ledger` command group (`status`, `list`, `fork`, `switch`, `adopt`, `doctor`). Each git branch can maintain its own isolated task ledger, with `adopt` for copying branch-local task history into the current ledger.
+- Added `taskledger tree` command to render ledger and task structure with follow-up nesting, subtree filtering, release boundaries, and per-ledger release counts in both human and JSON output.
+- Added compressed export/import with a project UUID guard to prevent importing archives into the wrong project, plus archive member-count and manifest/payload size limits for safety.
+- Added `taskledger status --check` to run doctor diagnostics alongside status, keeping the default `status` fast by avoiding full record parsing.
+- Added structured diagnostics to `taskledger doctor` JSON output with task IDs, change IDs, run IDs, types, relative paths, and actionable repair hints.
+- Added explicit `repair` command for existing planning-command change records that were incorrectly persisted as code changes.
+- Added a top-level `Makefile` with a `release-check` automation target (compile, test, lint, type-check, build, twine check).
+- Added AST-based service boundary guardrail tests with explicit whitelists and documented rationale.
+
+### Changed
+
+- Split core plan/implement/validate service entrypoints from `tasks.py` into dedicated `planning_flow.py`, `implementation_flow.py`, and `validation_flow.py` modules. `tasks.py` remains a compatibility facade.
+- Decoupled validation service from private task helpers by extracting shared query logic into a new `task_queries` module.
+- Planning commands are now persisted as planning-run evidence (worklog/artifacts/event) instead of creating `CodeChangeRecord` entries.
+- Replaced chmod-dependent storage write failure test with a deterministic synthetic `OSError` monkeypatch.
+- Sped up test suite with test-only fast fsync bypass, command-runner seam, and reduced subprocess-heavy setup.
+
+### Fixed
+
+- Fixed import replace so it no longer restores stale locks across machines.
+
+### Documentation
+
+- Documented branch-scoped ledger workflow, `task record` usage and warnings, `tree` command, and `make release-check` across README, RST docs, API docs, and the taskledger skill.
+- Added `docs/service_boundary_whitelist.md` documenting temporary module/function boundary whitelist entries and split targets.
+
+### Quality
+
+- Expanded regression coverage for branch-scoped ledgers, task record, tree command, compressed export/import, doctor diagnostics, status performance, service boundaries, and planning command persistence. Repo-wide pytest, ruff, and mypy passed.
+
 ## v0.1.2 - 2026-04-30
 
 ### Fixed
