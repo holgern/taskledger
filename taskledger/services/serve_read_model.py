@@ -422,49 +422,6 @@ def _build_next_action_from_snapshot(
     }
 
 
-def _snapshot_orphaned_active_stage_action(
-    snapshot: TaskDashboardSnapshot,
-) -> tuple[str, str, dict[str, object], list[dict[str, object]]]:
-    task = snapshot.task
-    blockers: list[dict[str, object]] = [
-        {
-            "kind": "active_stage",
-            "message": (
-                f"Task status is {task.status_stage}, but active_stage is missing."
-            ),
-        }
-    ]
-    action = "repair-active-stage"
-    reason = f"Task is {task.status_stage}, but no matching active lock/run exists."
-    next_item = _task_next_item(task)
-    if task.status_stage == "implementing":
-        latest_run = _find_run(snapshot.runs, task.latest_implementation_run)
-        has_accepted_plan = any(
-            plan.plan_version == task.accepted_plan_version
-            and plan.status == "accepted"
-            for plan in snapshot.plans
-        )
-        if (
-            latest_run is not None
-            and latest_run.run_type == "implementation"
-            and latest_run.status == "running"
-            and snapshot.lock is None
-            and has_accepted_plan
-        ):
-            action = "implement-resume"
-            reason = "Implementation run is running but the lock is missing."
-            blockers.append(
-                {
-                    "kind": "lock",
-                    "message": (
-                        "Missing active implementation lock "
-                        f"for run {latest_run.run_id}."
-                    ),
-                }
-            )
-    return action, reason, next_item, blockers
-
-
 def _inactive_snapshot_next_action(
     workspace_root: Path,
     snapshot: TaskDashboardSnapshot,

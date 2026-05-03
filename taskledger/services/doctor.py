@@ -3,35 +3,24 @@ from __future__ import annotations
 from pathlib import Path
 from typing import cast
 
-from taskledger.domain.policies import derive_active_stage
 from taskledger.domain.states import TASKLEDGER_STORAGE_LAYOUT_VERSION
 from taskledger.storage.events import load_events
 from taskledger.storage.locks import lock_is_expired
 from taskledger.storage.migrations import inspect_records_for_migration
 from taskledger.storage.paths import (
-    DEFAULT_TASKLEDGER_DIR_NAME,
-    PROJECT_CONFIG_FILENAMES,
     load_project_locator,
     resolve_project_paths,
 )
-from taskledger.storage.project_config import load_project_config_document
 from taskledger.storage.task_store import (
-    change_markdown_path,
     ensure_v2_layout,
     list_changes,
-    list_handoffs_with_errors,
     list_plans,
     list_questions,
     list_runs,
     list_tasks,
     load_active_locks,
     load_active_task_state,
-    load_requirements,
-    load_todos,
-    resolve_introduction,
     resolve_run,
-    run_markdown_path,
-    task_dir,
 )
 
 
@@ -75,93 +64,18 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
     run_lock_mismatches: list[dict[str, object]] = []
     diagnostics: list[dict[str, object]] = []
     paths = ensure_v2_layout(workspace_root)
-    config_candidates = [
-        resolved_paths.workspace_root / filename
-        for filename in PROJECT_CONFIG_FILENAMES
-    ]
-    if all(candidate.exists() for candidate in config_candidates):
-        warnings.append(
-            "Both taskledger.toml and .taskledger.toml exist; using .taskledger.toml."
-        )
-    if (
-        locator.source == "legacy"
-        and (resolved_paths.taskledger_dir / "project.toml").exists()
-    ):
-        warnings.append(
-            "Legacy config location: .taskledger/project.toml. "
-            "Move it to taskledger.toml before release."
-        )
-    if resolved_paths.config_path.exists():
-        try:
-            load_project_config_document(resolved_paths.config_path)
-        except Exception as exc:
-            errors.append(str(exc))
-    # Project UUID check
-    if resolved_paths.config_path.exists():
-        try:
-            from taskledger.storage.project_identity import load_project_uuid
+    from taskledger.services.doctor_checks.migration_checks import scan_migration_state
+    from taskledger.services.doctor_checks.project_scan import scan_project_config
+    from taskledger.services.doctor_checks.task_checks import scan_task_integrity
 
-            project_uuid = load_project_uuid(resolved_paths.config_path)
-            if project_uuid is None:
-                errors.append(
-                    "Project config has no project_uuid."
-                    " Run 'taskledger init' or 'taskledger migrate apply'"
-                    " to generate one and commit the config change."
-                )
-        except Exception as exc:
-            errors.append(f"Invalid project_uuid: {exc}")
-    # Ledger config check
-    if resolved_paths.config_path.exists():
-        try:
-            from taskledger.storage.ledger_config import load_ledger_config
-
-            ledger = load_ledger_config(resolved_paths.config_path)
-            ledger_dir = resolved_paths.taskledger_dir / "ledgers" / ledger.ref
-            if not ledger_dir.exists():
-                repair_hints.append(
-                    f"Ledger directory missing: {ledger_dir}."
-                    " Run: taskledger init or taskledger ledger switch."
-                )
-        except Exception as exc:
-            errors.append(f"Invalid ledger config: {exc}")
-    # Legacy unscoped state check
-    for legacy_name in (
-        "tasks",
-        "events",
-        "indexes",
-        "intros",
-        "releases",
-        "active-task.yaml",
-    ):
-        legacy_path = resolved_paths.taskledger_dir / legacy_name
-        if legacy_path.exists():
-            warnings.append(
-                f"Legacy unscoped state at {legacy_path}."
-                " Run: taskledger migrate branch-scoped-ledgers."
-            )
-    if not resolved_paths.taskledger_dir.exists():
-        errors.append(
-            "Configured taskledger_dir does not exist: "
-            f"{resolved_paths.taskledger_dir}."
-        )
-    storage_meta_path = resolved_paths.taskledger_dir / "storage.yaml"
-    if resolved_paths.taskledger_dir.exists() and not storage_meta_path.exists():
-        errors.append(
-            f"Missing storage.yaml in taskledger_dir: {resolved_paths.taskledger_dir}."
-        )
-    nested_storage_dir = resolved_paths.taskledger_dir / DEFAULT_TASKLEDGER_DIR_NAME
-    if (
-        resolved_paths.taskledger_dir
-        != resolved_paths.workspace_root / DEFAULT_TASKLEDGER_DIR_NAME
-        and nested_storage_dir.exists()
-    ):
-        warnings.append(
-            "Configured taskledger_dir contains a nested .taskledger directory."
-        )
-        repair_hints.append(
-            "Move taskledger state to the configured root and remove the nested "
-            ".taskledger directory."
-        )
+    scan_project_config(
+        workspace_root=workspace_root,
+        resolved_paths=resolved_paths,
+        locator=locator,
+        errors=errors,
+        warnings=warnings,
+        repair_hints=repair_hints,
+    )
 
     ensure_v2_layout(workspace_root)
     tasks = list_tasks(workspace_root)
@@ -191,261 +105,22 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
                 f"Active task {active_task.id} is {active_task.status_stage}."
             )
 
-    for task in tasks:
-        plans = list_plans(workspace_root, task.id)
-        accepted = [plan for plan in plans if plan.status == "accepted"]
-        if task.introduction_ref:
-            try:
-                resolve_introduction(workspace_root, task.introduction_ref)
-            except Exception:
-                broken_links.append(
-                    {
-                        "task_id": task.id,
-                        "kind": "introduction",
-                        "ref": task.introduction_ref,
-                    }
-                )
-        for requirement in (
-            item.task_id
-            for item in load_requirements(workspace_root, task.id).requirements
-        ):
-            if requirement not in task_map:
-                broken_links.append(
-                    {"task_id": task.id, "kind": "requirement", "ref": requirement}
-                )
-        _handoffs, handoff_errors = list_handoffs_with_errors(workspace_root, task.id)
-        errors.extend(handoff_errors)
-        if task.accepted_plan_version is not None and not any(
-            plan.plan_version == task.accepted_plan_version for plan in plans
-        ):
-            errors.append(
-                f"Task {task.id} points to missing accepted plan "
-                f"v{task.accepted_plan_version}."
-            )
-        if len(accepted) > 1:
-            errors.append(f"Task {task.id} has multiple accepted plans.")
-        if task.accepted_plan_version is not None and len(accepted) != 1:
-            errors.append(
-                f"Task {task.id} must have exactly one accepted plan "
-                "for accepted_plan_version."
-            )
-        todos = load_todos(workspace_root, task.id).todos
-        if len({todo.id for todo in todos}) != len(todos):
-            errors.append(f"Task {task.id} contains duplicate todo ids.")
-
-        active_lock = next(
-            (
-                lock
-                for lock in locks
-                if lock.task_id == task.id and not lock_is_expired(lock)
-            ),
-            None,
-        )
-        running_runs = [run for run in task_runs[task.id] if run.status == "running"]
-        if task.status_stage in {"planning", "implementing", "validating"}:
-            errors.append(
-                f"Task {task.id} persists transient stage "
-                f"{task.status_stage} as status."
-            )
-        if len(running_runs) > 1:
-            errors.append(f"Task {task.id} has multiple running runs.")
-        active_stage = derive_active_stage(active_lock, running_runs)
-        if running_runs and active_stage is None:
-            errors.append(
-                f"Task {task.id} has a running run without a matching active lock."
-            )
-            for run in running_runs:
-                next_command = "taskledger doctor"
-                if run.run_type == "planning":
-                    next_command = (
-                        "taskledger repair run "
-                        f"--task {task.id} --run {run.run_id} "
-                        '--reason "Finish orphaned planning run."'
-                    )
-                run_lock_mismatches.append(
-                    {
-                        "kind": "running_run_without_matching_lock",
-                        "task_id": task.id,
-                        "run_id": run.run_id,
-                        "run_type": run.run_type,
-                        "status": run.status,
-                        "next_command": next_command,
-                    }
-                )
-            running_implementation = next(
-                (
-                    run
-                    for run in running_runs
-                    if run.run_type == "implementation"
-                    and run.run_id == task.latest_implementation_run
-                ),
-                None,
-            )
-            if (
-                active_lock is None
-                and task.status_stage == "implementing"
-                and task.accepted_plan_version is not None
-                and running_implementation is not None
-            ):
-                repair_hints.append(
-                    "After confirming the previous lock was intentionally "
-                    "broken, resume the running implementation with "
-                    f"`taskledger implement resume --task {task.id} --reason "
-                    '"Reacquire implementation lock for existing running run."`.'
-                )
-            else:
-                repair_hints.append(
-                    "Inspect the run/lock pair and repair the orphaned run "
-                    f"for task {task.id} explicitly."
-                )
-        if active_lock is not None and active_stage is None and not running_runs:
-            errors.append(
-                f"Task {task.id} has a {active_lock.stage} lock without a running run."
-            )
-            repair_hints.append(
-                "Break the stale lock with "
-                f'`taskledger repair lock --task {task.id} --reason "..."`.'
-            )
-
-        for change in list_changes(workspace_root, task.id):
-            change_run = run_map.get((task.id, change.implementation_run))
-            change_path = change_markdown_path(paths, task.id, change.change_id)
-            if change_run is None:
-                _add_diagnostic(
-                    diagnostics,
-                    errors,
-                    severity="error",
-                    code="change.missing_implementation_run",
-                    message=(
-                        f"Change {change.change_id} in task {task.id} references "
-                        f"missing implementation run {change.implementation_run}."
-                    ),
-                    task_id=task.id,
-                    task_slug=task.slug,
-                    change_id=change.change_id,
-                    run_id=change.implementation_run,
-                    expected_run_type="implementation",
-                    change_kind=change.kind,
-                    change_path=_relative_project_path(workspace_root, change_path),
-                    repair_hints=[
-                        f"Inspect task: taskledger task show --task {task.id}",
-                        (
-                            "If the change is invalid, remove or migrate the "
-                            "change record; if it is valid, relink it to the "
-                            "correct implementation run."
-                        ),
-                    ],
-                )
-            elif change_run.run_type != "implementation":
-                hints = [
-                    f"Inspect task: taskledger task show --task {task.id}",
-                    (
-                        f"Inspect run: taskledger implement show --task {task.id} "
-                        f"--run {change.implementation_run}"
-                    ),
-                ]
-                if change.kind == "command" and change_run.run_type == "planning":
-                    hints.insert(
-                        0,
-                        (
-                            "This looks like a planning command record "
-                            "stored as a code change."
-                        ),
-                    )
-                    hints.append(
-                        "Run: taskledger repair planning-command-changes "
-                        f'--task {task.id} --reason "Move planning command '
-                        'logs out of code changes."'
-                    )
-                _add_diagnostic(
-                    diagnostics,
-                    errors,
-                    severity="error",
-                    code="change.non_implementation_run",
-                    message=(
-                        f"Change {change.change_id} in task {task.id} references "
-                        f"non-implementation run {change.implementation_run} "
-                        f"({change_run.run_type})."
-                    ),
-                    task_id=task.id,
-                    task_slug=task.slug,
-                    change_id=change.change_id,
-                    run_id=change.implementation_run,
-                    expected_run_type="implementation",
-                    actual_run_type=change_run.run_type,
-                    actual_run_status=change_run.status,
-                    change_kind=change.kind,
-                    change_path=_relative_project_path(workspace_root, change_path),
-                    run_path=_relative_project_path(
-                        workspace_root,
-                        run_markdown_path(paths, task.id, change_run.run_id),
-                    ),
-                    repair_hints=hints,
-                )
-
-        for run in task_runs[task.id]:
-            if run.run_type == "validation" and run.based_on_implementation_run:
-                linked = run_map.get((task.id, run.based_on_implementation_run))
-                run_path = run_markdown_path(paths, task.id, run.run_id)
-                if linked is None:
-                    _add_diagnostic(
-                        diagnostics,
-                        errors,
-                        severity="error",
-                        code="validation_run.missing_implementation_run",
-                        message=(
-                            f"Validation run {run.run_id} in task {task.id} "
-                            f"references missing implementation run "
-                            f"{run.based_on_implementation_run}."
-                        ),
-                        task_id=task.id,
-                        task_slug=task.slug,
-                        run_id=run.run_id,
-                        based_on_run_id=run.based_on_implementation_run,
-                        expected_run_type="implementation",
-                        run_path=_relative_project_path(workspace_root, run_path),
-                        repair_hints=[
-                            f"Inspect task: taskledger task show --task {task.id}",
-                            (
-                                "If the based-on run is invalid, relink "
-                                "validation run or remove it."
-                            ),
-                        ],
-                    )
-                elif linked.run_type != "implementation":
-                    linked_path = run_markdown_path(paths, task.id, linked.run_id)
-                    _add_diagnostic(
-                        diagnostics,
-                        errors,
-                        severity="error",
-                        code="validation_run.non_implementation_run",
-                        message=(
-                            f"Validation run {run.run_id} in task {task.id} references "
-                            f"non-implementation run {run.based_on_implementation_run} "
-                            f"({linked.run_type})."
-                        ),
-                        task_id=task.id,
-                        task_slug=task.slug,
-                        run_id=run.run_id,
-                        based_on_run_id=run.based_on_implementation_run,
-                        expected_run_type="implementation",
-                        actual_run_type=linked.run_type,
-                        run_path=_relative_project_path(workspace_root, run_path),
-                        based_on_run_path=_relative_project_path(
-                            workspace_root, linked_path
-                        ),
-                        repair_hints=[
-                            f"Inspect task: taskledger task show --task {task.id}",
-                            (
-                                f"Inspect validation run: taskledger validate "
-                                f"show --task {task.id} --run {run.run_id}"
-                            ),
-                            (
-                                "Relink validation run to an implementation run "
-                                "or remove it."
-                            ),
-                        ],
-                    )
+    scan_task_integrity(
+        workspace_root=workspace_root,
+        paths=paths,
+        tasks=tasks,
+        task_map=task_map,
+        locks=locks,
+        task_runs=task_runs,
+        run_map=run_map,
+        active_state=active_state,
+        errors=errors,
+        warnings=warnings,
+        repair_hints=repair_hints,
+        broken_links=broken_links,
+        run_lock_mismatches=run_lock_mismatches,
+        diagnostics=diagnostics,
+    )
 
     for lock in locks:
         lock_task = task_map.get(lock.task_id)
@@ -482,47 +157,13 @@ def inspect_v2_project(workspace_root: Path) -> dict[str, object]:  # noqa: C901
                 f"run {run.run_id} type {run.run_type}."
             )
 
-    # Detect orphan slug directories (empty dirs matching task slugs but not task-NNNN)
-    task_slugs = {task.slug for task in tasks if task.slug}
-    for child in paths.tasks_dir.iterdir():
-        if (
-            child.is_dir()
-            and not child.name.startswith("task-")
-            and child.name in task_slugs
-            and not (child / "task.md").exists()
-        ):
-            is_empty = not any(child.iterdir())
-            if is_empty:
-                warnings.append(f"Orphan empty slug directory: {child.name}/")
-                repair_hints.append(
-                    "Remove orphan directory with `taskledger repair task-dirs`."
-                )
-            else:
-                warnings.append(
-                    f"Legacy slug sidecar directory retained: {child.name}/"
-                )
-
-    # Detect unsupported pre-release legacy YAML sidecars.
-    legacy_sidecar_found = False
-    for task in tasks:
-        sidecar_dirs = [task_dir(paths, task.id)]
-        if task.slug and task.slug != task.id:
-            sidecar_dirs.append(paths.tasks_dir / task.slug)
-        for sidecar_dir in sidecar_dirs:
-            for legacy_name in ("todos.yaml", "links.yaml", "requirements.yaml"):
-                legacy_path = sidecar_dir / legacy_name
-                if not legacy_path.exists():
-                    continue
-                legacy_sidecar_found = True
-                warnings.append(
-                    f"Unsupported pre-release legacy sidecar retained: {legacy_path}."
-                )
-    if legacy_sidecar_found:
-        repair_hints.append(
-            "Run a one-off migration script for pre-release sidecars or remove the "
-            "legacy YAML sidecars after confirming their contents are obsolete."
-        )
-
+    scan_migration_state(
+        tasks=tasks,
+        paths=paths,
+        errors=errors,
+        warnings=warnings,
+        repair_hints=repair_hints,
+    )
     if broken_links:
         errors.append("V2 task records contain broken references.")
     if expired_locks:

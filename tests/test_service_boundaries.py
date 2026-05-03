@@ -24,9 +24,6 @@ FUNCTION_LINE_WHITELIST: dict[str, str] = {
     "taskledger/cli_implement.py::register_implement_v2_commands": (
         "Split command registration into smaller callback modules."
     ),
-    "taskledger/services/doctor.py::inspect_v2_project": (
-        "Extract independent doctor checks into focused inspectors."
-    ),
     "taskledger/services/navigation.py::can_perform": (
         "Move action gating decisions into a shared pure decision layer."
     ),
@@ -35,6 +32,10 @@ FUNCTION_LINE_WHITELIST: dict[str, str] = {
     ),
     "taskledger/services/web_dashboard.py::_render_dashboard_script": (
         "Move dashboard JavaScript into static assets."
+    ),
+    "taskledger/services/doctor_checks/task_checks.py::scan_task_integrity": (
+        "Consolidated per-task integrity scan with change/lock validation;"
+        " further splitting into focused inspectors is planned."
     ),
 }
 
@@ -54,38 +55,35 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
     "taskledger/launcher.py:16": (
         "Launcher wrapper keeps user-facing startup errors consistent."
     ),
-    "taskledger/services/doctor.py:97": (
+    "taskledger/services/doctor.py:96": (
+        "Doctor must continue scanning even when config parsing fails."
+    ),
+    "taskledger/services/doctor.py:135": (
         "Doctor must continue scanning even when one task metadata read fails."
     ),
-    "taskledger/services/doctor.py:111": (
+    "taskledger/services/doctor.py:139": (
         "Doctor must continue scanning even when one plan read fails."
     ),
-    "taskledger/services/doctor.py:125": (
-        "Doctor must continue scanning even when one todo read fails."
-    ),
-    "taskledger/services/doctor.py:182": (
+    "taskledger/services/doctor.py:222": (
         "Doctor storage probe wraps unexpected file decoding failures."
     ),
-    "taskledger/services/doctor.py:200": (
+    "taskledger/services/doctor.py:255": (
         "Doctor lock inspection ignores malformed optional lock metadata."
     ),
-    "taskledger/services/doctor.py:460": (
-        "Doctor report formatting keeps scan output available when one detail "
-        "renderer fails."
+    "taskledger/services/doctor.py:279": (
+        "Doctor lock inspection wraps malformed lock reads."
     ),
-    "taskledger/services/doctor.py:464": (
-        "Doctor report formatting keeps scan output available when one warning "
-        "renderer fails."
+    "taskledger/services/doctor_checks/project_scan.py:47": (
+        "Project scan continues past config load errors."
     ),
-    "taskledger/services/doctor.py:581": (
-        "Doctor JSON rendering converts unknown serialization failures into "
-        "diagnostic records."
+    "taskledger/services/doctor_checks/project_scan.py:62": (
+        "Project scan continues past project UUID load errors."
     ),
-    "taskledger/services/doctor.py:614": (
-        "Doctor text rendering converts unknown failures into explicit warnings."
+    "taskledger/services/doctor_checks/project_scan.py:77": (
+        "Project scan continues past ledger config load errors."
     ),
-    "taskledger/services/doctor.py:638": (
-        "Doctor summary rendering converts unknown failures into explicit warnings."
+    "taskledger/services/doctor_checks/task_checks.py:48": (
+        "Task scan continues past broken introduction ref resolution."
     ),
     "taskledger/services/tree.py:246": (
         "Tree command keeps partial output when optional metadata parsing fails."

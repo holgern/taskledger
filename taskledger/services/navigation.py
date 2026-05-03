@@ -18,7 +18,6 @@ from taskledger.domain.states import (
     IMPLEMENTABLE_TASK_STAGES,
 )
 from taskledger.services.tasks import (
-    _accepted_plan_record_or_none,
     _build_todo_gate_report,
     _cli_error,
     _current_lock,
@@ -234,39 +233,20 @@ def _orphaned_active_stage_action(
     workspace_root: Path,
     task: TaskRecord,
     lock: TaskLock | None,
-) -> tuple[str, str, dict[str, object], list[dict[str, object]]]:
-    blockers: list[dict[str, object]] = [
-        {
-            "kind": "active_stage",
-            "message": (
-                f"Task status is {task.status_stage}, but active_stage is missing."
-            ),
-        }
-    ]
-    action = "repair-active-stage"
-    reason = f"Task is {task.status_stage}, but no matching active lock/run exists."
-    next_item = _task_next_item(task)
-    if task.status_stage == "implementing":
-        latest_run = _optional_run(workspace_root, task, task.latest_implementation_run)
-        if (
-            latest_run is not None
-            and latest_run.run_type == "implementation"
-            and latest_run.status == "running"
-            and lock is None
-            and _accepted_plan_record_or_none(workspace_root, task) is not None
-        ):
-            action = "implement-resume"
-            reason = "Implementation run is running but the lock is missing."
-            blockers.append(
-                {
-                    "kind": "lock",
-                    "message": (
-                        "Missing active implementation lock "
-                        f"for run {latest_run.run_id}."
-                    ),
-                }
-            )
-    return action, reason, next_item, blockers
+) -> tuple[str, str, dict[str, object] | None, list[dict[str, object]]]:
+    from taskledger.services.next_action_model import (
+        decide_orphaned_active_stage,
+    )
+
+    runs = list_runs(workspace_root, task.id)
+    plans = list_plans(workspace_root, task.id)
+    return decide_orphaned_active_stage(
+        task=task,
+        plans=plans,
+        runs=runs,
+        lock=lock,
+        task_next_item=_task_next_item(task),
+    )
 
 
 def _inactive_status_next_action(
