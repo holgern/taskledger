@@ -30,6 +30,7 @@ from taskledger.services.navigation import (
     _todo_next_item,
     _validation_progress,
 )
+from taskledger.services.next_action_model import decide_orphaned_active_stage
 from taskledger.storage.events import load_recent_events
 from taskledger.storage.locks import lock_is_expired
 from taskledger.storage.paths import resolve_project_paths
@@ -594,8 +595,12 @@ def _inactive_snapshot_next_action(
             progress,
         )
     if task.status_stage in ACTIVE_TASK_STAGES:
-        action, reason, next_item, orphaned_blockers = (
-            _snapshot_orphaned_active_stage_action(snapshot)
+        action, reason, next_item, orphaned_blockers = decide_orphaned_active_stage(
+            task=task,
+            plans=snapshot.plans,
+            runs=snapshot.runs,
+            lock=snapshot.lock,
+            task_next_item=_task_next_item(task),
         )
         blockers.extend(orphaned_blockers)
         return action, reason, next_item, blockers, progress

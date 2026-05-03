@@ -33,6 +33,7 @@ from taskledger.domain.models import (
 from taskledger.domain.policies import (
     Decision,
     derive_active_stage,
+    implementation_mutation_decision,  # noqa: F401
     plan_approve_decision,
     plan_revise_decision,
     question_add_decision,
