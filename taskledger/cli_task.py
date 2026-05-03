@@ -32,6 +32,12 @@ from taskledger.cli_common import (
 )
 from taskledger.errors import LaunchError
 from taskledger.services.actors import resolve_actor
+from taskledger.services.task_reports import (
+    TaskReportOptions,
+)
+from taskledger.services.task_reports import (
+    render_task_report as _render_task_report,
+)
 from taskledger.services.tasks import list_events as _list_events
 
 
@@ -529,3 +535,69 @@ def register_task_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, payload, human=payload if isinstance(payload, str) else None)
+
+    @app.command("report")
+    def report_command(
+        ctx: typer.Context,
+        task_ref: TaskOption = None,
+        output: Annotated[
+            Path | None,
+            typer.Option("-o", "--output", help="Write report to file."),
+        ] = None,
+        format_name: Annotated[str, typer.Option("--format")] = "markdown",
+        preset: Annotated[str, typer.Option("--preset")] = "full",
+        section: Annotated[
+            list[str] | None,
+            typer.Option("--section", help="Render only this section. Repeatable."),
+        ] = None,
+        include: Annotated[
+            list[str] | None,
+            typer.Option("--include", help="Add a section. Repeatable."),
+        ] = None,
+        without: Annotated[
+            list[str] | None,
+            typer.Option("--without", help="Remove a section. Repeatable."),
+        ] = None,
+        events_limit: Annotated[int, typer.Option("--events-limit")] = 50,
+        include_empty: Annotated[
+            bool,
+            typer.Option(
+                "--include-empty/--no-include-empty",
+            ),
+        ] = True,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = resolve_cli_task(state.cwd, task_ref)
+            payload = _render_task_report(
+                state.cwd,
+                task.id,
+                options=TaskReportOptions(
+                    preset=preset,
+                    sections=tuple(section or ()),
+                    include_sections=tuple(include or ()),
+                    exclude_sections=tuple(without or ()),
+                    events_limit=events_limit,
+                    include_empty=include_empty,
+                ),
+                format_name=format_name,
+            )
+            content = payload.get("content")
+            if output is not None:
+                if not isinstance(content, str):
+                    raise LaunchError("Task report content was not rendered as text.")
+                from taskledger.cli_common import write_text_output
+
+                written = write_text_output(output, content)
+                payload = dict(payload)
+                payload["output_path"] = str(written)
+                human = f"wrote task report {task.id} to {written}"
+            else:
+                if isinstance(content, str) and format_name == "markdown":
+                    human = content
+                else:
+                    human = None
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, payload, human=human)

@@ -337,6 +337,7 @@ taskledger context --for planning --format markdown
 taskledger context --for implementation --format markdown
 taskledger context --for validation --format json
 taskledger task dossier --format markdown
+taskledger task report --task task-0030 -o task30.md
 taskledger handoff create --mode implementation --intended-actor agent --intended-harness codex
 taskledger handoff claim handoff-0001
 taskledger handoff close handoff-0001 --reason "Implementation started."

@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from taskledger.services.task_reports import (
+    TaskReportOptions,
+    render_task_report,
+)
 from taskledger.services.tasks import (
     activate_task,
     add_file_link,
@@ -68,4 +72,6 @@ __all__ = [
     "repair_task_record",
     "repair_orphaned_planning_run",
     "repair_planning_command_changes",
+    "TaskReportOptions",
+    "render_task_report",
 ]

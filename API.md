@@ -84,6 +84,8 @@ from taskledger.errors import (
 - `todo_status`
 - `next_todo`
 - `task_dossier`
+- `render_task_report`
+- `TaskReportOptions`
 - `next_action`
 - `can_perform`
 - `reindex`

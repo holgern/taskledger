@@ -148,6 +148,7 @@ def create_done_task(
     change_summary: str = "Implemented in test setup.",
     implement_summary: str = "Implemented.",
     approve_note: str = "Approved in test setup.",
+    allow_lint_errors: bool = False,
 ) -> str:
     task_id = create_implemented_task(
         workspace,
@@ -162,6 +163,7 @@ def create_done_task(
         change_summary=change_summary,
         finish_summary=implement_summary,
         approve_note=approve_note,
+        allow_lint_errors=allow_lint_errors,
     )
     start_validation(workspace, task_id)
     add_validation_check(

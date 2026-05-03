@@ -187,6 +187,18 @@ the canonical machine interface for routine same-session work. Reach for
 ``context`` or handoffs when the task actually needs broader fresh-context
 transfer.
 
+``task report`` generates a human-readable Markdown report for a single task.
+It is for humans who want to review, archive, or share a task outside the terminal.
+
+.. code-block:: bash
+
+   taskledger task report --task task-0030 -o task30.md
+   taskledger task report --preset planning --without todos -o plan-review.md
+   taskledger task report --task task-0030
+
+``context`` is agent-handoff-oriented. ``task report`` is human-oriented.
+``task dossier`` remains the full agent-context dump.
+
 .. code-block:: text
 
    todo-work: Implementation is in progress; 1 todos remain.
