@@ -42,7 +42,7 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
     "taskledger/cli.py:206": (
         "Top-level command dispatch keeps unexpected crashes in structured output."
     ),
-    "taskledger/cli.py:455": (
+    "taskledger/cli.py:468": (
         "Global CLI fallback converts bootstrap failures into LaunchError envelopes."
     ),
     "taskledger/cli_ledger.py:111": (
@@ -111,7 +111,7 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
         "Path probe falls back when environment inspection raises platform-"
         "specific errors."
     ),
-    "taskledger/storage/project_config.py:245": (
+    "taskledger/storage/project_config.py:295": (
         "Project config loader normalizes parser/runtime exceptions across "
         "Python versions."
     ),

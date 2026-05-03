@@ -308,6 +308,8 @@ def main(
         typer.Option("--json", help="Render machine-readable JSON."),
     ] = False,
 ) -> None:
+    import sys
+
     if cwd is not None and root is not None and cwd != root:
         raise typer.BadParameter(
             "Use either --cwd or --root, not both with different values."
@@ -320,6 +322,17 @@ def main(
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
     ctx.obj = CLIState(cwd=resolved_cwd, json_output=json_output)
+    from taskledger.services.agent_logging import start_cli_recorder
+
+    argv = tuple(sys.argv[1:])
+    if not argv:
+        argv = tuple(ctx.args)
+    start_cli_recorder(
+        ctx,
+        workspace_root=resolved_cwd,
+        argv=argv,
+        json_output=json_output,
+    )
 
 
 @app.command("init")
@@ -363,7 +376,6 @@ def status_command(
         ),
     ] = False,
 ) -> None:
-
     state = ctx.obj
     assert isinstance(state, CLIState)
     try:

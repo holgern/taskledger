@@ -23,6 +23,7 @@ from taskledger.exchange import (
     PAYLOAD_MEMBER,
     read_project_archive,
 )
+from taskledger.storage.agent_logs import load_agent_command_logs
 
 
 def _make_runner() -> CliRunner:
@@ -299,6 +300,58 @@ def test_export_and_import_include_v2_state(tmp_path: Path) -> None:
         )
     )
     assert handoffs["result"]["handoffs"][0]["mode"] == "implementation"
+
+
+def test_export_import_preserves_agent_command_logs(tmp_path: Path) -> None:
+    source_root = tmp_path / "source"
+    dest_root = tmp_path / "dest"
+    source_root.mkdir()
+    dest_root.mkdir()
+    _init_project(source_root)
+    _init_project(dest_root)
+    _copy_project_uuid(source_root, dest_root)
+
+    source_config = source_root / "taskledger.toml"
+    source_config.write_text(
+        source_config.read_text(encoding="utf-8")
+        + "\n[agent_logging]\nenabled = true\n",
+        encoding="utf-8",
+    )
+
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(source_root),
+                "task",
+                "create",
+                "log-export-task",
+                "--description",
+                "Create transcript log entry before export.",
+            ],
+        ).exit_code
+        == 0
+    )
+    source_logs = load_agent_command_logs(source_root)
+    assert source_logs
+
+    archive_path = tmp_path / "agent-logs-export.tar.gz"
+    export_result = runner.invoke(
+        app,
+        ["--cwd", str(source_root), "export", str(archive_path)],
+    )
+    assert export_result.exit_code == 0, export_result.stdout
+
+    import_result = runner.invoke(
+        app,
+        ["--cwd", str(dest_root), "import", str(archive_path)],
+    )
+    assert import_result.exit_code == 0, import_result.stdout
+
+    dest_logs = load_agent_command_logs(dest_root)
+    assert dest_logs
+    assert any(item.command_kind == "taskledger_cli" for item in dest_logs)
 
 
 def test_export_and_import_include_release_records(tmp_path: Path) -> None:

@@ -376,6 +376,8 @@ def run_implementation_command(
     *,
     argv: tuple[str, ...],
 ) -> dict[str, object]:
+    from taskledger.services.agent_logging import record_managed_shell_command
+
     if not argv:
         raise _tasks._cli_error(
             "implement command requires a command to run.",
@@ -387,6 +389,16 @@ def run_implementation_command(
         action="record implementation commands",
     )
     completed = command_runner.run_command(argv, cwd=workspace_root)
+    record_managed_shell_command(
+        workspace_root,
+        task_id=task.id,
+        run_id=run.run_id,
+        run_type="implementation",
+        argv=argv,
+        exit_code=completed.returncode,
+        stdout=completed.stdout,
+        stderr=completed.stderr,
+    )
     output = _tasks._command_output(argv, completed.stdout, completed.stderr)
     artifact_ref: str | None = None
     if len(output) > 4000 or output.count("\n") > 50:

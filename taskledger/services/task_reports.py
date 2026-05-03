@@ -30,6 +30,7 @@ VALID_SECTIONS = (
     "todos",
     "implementation",
     "changes",
+    "command-log",
     "validation",
     "locks",
     "events",
@@ -96,6 +97,7 @@ FULL_SECTIONS = (
     "todos",
     "implementation",
     "changes",
+    "command-log",
     "validation",
     "locks",
     "next-action",
@@ -155,6 +157,8 @@ class TaskReportOptions:
     include_sections: tuple[str, ...] = ()
     exclude_sections: tuple[str, ...] = ()
     events_limit: int = 50
+    command_log_limit: int = 100
+    include_command_output: bool = False
     include_empty: bool = True
 
 
@@ -168,6 +172,8 @@ def build_task_report_payload(
         options = TaskReportOptions()
     if options.events_limit < 0:
         raise LaunchError("--events-limit must be >= 0.")
+    if options.command_log_limit < 0:
+        raise LaunchError("--command-log-limit must be >= 0.")
 
     from taskledger.services.handoff import build_task_relationship_payload
     from taskledger.services.tasks import (
@@ -222,6 +228,14 @@ def build_task_report_payload(
         elif key == "events":
             all_events = _list_events(workspace_root)
             val = [e for e in all_events if e.get("task_id") == task.id]
+        elif key == "command_logs":
+            from taskledger.storage.agent_logs import load_agent_command_logs
+
+            val = load_agent_command_logs(
+                workspace_root,
+                task_id=task.id,
+                limit=options.command_log_limit or None,
+            )
         elif key == "relationships":
             val = build_task_relationship_payload(workspace_root, task)
         elif key == "validation_report":
@@ -278,6 +292,7 @@ def render_task_report_markdown(payload: dict[str, object]) -> str:
         "todos": _append_todos,
         "implementation": _append_implementation,
         "changes": _append_changes,
+        "command-log": _append_command_log,
         "validation": _append_validation,
         "locks": _append_locks,
         "events": _append_events,
@@ -887,6 +902,77 @@ def _append_validation(
                 for ev in check.evidence:
                     lines.append(f"  - Evidence: {ev}")
         lines.append("")
+
+
+def _append_command_log(
+    lines: list[str],
+    task: object,
+    _load: object,
+    accepted_plan: object,
+    options: TaskReportOptions,
+) -> None:
+    from taskledger.domain.models import AgentCommandLogRecord, TaskRecord
+
+    assert isinstance(task, TaskRecord)
+    lines.append("## Command Transcript")
+    lines.append("")
+
+    logs = _load("command_logs")  # type: ignore[operator]
+    if not logs:
+        lines.append("- none")
+        lines.append("")
+        return
+
+    rows = [item for item in logs if isinstance(item, AgentCommandLogRecord)]
+    lines.append("| Time | Exit | Kind | Command | Output |")
+    lines.append("| --- | ---: | --- | --- | --- |")
+    for item in rows:
+        output_refs = _command_log_output_refs(item)
+        exit_value = item.exit_code if item.exit_code is not None else "-"
+        lines.append(
+            f"| {item.started_at} | {exit_value} | {item.command_kind} | "
+            f"{item.command_line} | {output_refs} |"
+        )
+    lines.append("")
+
+    if not options.include_command_output:
+        return
+
+    for item in rows:
+        lines.append(f"### {item.log_id} — {item.command_line}")
+        lines.append("")
+        lines.append(f"Exit: {item.exit_code if item.exit_code is not None else '-'}")
+        lines.append(f"Kind: {item.command_kind}")
+        if item.run_id:
+            lines.append(f"Run: {item.run_id}")
+        lines.append("")
+        lines.append("#### stdout")
+        lines.append("")
+        lines.append("```text")
+        lines.append(item.visible_stdout_excerpt or "(empty)")
+        lines.append("```")
+        lines.append("")
+        lines.append("#### stderr")
+        lines.append("")
+        lines.append("```text")
+        lines.append(item.visible_stderr_excerpt or "(empty)")
+        lines.append("```")
+        lines.append("")
+
+
+def _command_log_output_refs(item: object) -> str:
+    from taskledger.domain.models import AgentCommandLogRecord
+
+    assert isinstance(item, AgentCommandLogRecord)
+    refs = [
+        item.visible_stdout_ref,
+        item.visible_stderr_ref,
+        item.visible_combined_ref,
+        item.managed_stdout_ref,
+        item.managed_stderr_ref,
+        item.managed_combined_ref,
+    ]
+    return ", ".join(ref for ref in refs if isinstance(ref, str)) or "inline"
 
 
 def _append_locks(

@@ -12,6 +12,7 @@ import yaml
 
 from taskledger.domain.models import (
     ActiveTaskState,
+    AgentCommandLogRecord,
     CodeChangeRecord,
     DependencyRequirement,
     FileLink,
@@ -30,6 +31,10 @@ from taskledger.domain.models import (
     TodoCollection,
 )
 from taskledger.errors import LaunchError
+from taskledger.storage.agent_logs import (
+    append_agent_command_log,
+    load_agent_command_logs,
+)
 from taskledger.storage.atomic import atomic_write_text
 from taskledger.storage.events import append_event, load_events
 from taskledger.storage.indexes import rebuild_v2_indexes
@@ -248,6 +253,9 @@ def _export_v2_payload(workspace_root: Path) -> dict[str, object]:
             item.to_dict()
             for item in load_events(resolve_v2_paths(workspace_root).events_dir)
         ],
+        "agent_command_logs": [
+            item.to_dict() for item in load_agent_command_logs(workspace_root)
+        ],
     }
 
 
@@ -369,6 +377,16 @@ def _import_v2_payload(  # noqa: C901
         if not replace and event.event_id in existing_ids:
             continue
         append_event(paths.events_dir, event)
+    existing_log_ids: set[str] = set()
+    if not replace:
+        existing_log_ids = {
+            item.log_id for item in load_agent_command_logs(workspace_root)
+        }
+    for item in _dict_list(raw_v2.get("agent_command_logs")):
+        log_record = AgentCommandLogRecord.from_dict(item)
+        if not replace and log_record.log_id in existing_log_ids:
+            continue
+        append_agent_command_log(workspace_root, log_record)
 
 
 def _import_releases(raw_v2: dict[str, object], workspace_root: Path) -> None:

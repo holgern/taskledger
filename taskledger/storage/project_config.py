@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, cast
@@ -40,6 +41,23 @@ WORKFLOW_CONFIG_KEYS = frozenset(
         "artifact_rules",
         "default_artifact_order",
         "prompt_profiles",
+        "agent_logging",
+    }
+)
+AGENT_LOGGING_CONFIG_KEYS = frozenset(
+    {
+        "enabled",
+        "capture_taskledger_cli",
+        "capture_managed_shell",
+        "capture_visible_stdout",
+        "capture_visible_stderr",
+        "capture_visible_combined",
+        "capture_payload_metadata",
+        "max_inline_chars",
+        "store_full_output_artifacts",
+        "max_artifact_bytes",
+        "fail_on_logging_error",
+        "redact_patterns",
     }
 )
 SUPPORTED_PROJECT_CONFIG_KEYS = (
@@ -123,6 +141,22 @@ class PromptProfile:
 
 
 @dataclass(slots=True, frozen=True)
+class AgentLoggingConfig:
+    enabled: bool = False
+    capture_taskledger_cli: bool = True
+    capture_managed_shell: bool = True
+    capture_visible_stdout: bool = True
+    capture_visible_stderr: bool = True
+    capture_visible_combined: bool = True
+    capture_payload_metadata: bool = True
+    max_inline_chars: int = 4000
+    store_full_output_artifacts: bool = True
+    max_artifact_bytes: int | None = 2_000_000
+    fail_on_logging_error: bool = False
+    redact_patterns: tuple[str, ...] = ()
+
+
+@dataclass(slots=True, frozen=True)
 class ProjectArtifactRule:
     name: str
     depends_on: tuple[str, ...] = ()
@@ -161,6 +195,7 @@ class ProjectConfig:
     artifact_rules: tuple[ProjectArtifactRule, ...] = ()
     default_artifact_order: tuple[str, ...] = ()
     prompt_profile: PromptProfile | None = None
+    agent_logging: AgentLoggingConfig = AgentLoggingConfig()
 
 
 def render_default_taskledger_toml(
@@ -218,6 +253,21 @@ def render_default_taskledger_toml(
         '# project_context = "Project-specific workflow guidance."\n'
         '# default_artifact_order = ["analysis", "plan",'
         ' "implementation", "validation"]\n'
+        "\n"
+        "# Agent command transcript logging (disabled by default).\n"
+        "# [agent_logging]\n"
+        "# enabled = false\n"
+        "# capture_taskledger_cli = true\n"
+        "# capture_managed_shell = true\n"
+        "# capture_visible_stdout = true\n"
+        "# capture_visible_stderr = true\n"
+        "# capture_visible_combined = true\n"
+        "# capture_payload_metadata = true\n"
+        "# max_inline_chars = 4000\n"
+        "# store_full_output_artifacts = true\n"
+        "# max_artifact_bytes = 2000000\n"
+        "# fail_on_logging_error = false\n"
+        '# redact_patterns = ["(?i)(api[_-]?key|token|password|secret)=\\\\S+"]\n'
     )
 
 
@@ -336,6 +386,10 @@ def merge_project_config(
     prompt_profile = _parse_prompt_profile(
         overrides.get("prompt_profiles"), base.prompt_profile
     )
+    agent_logging = _parse_agent_logging(
+        overrides.get("agent_logging"),
+        base.agent_logging,
+    )
     return ProjectConfig(
         default_memory_update_mode=cast(
             MemoryUpdateMode,
@@ -353,6 +407,7 @@ def merge_project_config(
         artifact_rules=artifact_rules,
         default_artifact_order=tuple(default_artifact_order),
         prompt_profile=prompt_profile,
+        agent_logging=agent_logging,
     )
 
 
@@ -399,6 +454,7 @@ def _validate_project_config_overrides(data: dict[str, object], path: Path) -> N
                     f"must be a table in {path}"
                 )
             _validate_prompt_profile(profile_name, profile_data, path)
+    _validate_agent_logging(data.get("agent_logging"), path)
 
 
 def _artifact_rules_from_overrides(
@@ -638,5 +694,110 @@ def _parse_prompt_profile(
         required_question_topics=topics,
         extra_guidance=(
             str(planning["extra_guidance"]) if "extra_guidance" in planning else None
+        ),
+    )
+
+
+def _validate_agent_logging(raw: object, path: Path) -> None:
+    if raw is None:
+        return
+    if not isinstance(raw, dict):
+        raise LaunchError(
+            f"Project config key 'agent_logging' must be a table in {path}"
+        )
+    unknown = set(raw.keys()) - AGENT_LOGGING_CONFIG_KEYS
+    if unknown:
+        joined = ", ".join(sorted(unknown))
+        raise LaunchError(f"Unknown agent_logging keys in {path}: {joined}")
+
+    for key in (
+        "enabled",
+        "capture_taskledger_cli",
+        "capture_managed_shell",
+        "capture_visible_stdout",
+        "capture_visible_stderr",
+        "capture_visible_combined",
+        "capture_payload_metadata",
+        "store_full_output_artifacts",
+        "fail_on_logging_error",
+    ):
+        value = raw.get(key)
+        if value is not None and not isinstance(value, bool):
+            raise LaunchError(f"agent_logging.{key} must be a boolean in {path}")
+
+    max_inline = raw.get("max_inline_chars")
+    if max_inline is not None and (not isinstance(max_inline, int) or max_inline <= 0):
+        raise LaunchError(
+            f"agent_logging.max_inline_chars must be a positive integer in {path}"
+        )
+
+    max_artifact_bytes = raw.get("max_artifact_bytes")
+    if max_artifact_bytes is not None and (
+        not isinstance(max_artifact_bytes, int) or max_artifact_bytes <= 0
+    ):
+        raise LaunchError(
+            f"agent_logging.max_artifact_bytes must be a positive integer in {path}"
+        )
+
+    redact_patterns = raw.get("redact_patterns")
+    if redact_patterns is None:
+        return
+    if not isinstance(redact_patterns, list) or not all(
+        isinstance(item, str) for item in redact_patterns
+    ):
+        raise LaunchError(
+            f"agent_logging.redact_patterns must be a list of strings in {path}"
+        )
+    for pattern in redact_patterns:
+        try:
+            re.compile(pattern)
+        except re.error as exc:
+            raise LaunchError(
+                f"Invalid regex in agent_logging.redact_patterns in {path}: {exc}"
+            ) from exc
+
+
+def _parse_agent_logging(
+    raw: object,
+    base: AgentLoggingConfig,
+) -> AgentLoggingConfig:
+    if raw is None or not isinstance(raw, dict):
+        return base
+    return AgentLoggingConfig(
+        enabled=bool(raw.get("enabled", base.enabled)),
+        capture_taskledger_cli=bool(
+            raw.get("capture_taskledger_cli", base.capture_taskledger_cli)
+        ),
+        capture_managed_shell=bool(
+            raw.get("capture_managed_shell", base.capture_managed_shell)
+        ),
+        capture_visible_stdout=bool(
+            raw.get("capture_visible_stdout", base.capture_visible_stdout)
+        ),
+        capture_visible_stderr=bool(
+            raw.get("capture_visible_stderr", base.capture_visible_stderr)
+        ),
+        capture_visible_combined=bool(
+            raw.get("capture_visible_combined", base.capture_visible_combined)
+        ),
+        capture_payload_metadata=bool(
+            raw.get("capture_payload_metadata", base.capture_payload_metadata)
+        ),
+        max_inline_chars=int(raw.get("max_inline_chars", base.max_inline_chars)),
+        store_full_output_artifacts=bool(
+            raw.get(
+                "store_full_output_artifacts",
+                base.store_full_output_artifacts,
+            )
+        ),
+        max_artifact_bytes=cast(
+            int | None,
+            raw.get("max_artifact_bytes", base.max_artifact_bytes),
+        ),
+        fail_on_logging_error=bool(
+            raw.get("fail_on_logging_error", base.fail_on_logging_error)
+        ),
+        redact_patterns=tuple(
+            str(item) for item in raw.get("redact_patterns", base.redact_patterns)
         ),
     )

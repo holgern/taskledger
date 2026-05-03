@@ -13,6 +13,7 @@ from taskledger.services.doctor import inspect_v2_project
 from taskledger.storage.meta import StorageMeta
 from taskledger.storage.paths import resolve_project_paths
 from taskledger.storage.project_config import (
+    AgentLoggingConfig,
     ProjectConfig,
     PromptProfile,
     load_project_config_overrides,
@@ -428,3 +429,30 @@ def test_prompt_profile_to_dict() -> None:
     assert d["require_files"] is False
     assert d["required_question_topics"] == ["scope"]
     assert d["extra_guidance"] == "Test guidance."
+
+
+def test_merge_project_config_with_agent_logging_override() -> None:
+    config = merge_project_config(
+        {
+            "agent_logging": {
+                "enabled": True,
+                "max_inline_chars": 1234,
+                "redact_patterns": ["(?i)token=\\S+"],
+            }
+        }
+    )
+    assert config.agent_logging.enabled is True
+    assert config.agent_logging.max_inline_chars == 1234
+    assert config.agent_logging.redact_patterns == ("(?i)token=\\S+",)
+
+
+def test_merge_project_config_preserves_base_agent_logging() -> None:
+    base = ProjectConfig(
+        agent_logging=AgentLoggingConfig(
+            enabled=True,
+            max_inline_chars=2048,
+        )
+    )
+    config = merge_project_config({}, base=base)
+    assert config.agent_logging.enabled is True
+    assert config.agent_logging.max_inline_chars == 2048

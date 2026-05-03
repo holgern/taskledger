@@ -201,6 +201,19 @@ Render this proposed plan body in the task report.
         assert isinstance(content, str)
         assert "## Events" in content
 
+    def test_task_report_include_command_log_section(self, tmp_path: Path) -> None:
+        ws = init_workspace(tmp_path)
+        task_id = create_done_task(ws, allow_lint_errors=True)
+
+        payload = render_task_report(
+            ws,
+            task_id,
+            options=TaskReportOptions(include_sections=("command-log",)),
+        )
+        content = payload["content"]
+        assert isinstance(content, str)
+        assert "## Command Transcript" in content
+
     def test_task_report_unknown_section_fails(self, tmp_path: Path) -> None:
         from taskledger.errors import LaunchError
 

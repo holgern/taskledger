@@ -126,8 +126,9 @@ inspection), preserve their output with ``plan command``:
    taskledger plan command -- pytest tests/test_parser.py -q
    taskledger plan command -- python -m compileall taskledger
 
-``plan command`` records the command exit code and output as a change record
-attached to the planning run. Use it to build evidence into the plan before
+``plan command`` records command exit code and output in planning diagnostics.
+With transcript logging enabled, the same output is also captured in the
+ledger-level command transcript. Use it to build evidence into the plan before
 proposal.
 
 6. Materialize Todos And Approve
@@ -178,8 +179,9 @@ Begin implementation and keep durable notes as work progresses:
    taskledger implement status
 
 Use ``implement command`` when you want taskledger to record a command run as
-part of implementation. Use ``implement deviation`` when the implementation
-differs from the approved plan.
+part of implementation. With transcript logging enabled, it also records managed
+stdout/stderr in the task transcript. Use ``implement deviation`` when the
+implementation differs from the approved plan.
 
 Fresh-worker implementation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~

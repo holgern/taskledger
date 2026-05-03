@@ -28,11 +28,16 @@ from taskledger.cli_common import (
     emit_payload,
     launch_error_exit_code,
     read_text_input,
+    render_json,
     resolve_cli_task,
 )
 from taskledger.errors import LaunchError
 from taskledger.services.actors import resolve_actor
+from taskledger.services.agent_transcripts import (
+    render_task_transcript as _render_task_transcript,
+)
 from taskledger.services.task_reports import (
+    ReportPreset,
     TaskReportOptions,
 )
 from taskledger.services.task_reports import (
@@ -536,6 +541,53 @@ def register_task_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, payload, human=payload if isinstance(payload, str) else None)
 
+    @app.command("transcript")
+    def transcript_command(
+        ctx: typer.Context,
+        task_ref: TaskOption = None,
+        output: Annotated[
+            Path | None,
+            typer.Option("-o", "--output", help="Write transcript to file."),
+        ] = None,
+        format_name: Annotated[str, typer.Option("--format")] = "markdown",
+        include_output: Annotated[
+            bool,
+            typer.Option("--include-output/--no-include-output"),
+        ] = False,
+        limit: Annotated[int | None, typer.Option("--limit")] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = resolve_cli_task(state.cwd, task_ref)
+            payload = _render_task_transcript(
+                state.cwd,
+                task.id,
+                format_name=format_name,
+                include_output=include_output,
+                limit=limit,
+            )
+            human: str | None
+            if output is not None:
+                from taskledger.cli_common import write_text_output
+
+                if format_name == "markdown":
+                    content = payload.get("content")
+                    if not isinstance(content, str):
+                        raise LaunchError("Task transcript content is not text.")
+                    written = write_text_output(output, content)
+                else:
+                    written = write_text_output(output, render_json(payload))
+                payload = dict(payload)
+                payload["output_path"] = str(written)
+                human = f"wrote task transcript {task.id} to {written}"
+            else:
+                content = payload.get("content")
+                human = content if isinstance(content, str) else None
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, payload, human=human)
+
     @app.command("report")
     def report_command(
         ctx: typer.Context,
@@ -559,6 +611,14 @@ def register_task_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             typer.Option("--without", help="Remove a section. Repeatable."),
         ] = None,
         events_limit: Annotated[int, typer.Option("--events-limit")] = 50,
+        command_log_limit: Annotated[
+            int,
+            typer.Option("--command-log-limit"),
+        ] = 100,
+        include_command_output: Annotated[
+            bool,
+            typer.Option("--include-command-output/--no-include-command-output"),
+        ] = False,
         include_empty: Annotated[
             bool,
             typer.Option(
@@ -573,12 +633,14 @@ def register_task_v2_commands(app: typer.Typer) -> None:  # noqa: C901
                 state.cwd,
                 task.id,
                 options=TaskReportOptions(
-                    preset=preset,
                     sections=tuple(section or ()),
                     include_sections=tuple(include or ()),
                     exclude_sections=tuple(without or ()),
                     events_limit=events_limit,
+                    command_log_limit=command_log_limit,
+                    include_command_output=include_command_output,
                     include_empty=include_empty,
+                    preset=cast(ReportPreset, preset),
                 ),
                 format_name=format_name,
             )

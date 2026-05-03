@@ -41,7 +41,11 @@ def cli_state_from_context(ctx: typer.Context) -> CLIState:
 
 
 def resolve_cli_task(workspace_root: Path, task_ref: str | None) -> TaskRecord:
-    return resolve_task_or_active(workspace_root, task_ref)
+    task = resolve_task_or_active(workspace_root, task_ref)
+    from taskledger.services.agent_logging import note_task
+
+    note_task(task.id)
+    return task
 
 
 def render_json(payload: Any) -> str:
@@ -56,6 +60,9 @@ def emit_payload(
     result_type: str | None = None,
     warnings: list[str] | None = None,
 ) -> None:
+    from taskledger.services.agent_logging import note_payload
+
+    note_payload(payload, operation_name=_operation_name(ctx))
     state = cli_state_from_context(ctx)
     if state.json_output:
         typer.echo(
@@ -88,6 +95,9 @@ def emit_error(
     exit_code: int | None = None,
     error_type: str | None = None,
 ) -> None:
+    from taskledger.services.agent_logging import note_error
+
+    note_error(error, exit_code=exit_code or _error_exit_code(error))
     state = cli_state_from_context(ctx)
     if state.json_output:
         typer.echo(

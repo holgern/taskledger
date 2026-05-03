@@ -2189,6 +2189,8 @@ def run_planning_command(
     *,
     argv: tuple[str, ...],
 ) -> dict[str, object]:
+    from taskledger.services.agent_logging import record_managed_shell_command
+
     if not argv:
         raise _cli_error("plan command requires a command to run.", EXIT_CODE_BAD_INPUT)
     task = resolve_task(workspace_root, task_ref)
@@ -2206,6 +2208,16 @@ def run_planning_command(
         )
     )
     completed = command_runner.run_command(argv, cwd=workspace_root)
+    record_managed_shell_command(
+        workspace_root,
+        task_id=task.id,
+        run_id=run.run_id,
+        run_type="planning",
+        argv=argv,
+        exit_code=completed.returncode,
+        stdout=completed.stdout,
+        stderr=completed.stderr,
+    )
     output = _command_output(argv, completed.stdout, completed.stderr)
     artifact_ref: str | None = None
     if len(output) > 4000 or output.count("\n") > 50:

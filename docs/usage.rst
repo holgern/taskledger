@@ -194,10 +194,20 @@ It is for humans who want to review, archive, or share a task outside the termin
 
    taskledger task report --task task-0030 -o task30.md
    taskledger task report --preset planning --without todos -o plan-review.md
+   taskledger task report --task task-0030 --include command-log
    taskledger task report --task task-0030
 
 ``context`` is agent-handoff-oriented. ``task report`` is human-oriented.
 ``task dossier`` remains the full agent-context dump.
+
+``task transcript`` renders a per-task command transcript from the ledger-level
+agent log store:
+
+.. code-block:: bash
+
+   taskledger task transcript --task task-0030 -o task30-transcript.md
+   taskledger task transcript --task task-0030 --include-output
+   taskledger --json task transcript --task task-0030
 
 .. code-block:: text
 
@@ -258,6 +268,12 @@ Use ``plan command`` to record diagnostic commands during planning:
 .. code-block:: bash
 
    taskledger plan command -- pytest tests/ -q
+
+When ``[agent_logging].enabled = true`` in ``taskledger.toml``, ``taskledger``
+records CLI invocations and managed command outputs. Keep logging opt-in because
+stdout/stderr may contain sensitive data. Route task-relevant commands through
+``plan command`` and ``implement command`` so their output is included in task
+transcripts and reports.
 
    taskledger context --for implementation --format markdown
    taskledger implement start

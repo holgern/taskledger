@@ -35,6 +35,7 @@ COMMAND_METADATA: dict[str, tuple[str, str]] = {
     "task close": (STABLE_FOR_AGENTS, "ledger_mutation"),
     "task record": (STABLE_FOR_AGENTS, "ledger_mutation"),
     "task dossier": (STABLE_FOR_AGENTS, "safe_read_only"),
+    "task transcript": (HUMAN_ORIENTED, "safe_read_only"),
     "task report": (HUMAN_ORIENTED, "safe_read_only"),
     "task events": (STABLE_FOR_AGENTS, "safe_read_only"),
     "plan start": (STABLE_FOR_AGENTS, "ledger_mutation"),

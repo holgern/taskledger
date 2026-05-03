@@ -42,6 +42,12 @@ plan subcommands
 - ``plan start``, ``plan propose``, ``plan template``, ``plan upsert``, ``plan lint``, ``plan approve``, ``plan accept``, ``plan reject``, ``plan show``, ``plan diff``
 - ``plan regenerate --from-answers``, ``plan materialize-todos``, ``plan command -- ...``
 
+task reporting and transcripts
+------------------------------
+
+- ``task report`` supports section control including ``--include command-log``
+- ``task transcript`` renders a per-task command transcript in ``markdown`` or ``json``
+
 todo subcommands
 ----------------
 

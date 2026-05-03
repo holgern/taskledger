@@ -196,6 +196,8 @@ Rules for agents:
 - Log every meaningful implementation change with `taskledger implement change`.
 - Record deviations from the approved plan with `taskledger implement deviation`.
 - Mark todos done with evidence: `taskledger todo done <todo-id> --evidence "pytest -q"`.
+- When transcript logging is enabled in project config, run task-relevant commands through `taskledger plan command -- ...` or `taskledger implement command -- ...` so stdout/stderr becomes durable transcript evidence.
+- Do not paste secrets into command arguments, evidence strings, or expected command output when transcript logging is enabled.
 - Use `taskledger handoff create --mode implementation|validation --intended-actor agent --intended-harness codex` when switching actor or harness.
 - Use `taskledger handoff claim handoff-0001` before continuing work from a handoff.
 - Use `taskledger file add --path ... --kind code|test|doc|config|dir|other` for files that matter.

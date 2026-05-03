@@ -92,6 +92,7 @@ def test_task_first_subcommands_are_registered(tmp_path: Path) -> None:
             "close",
             "follow-up",
             "dossier",
+            "transcript",
         ),
         "plan": (
             "start",
