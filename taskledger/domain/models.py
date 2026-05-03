@@ -1123,6 +1123,8 @@ class PlanRecord:
     approved_at: str | None = None
     approved_by: ActorRef | None = None
     approval_note: str | None = None
+    approval_source: str | None = None
+    approved_plan_hash: str | None = None
     goal: str | None = None
     files: tuple[str, ...] = ()
     test_commands: tuple[str, ...] = ()
@@ -1158,6 +1160,8 @@ class PlanRecord:
                 self.approved_by.to_dict() if self.approved_by is not None else None
             ),
             "approval_note": self.approval_note,
+            "approval_source": self.approval_source,
+            "approved_plan_hash": self.approved_plan_hash,
             "body": self.body,
             "goal": self.goal,
             "files": list(self.files),
@@ -1205,6 +1209,8 @@ class PlanRecord:
             if data.get("approved_by") is not None
             else None,
             approval_note=_optional_string(data.get("approval_note")),
+            approval_source=_optional_string(data.get("approval_source")),
+            approved_plan_hash=_optional_string(data.get("approved_plan_hash")),
             goal=_optional_string(data.get("goal")),
             files=_string_tuple(data.get("files")),
             test_commands=_string_tuple(data.get("test_commands")),

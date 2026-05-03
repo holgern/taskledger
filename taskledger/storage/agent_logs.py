@@ -40,6 +40,7 @@ def load_agent_command_logs(
     task_id: str | None = None,
     run_id: str | None = None,
     limit: int | None = None,
+    strict_duplicates: bool = False,
 ) -> list[AgentCommandLogRecord]:
     if limit is not None and limit <= 0:
         return []
@@ -70,9 +71,11 @@ def load_agent_command_logs(
                 continue
             record = AgentCommandLogRecord.from_dict(payload)
             if record.log_id in seen_ids:
-                raise LaunchError(
-                    f"Duplicate agent command log id detected: {record.log_id}"
-                )
+                if strict_duplicates:
+                    raise LaunchError(
+                        f"Duplicate agent command log id detected: {record.log_id}"
+                    )
+                continue
             seen_ids.add(record.log_id)
             if task_id is not None and record.task_id != task_id:
                 continue

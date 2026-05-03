@@ -1307,6 +1307,7 @@ def approve_plan(
     allow_open_questions: bool = False,
     allow_empty_todos: bool = False,
     allow_lint_errors: bool = False,
+    approval_source: str | None = None,
 ) -> dict[str, object]:
     from taskledger.services.planning_flow import approve_plan as _approve_plan
 
@@ -1324,6 +1325,7 @@ def approve_plan(
         allow_open_questions=allow_open_questions,
         allow_empty_todos=allow_empty_todos,
         allow_lint_errors=allow_lint_errors,
+        approval_source=approval_source,
     )
 
 

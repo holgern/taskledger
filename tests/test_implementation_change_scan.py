@@ -212,3 +212,111 @@ def test_manual_implement_change_still_works_via_canonical_command(
     payload = _json(result)
     assert result.exit_code == 0
     assert payload["result"]["path"] == "taskledger/services/tasks.py"
+
+
+def test_implement_finish_warns_when_git_scan_missing(tmp_path: Path) -> None:
+    _prepare_implementation(tmp_path)
+    subprocess.run(
+        ["git", "init"], cwd=tmp_path, check=True, capture_output=True, text=True
+    )
+    manual = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "implement",
+            "change",
+            "--task",
+            "impl-scan",
+            "--path",
+            "taskledger/services/tasks.py",
+            "--kind",
+            "edit",
+            "--summary",
+            "Manual evidence entry.",
+        ],
+    )
+    assert manual.exit_code == 0, manual.stdout
+
+    finish = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "implement",
+            "finish",
+            "--task",
+            "impl-scan",
+            "--summary",
+            "Done.",
+        ],
+    )
+    assert finish.exit_code == 0, finish.stdout
+    payload = _json(finish)
+    warnings = payload["result"].get("warnings", [])
+    assert isinstance(warnings, list)
+    assert any("no git-backed scan" in str(item) for item in warnings)
+
+
+def test_implement_finish_warning_clears_after_git_scan(tmp_path: Path) -> None:
+    _prepare_implementation(tmp_path)
+    subprocess.run(
+        ["git", "init"], cwd=tmp_path, check=True, capture_output=True, text=True
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "implement",
+                "change",
+                "--task",
+                "impl-scan",
+                "--path",
+                "taskledger/services/tasks.py",
+                "--kind",
+                "edit",
+                "--summary",
+                "Manual evidence entry.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "implement",
+                "scan-changes",
+                "--task",
+                "impl-scan",
+                "--from-git",
+                "--summary",
+                "Captured Git state.",
+            ],
+        ).exit_code
+        == 0
+    )
+    finish = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "implement",
+            "finish",
+            "--task",
+            "impl-scan",
+            "--summary",
+            "Done.",
+        ],
+    )
+    assert finish.exit_code == 0, finish.stdout
+    payload = _json(finish)
+    warnings = payload["result"].get("warnings", [])
+    assert isinstance(warnings, list)
+    assert not any("no git-backed scan" in str(item) for item in warnings)

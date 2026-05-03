@@ -7,8 +7,12 @@ import pytest
 from typer.testing import CliRunner
 
 from taskledger.cli import app
+from taskledger.domain.models import AgentCommandLogRecord
 from taskledger.errors import LaunchError
-from taskledger.storage.agent_logs import load_agent_command_logs
+from taskledger.storage.agent_logs import (
+    append_agent_command_log,
+    load_agent_command_logs,
+)
 from taskledger.storage.project_config import (
     _validate_project_config_overrides,
     merge_project_config,
@@ -294,3 +298,168 @@ def test_task_transcript_json_contract(tmp_path: Path) -> None:
     assert payload["ok"] is True
     assert payload["command"] == "task.transcript"
     assert payload["result"]["kind"] == "task_transcript"
+
+
+def test_task_transcript_review_mode_groups_wrapper_and_managed_shell(
+    tmp_path: Path,
+) -> None:
+    _init_project(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "create",
+                "review-transcript",
+                "--description",
+                "Review mode rendering.",
+            ],
+        ).exit_code
+        == 0
+    )
+    wrapper = AgentCommandLogRecord(
+        log_id="log-0001",
+        ledger_ref="main",
+        started_at="2026-05-03T10:00:00+00:00",
+        finished_at="2026-05-03T10:00:01+00:00",
+        duration_ms=1000,
+        command_kind="taskledger_cli",
+        argv=(
+            "taskledger",
+            "implement",
+            "command",
+            "--",
+            "python",
+            "-c",
+            "raise SystemExit(5)",
+        ),
+        command_line="taskledger implement command -- python -c 'raise SystemExit(5)'",
+        cwd=str(tmp_path),
+        exit_code=0,
+        status="succeeded",
+        task_id="task-0001",
+        run_id="run-0001",
+        run_type="implementation",
+    )
+    managed = AgentCommandLogRecord(
+        log_id="log-0002",
+        ledger_ref="main",
+        started_at="2026-05-03T10:00:02+00:00",
+        finished_at="2026-05-03T10:00:03+00:00",
+        duration_ms=1000,
+        command_kind="managed_shell",
+        argv=("python", "-c", "raise SystemExit(5)"),
+        command_line="python -c 'raise SystemExit(5)'",
+        cwd=str(tmp_path),
+        exit_code=5,
+        status="failed",
+        task_id="task-0001",
+        run_id="run-0001",
+        run_type="implementation",
+        managed_command_exit_code=5,
+    )
+    append_agent_command_log(tmp_path, wrapper)
+    append_agent_command_log(tmp_path, managed)
+
+    transcript = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "transcript",
+            "--task",
+            "task-0001",
+            "--review",
+        ],
+    )
+    assert transcript.exit_code == 0, transcript.stdout
+    assert "## Transcript Review" in transcript.stdout
+    assert "failed, wrapper mismatch" in transcript.stdout
+
+
+def test_task_transcript_failures_mode_renders_failed_rows_only(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+    task_id = _prepare_approved_task(tmp_path)
+
+    failing = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "implement",
+            "command",
+            "--allow-failure",
+            "--",
+            "python",
+            "-c",
+            "raise SystemExit(3)",
+        ],
+    )
+    assert failing.exit_code == 0, failing.stdout
+
+    failures = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "transcript",
+            "--task",
+            task_id,
+            "--failures",
+        ],
+    )
+    assert failures.exit_code == 0, failures.stdout
+    assert "## Transcript Failures" in failures.stdout
+
+
+def test_transcript_tolerates_duplicate_log_ids_by_default(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "create",
+                "dup-transcript",
+                "--description",
+                "Duplicate IDs should not break transcript rendering.",
+            ],
+        ).exit_code
+        == 0
+    )
+    record = AgentCommandLogRecord(
+        log_id="dup-0001",
+        ledger_ref="main",
+        started_at="2026-05-03T10:00:00+00:00",
+        finished_at="2026-05-03T10:00:01+00:00",
+        duration_ms=1000,
+        command_kind="taskledger_cli",
+        argv=("taskledger", "task", "show"),
+        command_line="taskledger task show --task task-0001",
+        cwd=str(tmp_path),
+        exit_code=0,
+        status="succeeded",
+        task_id="task-0001",
+    )
+    append_agent_command_log(tmp_path, record)
+    append_agent_command_log(tmp_path, record)
+
+    transcript = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "transcript",
+            "--task",
+            "task-0001",
+        ],
+    )
+    assert transcript.exit_code == 0, transcript.stdout
+    assert "## Command Transcript" in transcript.stdout

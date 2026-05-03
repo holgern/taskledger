@@ -10,6 +10,7 @@ from taskledger.services import command_runner
 from taskledger.services import tasks as _tasks
 from taskledger.storage.indexes import rebuild_v2_indexes
 from taskledger.storage.task_store import (
+    list_changes,
     resolve_task,
     resolve_v2_paths,
     save_run,
@@ -442,6 +443,7 @@ def finish_implementation(
         task.latest_implementation_run,
         expected_type="implementation",
     )
+    warnings = _implementation_finish_warnings(workspace_root, task.id, run.run_id)
     _tasks._require_todos_complete_for_implementation_finish(workspace_root, task)
     finished = replace(
         run,
@@ -470,7 +472,45 @@ def finish_implementation(
     return _tasks._lifecycle_payload(
         "implement finish",
         updated,
-        warnings=[],
+        warnings=warnings,
         changed=True,
         run=finished,
     )
+
+
+def _implementation_finish_warnings(
+    workspace_root: Path,
+    task_id: str,
+    run_id: str,
+) -> list[str]:
+    if not _is_git_workspace(workspace_root):
+        return []
+
+    changes = [
+        change
+        for change in list_changes(workspace_root, task_id)
+        if change.implementation_run == run_id
+    ]
+    if not changes:
+        return []
+
+    has_manual_change = any(change.kind != "scan" for change in changes)
+    has_git_scan = any(change.kind == "scan" for change in changes)
+    if has_manual_change and not has_git_scan:
+        return [
+            "Warning: implementation has manual change records but no git-backed "
+            "scan. Recommended: taskledger implement scan-changes --from-git "
+            '--summary "Implementation diff summary."'
+        ]
+    return []
+
+
+def _is_git_workspace(workspace_root: Path) -> bool:
+    try:
+        probe = command_runner.run_command(
+            ("git", "rev-parse", "--is-inside-work-tree"),
+            cwd=workspace_root,
+        )
+    except OSError:
+        return False
+    return probe.returncode == 0

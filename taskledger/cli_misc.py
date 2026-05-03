@@ -906,6 +906,9 @@ def _append_planning_hint_lines(
     lines: list[str],
     payload: dict[str, object],
 ) -> None:
+    guidance_command = payload.get("guidance_command")
+    if isinstance(guidance_command, str):
+        lines.append(f"Guidance: {guidance_command}")
     template_command = payload.get("template_command")
     if isinstance(template_command, str):
         lines.append(f"Template: {template_command}")

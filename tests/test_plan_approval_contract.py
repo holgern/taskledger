@@ -7,7 +7,13 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from taskledger.cli import app
-from taskledger.storage.task_store import resolve_run, resolve_task, save_run
+from taskledger.storage.task_store import (
+    overwrite_plan,
+    resolve_plan,
+    resolve_run,
+    resolve_task,
+    save_run,
+)
 
 
 def _make_runner() -> CliRunner:
@@ -88,6 +94,8 @@ def test_plan_approval_records_actor_metadata_and_criteria_ids(tmp_path: Path) -
             "1",
             "--actor",
             "user",
+            "--approval-source",
+            "explicit_chat",
             "--note",
             "Reviewed and approved.",
             "--allow-empty-todos",
@@ -118,7 +126,93 @@ def test_plan_approval_records_actor_metadata_and_criteria_ids(tmp_path: Path) -
     assert plan["criteria"][0]["id"] == "ac-0001"
     assert plan["approved_by"]["actor_type"] == "user"
     assert plan["approval_note"] == "Reviewed and approved."
+    assert plan["approval_source"] == "explicit_chat"
+    assert isinstance(plan["approved_plan_hash"], str)
+    assert plan["approved_plan_hash"]
     assert plan["approved_at"]
+
+
+def test_plan_approval_warns_when_source_is_missing(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+    _prepare_proposed_plan(tmp_path)
+
+    approve = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "plan",
+            "approve",
+            "--task",
+            "approval-task",
+            "--version",
+            "1",
+            "--actor",
+            "user",
+            "--note",
+            "Reviewed and approved.",
+            "--allow-empty-todos",
+            "--reason",
+            "test",
+            "--allow-lint-errors",
+        ],
+    )
+    assert approve.exit_code == 0, approve.stdout
+    payload = _json(approve)
+    warnings = payload.get("warnings", [])
+    assert isinstance(warnings, list)
+    assert any("Approval source missing" in str(item) for item in warnings)
+
+
+def test_task_report_warns_when_approved_plan_hash_mismatches(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+    _prepare_proposed_plan(tmp_path)
+    approve = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "plan",
+            "approve",
+            "--task",
+            "approval-task",
+            "--version",
+            "1",
+            "--actor",
+            "user",
+            "--approval-source",
+            "explicit_chat",
+            "--note",
+            "Reviewed and approved.",
+            "--allow-empty-todos",
+            "--reason",
+            "test",
+            "--allow-lint-errors",
+        ],
+    )
+    assert approve.exit_code == 0, approve.stdout
+
+    task = resolve_task(tmp_path, "approval-task")
+    plan = resolve_plan(tmp_path, task.id, version=1)
+    tampered = replace(plan, body=plan.body + "\nTampered.")
+    overwrite_plan(tmp_path, tampered)
+
+    report = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "report",
+            "--task",
+            "approval-task",
+            "--section",
+            "accepted-plan",
+        ],
+    )
+    assert report.exit_code == 0, report.stdout
+    assert "approved plan content hash does not match" in report.stdout
 
 
 def test_plan_approval_blocks_running_planning_run_without_lock(

@@ -108,7 +108,7 @@ If any `taskledger ...` command fails with a Python traceback before taskledger 
 17. After writing the plan, do not run `taskledger lock break`; planning locks are released by plan proposal/upsert. Run `taskledger next-action`.
 18. After `taskledger plan upsert --from-answers`, run `taskledger question status`. If it still reports `Plan regeneration needed: True`, do not ask for approval. Inspect `taskledger question answers`, `taskledger plan show --version N`, and `taskledger doctor`.
 19. Before asking the user to approve, run `taskledger plan lint --version N` and fix lint errors. Do not ask for approval on plans with lint errors.
-20. Record approval only with clear user intent such as approve, accept, go ahead, or start implementation: `taskledger plan approve --version N --actor user --note "User approved in harness: ..."` or `taskledger plan accept --version N --note "User approved in harness: ..."`.
+20. Record approval only with clear user intent such as approve, accept, go ahead, or start implementation: `taskledger plan approve --version N --actor user --approval-source explicit_chat --note "User approved in harness: ..."` or `taskledger plan accept --version N --note "User approved in harness: ..."`.
 21. Never replace a user-provided rich plan with only generated YAML criteria and todos. Preserve the user's plan body after the front matter and use front matter only to expose machine-readable fields to Taskledger.
 22. A Taskledger plan is not just YAML front matter. The YAML block is for machine-readable `goal`, `acceptance_criteria`, `todos`, file links, and test commands. The rich human plan must remain as Markdown after the second `---`. Before approval, inspect `taskledger plan show --version N` or the saved `plan-vN.md` and verify that the accepted plan body is non-empty and contains the implementation rationale.
 
@@ -127,11 +127,13 @@ The plan file should use version ids like `plan-v1`, `plan-v2` in references. Do
    - Make the code changes
    - `taskledger implement change --path ... --kind edit --summary "..."`
    - Run verification through `taskledger implement command -- ...` so exit code and output are recorded.
+   - `implement command` mirrors the inner command exit code by default. Use `--allow-failure` when you intentionally want to record a non-zero command without failing the wrapper command.
    - Mark each todo done only after the relevant command or inspection evidence exists: `taskledger todo done <todo-id> --evidence "implement command change-NNNN exited 0"`.
    - Optional: add `--source planner|implementer|user` to override the inferred source, though this is rarely needed.
 6. `taskledger implement checklist` after each meaningful change to track progress.
-7. Do not run `implement finish` until `todo status` says all todos are complete.
-8. `taskledger implement finish --summary "Completed all implementation todos..."`
+7. In Git workspaces, prefer `taskledger implement scan-changes --from-git --summary "..."` before `implement finish` so change evidence includes a git-backed reconciliation checkpoint.
+8. Do not run `implement finish` until `todo status` says all todos are complete.
+9. `taskledger implement finish --summary "Completed all implementation todos..."`
 
 **Critical**: `implement finish` will block until all non-skipped todos are done. Use `todo status` to verify readiness.
 
@@ -253,6 +255,17 @@ To receive work:
 - If indexes are stale, run `taskledger repair index`; `taskledger reindex` is a compatibility alias.
 - If a task is truly cancelled and the user wants to continue, use `taskledger task uncancel --reason "..." [--to STAGE]` to restore a safe durable stage before re-entering an active stage.
 - If dependencies must be bypassed, only a user waiver may unblock implementation.
+
+## Transcript review mode
+
+Use transcript review rendering for fast post-run diagnosis:
+
+```bash
+taskledger task transcript --task TASK_REF --review
+taskledger task transcript --task TASK_REF --failures
+```
+
+Use raw transcript mode (`task transcript` without `--review`/`--failures`) when full audit rows are needed.
 
 ## Command examples
 

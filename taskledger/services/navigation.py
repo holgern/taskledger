@@ -184,28 +184,50 @@ def next_action(workspace_root: Path, task_ref: str) -> dict[str, object]:
         next_item = _lock_next_item(task, lock)
     next_command = _primary_command_for_next_item(action, next_item)
     commands = _commands_for_next_item(action, next_item)
-    guidance_command = (
-        "taskledger plan guidance"
-        if action in {"plan-propose", "question-answer"}
-        and has_planning_profile(workspace_root)
-        else None
+    guidance_command = _guidance_command(
+        workspace_root=workspace_root,
+        task=task,
+        action=action,
+        active_stage=active_stage,
+        runs=runs,
     )
-    return _finalize_next_action_payload(
-        {
-            "kind": "task_next_action",
-            "task_id": task.id,
-            "status_stage": task.status_stage,
-            "active_stage": active_stage,
-            "action": action,
-            "reason": reason,
-            "blocking": blockers,
-            "next_command": next_command,
-            "guidance_command": guidance_command,
-            "next_item": next_item,
-            "commands": commands,
-            "progress": progress,
-        }
-    )
+    payload = {
+        "kind": "task_next_action",
+        "task_id": task.id,
+        "status_stage": task.status_stage,
+        "active_stage": active_stage,
+        "action": action,
+        "reason": reason,
+        "blocking": blockers,
+        "next_command": next_command,
+        "guidance_command": guidance_command,
+        "next_item": next_item,
+        "commands": commands,
+        "progress": progress,
+    }
+    if guidance_command is not None:
+        payload["commands"] = [
+            _command(
+                "guidance",
+                "Review planning guidance",
+                guidance_command,
+            ),
+            *commands,
+        ]
+        if action in {"plan-propose", "plan-regenerate"}:
+            payload.update(
+                {
+                    "template_command": (
+                        "taskledger plan template --include-guidance --file plan.md"
+                        if action == "plan-propose"
+                        else (
+                            "taskledger plan template --from-answers "
+                            "--include-guidance --file plan.md"
+                        )
+                    )
+                }
+            )
+    return _finalize_next_action_payload(payload)
 
 
 def _orphaned_active_stage_action(
@@ -452,6 +474,43 @@ def _finalize_next_action_payload(payload: dict[str, object]) -> dict[str, objec
     if payload.get("action") == "plan-regenerate":
         payload.update(_planning_template_hints(from_answers=True))
     return payload
+
+
+def _guidance_command(
+    *,
+    workspace_root: Path,
+    task: TaskRecord,
+    action: str,
+    active_stage: str | None,
+    runs: Sequence[object],
+) -> str | None:
+    if active_stage != "planning":
+        return None
+    if action not in {"plan-propose", "question-answer", "plan-regenerate"}:
+        return None
+    if not has_planning_profile(workspace_root):
+        return None
+    if _planning_guidance_already_viewed(task, runs):
+        return None
+    return "taskledger plan guidance"
+
+
+def _planning_guidance_already_viewed(
+    task: TaskRecord,
+    runs: Sequence[object],
+) -> bool:
+    from taskledger.domain.models import TaskRunRecord
+
+    planning_run_id = task.latest_planning_run
+    if planning_run_id is None:
+        return False
+    for run in runs:
+        if not isinstance(run, TaskRunRecord):
+            continue
+        if run.run_id != planning_run_id or run.run_type != "planning":
+            continue
+        return any(line.startswith("Planning guidance viewed:") for line in run.worklog)
+    return False
 
 
 def can_perform(workspace_root: Path, task_ref: str, action: str) -> dict[str, object]:

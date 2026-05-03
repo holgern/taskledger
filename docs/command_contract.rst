@@ -47,7 +47,8 @@ Rules:
 
 * defaults to the active task when ``--task`` is omitted;
 * ``--format`` accepts only ``markdown`` or ``json``;
-* it does not mutate task state and does not append task events;
+* when a planning run is active, it records a one-time guidance-view marker for
+  that run and appends a ``plan.guidance.viewed`` event;
 * root ``--json`` continues to return the standard CLI success/error envelope.
 
 The command payload shape is:
@@ -163,6 +164,8 @@ and may also include:
 * ``template_command`` plus ``required_plan_fields`` and
   ``recommended_plan_fields`` when the next step is regenerating a plan from
   answered questions
+* ``guidance_command`` when planning guidance should be reviewed before drafting
+  or regenerating a plan
 
 Agents should inspect ``next_item``, prefer ``next_command`` when it is safe,
 avoid inventing question answers, and never mark todos done without evidence.
@@ -212,6 +215,37 @@ to a durable non-active stage rather than directly re-entering an active stage.
 
 Run and lock repair
 -------------------
+
+Managed command wrappers
+------------------------
+
+``plan command`` and ``implement command`` mirror the inner command exit code by
+default.
+
+Use ``--allow-failure`` when you intentionally want to record a non-zero inner
+exit code while returning wrapper exit code ``0``:
+
+.. code-block:: bash
+
+   taskledger plan command -- pytest tests/ -q
+   taskledger plan command --allow-failure -- pytest tests/ -q
+   taskledger implement command -- ruff check --config=.ruff.toml .
+   taskledger implement command --allow-failure -- python -c "raise SystemExit(7)"
+
+Transcript review modes
+-----------------------
+
+``task transcript`` keeps the default raw audit table. Review-oriented
+rendering is available with:
+
+.. code-block:: bash
+
+   taskledger task transcript --task TASK_REF --review
+   taskledger task transcript --task TASK_REF --failures
+
+``--review`` groups wrapper + managed-shell pairs, highlights failures and
+wrapper/managed mismatches, and flags late lifecycle commands.
+``--failures`` renders only failed command rows and retry detection.
 
 ``taskledger doctor`` and ``taskledger doctor locks`` report running runs without
 matching active locks. Orphaned running planning runs can be finished only

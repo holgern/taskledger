@@ -270,6 +270,8 @@ agent log store:
 
    taskledger task transcript --task task-0030 -o task30-transcript.md
    taskledger task transcript --task task-0030 --include-output
+   taskledger task transcript --task task-0030 --review
+   taskledger task transcript --task task-0030 --failures
    taskledger --json task transcript --task task-0030
 
 .. code-block:: text
@@ -322,15 +324,18 @@ All approval escape hatches require ``--reason``:
 
 .. code-block:: bash
 
-   taskledger plan approve --version 1 --actor user --note "Ready." --no-materialize-todos --reason "trivial task"
-   taskledger plan approve --version 1 --actor user --note "Ready." --allow-empty-criteria --reason "no criteria needed"
-   taskledger plan approve --version 1 --actor user --note "Ready." --allow-lint-errors --reason "user accepted rough plan"
+   taskledger plan approve --version 1 --actor user --approval-source explicit_chat --note "Ready." --no-materialize-todos --reason "trivial task"
+   taskledger plan approve --version 1 --actor user --approval-source explicit_chat --note "Ready." --allow-empty-criteria --reason "no criteria needed"
+   taskledger plan approve --version 1 --actor user --approval-source explicit_chat --note "Ready." --allow-lint-errors --reason "user accepted rough plan"
 
 Use ``plan command`` to record diagnostic commands during planning:
 
 .. code-block:: bash
 
    taskledger plan command -- pytest tests/ -q
+   taskledger plan command --allow-failure -- pytest tests/ -q
+   taskledger implement command -- ruff check --config=.ruff.toml .
+   taskledger implement command --allow-failure -- python -c "raise SystemExit(7)"
 
 When ``[agent_logging].enabled = true`` in ``taskledger.toml``, ``taskledger``
 records CLI invocations and managed command outputs. Keep logging opt-in because
@@ -342,6 +347,7 @@ transcripts and reports.
    taskledger implement start
    taskledger implement log --message "Started implementation."
    taskledger implement change --path taskledger/storage/task_store.py --kind edit --summary "Updated storage semantics."
+   taskledger implement scan-changes --from-git --summary "Implementation diff summary."
    taskledger implement finish --summary "Implemented the approved plan."
 
    taskledger context --for validation --format markdown

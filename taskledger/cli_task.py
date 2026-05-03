@@ -554,16 +554,26 @@ def register_task_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             bool,
             typer.Option("--include-output/--no-include-output"),
         ] = False,
+        review: Annotated[bool, typer.Option("--review")] = False,
+        failures: Annotated[bool, typer.Option("--failures")] = False,
         limit: Annotated[int | None, typer.Option("--limit")] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
+            if review and failures:
+                raise LaunchError("Use either --review or --failures, not both.")
+            mode = "table"
+            if review:
+                mode = "review"
+            elif failures:
+                mode = "failures"
             task = resolve_cli_task(state.cwd, task_ref)
             payload = _render_task_transcript(
                 state.cwd,
                 task.id,
                 format_name=format_name,
                 include_output=include_output,
+                mode=mode,
                 limit=limit,
             )
             human: str | None

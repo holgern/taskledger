@@ -11,6 +11,7 @@ These tests verify guardrails that prevent common agent misuse:
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -552,6 +553,103 @@ def test_plan_command_no_change_records(tmp_path: Path) -> None:
     assert len(task_data.get("code_change_log", [])) == 0, (
         "plan command should not add to code_change_log"
     )
+
+
+def test_plan_command_mirrors_inner_exit_code_by_default(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "create",
+                "plan-cmd-exit",
+                "--description",
+                "Plan command exit behavior.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "plan", "start", "--task", "plan-cmd-exit"],
+        ).exit_code
+        == 0
+    )
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "plan",
+            "command",
+            "--task",
+            "plan-cmd-exit",
+            "--",
+            sys.executable,
+            "-c",
+            "raise SystemExit(6)",
+        ],
+    )
+    assert result.exit_code == 6
+
+
+def test_plan_command_allow_failure_keeps_wrapper_exit_zero(
+    tmp_path: Path,
+) -> None:
+    _init_project(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "create",
+                "plan-cmd-allow-failure",
+                "--description",
+                "Plan command allow-failure behavior.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "plan",
+                "start",
+                "--task",
+                "plan-cmd-allow-failure",
+            ],
+        ).exit_code
+        == 0
+    )
+    raw = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "plan",
+            "command",
+            "--allow-failure",
+            "--task",
+            "plan-cmd-allow-failure",
+            "--",
+            sys.executable,
+            "-c",
+            "raise SystemExit(6)",
+        ],
+    )
+    assert raw.exit_code == 0, raw.stdout
+    payload = _json(raw)
+    assert payload["result"]["exit_code"] == 6
 
 
 # --- Validation finish gate ---

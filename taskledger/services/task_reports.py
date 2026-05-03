@@ -684,11 +684,32 @@ def _append_accepted_plan(
     options: TaskReportOptions,
 ) -> None:
     from taskledger.domain.models import PlanRecord, TaskRecord
+    from taskledger.services.plan_hash import approved_plan_content_hash
 
     assert isinstance(task, TaskRecord)
     lines.append("## Accepted Plan")
     lines.append("")
     if isinstance(accepted_plan, PlanRecord):
+        lines.append(f"- Version: plan-v{accepted_plan.plan_version}")
+        if accepted_plan.approved_at:
+            lines.append(f"- Approved at: {accepted_plan.approved_at}")
+        if accepted_plan.approved_by is not None:
+            lines.append(
+                "- Approved by: "
+                f"{accepted_plan.approved_by.actor_name} "
+                f"({accepted_plan.approved_by.actor_type})"
+            )
+        if accepted_plan.approval_source:
+            lines.append(f"- Approval source: {accepted_plan.approval_source}")
+        if accepted_plan.approved_plan_hash:
+            lines.append(f"- Approved plan hash: {accepted_plan.approved_plan_hash}")
+            current_hash = approved_plan_content_hash(accepted_plan)
+            if current_hash != accepted_plan.approved_plan_hash:
+                lines.append(
+                    "- Warning: approved plan content hash does not match current "
+                    "plan content."
+                )
+        lines.append("")
         body = accepted_plan.body.strip()
         if body:
             lines.append(body)

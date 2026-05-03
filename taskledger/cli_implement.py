@@ -280,6 +280,7 @@ def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     )
     def command_command(
         ctx: typer.Context,
+        allow_failure: Annotated[bool, typer.Option("--allow-failure")] = False,
         task_ref: TaskOption = None,
     ) -> None:
         state = cli_state_from_context(ctx)
@@ -299,6 +300,12 @@ def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             payload,
             human=f"ran implementation command exit={payload['exit_code']}",
         )
+        exit_code = int(payload.get("exit_code", 0))
+        if exit_code != 0 and not allow_failure:
+            from taskledger.services.agent_logging import note_error
+
+            note_error("implementation command failed", exit_code=exit_code)
+            raise typer.Exit(code=exit_code)
 
     @app.command("deviation")
     def deviation_command(
@@ -358,6 +365,7 @@ def register_implement_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             "status_stage": payload.get("status"),
             "active_stage": payload.get("active_stage"),
             "changed": payload.get("changed"),
+            "warnings": payload.get("warnings", []),
             "next_command": "taskledger validate check --criterion CRITERION",
         }
         emit_payload(

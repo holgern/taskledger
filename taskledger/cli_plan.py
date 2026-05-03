@@ -37,6 +37,7 @@ from taskledger.errors import LaunchError
 from taskledger.services.actors import resolve_actor, resolve_harness
 from taskledger.services.plan_lint import PlanLintPayload
 from taskledger.services.workflow_guidance import (
+    has_planning_profile,
     planning_guidance_payload,
 )
 
@@ -86,7 +87,16 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-        emit_payload(ctx, payload, human=f"started planning {payload['task_id']}")
+        human = f"started planning {payload['task_id']}"
+        if has_planning_profile(state.cwd):
+            human = "\n".join(
+                [
+                    human,
+                    "Next: taskledger plan guidance",
+                    "Then: taskledger plan template --include-guidance --file plan.md",
+                ]
+            )
+        emit_payload(ctx, payload, human=human)
 
     @app.command("propose")
     def propose_command(
@@ -375,6 +385,10 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
         ] = False,
         allow_empty_todos: Annotated[bool, typer.Option("--allow-empty-todos")] = False,
         allow_lint_errors: Annotated[bool, typer.Option("--allow-lint-errors")] = False,
+        approval_source: Annotated[
+            str | None,
+            typer.Option("--approval-source"),
+        ] = None,
         task_ref: TaskOption = None,
     ) -> None:
         state = cli_state_from_context(ctx)
@@ -394,6 +408,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
                 allow_open_questions=allow_open_questions,
                 allow_empty_todos=allow_empty_todos,
                 allow_lint_errors=allow_lint_errors,
+                approval_source=approval_source,
             )
         except LaunchError as exc:
             emit_error(ctx, exc)
@@ -423,6 +438,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
                 note=note,
                 allow_lint_errors=allow_lint_errors,
                 reason=note if allow_lint_errors else None,
+                approval_source="explicit_chat",
             )
         except LaunchError as exc:
             emit_error(ctx, exc)
@@ -468,6 +484,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
     )
     def plan_command_command(
         ctx: typer.Context,
+        allow_failure: Annotated[bool, typer.Option("--allow-failure")] = False,
         task_ref: TaskOption = None,
     ) -> None:
         state = cli_state_from_context(ctx)
@@ -487,6 +504,12 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
             payload,
             human=f"ran planning command exit={payload['exit_code']}",
         )
+        exit_code = int(payload.get("exit_code", 0))
+        if exit_code != 0 and not allow_failure:
+            from taskledger.services.agent_logging import note_error
+
+            note_error("planning command failed", exit_code=exit_code)
+            raise typer.Exit(code=exit_code)
 
     @app.command("guidance")
     def plan_guidance_command(
@@ -501,6 +524,9 @@ def register_plan_v2_commands(app: typer.Typer) -> None:  # noqa: C901
                 raise LaunchError("Invalid --format value. Use 'markdown' or 'json'.")
             task = resolve_cli_task(state.cwd, task_ref)
             payload = planning_guidance_payload(state.cwd, task.id)
+            from taskledger.services.planning_flow import mark_planning_guidance_viewed
+
+            mark_planning_guidance_viewed(state.cwd, task.id)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc

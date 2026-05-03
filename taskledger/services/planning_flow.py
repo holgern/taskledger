@@ -6,6 +6,7 @@ from pathlib import Path
 from taskledger.domain.models import ActorRef, HarnessRef
 from taskledger.domain.policies import plan_propose_decision
 from taskledger.services import tasks as _tasks
+from taskledger.services.plan_hash import approved_plan_content_hash
 from taskledger.services.plan_lint import lint_plan
 from taskledger.storage.indexes import rebuild_v2_indexes
 from taskledger.storage.task_store import (
@@ -223,6 +224,7 @@ def approve_plan(
     allow_open_questions: bool = False,
     allow_empty_todos: bool = False,
     allow_lint_errors: bool = False,
+    approval_source: str | None = None,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
     _tasks._enforce_decision(
@@ -325,7 +327,15 @@ def approve_plan(
             "--allow-lint-errors requires --reason.",
             _tasks.EXIT_CODE_BAD_INPUT,
         )
+    normalized_approval_source = _normalize_approval_source(approval_source)
     approval_note = (note or reason or "").strip()
+    warnings: list[str] = []
+    if normalized_approval_source is None:
+        warnings.append(
+            "Approval source missing; set --approval-source for stronger provenance."
+        )
+    approval_source_value = normalized_approval_source or "unknown"
+    approved_hash = approved_plan_content_hash(target)
     for plan in list_plans(workspace_root, task.id):
         if plan.plan_version == target.plan_version:
             updated_plan = replace(
@@ -334,6 +344,8 @@ def approve_plan(
                 approved_at=utc_now_iso(),
                 approved_by=approved_by,
                 approval_note=approval_note,
+                approval_source=approval_source_value,
+                approved_plan_hash=approved_hash,
             )
         elif plan.status == "rejected":
             updated_plan = plan
@@ -364,13 +376,15 @@ def approve_plan(
             "plan_version": target.plan_version,
             "approved_by": approved_by.to_dict(),
             "approval_note": approval_note,
+            "approval_source": approval_source_value,
+            "approved_plan_hash": approved_hash,
         },
     )
     rebuild_v2_indexes(resolve_v2_paths(workspace_root))
     payload = _tasks._lifecycle_payload(
         "plan approve",
         updated,
-        warnings=[],
+        warnings=warnings,
         changed=True,
         plan_version=target.plan_version,
         result=f"materialized_todos={materialized}",
@@ -384,4 +398,59 @@ def approve_plan(
         ]
     )
     payload["next_action"] = "taskledger implement start"
+    payload["approval_source"] = approval_source_value
+    payload["approved_plan_hash"] = approved_hash
     return payload
+
+
+_APPROVAL_SOURCES = {
+    "explicit_chat",
+    "initial_instruction",
+    "harness_preapproved",
+    "manual_override",
+    "unknown",
+}
+
+
+def _normalize_approval_source(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    if not normalized:
+        return None
+    if normalized not in _APPROVAL_SOURCES:
+        raise _tasks._cli_error(
+            "Invalid --approval-source value. Use one of: "
+            + ", ".join(sorted(_APPROVAL_SOURCES - {"unknown"})),
+            _tasks.EXIT_CODE_BAD_INPUT,
+        )
+    return normalized
+
+
+_PLANNING_GUIDANCE_WORKLOG_PREFIX = "Planning guidance viewed:"
+
+
+def mark_planning_guidance_viewed(
+    workspace_root: Path,
+    task_ref: str,
+) -> dict[str, object]:
+    task = resolve_task(workspace_root, task_ref)
+    run = _tasks._optional_run(workspace_root, task, task.latest_planning_run)
+    if run is None or run.run_type != "planning" or run.status != "running":
+        return {"recorded": False, "run_id": None}
+    if any(line.startswith(_PLANNING_GUIDANCE_WORKLOG_PREFIX) for line in run.worklog):
+        return {"recorded": False, "run_id": run.run_id}
+    updated = replace(
+        run,
+        worklog=tuple(
+            [*run.worklog, f"{_PLANNING_GUIDANCE_WORKLOG_PREFIX} {utc_now_iso()}"]
+        ),
+    )
+    save_run(workspace_root, updated)
+    _tasks._append_event(
+        resolve_v2_paths(workspace_root).project_dir,
+        task.id,
+        "plan.guidance.viewed",
+        {"run_id": run.run_id},
+    )
+    return {"recorded": True, "run_id": run.run_id}

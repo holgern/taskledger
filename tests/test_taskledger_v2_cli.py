@@ -172,6 +172,111 @@ def test_implement_command_records_stdout_stderr_and_exit_code(
     assert command_payload["change"]["exit_code"] == 0
 
 
+def test_implement_command_mirrors_inner_exit_code_by_default(tmp_path: Path) -> None:
+    _prepare_focused_context_task(tmp_path)
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "implement",
+            "command",
+            "--task",
+            "focused-contexts",
+            "--",
+            sys.executable,
+            "-c",
+            "raise SystemExit(7)",
+        ],
+    )
+    assert result.exit_code == 7
+
+
+def test_implement_command_allow_failure_keeps_wrapper_exit_zero(
+    tmp_path: Path,
+) -> None:
+    _prepare_focused_context_task(tmp_path)
+    raw = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "implement",
+            "command",
+            "--allow-failure",
+            "--task",
+            "focused-contexts",
+            "--",
+            sys.executable,
+            "-c",
+            "raise SystemExit(7)",
+        ],
+    )
+    assert raw.exit_code == 0, raw.stdout
+    result = _json(raw)
+    assert result["result"]["exit_code"] == 7
+
+
+def test_planning_guidance_is_recommended_then_not_repeated(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+    config = tmp_path / "taskledger.toml"
+    config.write_text(
+        config.read_text(encoding="utf-8")
+        + "\n"
+        + "[prompt_profiles.planning]\n"
+        + 'profile = "balanced"\n',
+        encoding="utf-8",
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "create",
+                "guidance-task",
+                "--description",
+                "Guidance recommendation behavior.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "task", "activate", "guidance-task"],
+        ).exit_code
+        == 0
+    )
+    start = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "plan", "start", "--task", "guidance-task"],
+    )
+    assert start.exit_code == 0, start.stdout
+    assert "Next: taskledger plan guidance" in start.stdout
+
+    next_action = _json(
+        runner.invoke(app, ["--cwd", str(tmp_path), "--json", "next-action"])
+    )["result"]
+    assert next_action["guidance_command"] == "taskledger plan guidance"
+    assert next_action["template_command"] == (
+        "taskledger plan template --include-guidance --file plan.md"
+    )
+
+    guidance = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "plan", "guidance", "--task", "guidance-task"],
+    )
+    assert guidance.exit_code == 0, guidance.stdout
+
+    next_after = _json(
+        runner.invoke(app, ["--cwd", str(tmp_path), "--json", "next-action"])
+    )["result"]
+    assert next_after["guidance_command"] is None
+
+
 def _break_task_lock(tmp_path: Path, task_ref: str = "resume-task") -> None:
     result = runner.invoke(
         app,
