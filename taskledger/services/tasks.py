@@ -945,6 +945,7 @@ def resume_implementation(
     reason: str,
     actor: ActorRef | None = None,
     harness: HarnessRef | None = None,
+    repair_expired_lock: bool = False,
 ) -> dict[str, object]:
     from taskledger.services.implementation_flow import (
         resume_implementation as _resume_implementation,
@@ -957,6 +958,7 @@ def resume_implementation(
         reason=reason,
         actor=actor,
         harness=harness,
+        repair_expired_lock=repair_expired_lock,
     )
 
 
@@ -1614,6 +1616,37 @@ def _release_lock(
     save_task(
         workspace_root,
         replace(task, status_stage=target_stage, updated_at=utc_now_iso()),
+    )
+
+
+def _release_expired_lock(
+    workspace_root: Path,
+    task_id: str,
+    lock: TaskLock,
+    *,
+    reason: str,
+) -> None:
+    """Release an expired lock with audit trail, no stage transition."""
+    paths = resolve_v2_paths(workspace_root)
+    lock_path = task_lock_path(paths, task_id)
+    # Write broken-lock audit record
+    broken = replace(
+        lock,
+        broken_at=utc_now_iso(),
+        broken_reason=reason,
+    )
+    _write_broken_lock_audit(paths, task_id, broken)
+    remove_lock(lock_path)
+    _append_event(
+        paths.project_dir,
+        task_id,
+        "lock.expired_released",
+        {
+            "lock_id": lock.lock_id,
+            "stage": lock.stage,
+            "run_id": lock.run_id,
+            "reason": reason,
+        },
     )
 
 

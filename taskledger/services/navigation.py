@@ -169,18 +169,38 @@ def next_action(workspace_root: Path, task_ref: str) -> dict[str, object]:
         blockers.extend(status_blockers)
         progress.update(status_progress)
     if lock is not None and active_stage is None:
-        blockers.append(
-            {
-                "kind": "lock",
-                "message": (
-                    f"Task has a {lock.stage} lock from {lock.run_id} "
-                    "without a matching running run."
-                ),
-            }
-        )
-        action = "repair-lock"
-        reason = "A stale or broken lock must be repaired before work can continue."
-        next_item = _lock_next_item(task, lock)
+        if lock_is_expired(lock):
+            from taskledger.services.next_action_model import (
+                decide_expired_lock_action,
+            )
+
+            (
+                action,
+                reason,
+                next_item,
+                lock_blockers,
+            ) = decide_expired_lock_action(
+                task=task,
+                lock=lock,
+                runs=runs,
+                task_next_item=_lock_next_item(task, lock),
+            )
+            blockers.extend(lock_blockers)
+            if action == "repair-lock":
+                next_item = _lock_next_item(task, lock)
+        else:
+            blockers.append(
+                {
+                    "kind": "lock",
+                    "message": (
+                        f"Task has a {lock.stage} lock from {lock.run_id} "
+                        "without a matching running run."
+                    ),
+                }
+            )
+            action = "repair-lock"
+            reason = "A stale or broken lock must be repaired before work can continue."
+            next_item = _lock_next_item(task, lock)
     next_command = _primary_command_for_next_item(action, next_item)
     commands = _commands_for_next_item(action, next_item)
     guidance_command = _guidance_command(
@@ -579,66 +599,15 @@ def can_perform(workspace_root: Path, task_ref: str, action: str) -> dict[str, o
                     ),
                 }
             )
-    elif action == "implement-resume":
-        implementation_run = _optional_run(
-            workspace_root,
-            task,
-            task.latest_implementation_run,
+    elif action in ("implement-resume", "expired-lock-resume"):
+        ok, reason, resume_blockers = _check_resume_can_perform(
+            action=action,
+            task=task,
+            lock=lock,
+            active_stage=active_stage,
+            workspace_root=workspace_root,
         )
-        dependency_blockers = _dependency_blockers(workspace_root, task)
-        ok = (
-            task.status_stage in {"approved", "implementing"}
-            and task.accepted_plan_version is not None
-            and implementation_run is not None
-            and implementation_run.run_type == "implementation"
-            and implementation_run.status == "running"
-            and not dependency_blockers
-            and lock is None
-            and active_stage is None
-        )
-        reason = (
-            "Implementation resume is ready."
-            if ok
-            else (
-                "Implementation resume requires approved or implementing state, "
-                "an accepted plan, a running implementation run, no active lock, "
-                "and completed dependencies."
-            )
-        )
-        if task.status_stage not in {"approved", "implementing"}:
-            blocking.append(
-                {
-                    "kind": "stage",
-                    "message": (
-                        "Implementation resume requires approved or implementing state."
-                    ),
-                }
-            )
-        if task.accepted_plan_version is None:
-            blocking.append(
-                {"kind": "approval", "message": "No accepted plan version."}
-            )
-        if (
-            implementation_run is None
-            or implementation_run.run_type != "implementation"
-            or implementation_run.status != "running"
-        ):
-            blocking.append(
-                {
-                    "kind": "implementation",
-                    "message": "No running implementation run is available to resume.",
-                }
-            )
-        blocking.extend(cast(list[dict[str, object]], dependency_blockers))
-        if lock is not None:
-            blocking.append(
-                {
-                    "kind": "lock",
-                    "message": (
-                        f"Task has an active {lock.stage} lock from {lock.run_id}."
-                    ),
-                }
-            )
+        blocking.extend(resume_blockers)
     elif action == "implement-restart":
         validation_run = _optional_run(workspace_root, task, task.latest_validation_run)
         implementation_run = _optional_run(
@@ -967,6 +936,104 @@ def _compact_next_action_blockers(
     return compact
 
 
+def _check_resume_can_perform(
+    *,
+    action: str,
+    task: TaskRecord,
+    lock: TaskLock | None,
+    active_stage: str | None,
+    workspace_root: Path,
+) -> tuple[bool, str, list[dict[str, object]]]:
+    blocking: list[dict[str, object]] = []
+    implementation_run = _optional_run(
+        workspace_root,
+        task,
+        task.latest_implementation_run,
+    )
+    dependency_blockers = _dependency_blockers(workspace_root, task)
+    if action == "expired-lock-resume":
+        ok = (
+            task.status_stage in {"approved", "implementing"}
+            and task.accepted_plan_version is not None
+            and implementation_run is not None
+            and implementation_run.run_type == "implementation"
+            and implementation_run.status == "running"
+            and not dependency_blockers
+            and lock is not None
+            and lock_is_expired(lock)
+            and lock.run_id == implementation_run.run_id
+        )
+    else:
+        ok = (
+            task.status_stage in {"approved", "implementing"}
+            and task.accepted_plan_version is not None
+            and implementation_run is not None
+            and implementation_run.run_type == "implementation"
+            and implementation_run.status == "running"
+            and not dependency_blockers
+            and lock is None
+            and active_stage is None
+        )
+    if ok:
+        reason = "Implementation resume is ready."
+    elif action == "expired-lock-resume":
+        reason = (
+            "Expired lock resume requires an expired implementation lock "
+            "matching the running implementation run."
+        )
+    else:
+        reason = (
+            "Implementation resume requires approved or implementing state, "
+            "an accepted plan, a running implementation run, no active lock, "
+            "and completed dependencies."
+        )
+    if task.status_stage not in {"approved", "implementing"}:
+        blocking.append(
+            {
+                "kind": "stage",
+                "message": (
+                    "Implementation resume requires approved or implementing state."
+                ),
+            }
+        )
+    if task.accepted_plan_version is None:
+        blocking.append(
+            {
+                "kind": "approval",
+                "message": "No accepted plan version.",
+            }
+        )
+    if (
+        implementation_run is None
+        or implementation_run.run_type != "implementation"
+        or implementation_run.status != "running"
+    ):
+        blocking.append(
+            {
+                "kind": "implementation",
+                "message": ("No running implementation run is available to resume."),
+            }
+        )
+    blocking.extend(cast(list[dict[str, object]], dependency_blockers))
+    if lock is not None and not lock_is_expired(lock):
+        blocking.append(
+            {
+                "kind": "lock",
+                "message": (
+                    f"Task has an active {lock.stage} lock from {lock.run_id}."
+                ),
+            }
+        )
+    if action == "expired-lock-resume" and (lock is None or not lock_is_expired(lock)):
+        blocking.append(
+            {
+                "kind": "lock",
+                "message": "No expired implementation lock found for resume.",
+            }
+        )
+    return ok, reason, blocking
+
+
 def _validation_progress(gate_report: Mapping[str, object]) -> dict[str, object]:
     criteria = cast(list[dict[str, object]], gate_report.get("criteria", []))
     satisfied = sum(1 for criterion in criteria if criterion.get("satisfied") is True)
@@ -1038,6 +1105,10 @@ def _next_action_command(action: str) -> str | None:
         "plan-approve": "taskledger plan approve --version VERSION --actor user",
         "implement": "taskledger implement start",
         "implement-restart": "taskledger implement restart --summary SUMMARY",
+        "implement-resume": "taskledger implement resume --reason REASON",
+        "expired-lock-resume": (
+            "taskledger implement resume --repair-expired-lock --reason REASON"
+        ),
         "todo-work": "taskledger implement checklist",
         "implement-finish": "taskledger implement finish --summary SUMMARY",
         "validate": "taskledger validate start",
@@ -1086,13 +1157,19 @@ def _primary_command_for_next_item(
         if isinstance(version, int):
             return f"taskledger plan show --version {version}"
     if kind == "task" and isinstance(item_id, str):
-        if action == "implement-resume":
+        if action in ("implement-resume", "expired-lock-resume"):
             return _implement_resume_command(item_id)
         if action == "repair-active-stage":
             return f"taskledger task show --task {item_id}"
     if kind == "lock":
         task_id = next_item.get("task_id")
         if isinstance(task_id, str):
+            if action == "expired-lock-resume":
+                return (
+                    f"taskledger implement resume"
+                    f" --repair-expired-lock --task {task_id}"
+                    f' --reason "..."'
+                )
             return f'taskledger repair lock --task {task_id} --reason "..."'
 
     return _next_action_command(action)
@@ -1205,7 +1282,7 @@ def _commands_for_next_item(
                 )
             return commands
     if item_kind == "task" and isinstance(item_id, str):
-        if action == "implement-resume":
+        if action in ("implement-resume", "expired-lock-resume"):
             return [
                 _command(
                     "resume",
@@ -1250,6 +1327,7 @@ def _commands_for_next_item(
         "implement-restart": "Restart implementation",
         "implement-resume": "Resume implementation",
         "implement-finish": "Finish implementation",
+        "expired-lock-resume": "Resume with expired lock",
         "repair-active-stage": "Inspect task state",
         "validate": "Start validation",
         "validate-finish": "Finish validation",
@@ -1259,6 +1337,7 @@ def _commands_for_next_item(
         "implement-restart": "restart",
         "implement-resume": "resume",
         "implement-finish": "finish",
+        "expired-lock-resume": "resume",
         "repair-active-stage": "inspect",
         "validate": "start",
         "validate-finish": "finish",

@@ -9,11 +9,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from taskledger.domain.models import (
-    TaskLock,
-    TaskRecord,
-    TaskRunRecord,
-)
+from taskledger.domain.lock import TaskLock
+from taskledger.domain.run import TaskRunRecord
+from taskledger.domain.task import TaskRecord
 
 
 @dataclass(frozen=True)
@@ -91,3 +89,52 @@ def _find_run(runs: list[TaskRunRecord], run_id: str | None) -> TaskRunRecord | 
         if run.run_id == run_id:
             return run
     return None
+
+
+def decide_expired_lock_action(
+    *,
+    task: TaskRecord,
+    lock: TaskLock,
+    runs: list[TaskRunRecord],
+    task_next_item: dict[str, object] | None,
+) -> tuple[str, str, dict[str, object] | None, list[dict[str, object]]]:
+    """Decide action for an expired lock with no active stage.
+
+    When the lock is expired and there is a resumable implementation run
+    whose run_id matches the lock, recommend expired-lock-resume.
+    Otherwise fall back to repair-lock.
+    """
+    impl_run = _find_run(runs, task.latest_implementation_run)
+    if (
+        impl_run is not None
+        and impl_run.run_type == "implementation"
+        and impl_run.status == "running"
+        and lock.run_id == impl_run.run_id
+    ):
+        return (
+            "expired-lock-resume",
+            "Implementation lock expired; resume to continue the run.",
+            task_next_item,
+            [
+                {
+                    "kind": "expired_lock",
+                    "message": (
+                        f"Implementation lock for run {impl_run.run_id} has expired."
+                    ),
+                }
+            ],
+        )
+    return (
+        "repair-lock",
+        "A stale or broken lock must be repaired before work can continue.",
+        task_next_item,
+        [
+            {
+                "kind": "lock",
+                "message": (
+                    f"Task has a {lock.stage} lock from {lock.run_id} "
+                    "without a matching running run."
+                ),
+            }
+        ],
+    )

@@ -25,6 +25,7 @@ def start_implementation(
     *,
     actor: ActorRef | None = None,
     harness: HarnessRef | None = None,
+    repair_expired_lock: bool = False,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
     return _start_implementation_for_task(
@@ -41,6 +42,7 @@ def _start_implementation_for_task(
     *,
     actor: ActorRef | None = None,
     harness: HarnessRef | None = None,
+    repair_expired_lock: bool = False,
 ) -> dict[str, object]:
     if task.status_stage not in IMPLEMENTABLE_TASK_STAGES:
         raise _tasks._cli_error(
@@ -88,6 +90,7 @@ def restart_implementation(
     summary: str,
     actor: ActorRef | None = None,
     harness: HarnessRef | None = None,
+    repair_expired_lock: bool = False,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
     if task.status_stage != "failed_validation":
@@ -200,6 +203,7 @@ def resume_implementation(
     reason: str,
     actor: ActorRef | None = None,
     harness: HarnessRef | None = None,
+    repair_expired_lock: bool = False,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
     resume_reason = reason.strip()
@@ -227,12 +231,28 @@ def resume_implementation(
         )
     existing_lock = _tasks._current_lock(workspace_root, task.id)
     if existing_lock is not None:
-        if _tasks.lock_is_expired(existing_lock):
+        if repair_expired_lock and _tasks.lock_is_expired(existing_lock):
+            if (
+                existing_lock.run_id != run.run_id
+                or existing_lock.stage != "implementing"
+            ):
+                raise _tasks._cli_error(
+                    "Expired lock does not match the implementation run.",
+                    _tasks.EXIT_CODE_LOCK_CONFLICT,
+                )
+            _tasks._release_expired_lock(
+                workspace_root,
+                task.id,
+                existing_lock,
+                reason=f"Expired lock released for resume: {resume_reason}",
+            )
+        elif _tasks.lock_is_expired(existing_lock):
             raise _tasks._stale_lock_error(task.id, existing_lock)
-        raise _tasks._cli_error(
-            "Implementation resume requires no active lock.",
-            _tasks.EXIT_CODE_LOCK_CONFLICT,
-        )
+        else:
+            raise _tasks._cli_error(
+                "Implementation resume requires no active lock.",
+                _tasks.EXIT_CODE_LOCK_CONFLICT,
+            )
     _tasks._ensure_dependencies_done(workspace_root, task)
     resolved_actor = actor or _tasks._default_actor()
     lock = _tasks._acquire_lock(

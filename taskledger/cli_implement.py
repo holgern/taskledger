@@ -157,6 +157,13 @@ def resume_command(
         str | None,
         typer.Option("--harness", help="Harness name."),
     ] = None,
+    repair_expired_lock: Annotated[
+        bool,
+        typer.Option(
+            "--repair-expired-lock",
+            help="Release expired implementation lock and acquire new one.",
+        ),
+    ] = False,
     session_id: Annotated[
         str | None,
         typer.Option("--session-id", help="Session identifier."),
@@ -171,7 +178,10 @@ def resume_command(
             role=actor_role,
             session_id=session_id,
         )
-        resolved_harness = resolve_harness(name=harness, session_id=session_id)
+        resolved_harness = resolve_harness(
+            name=harness,
+            session_id=session_id,
+        )
         payload = resume_implementation(
             state.cwd,
             task.id,
@@ -179,6 +189,7 @@ def resume_command(
             reason=reason,
             actor=resolved_actor,
             harness=resolved_harness,
+            repair_expired_lock=repair_expired_lock,
         )
     except LaunchError as exc:
         emit_error(ctx, exc)

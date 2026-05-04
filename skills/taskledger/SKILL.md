@@ -16,7 +16,7 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 
 - Do not implement before a plan approval has been recorded. Prefer `plan accept` for explicit chat approval.
 - Do not validate before implementation has been finished.
-- Do not manually edit ledger files except through documented repair.
+- Do not use repair commands (`repair lock`, `repair run`, `repair task`, `repair index`) in the normal lifecycle. Use them only after `doctor`/`lock show` proves there is stale or corrupted state. (`lock break` is a deprecated alias for `repair lock`.) For a normal expired implementation lock, use `implement resume --repair-expired-lock` instead.
 - Do not break locks without a reason.
 - Do not break locks for normal actor or harness transfer; use durable handoffs.
 - Do not mark validation passed without checking every mandatory acceptance criterion.
@@ -257,9 +257,9 @@ To receive work:
 
 ## Failure handling
 
-- If a lock is stale, inspect it first, then run `taskledger repair lock --reason "..."`.
+- If an implementation lock has expired between sessions and the run is still resumable, use `taskledger implement resume --repair-expired-lock --reason "..."`. This is the normal fresh-session continuation path for expired implementation locks.
+- If a lock is stale, inspect it first, then run `taskledger repair lock --reason "..."`. Use generic `repair lock` only when `doctor`/`lock show` confirms corrupted or orphaned state, not for normal expired implementation locks.
 - If breaking an implementation lock leaves a running implementation run behind, use `taskledger implement resume --reason "..."` instead of `implement start`.
-- If `task show` reports `status_stage=implementing` but `active_stage` is missing, do not run `task uncancel`; run `taskledger next-action` and resume when it reports `implement-resume`.
 - If a cancelled task is restored with `task uncancel`, run `taskledger next-action` before starting work. If the task still has a running implementation run, resume that run instead of starting a new one.
 - If `taskledger next-action` recommends a command but `taskledger can <action>` rejects it, treat this as a lifecycle inconsistency. Run `taskledger doctor` and follow the repair guidance.
 - Use `taskledger repair run --task TASK --run RUN --reason "..."` only when diagnostics identify an orphaned running planning run with no matching active lock.
@@ -315,6 +315,7 @@ taskledger ledger switch main
 taskledger ledger adopt --from feature-a task-0030
 taskledger ledger doctor
 taskledger implement resume --reason "Reacquire implementation lock for existing running run."
+taskledger implement resume --repair-expired-lock --reason "Continue after expired lock."
 taskledger implement restart --summary "Fix failed validation findings."
 taskledger implement change --path taskledger/services/tasks.py --kind edit --summary "Hardened validation gates."
 taskledger task uncancel --actor agent --allow-agent-uncancel --reason "User explicitly requested continuation in harness."

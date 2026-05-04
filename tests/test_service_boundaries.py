@@ -15,9 +15,6 @@ MODULE_LINE_WHITELIST: dict[str, str] = {
 }
 
 FUNCTION_LINE_WHITELIST: dict[str, str] = {
-    "taskledger/services/navigation.py::can_perform": (
-        "Move action gating decisions into a shared pure decision layer."
-    ),
     "taskledger/services/doctor_checks/task_checks.py::scan_task_integrity": (
         "Consolidated per-task integrity scan with change/lock validation;"
         " further splitting into focused inspectors is planned."
