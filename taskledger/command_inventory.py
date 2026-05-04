@@ -1,4 +1,4 @@
-"""Command metadata inventory with audience, effect, surface, and phase."""
+"""Command metadata inventory."""
 
 from __future__ import annotations
 
@@ -31,404 +31,1090 @@ PHASE_RELEASE = "release"
 PHASE_REPAIR = "repair"
 PHASE_SEARCH = "search"
 
+# ── tier constants ────────────────────────────────────────────────────
+TIER_CRITICAL = "critical"
+TIER_NORMAL = "normal"
+TIER_RARE = "rare"
+
+# ── effect constants ─────────────────────────────────────────────────
+EFFECT_NONE = "none"
+EFFECT_READ = "read"
+EFFECT_WRITE = "write"
+EXTERNAL_NONE = "none"
+EXTERNAL_FILE_WRITE = "file_write"
+EXTERNAL_PROCESS_EXEC = "process_exec"
+EXTERNAL_SERVER_SOCKET = "server_socket"
+
 
 class CommandSpec(NamedTuple):
     audience: str
     effect: str
     surface: str
     phase: str
+    tier: str = TIER_NORMAL
+    deprecated: bool = False
+    replaced_by: str = ""
+    ledger_effect: str = ""
+    workspace_effect: str = ""
+    external_effect: str = ""
+    agent_safe: bool = True
 
 
 COMMAND_METADATA: dict[str, CommandSpec] = {
     # ── setup / identity ──────────────────────────────────────────
     "actor whoami": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_SETUP
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        PRIMARY,
+        PHASE_SETUP,
+        tier=TIER_CRITICAL,
+        ledger_effect=EFFECT_READ,
     ),
     "actor set": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_SETUP
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_SETUP,
+        ledger_effect=EFFECT_WRITE,
     ),
     "actor clear": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_SETUP
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        SUPPORT,
+        PHASE_SETUP,
+        ledger_effect=EFFECT_WRITE,
     ),
     "harness set": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_SETUP
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_SETUP,
+        ledger_effect=EFFECT_WRITE,
     ),
     "harness clear": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_SETUP
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        SUPPORT,
+        PHASE_SETUP,
+        ledger_effect=EFFECT_WRITE,
     ),
     # ── orientation ───────────────────────────────────────────────
-    "init": CommandSpec(STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_SETUP),
-    "next-action": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_REPORTING
+    "init": CommandSpec(
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_SETUP,
+        ledger_effect=EFFECT_WRITE,
     ),
-    "can": CommandSpec(STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_REPORTING),
+    "next-action": CommandSpec(
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        PRIMARY,
+        PHASE_REPORTING,
+        tier=TIER_CRITICAL,
+        ledger_effect=EFFECT_READ,
+    ),
+    "can": CommandSpec(
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_REPORTING,
+        ledger_effect=EFFECT_READ,
+    ),
     "context": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_REPORTING
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        PRIMARY,
+        PHASE_REPORTING,
+        tier=TIER_CRITICAL,
+        ledger_effect=EFFECT_READ,
     ),
     # ── task management ───────────────────────────────────────────
     "task create": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     "task activate": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     "task deactivate": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        SUPPORT,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     "task follow-up": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     "task record": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        SUPPORT,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     "task active": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_REPORTING
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        PRIMARY,
+        PHASE_REPORTING,
+        tier=TIER_CRITICAL,
+        ledger_effect=EFFECT_READ,
     ),
     "task show": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_REPORTING
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        PRIMARY,
+        PHASE_REPORTING,
+        tier=TIER_CRITICAL,
+        ledger_effect=EFFECT_READ,
     ),
     "task list": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_REPORTING
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_REPORTING,
+        ledger_effect=EFFECT_READ,
     ),
     "task edit": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        ADVANCED,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     "task cancel": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        ADVANCED,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     "task uncancel": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        ADVANCED,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     "task close": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        ADVANCED,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     "task events": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", ADVANCED, PHASE_REPORTING
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        ADVANCED,
+        PHASE_REPORTING,
+        ledger_effect=EFFECT_READ,
     ),
     # ── planning ──────────────────────────────────────────────────
     "plan start": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_PLANNING,
+        tier=TIER_CRITICAL,
+        ledger_effect=EFFECT_WRITE,
     ),
     "plan template": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        PRIMARY,
+        PHASE_PLANNING,
+        tier=TIER_CRITICAL,
+        ledger_effect=EFFECT_NONE,
+        external_effect=EXTERNAL_FILE_WRITE,
     ),
     "plan guidance": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        PRIMARY,
+        PHASE_PLANNING,
+        tier=TIER_CRITICAL,
+        ledger_effect=EFFECT_READ,
     ),
     "plan upsert": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_PLANNING,
+        tier=TIER_CRITICAL,
+        ledger_effect=EFFECT_WRITE,
     ),
     "plan lint": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        PRIMARY,
+        PHASE_PLANNING,
+        tier=TIER_CRITICAL,
+        ledger_effect=EFFECT_READ,
     ),
     "plan show": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_READ,
     ),
     "plan list": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_READ,
     ),
     "plan diff": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_READ,
     ),
     "plan draft": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_NONE,
+        external_effect=EXTERNAL_FILE_WRITE,
     ),
     "plan propose": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        ADVANCED,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     "plan regenerate": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        ADVANCED,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     "plan materialize-todos": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        ADVANCED,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     "plan command": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        SUPPORT,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
+        external_effect=EXTERNAL_PROCESS_EXEC,
     ),
     "plan revise": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        ADVANCED,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     "plan reject": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_APPROVAL
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        ADVANCED,
+        PHASE_APPROVAL,
+        ledger_effect=EFFECT_WRITE,
     ),
     # ── approval ──────────────────────────────────────────────────
     "plan accept": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_APPROVAL
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_APPROVAL,
+        tier=TIER_CRITICAL,
+        ledger_effect=EFFECT_WRITE,
     ),
     "plan approve": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_APPROVAL
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        ADVANCED,
+        PHASE_APPROVAL,
+        ledger_effect=EFFECT_WRITE,
     ),
     # ── questions ─────────────────────────────────────────────────
     "question add": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     "question add-many": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     "question answer": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     "question answer-many": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     "question status": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        PRIMARY,
+        PHASE_PLANNING,
+        tier=TIER_CRITICAL,
+        ledger_effect=EFFECT_READ,
     ),
     "question answers": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        PRIMARY,
+        PHASE_PLANNING,
+        tier=TIER_CRITICAL,
+        ledger_effect=EFFECT_READ,
     ),
     "question list": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_READ,
     ),
     "question open": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_READ,
     ),
     "question dismiss": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        SUPPORT,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     # ── implementation ────────────────────────────────────────────
     "implement start": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_IMPLEMENTATION
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_IMPLEMENTATION,
+        tier=TIER_CRITICAL,
+        ledger_effect=EFFECT_WRITE,
     ),
     "implement restart": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_IMPLEMENTATION
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_IMPLEMENTATION,
+        ledger_effect=EFFECT_WRITE,
     ),
     "implement resume": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_IMPLEMENTATION
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_IMPLEMENTATION,
+        tier=TIER_CRITICAL,
+        ledger_effect=EFFECT_WRITE,
     ),
     "implement checklist": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_IMPLEMENTATION
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        PRIMARY,
+        PHASE_IMPLEMENTATION,
+        tier=TIER_CRITICAL,
+        ledger_effect=EFFECT_READ,
     ),
     "implement command": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_IMPLEMENTATION
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_IMPLEMENTATION,
+        tier=TIER_CRITICAL,
+        ledger_effect=EFFECT_WRITE,
+        external_effect=EXTERNAL_PROCESS_EXEC,
     ),
     "implement change": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_IMPLEMENTATION
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_IMPLEMENTATION,
+        tier=TIER_CRITICAL,
+        ledger_effect=EFFECT_WRITE,
     ),
     "implement scan-changes": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_IMPLEMENTATION
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_IMPLEMENTATION,
+        ledger_effect=EFFECT_WRITE,
     ),
     "implement finish": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_IMPLEMENTATION
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_IMPLEMENTATION,
+        ledger_effect=EFFECT_WRITE,
     ),
     "implement show": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_IMPLEMENTATION
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_IMPLEMENTATION,
+        ledger_effect=EFFECT_READ,
     ),
     "implement status": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_IMPLEMENTATION
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_IMPLEMENTATION,
+        ledger_effect=EFFECT_READ,
     ),
     "implement log": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_IMPLEMENTATION
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        SUPPORT,
+        PHASE_IMPLEMENTATION,
+        ledger_effect=EFFECT_WRITE,
     ),
     "implement deviation": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_IMPLEMENTATION
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        SUPPORT,
+        PHASE_IMPLEMENTATION,
+        ledger_effect=EFFECT_WRITE,
     ),
     "implement artifact": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_IMPLEMENTATION
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        SUPPORT,
+        PHASE_IMPLEMENTATION,
+        ledger_effect=EFFECT_WRITE,
     ),
     # ── todos ─────────────────────────────────────────────────────
     "todo add": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_IMPLEMENTATION
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_IMPLEMENTATION,
+        ledger_effect=EFFECT_WRITE,
     ),
     "todo done": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_IMPLEMENTATION
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_IMPLEMENTATION,
+        tier=TIER_CRITICAL,
+        ledger_effect=EFFECT_WRITE,
     ),
     "todo undone": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_IMPLEMENTATION
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        SUPPORT,
+        PHASE_IMPLEMENTATION,
+        ledger_effect=EFFECT_WRITE,
     ),
     "todo next": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_IMPLEMENTATION
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        PRIMARY,
+        PHASE_IMPLEMENTATION,
+        tier=TIER_CRITICAL,
+        ledger_effect=EFFECT_READ,
     ),
     "todo status": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_IMPLEMENTATION
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        PRIMARY,
+        PHASE_IMPLEMENTATION,
+        ledger_effect=EFFECT_READ,
     ),
     "todo show": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_IMPLEMENTATION
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_IMPLEMENTATION,
+        ledger_effect=EFFECT_READ,
     ),
     "todo list": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_IMPLEMENTATION
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_IMPLEMENTATION,
+        ledger_effect=EFFECT_READ,
     ),
     # ── validation ────────────────────────────────────────────────
     "validate start": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_VALIDATION
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_VALIDATION,
+        tier=TIER_CRITICAL,
+        ledger_effect=EFFECT_WRITE,
     ),
     "validate status": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_VALIDATION
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        PRIMARY,
+        PHASE_VALIDATION,
+        tier=TIER_CRITICAL,
+        ledger_effect=EFFECT_READ,
     ),
     "validate check": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_VALIDATION
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_VALIDATION,
+        tier=TIER_CRITICAL,
+        ledger_effect=EFFECT_WRITE,
     ),
     "validate finish": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_VALIDATION
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_VALIDATION,
+        tier=TIER_CRITICAL,
+        ledger_effect=EFFECT_WRITE,
     ),
     "validate waive": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_VALIDATION
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        ADVANCED,
+        PHASE_VALIDATION,
+        ledger_effect=EFFECT_WRITE,
     ),
     "validate show": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_VALIDATION
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_VALIDATION,
+        ledger_effect=EFFECT_READ,
     ),
     # ── handoffs ──────────────────────────────────────────────────
     "handoff create": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_TRANSFER
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_TRANSFER,
+        ledger_effect=EFFECT_WRITE,
     ),
     "handoff claim": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_TRANSFER
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_TRANSFER,
+        ledger_effect=EFFECT_WRITE,
     ),
     "handoff close": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", PRIMARY, PHASE_TRANSFER
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_TRANSFER,
+        ledger_effect=EFFECT_WRITE,
     ),
     "handoff show": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", PRIMARY, PHASE_TRANSFER
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        PRIMARY,
+        PHASE_TRANSFER,
+        ledger_effect=EFFECT_READ,
     ),
     "handoff list": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_TRANSFER
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_TRANSFER,
+        ledger_effect=EFFECT_READ,
     ),
     "handoff cancel": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_TRANSFER
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        SUPPORT,
+        PHASE_TRANSFER,
+        ledger_effect=EFFECT_WRITE,
     ),
     "handoff plan-context": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", ADVANCED, PHASE_TRANSFER
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        ADVANCED,
+        PHASE_TRANSFER,
+        ledger_effect=EFFECT_READ,
     ),
     "handoff implementation-context": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", ADVANCED, PHASE_TRANSFER
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        ADVANCED,
+        PHASE_TRANSFER,
+        ledger_effect=EFFECT_READ,
     ),
     "handoff validation-context": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", ADVANCED, PHASE_TRANSFER
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        ADVANCED,
+        PHASE_TRANSFER,
+        ledger_effect=EFFECT_READ,
     ),
     # ── human-oriented reads ──────────────────────────────────────
-    "status": CommandSpec(STABLE_FOR_AGENTS, "safe_read_only", HUMAN, PHASE_REPORTING),
-    "view": CommandSpec(STABLE_FOR_AGENTS, "safe_read_only", HUMAN, PHASE_REPORTING),
-    "tree": CommandSpec(STABLE_FOR_AGENTS, "safe_read_only", HUMAN, PHASE_REPORTING),
-    "serve": CommandSpec(HUMAN_ORIENTED, "safe_read_only", HUMAN, PHASE_REPORTING),
+    "status": CommandSpec(
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        HUMAN,
+        PHASE_REPORTING,
+        agent_safe=True,
+        ledger_effect=EFFECT_READ,
+    ),
+    "view": CommandSpec(
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        HUMAN,
+        PHASE_REPORTING,
+        agent_safe=True,
+        ledger_effect=EFFECT_READ,
+    ),
+    "tree": CommandSpec(
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        HUMAN,
+        PHASE_REPORTING,
+        agent_safe=True,
+        ledger_effect=EFFECT_READ,
+    ),
+    "serve": CommandSpec(
+        HUMAN_ORIENTED,
+        "safe_read_only",
+        HUMAN,
+        PHASE_REPORTING,
+        ledger_effect=EFFECT_READ,
+        external_effect=EXTERNAL_SERVER_SOCKET,
+        agent_safe=False,
+    ),
     "task dossier": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", HUMAN, PHASE_REPORTING
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        HUMAN,
+        PHASE_REPORTING,
+        agent_safe=True,
+        ledger_effect=EFFECT_READ,
     ),
     "task report": CommandSpec(
-        HUMAN_ORIENTED, "safe_read_only", HUMAN, PHASE_REPORTING
+        HUMAN_ORIENTED,
+        "safe_read_only",
+        HUMAN,
+        PHASE_REPORTING,
+        agent_safe=True,
+        ledger_effect=EFFECT_READ,
     ),
     "task transcript": CommandSpec(
-        HUMAN_ORIENTED, "safe_read_only", HUMAN, PHASE_REPORTING
+        HUMAN_ORIENTED,
+        "safe_read_only",
+        HUMAN,
+        PHASE_REPORTING,
+        agent_safe=True,
+        ledger_effect=EFFECT_READ,
     ),
-    "commands": CommandSpec(HUMAN_ORIENTED, "safe_read_only", HUMAN, PHASE_REPORTING),
+    "commands": CommandSpec(
+        HUMAN_ORIENTED,
+        "safe_read_only",
+        HUMAN,
+        PHASE_REPORTING,
+        agent_safe=True,
+        ledger_effect=EFFECT_NONE,
+    ),
     # ── references / metadata ─────────────────────────────────────
     "file add": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        SUPPORT,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     "file remove": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        SUPPORT,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     "file list": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_REPORTING
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_REPORTING,
+        ledger_effect=EFFECT_READ,
     ),
     "link add": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        SUPPORT,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     "link remove": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        SUPPORT,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     "link list": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_REPORTING
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_REPORTING,
+        ledger_effect=EFFECT_READ,
     ),
     "intro create": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        SUPPORT,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     "intro link": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        SUPPORT,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     "intro list": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_REPORTING
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_REPORTING,
+        ledger_effect=EFFECT_READ,
     ),
     "intro show": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_REPORTING
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_REPORTING,
+        ledger_effect=EFFECT_READ,
     ),
     "require add": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        SUPPORT,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     "require remove": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        SUPPORT,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     "require list": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_REPORTING
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_REPORTING,
+        ledger_effect=EFFECT_READ,
     ),
     "require waive": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_PLANNING
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        ADVANCED,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
     ),
     # ── project transfer / ledgers ────────────────────────────────
     "export": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_TRANSFER
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        SUPPORT,
+        PHASE_TRANSFER,
+        ledger_effect=EFFECT_READ,
+        external_effect=EXTERNAL_FILE_WRITE,
     ),
     "import": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_TRANSFER
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        SUPPORT,
+        PHASE_TRANSFER,
+        ledger_effect=EFFECT_WRITE,
+        external_effect=EXTERNAL_FILE_WRITE,
     ),
     "snapshot": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_TRANSFER
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_TRANSFER,
+        ledger_effect=EFFECT_READ,
+        external_effect=EXTERNAL_FILE_WRITE,
     ),
     "ledger status": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_TRANSFER
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_TRANSFER,
+        ledger_effect=EFFECT_READ,
     ),
     "ledger list": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", SUPPORT, PHASE_TRANSFER
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_TRANSFER,
+        ledger_effect=EFFECT_READ,
     ),
     "ledger fork": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_TRANSFER
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        ADVANCED,
+        PHASE_TRANSFER,
+        ledger_effect=EFFECT_WRITE,
     ),
     "ledger switch": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_TRANSFER
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        ADVANCED,
+        PHASE_TRANSFER,
+        ledger_effect=EFFECT_WRITE,
     ),
     "ledger adopt": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", ADVANCED, PHASE_TRANSFER
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        ADVANCED,
+        PHASE_TRANSFER,
+        ledger_effect=EFFECT_WRITE,
     ),
     "ledger doctor": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", ADVANCED, PHASE_TRANSFER
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        ADVANCED,
+        PHASE_TRANSFER,
+        ledger_effect=EFFECT_READ,
     ),
     # ── release ───────────────────────────────────────────────────
     "release tag": CommandSpec(
-        STABLE_FOR_AGENTS, "ledger_mutation", SUPPORT, PHASE_RELEASE
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        SUPPORT,
+        PHASE_RELEASE,
+        ledger_effect=EFFECT_WRITE,
     ),
     "release list": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", HUMAN, PHASE_RELEASE
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        HUMAN,
+        PHASE_RELEASE,
+        agent_safe=True,
+        ledger_effect=EFFECT_READ,
     ),
     "release show": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", HUMAN, PHASE_RELEASE
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        HUMAN,
+        PHASE_RELEASE,
+        agent_safe=True,
+        ledger_effect=EFFECT_READ,
     ),
     "release changelog": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", HUMAN, PHASE_RELEASE
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        HUMAN,
+        PHASE_RELEASE,
+        agent_safe=True,
+        ledger_effect=EFFECT_READ,
+        external_effect=EXTERNAL_FILE_WRITE,
     ),
     # ── search ────────────────────────────────────────────────────
-    "search": CommandSpec(BETA_FOR_AGENTS, "safe_read_only", BETA, PHASE_SEARCH),
-    "grep": CommandSpec(BETA_FOR_AGENTS, "safe_read_only", BETA, PHASE_SEARCH),
-    "symbols": CommandSpec(BETA_FOR_AGENTS, "safe_read_only", BETA, PHASE_SEARCH),
-    "deps": CommandSpec(BETA_FOR_AGENTS, "safe_read_only", BETA, PHASE_SEARCH),
+    "search": CommandSpec(
+        BETA_FOR_AGENTS,
+        "safe_read_only",
+        BETA,
+        PHASE_SEARCH,
+        ledger_effect=EFFECT_NONE,
+        workspace_effect=EFFECT_READ,
+    ),
+    "grep": CommandSpec(
+        BETA_FOR_AGENTS,
+        "safe_read_only",
+        BETA,
+        PHASE_SEARCH,
+        ledger_effect=EFFECT_NONE,
+        workspace_effect=EFFECT_READ,
+    ),
+    "symbols": CommandSpec(
+        BETA_FOR_AGENTS,
+        "safe_read_only",
+        BETA,
+        PHASE_SEARCH,
+        ledger_effect=EFFECT_NONE,
+        workspace_effect=EFFECT_READ,
+    ),
+    "deps": CommandSpec(
+        BETA_FOR_AGENTS,
+        "safe_read_only",
+        BETA,
+        PHASE_SEARCH,
+        ledger_effect=EFFECT_NONE,
+        workspace_effect=EFFECT_READ,
+    ),
     # ── repair / doctor ───────────────────────────────────────────
-    "doctor": CommandSpec(REPAIR, "safe_read_only", REPAIR_SURFACE, PHASE_REPAIR),
-    "doctor locks": CommandSpec(REPAIR, "safe_read_only", REPAIR_SURFACE, PHASE_REPAIR),
+    "doctor": CommandSpec(
+        REPAIR,
+        "safe_read_only",
+        REPAIR_SURFACE,
+        PHASE_REPAIR,
+        tier=TIER_RARE,
+        ledger_effect=EFFECT_READ,
+    ),
+    "doctor locks": CommandSpec(
+        REPAIR,
+        "safe_read_only",
+        REPAIR_SURFACE,
+        PHASE_REPAIR,
+        tier=TIER_RARE,
+        ledger_effect=EFFECT_READ,
+    ),
     "doctor schema": CommandSpec(
-        REPAIR, "safe_read_only", REPAIR_SURFACE, PHASE_REPAIR
+        REPAIR,
+        "safe_read_only",
+        REPAIR_SURFACE,
+        PHASE_REPAIR,
+        tier=TIER_RARE,
+        ledger_effect=EFFECT_READ,
     ),
     "doctor indexes": CommandSpec(
-        REPAIR, "safe_read_only", REPAIR_SURFACE, PHASE_REPAIR
+        REPAIR,
+        "safe_read_only",
+        REPAIR_SURFACE,
+        PHASE_REPAIR,
+        tier=TIER_RARE,
+        ledger_effect=EFFECT_READ,
     ),
-    "lock show": CommandSpec(REPAIR, "safe_read_only", REPAIR_SURFACE, PHASE_REPAIR),
-    "lock list": CommandSpec(REPAIR, "safe_read_only", REPAIR_SURFACE, PHASE_REPAIR),
-    "lock break": CommandSpec(REPAIR, "ledger_mutation", ADVANCED, PHASE_REPAIR),
-    "repair lock": CommandSpec(REPAIR, "ledger_mutation", REPAIR_SURFACE, PHASE_REPAIR),
+    "lock show": CommandSpec(
+        REPAIR,
+        "safe_read_only",
+        REPAIR_SURFACE,
+        PHASE_REPAIR,
+        tier=TIER_RARE,
+        ledger_effect=EFFECT_READ,
+    ),
+    "lock list": CommandSpec(
+        REPAIR,
+        "safe_read_only",
+        REPAIR_SURFACE,
+        PHASE_REPAIR,
+        tier=TIER_RARE,
+        ledger_effect=EFFECT_READ,
+    ),
+    "lock break": CommandSpec(
+        REPAIR,
+        "ledger_mutation",
+        ADVANCED,
+        PHASE_REPAIR,
+        tier=TIER_RARE,
+        deprecated=True,
+        replaced_by="repair lock",
+        ledger_effect=EFFECT_WRITE,
+    ),
+    "repair lock": CommandSpec(
+        REPAIR,
+        "ledger_mutation",
+        REPAIR_SURFACE,
+        PHASE_REPAIR,
+        tier=TIER_RARE,
+        ledger_effect=EFFECT_WRITE,
+    ),
     "repair index": CommandSpec(
-        REPAIR, "ledger_mutation", REPAIR_SURFACE, PHASE_REPAIR
+        REPAIR,
+        "ledger_mutation",
+        REPAIR_SURFACE,
+        PHASE_REPAIR,
+        tier=TIER_RARE,
+        ledger_effect=EFFECT_WRITE,
     ),
-    "repair run": CommandSpec(REPAIR, "ledger_mutation", REPAIR_SURFACE, PHASE_REPAIR),
-    "repair task": CommandSpec(REPAIR, "ledger_mutation", REPAIR_SURFACE, PHASE_REPAIR),
+    "repair run": CommandSpec(
+        REPAIR,
+        "ledger_mutation",
+        REPAIR_SURFACE,
+        PHASE_REPAIR,
+        tier=TIER_RARE,
+        ledger_effect=EFFECT_WRITE,
+    ),
+    "repair task": CommandSpec(
+        REPAIR,
+        "ledger_mutation",
+        REPAIR_SURFACE,
+        PHASE_REPAIR,
+        tier=TIER_RARE,
+        ledger_effect=EFFECT_WRITE,
+    ),
     "repair task-dirs": CommandSpec(
-        REPAIR, "ledger_mutation", REPAIR_SURFACE, PHASE_REPAIR
+        REPAIR,
+        "ledger_mutation",
+        REPAIR_SURFACE,
+        PHASE_REPAIR,
+        tier=TIER_RARE,
+        ledger_effect=EFFECT_WRITE,
     ),
     "repair planning-command-changes": CommandSpec(
-        REPAIR, "ledger_mutation", REPAIR_SURFACE, PHASE_REPAIR
+        REPAIR,
+        "ledger_mutation",
+        REPAIR_SURFACE,
+        PHASE_REPAIR,
+        tier=TIER_RARE,
+        ledger_effect=EFFECT_WRITE,
     ),
     "migrate status": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", MIGRATION, PHASE_REPAIR
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        MIGRATION,
+        PHASE_REPAIR,
+        tier=TIER_RARE,
+        ledger_effect=EFFECT_READ,
     ),
     "migrate plan": CommandSpec(
-        STABLE_FOR_AGENTS, "safe_read_only", MIGRATION, PHASE_REPAIR
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        MIGRATION,
+        PHASE_REPAIR,
+        tier=TIER_RARE,
+        ledger_effect=EFFECT_READ,
     ),
-    "migrate apply": CommandSpec(REPAIR, "ledger_mutation", MIGRATION, PHASE_REPAIR),
-    "reindex": CommandSpec(REPAIR, "ledger_mutation", REPAIR_SURFACE, PHASE_REPAIR),
+    "migrate apply": CommandSpec(
+        REPAIR,
+        "ledger_mutation",
+        MIGRATION,
+        PHASE_REPAIR,
+        tier=TIER_RARE,
+        ledger_effect=EFFECT_WRITE,
+    ),
+    "reindex": CommandSpec(
+        REPAIR,
+        "ledger_mutation",
+        REPAIR_SURFACE,
+        PHASE_REPAIR,
+        tier=TIER_RARE,
+        ledger_effect=EFFECT_WRITE,
+    ),
 }

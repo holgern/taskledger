@@ -91,7 +91,7 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
     "taskledger/cli.py:207": (
         "Top-level command dispatch keeps unexpected crashes in structured output."
     ),
-    "taskledger/cli.py:643": (
+    "taskledger/cli.py:672": (
         "Serve command optional import fallback reports missing dashboard gracefully."
     ),
     "taskledger/cli_ledger.py:111": (
@@ -136,7 +136,7 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
     "taskledger/services/tree.py:246": (
         "Tree command keeps partial output when optional metadata parsing fails."
     ),
-    "taskledger/services/web_dashboard.py:300": (
+    "taskledger/services/web_dashboard.py:299": (
         "Dashboard request handling must keep the server alive on unexpected "
         "route errors."
     ),

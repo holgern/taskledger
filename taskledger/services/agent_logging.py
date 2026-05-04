@@ -115,11 +115,24 @@ def _should_skip_cli_recording(
         # Conservative default: unknown commands remain logged.
         return False
 
-    audience, effect, _surface, _phase = metadata
-    if audience == HUMAN_ORIENTED and not config.capture_human_oriented:
+    if metadata.audience == HUMAN_ORIENTED and not config.capture_human_oriented:
         return True
-    if effect == _SAFE_READ_ONLY and not config.capture_safe_read_only:
+    # Use new effect fields when available, fall back to legacy effect.
+    has_process_exec = metadata.external_effect == "process_exec"
+    is_read_only = (
+        metadata.ledger_effect in ("", "none", "read")
+        and metadata.workspace_effect in ("", "none", "read")
+        and metadata.external_effect in ("", "none")
+    )
+    # Process exec commands are always logged regardless of config.
+    if has_process_exec:
+        return False
+    if is_read_only and not config.capture_safe_read_only:
         return True
+    if not is_read_only and metadata.effect == _SAFE_READ_ONLY:
+        # Legacy classification says safe_read_only but new fields disagree.
+        # Trust the new fields.
+        return False
     return False
 
 

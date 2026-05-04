@@ -553,6 +553,20 @@ def commands_command(
             help="Filter by lifecycle phase.",
         ),
     ] = None,
+    tier: Annotated[
+        str | None,
+        typer.Option(
+            "--tier",
+            help="Filter by tier (critical, normal, rare).",
+        ),
+    ] = None,
+    include_deprecated: Annotated[
+        bool,
+        typer.Option(
+            "--include-deprecated",
+            help="Include deprecated commands (hidden by default).",
+        ),
+    ] = False,
 ) -> None:
     state = ctx.obj
     assert isinstance(state, CLIState)
@@ -560,8 +574,10 @@ def commands_command(
     audience_normalized = audience.replace("-", "_") if audience else None
     effect_normalized = effect.replace("-", "_") if effect else None
 
-    filtered_commands: list[dict[str, str]] = []
+    filtered_commands: list[dict[str, str | bool]] = []
     for cmd, spec in sorted(COMMAND_METADATA.items()):
+        if not include_deprecated and spec.deprecated:
+            continue
         if audience_normalized and spec.audience != audience_normalized:
             continue
         if effect_normalized and spec.effect != effect_normalized:
@@ -570,6 +586,8 @@ def commands_command(
             continue
         if phase and spec.phase != phase:
             continue
+        if tier and spec.tier != tier:
+            continue
         filtered_commands.append(
             {
                 "command": cmd,
@@ -577,6 +595,13 @@ def commands_command(
                 "effect": spec.effect,
                 "surface": spec.surface,
                 "phase": spec.phase,
+                "tier": spec.tier,
+                "deprecated": spec.deprecated,
+                "replaced_by": spec.replaced_by,
+                "ledger_effect": spec.ledger_effect,
+                "workspace_effect": spec.workspace_effect,
+                "external_effect": spec.external_effect,
+                "agent_safe": spec.agent_safe,
             }
         )
 
@@ -592,26 +617,29 @@ def commands_command(
             typer.echo("No commands matching the specified filters.")
             return
 
-        _cmd_lens = [len(cmd["command"]) for cmd in filtered_commands]
-        _aud_lens = [len(cmd["audience"]) for cmd in filtered_commands]
-        _eff_lens = [len(cmd["effect"]) for cmd in filtered_commands]
-        _sur_lens = [len(cmd["surface"]) for cmd in filtered_commands]
-        _pha_lens = [len(cmd["phase"]) for cmd in filtered_commands]
+        _cmd_lens = [len(str(cmd["command"])) for cmd in filtered_commands]
+        _aud_lens = [len(str(cmd["audience"])) for cmd in filtered_commands]
+        _eff_lens = [len(str(cmd["effect"])) for cmd in filtered_commands]
+        _sur_lens = [len(str(cmd["surface"])) for cmd in filtered_commands]
+        _pha_lens = [len(str(cmd["phase"])) for cmd in filtered_commands]
+        _tier_lens = [len(str(cmd["tier"])) for cmd in filtered_commands]
         max_cmd = max(_cmd_lens + [len("Command")]) if filtered_commands else 10
         max_aud = max(_aud_lens + [len("Audience")]) if filtered_commands else 10
         max_eff = max(_eff_lens + [len("Effect")]) if filtered_commands else 10
         max_sur = max(_sur_lens + [len("Surface")]) if filtered_commands else 10
         max_pha = max(_pha_lens + [len("Phase")]) if filtered_commands else 10
+        max_tier = max(_tier_lens + [len("Tier")]) if filtered_commands else 10
 
         header = (
             f"{'Command':<{max_cmd}}  "
             f"{'Audience':<{max_aud}}  "
             f"{'Effect':<{max_eff}}  "
             f"{'Surface':<{max_sur}}  "
-            f"{'Phase':<{max_pha}}"
+            f"{'Phase':<{max_pha}}  "
+            f"{'Tier':<{max_tier}}"
         )
         typer.echo(header)
-        sep_len = max_cmd + max_aud + max_eff + max_sur + max_pha + 8
+        sep_len = max_cmd + max_aud + max_eff + max_sur + max_pha + max_tier + 10
         typer.echo("-" * sep_len)
 
         for cmd_info in filtered_commands:
@@ -620,7 +648,8 @@ def commands_command(
                 f"{cmd_info['audience']:<{max_aud}}  "
                 f"{cmd_info['effect']:<{max_eff}}  "
                 f"{cmd_info['surface']:<{max_sur}}  "
-                f"{cmd_info['phase']:<{max_pha}}"
+                f"{cmd_info['phase']:<{max_pha}}  "
+                f"{cmd_info['tier']:<{max_tier}}"
             )
 
 
