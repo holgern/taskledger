@@ -23,13 +23,14 @@ from taskledger.api.tasks import (
 )
 from taskledger.cli_common import (
     TaskOption,
+    TaskRefArgument,
     cli_state_from_context,
     emit_error,
     emit_payload,
     launch_error_exit_code,
     read_text_input,
     render_json,
-    resolve_cli_task,
+    resolve_task_target,
 )
 from taskledger.errors import LaunchError
 from taskledger.services.actors import resolve_actor
@@ -263,13 +264,17 @@ def list_command(ctx: typer.Context) -> None:
         human_lines.append("(empty)")
     else:
         for task in cast(list[dict[str, object]], payload["tasks"]):
+            marker = "* " if bool(task.get("is_active")) else "  "
             active = task.get("active_stage")
             stage = (
                 f"{task['status_stage']} [{active}]"
                 if active
                 else str(task["status_stage"])
             )
-            human_lines.append(f"{task['slug']}  {task['id']}  {stage}")
+            active_tag = "  active" if bool(task.get("is_active")) else ""
+            human_lines.append(
+                f"{marker}{task['id']}  {task['slug']}  {stage}{active_tag}"
+            )
     emit_payload(ctx, payload, human="\n".join(human_lines))
 
 
@@ -319,12 +324,18 @@ def deactivate_command(
 
 def show_command(
     ctx: typer.Context,
+    task_arg: TaskRefArgument = None,
     task_ref: TaskOption = None,
 ) -> None:
     state = cli_state_from_context(ctx)
     try:
-        resolved = resolve_cli_task(state.cwd, task_ref)
-        payload = show_task(state.cwd, resolved.id)
+        target = resolve_task_target(
+            state.cwd,
+            arg_ref=task_arg,
+            option_ref=task_ref,
+            command="task show",
+        )
+        payload = show_task(state.cwd, target.task.id)
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -359,6 +370,7 @@ def show_command(
 
 def edit_command(
     ctx: typer.Context,
+    task_arg: TaskRefArgument = None,
     task_ref: TaskOption = None,
     title: Annotated[str | None, typer.Option("--title")] = None,
     description: Annotated[str | None, typer.Option("--description")] = None,
@@ -371,10 +383,22 @@ def edit_command(
         typer.Option("--remove-label"),
     ] = None,
     add_note: Annotated[list[str] | None, typer.Option("--add-note")] = None,
+    active: Annotated[
+        bool,
+        typer.Option("--active", help="Explicitly edit the active task."),
+    ] = False,
 ) -> None:
     state = cli_state_from_context(ctx)
     try:
-        task = resolve_cli_task(state.cwd, task_ref)
+        target = resolve_task_target(
+            state.cwd,
+            arg_ref=task_arg,
+            option_ref=task_ref,
+            command="task edit",
+            require_explicit=True,
+            active=active,
+        )
+        task = target.task
         task = edit_task(
             state.cwd,
             task.id,
@@ -393,26 +417,55 @@ def edit_command(
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-    emit_payload(ctx, task.to_dict(), human=f"updated task {task.id}")
+    payload = task.to_dict()
+    payload["target"] = {
+        "task_id": task.id,
+        "slug": task.slug,
+        "selection": target.selection,
+    }
+    emit_payload(ctx, payload, human=f"updated task {task.id} ({task.slug})")
 
 
 def cancel_command(
     ctx: typer.Context,
+    task_arg: TaskRefArgument = None,
     task_ref: TaskOption = None,
     reason: Annotated[str | None, typer.Option("--reason")] = None,
+    active: Annotated[
+        bool,
+        typer.Option("--active", help="Explicitly cancel the active task."),
+    ] = False,
 ) -> None:
     state = cli_state_from_context(ctx)
     try:
-        task = resolve_cli_task(state.cwd, task_ref)
-        payload = cancel_task(state.cwd, task.id, reason=reason)
+        target = resolve_task_target(
+            state.cwd,
+            arg_ref=task_arg,
+            option_ref=task_ref,
+            command="task cancel",
+            require_explicit=True,
+            active=active,
+        )
+        payload = cancel_task(state.cwd, target.task.id, reason=reason)
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-    emit_payload(ctx, payload, human=f"cancelled task {payload['task_id']}")
+    payload = dict(payload)
+    payload["target"] = {
+        "task_id": target.task.id,
+        "slug": target.task.slug,
+        "selection": target.selection,
+    }
+    emit_payload(
+        ctx,
+        payload,
+        human=f"cancelled task {target.task.id} ({target.task.slug})",
+    )
 
 
 def uncancel_command(
     ctx: typer.Context,
+    task_arg: TaskRefArgument = None,
     task_ref: TaskOption = None,
     reason: Annotated[str, typer.Option("--reason")] = "",
     target_stage: Annotated[
@@ -438,10 +491,22 @@ def uncancel_command(
         str | None,
         typer.Option("--session-id", help="Session identifier."),
     ] = None,
+    active: Annotated[
+        bool,
+        typer.Option("--active", help="Explicitly uncancel the active task."),
+    ] = False,
 ) -> None:
     state = cli_state_from_context(ctx)
     try:
-        task = resolve_cli_task(state.cwd, task_ref)
+        target = resolve_task_target(
+            state.cwd,
+            arg_ref=task_arg,
+            option_ref=task_ref,
+            command="task uncancel",
+            require_explicit=True,
+            active=active,
+        )
+        task = target.task
         if actor is None and actor_name is None and session_id is None:
             resolved_actor = resolve_actor(
                 workspace_root=state.cwd,
@@ -466,26 +531,47 @@ def uncancel_command(
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-    emit_payload(ctx, payload, human=f"uncancelled task {payload['task_id']}")
+    payload = dict(payload)
+    payload["target"] = {
+        "task_id": target.task.id,
+        "slug": target.task.slug,
+        "selection": target.selection,
+    }
+    emit_payload(
+        ctx,
+        payload,
+        human=f"uncancelled task {target.task.id} ({target.task.slug})",
+    )
 
 
 def close_command(
     ctx: typer.Context,
+    task_arg: TaskRefArgument = None,
     task_ref: TaskOption = None,
     note: Annotated[str | None, typer.Option("--note")] = None,
 ) -> None:
     state = cli_state_from_context(ctx)
     try:
-        task = resolve_cli_task(state.cwd, task_ref)
-        payload = close_task(state.cwd, task.id, note=note)
+        target = resolve_task_target(
+            state.cwd,
+            arg_ref=task_arg,
+            option_ref=task_ref,
+            command="task close",
+        )
+        payload = close_task(state.cwd, target.task.id, note=note)
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-    emit_payload(ctx, payload, human=f"closed task {payload['task_id']}")
+    emit_payload(
+        ctx,
+        payload,
+        human=f"closed task {target.task.id} ({target.task.slug})",
+    )
 
 
 def events_command(
     ctx: typer.Context,
+    task_arg: TaskRefArgument = None,
     task_ref: TaskOption = None,
     all_tasks: Annotated[
         bool, typer.Option("--all", help="Show events for all tasks.")
@@ -496,11 +582,24 @@ def events_command(
     events = _list_events(state.cwd)
     if not all_tasks:
         try:
-            resolved = resolve_cli_task(state.cwd, task_ref)
+            target = resolve_task_target(
+                state.cwd,
+                arg_ref=task_arg,
+                option_ref=task_ref,
+                command="task events",
+            )
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-        events = [e for e in events if e.get("task_id") == resolved.id]
+        events = [e for e in events if e.get("task_id") == target.task.id]
+    elif task_arg or task_ref:
+        error = LaunchError(
+            "task events --all does not accept TASK_REF or --task.",
+            code="USAGE_ERROR",
+            exit_code=2,
+        )
+        emit_error(ctx, error)
+        raise typer.Exit(code=launch_error_exit_code(error))
     events = events[-limit:]
     payload = {"kind": "event_list", "items": events}
     from taskledger.cli_common import render_events_human
@@ -511,13 +610,19 @@ def events_command(
 
 def dossier_command(
     ctx: typer.Context,
+    task_arg: TaskRefArgument = None,
     task_ref: TaskOption = None,
     format_name: Annotated[str, typer.Option("--format")] = "markdown",
 ) -> None:
     state = cli_state_from_context(ctx)
     try:
-        task = resolve_cli_task(state.cwd, task_ref)
-        payload = task_dossier(state.cwd, task.id, format_name=format_name)
+        target = resolve_task_target(
+            state.cwd,
+            arg_ref=task_arg,
+            option_ref=task_ref,
+            command="task dossier",
+        )
+        payload = task_dossier(state.cwd, target.task.id, format_name=format_name)
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -526,6 +631,7 @@ def dossier_command(
 
 def transcript_command(
     ctx: typer.Context,
+    task_arg: TaskRefArgument = None,
     task_ref: TaskOption = None,
     output: Annotated[
         Path | None,
@@ -551,7 +657,13 @@ def transcript_command(
             mode = "raw"
         elif failures:
             mode = "failures"
-        task = resolve_cli_task(state.cwd, task_ref)
+        target = resolve_task_target(
+            state.cwd,
+            arg_ref=task_arg,
+            option_ref=task_ref,
+            command="task transcript",
+        )
+        task = target.task
         payload = _render_task_transcript(
             state.cwd,
             task.id,
@@ -585,6 +697,7 @@ def transcript_command(
 
 def report_command(
     ctx: typer.Context,
+    task_arg: TaskRefArgument = None,
     task_ref: TaskOption = None,
     output: Annotated[
         Path | None,
@@ -622,7 +735,13 @@ def report_command(
 ) -> None:
     state = cli_state_from_context(ctx)
     try:
-        task = resolve_cli_task(state.cwd, task_ref)
+        target = resolve_task_target(
+            state.cwd,
+            arg_ref=task_arg,
+            option_ref=task_ref,
+            command="task report",
+        )
+        task = target.task
         payload = _render_task_report(
             state.cwd,
             task.id,

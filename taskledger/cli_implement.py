@@ -20,10 +20,12 @@ from taskledger.api.task_runs import (
 from taskledger.api.tasks import todo_status
 from taskledger.cli_common import (
     TaskOption,
+    TaskRefArgument,
     cli_state_from_context,
     emit_error,
     emit_payload,
     launch_error_exit_code,
+    reject_workflow_positional_task_ref,
     resolve_cli_task,
 )
 from taskledger.errors import LaunchError
@@ -33,6 +35,7 @@ from taskledger.storage.task_store import load_todos
 
 def start_command(
     ctx: typer.Context,
+    task_arg: TaskRefArgument = None,
     task_ref: TaskOption = None,
     actor: Annotated[
         str | None,
@@ -57,6 +60,8 @@ def start_command(
 ) -> None:
     state = cli_state_from_context(ctx)
     try:
+        if task_arg:
+            reject_workflow_positional_task_ref("implement start", task_arg)
         task = resolve_cli_task(state.cwd, task_ref)
         resolved_actor = resolve_actor(
             actor_type=actor,

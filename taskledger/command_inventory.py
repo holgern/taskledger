@@ -44,6 +44,12 @@ EXTERNAL_NONE = "none"
 EXTERNAL_FILE_WRITE = "file_write"
 EXTERNAL_PROCESS_EXEC = "process_exec"
 EXTERNAL_SERVER_SOCKET = "server_socket"
+TARGETING_NONE = "none"
+TARGETING_ACTIVE_DEFAULT = "active_default"
+TARGETING_EXPLICIT_TASK_OPTION = "explicit_task_option"
+TARGETING_POSITIONAL_RESOURCE = "positional_resource"
+TARGETING_POSITIONAL_OR_ACTIVE = "positional_resource_or_active"
+TARGETING_EXPLICIT_REQUIRED = "explicit_target_required"
 
 
 class CommandSpec(NamedTuple):
@@ -58,6 +64,7 @@ class CommandSpec(NamedTuple):
     workspace_effect: str = ""
     external_effect: str = ""
     agent_safe: bool = True
+    targeting: str = TARGETING_NONE
 
 
 COMMAND_METADATA: dict[str, CommandSpec] = {
@@ -143,6 +150,7 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         PRIMARY,
         PHASE_PLANNING,
         ledger_effect=EFFECT_WRITE,
+        targeting=TARGETING_POSITIONAL_RESOURCE,
     ),
     "task deactivate": CommandSpec(
         STABLE_FOR_AGENTS,
@@ -180,6 +188,7 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         PHASE_REPORTING,
         tier=TIER_CRITICAL,
         ledger_effect=EFFECT_READ,
+        targeting=TARGETING_POSITIONAL_OR_ACTIVE,
     ),
     "task list": CommandSpec(
         STABLE_FOR_AGENTS,
@@ -194,6 +203,7 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         ADVANCED,
         PHASE_PLANNING,
         ledger_effect=EFFECT_WRITE,
+        targeting=TARGETING_EXPLICIT_REQUIRED,
     ),
     "task cancel": CommandSpec(
         STABLE_FOR_AGENTS,
@@ -201,6 +211,7 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         ADVANCED,
         PHASE_PLANNING,
         ledger_effect=EFFECT_WRITE,
+        targeting=TARGETING_EXPLICIT_REQUIRED,
     ),
     "task uncancel": CommandSpec(
         STABLE_FOR_AGENTS,
@@ -208,6 +219,7 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         ADVANCED,
         PHASE_PLANNING,
         ledger_effect=EFFECT_WRITE,
+        targeting=TARGETING_EXPLICIT_REQUIRED,
     ),
     "task close": CommandSpec(
         STABLE_FOR_AGENTS,
@@ -215,6 +227,7 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         ADVANCED,
         PHASE_PLANNING,
         ledger_effect=EFFECT_WRITE,
+        targeting=TARGETING_POSITIONAL_OR_ACTIVE,
     ),
     "task events": CommandSpec(
         STABLE_FOR_AGENTS,
@@ -222,6 +235,7 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         ADVANCED,
         PHASE_REPORTING,
         ledger_effect=EFFECT_READ,
+        targeting=TARGETING_POSITIONAL_OR_ACTIVE,
     ),
     # ── planning ──────────────────────────────────────────────────
     "plan start": CommandSpec(
@@ -231,6 +245,7 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         PHASE_PLANNING,
         tier=TIER_CRITICAL,
         ledger_effect=EFFECT_WRITE,
+        targeting=TARGETING_ACTIVE_DEFAULT,
     ),
     "plan template": CommandSpec(
         STABLE_FOR_AGENTS,
@@ -374,6 +389,7 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         PRIMARY,
         PHASE_PLANNING,
         ledger_effect=EFFECT_WRITE,
+        targeting=TARGETING_POSITIONAL_RESOURCE,
     ),
     "question answer-many": CommandSpec(
         STABLE_FOR_AGENTS,
@@ -427,6 +443,7 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         PHASE_IMPLEMENTATION,
         tier=TIER_CRITICAL,
         ledger_effect=EFFECT_WRITE,
+        targeting=TARGETING_ACTIVE_DEFAULT,
     ),
     "implement restart": CommandSpec(
         STABLE_FOR_AGENTS,
@@ -532,6 +549,7 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         PHASE_IMPLEMENTATION,
         tier=TIER_CRITICAL,
         ledger_effect=EFFECT_WRITE,
+        targeting=TARGETING_POSITIONAL_RESOURCE,
     ),
     "todo undone": CommandSpec(
         STABLE_FOR_AGENTS,
@@ -577,6 +595,7 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         PHASE_VALIDATION,
         tier=TIER_CRITICAL,
         ledger_effect=EFFECT_WRITE,
+        targeting=TARGETING_ACTIVE_DEFAULT,
     ),
     "validate status": CommandSpec(
         STABLE_FOR_AGENTS,
@@ -644,6 +663,7 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         PRIMARY,
         PHASE_TRANSFER,
         ledger_effect=EFFECT_READ,
+        targeting=TARGETING_POSITIONAL_RESOURCE,
     ),
     "handoff list": CommandSpec(
         STABLE_FOR_AGENTS,
@@ -721,6 +741,7 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         PHASE_REPORTING,
         agent_safe=True,
         ledger_effect=EFFECT_READ,
+        targeting=TARGETING_POSITIONAL_OR_ACTIVE,
     ),
     "task report": CommandSpec(
         HUMAN_ORIENTED,
@@ -729,6 +750,7 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         PHASE_REPORTING,
         agent_safe=True,
         ledger_effect=EFFECT_READ,
+        targeting=TARGETING_POSITIONAL_OR_ACTIVE,
     ),
     "task transcript": CommandSpec(
         HUMAN_ORIENTED,
@@ -737,6 +759,7 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         PHASE_REPORTING,
         agent_safe=True,
         ledger_effect=EFFECT_READ,
+        targeting=TARGETING_POSITIONAL_OR_ACTIVE,
     ),
     "commands": CommandSpec(
         HUMAN_ORIENTED,
@@ -823,6 +846,7 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         SUPPORT,
         PHASE_PLANNING,
         ledger_effect=EFFECT_WRITE,
+        targeting=TARGETING_POSITIONAL_RESOURCE,
     ),
     "require remove": CommandSpec(
         STABLE_FOR_AGENTS,
@@ -935,6 +959,7 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         PHASE_RELEASE,
         agent_safe=True,
         ledger_effect=EFFECT_READ,
+        targeting=TARGETING_POSITIONAL_RESOURCE,
     ),
     "release changelog": CommandSpec(
         STABLE_FOR_AGENTS,

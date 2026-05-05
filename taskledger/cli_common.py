@@ -22,11 +22,21 @@ TaskOption = Annotated[
     str | None,
     typer.Option("--task", help="Task ref. Defaults to the active task."),
 ]
+TaskRefArgument = Annotated[
+    str | None,
+    typer.Argument(help="Task ref. Defaults to the active task."),
+]
 TextOption = Annotated[str | None, typer.Option("--text")]
 MessageOption = Annotated[str | None, typer.Option("--message")]
 SummaryOption = Annotated[str, typer.Option("--summary")]
 ReasonOption = Annotated[str, typer.Option("--reason")]
 EvidenceOption = Annotated[list[str] | None, typer.Option("--evidence")]
+
+
+@dataclass(slots=True, frozen=True)
+class ResolvedTaskTarget:
+    task: TaskRecord
+    selection: str
 
 
 def resolve_workspace_root(cwd: Path | None) -> Path:
@@ -46,6 +56,84 @@ def resolve_cli_task(workspace_root: Path, task_ref: str | None) -> TaskRecord:
 
     note_task(task.id)
     return task
+
+
+def resolve_task_target(
+    workspace_root: Path,
+    *,
+    arg_ref: str | None,
+    option_ref: str | None,
+    command: str,
+    require_explicit: bool = False,
+    active: bool = False,
+) -> ResolvedTaskTarget:
+    arg_value = arg_ref.strip() if isinstance(arg_ref, str) else ""
+    option_value = option_ref.strip() if isinstance(option_ref, str) else ""
+    arg_supplied = bool(arg_value)
+    option_supplied = bool(option_value)
+
+    if active and (arg_supplied or option_supplied):
+        raise LaunchError(
+            f"{command} received both an explicit task ref and --active. "
+            "Use only one target selector.",
+            code="USAGE_ERROR",
+            exit_code=2,
+        )
+
+    if arg_supplied and option_supplied:
+        raise LaunchError(
+            f"{command} received both TASK_REF and --task. Use only one.",
+            code="USAGE_ERROR",
+            exit_code=2,
+        )
+
+    if active:
+        return ResolvedTaskTarget(
+            task=resolve_cli_task(workspace_root, None),
+            selection="active_explicit",
+        )
+
+    if arg_supplied:
+        return ResolvedTaskTarget(
+            task=resolve_cli_task(workspace_root, arg_value),
+            selection="positional_arg",
+        )
+
+    if option_supplied:
+        return ResolvedTaskTarget(
+            task=resolve_cli_task(workspace_root, option_value),
+            selection="task_option",
+        )
+
+    if require_explicit:
+        raise LaunchError(
+            f"{command} requires an explicit target. Use "
+            f"`taskledger {command} TASK_REF ...` or "
+            f"`taskledger {command} --task TASK_REF ...`. "
+            f"To intentionally target the active task, pass --active.",
+            code="USAGE_ERROR",
+            exit_code=2,
+            remediation=[
+                f"Run `taskledger {command} TASK_REF ...`.",
+                f"Run `taskledger {command} --task TASK_REF ...`.",
+                f"Or run `taskledger {command} --active ...`.",
+            ],
+        )
+
+    return ResolvedTaskTarget(
+        task=resolve_cli_task(workspace_root, None),
+        selection="active_default",
+    )
+
+
+def reject_workflow_positional_task_ref(command: str, task_ref: str) -> None:
+    normalized = task_ref.strip()
+    raise LaunchError(
+        f"{command} does not accept positional task refs: {normalized}",
+        code="USAGE_ERROR",
+        exit_code=2,
+        remediation=[f"Use `taskledger {command} --task {normalized}`."],
+    )
 
 
 def render_json(payload: Any) -> str:

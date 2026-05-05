@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import importlib
+import re
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, Any, cast
 
+import click
 import typer
 
 from taskledger._version import __version__
@@ -280,12 +283,108 @@ def context_command(
 
 
 _HELP_FLAGS = {"--help", "-h", "--show-completion", "--install-completion"}
+_ROOT_OPTIONS_WITH_VALUE = {"--cwd", "--root"}
+_WORKFLOW_TASK_OPTION_COMMANDS = {
+    ("plan", "start"),
+    ("implement", "start"),
+    ("validate", "start"),
+}
 
 
 def _is_help_or_introspection(argv: tuple[str, ...]) -> bool:
     """Return True if this is a help/completion invocation that should skip
     workspace discovery and agent-log recording."""
     return bool(_HELP_FLAGS.intersection(argv))
+
+
+def _command_from_tokens(argv: tuple[str, ...]) -> str:
+    tokens: list[str] = []
+    index = 0
+    while index < len(argv):
+        token = argv[index]
+        if token in _ROOT_OPTIONS_WITH_VALUE:
+            index += 2
+            continue
+        if token.startswith("--cwd=") or token.startswith("--root="):
+            index += 1
+            continue
+        if token.startswith("-"):
+            index += 1
+            continue
+        tokens.append(token)
+        index += 1
+    if not tokens:
+        return "taskledger"
+    if len(tokens) == 1:
+        return tokens[0]
+    return f"{tokens[0]}.{tokens[1]}"
+
+
+def _usage_error_remediation(
+    argv: tuple[str, ...],
+    *,
+    command: str,
+    message: str,
+) -> list[str]:
+    remediation: list[str] = ["Review command usage and retry."]
+    extra_match = re.search(r"unexpected extra argument \(([^)]+)\)", message, re.I)
+    if extra_match is None:
+        return remediation
+    extra = extra_match.group(1).strip()
+    command_parts = command.split(".")
+    if (
+        len(command_parts) >= 2
+        and tuple(command_parts[:2]) in _WORKFLOW_TASK_OPTION_COMMANDS
+    ):
+        remediation = [
+            f"Use `taskledger {command_parts[0]} {command_parts[1]} --task {extra}`."
+        ]
+    return remediation
+
+
+def _usage_error_command(argv: tuple[str, ...], exc: click.ClickException) -> str:
+    context = getattr(exc, "ctx", None)
+    command_path = getattr(context, "command_path", None)
+    if isinstance(command_path, str) and command_path.strip():
+        parts = command_path.split()
+        if parts and parts[0] == "taskledger":
+            parts = parts[1:]
+        if parts:
+            return ".".join(parts)
+    return _command_from_tokens(argv)
+
+
+def _status_human(payload: dict[str, Any]) -> str:
+    workspace = payload.get("workspace_root", "?")
+    config_path = payload.get("config_path", "?")
+    active_task = payload.get("active_task")
+    counts = payload.get("counts")
+    health = payload.get("health")
+
+    lines = ["Taskledger status", f"Workspace: {workspace}", f"Config: {config_path}"]
+    if isinstance(active_task, dict):
+        task_id = active_task.get("task_id", "?")
+        slug = active_task.get("slug", "?")
+        stage = active_task.get("status_stage", "?")
+        lines.append(f"Active task: {task_id} {slug} ({stage})")
+    else:
+        lines.append("Active task: none")
+    if isinstance(counts, dict):
+        summary = " ".join(
+            f"{key}={value}"
+            for key, value in sorted(counts.items())
+            if value is not None
+        )
+        lines.append(f"Counts: {summary}")
+    if isinstance(health, dict):
+        checked = bool(health.get("checked"))
+        healthy = health.get("healthy")
+        if checked:
+            lines.append(f"Health: {'healthy' if healthy else 'issues found'}")
+        else:
+            lines.append("Health: not checked (use --check)")
+    lines.append("Next: taskledger next-action")
+    return "\n".join(lines)
 
 
 @app.callback()
@@ -325,8 +424,6 @@ def main(
         ),
     ] = False,
 ) -> None:
-    import sys
-
     # Detect help/introspection invocations early to avoid workspace
     # discovery, config loading, and agent-log recording overhead.
     argv = tuple(sys.argv[1:])
@@ -460,7 +557,11 @@ def status_command(
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-    emit_payload(ctx, payload)
+    emit_payload(
+        ctx,
+        payload,
+        human=_status_human(payload) if isinstance(payload, dict) else None,
+    )
 
 
 @app.command("tree")
@@ -596,6 +697,7 @@ def commands_command(
                 "surface": spec.surface,
                 "phase": spec.phase,
                 "tier": spec.tier,
+                "targeting": spec.targeting,
                 "deprecated": spec.deprecated,
                 "replaced_by": spec.replaced_by,
                 "ledger_effect": spec.ledger_effect,
@@ -623,12 +725,14 @@ def commands_command(
         _sur_lens = [len(str(cmd["surface"])) for cmd in filtered_commands]
         _pha_lens = [len(str(cmd["phase"])) for cmd in filtered_commands]
         _tier_lens = [len(str(cmd["tier"])) for cmd in filtered_commands]
+        _target_lens = [len(str(cmd["targeting"])) for cmd in filtered_commands]
         max_cmd = max(_cmd_lens + [len("Command")]) if filtered_commands else 10
         max_aud = max(_aud_lens + [len("Audience")]) if filtered_commands else 10
         max_eff = max(_eff_lens + [len("Effect")]) if filtered_commands else 10
         max_sur = max(_sur_lens + [len("Surface")]) if filtered_commands else 10
         max_pha = max(_pha_lens + [len("Phase")]) if filtered_commands else 10
         max_tier = max(_tier_lens + [len("Tier")]) if filtered_commands else 10
+        max_target = max(_target_lens + [len("Targeting")]) if filtered_commands else 10
 
         header = (
             f"{'Command':<{max_cmd}}  "
@@ -636,10 +740,13 @@ def commands_command(
             f"{'Effect':<{max_eff}}  "
             f"{'Surface':<{max_sur}}  "
             f"{'Phase':<{max_pha}}  "
-            f"{'Tier':<{max_tier}}"
+            f"{'Tier':<{max_tier}}  "
+            f"{'Targeting':<{max_target}}"
         )
         typer.echo(header)
-        sep_len = max_cmd + max_aud + max_eff + max_sur + max_pha + max_tier + 10
+        sep_len = (
+            max_cmd + max_aud + max_eff + max_sur + max_pha + max_tier + max_target + 12
+        )
         typer.echo("-" * sep_len)
 
         for cmd_info in filtered_commands:
@@ -649,7 +756,8 @@ def commands_command(
                 f"{cmd_info['effect']:<{max_eff}}  "
                 f"{cmd_info['surface']:<{max_sur}}  "
                 f"{cmd_info['phase']:<{max_pha}}  "
-                f"{cmd_info['tier']:<{max_tier}}"
+                f"{cmd_info['tier']:<{max_tier}}  "
+                f"{cmd_info['targeting']:<{max_target}}"
             )
 
 
@@ -1163,4 +1271,30 @@ def _is_json_content(path: Path) -> bool:
 
 
 def cli_main() -> None:
-    app()
+    argv = tuple(sys.argv[1:])
+    json_requested = "--json" in argv
+    try:
+        app(prog_name="taskledger", args=list(argv), standalone_mode=False)
+    except click.ClickException as exc:
+        if json_requested:
+            command = _usage_error_command(argv, exc)
+            error_payload = {
+                "ok": False,
+                "command": command,
+                "error": {
+                    "code": "USAGE_ERROR",
+                    "message": str(exc),
+                    "remediation": _usage_error_remediation(
+                        argv,
+                        command=command,
+                        message=str(exc),
+                    ),
+                    "exit_code": exc.exit_code,
+                },
+            }
+            typer.echo(render_json(error_payload))
+        else:
+            exc.show()
+        raise SystemExit(exc.exit_code) from exc
+    except typer.Exit as exc:
+        raise SystemExit(exc.exit_code) from exc

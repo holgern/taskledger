@@ -41,16 +41,17 @@ The supported command surface is organized as:
 
 ### Which read command to use
 
-| Need                       | Command                             |
-| -------------------------- | ----------------------------------- |
-| Next step                  | `next-action`                       |
-| Next implementation item   | `todo next`                         |
-| Current task summary       | `task show`                         |
-| Project/ledger overview    | `status`, `tree`                    |
-| Human dashboard            | `serve`                             |
-| Reviewable markdown report | `task report`                       |
-| Fresh worker context       | `context` or durable `handoff show` |
-| Command audit              | `task transcript`                   |
+| Need                       | Command                                             |
+| -------------------------- | --------------------------------------------------- |
+| Next step                  | `next-action`                                       |
+| Next implementation item   | `todo next`                                         |
+| Active task summary        | `task show`                                         |
+| Specific task summary      | `task show TASK_REF` or `task show --task TASK_REF` |
+| Project/ledger overview    | `status`, `tree`                                    |
+| Human dashboard            | `serve`                                             |
+| Reviewable markdown report | `task report`                                       |
+| Fresh worker context       | `context` or durable `handoff show`                 |
+| Command audit              | `task transcript`                                   |
 
 ## Planning guidance profiles
 
@@ -343,6 +344,7 @@ Use `--json` for machine-readable payloads:
 taskledger --json status --full
 taskledger --json task active
 taskledger --json task show
+taskledger --json task show task-0001
 taskledger --json context --for validation --format json
 ```
 

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import inspect
 import json
 from pathlib import Path
 
@@ -39,7 +38,13 @@ def _registered_command_paths() -> set[str]:
     return {path for path in paths if path is not None}
 
 
-def _callbacks() -> list[tuple[str, object]]:
+def test_removed_aliases_are_not_registered() -> None:
+    assert REMOVED_COMMANDS.isdisjoint(_registered_command_paths())
+
+
+def test_commands_do_not_register_local_json_options() -> None:
+    import inspect
+
     callbacks: list[tuple[str, object]] = []
     for command in app.registered_commands:
         if command.name is not None:
@@ -48,29 +53,9 @@ def _callbacks() -> list[tuple[str, object]]:
         for command in group.typer_instance.registered_commands:
             if command.name is not None:
                 callbacks.append((f"{group.name} {command.name}", command.callback))
-    return callbacks
 
-
-def test_removed_aliases_are_not_registered() -> None:
-    assert REMOVED_COMMANDS.isdisjoint(_registered_command_paths())
-
-
-def test_task_scoped_commands_do_not_accept_positional_task_refs() -> None:
     offenders: list[str] = []
-    for command, callback in _callbacks():
-        signature = inspect.signature(callback)
-        for parameter in signature.parameters.values():
-            annotation = str(parameter.annotation)
-            if "typer.Argument" not in annotation:
-                continue
-            if "Task ref. Defaults to the active task." in annotation:
-                offenders.append(f"{command}:{parameter.name}")
-    assert not offenders
-
-
-def test_commands_do_not_register_local_json_options() -> None:
-    offenders: list[str] = []
-    for command, callback in _callbacks():
+    for command, callback in callbacks:
         if command == "taskledger":
             continue
         for parameter in inspect.signature(callback).parameters.values():
@@ -79,7 +64,30 @@ def test_commands_do_not_register_local_json_options() -> None:
     assert not offenders
 
 
-def test_positional_task_ref_is_rejected_and_task_option_works(tmp_path: Path) -> None:
+def test_workflow_commands_reject_positional_task_refs_with_json_remediation(
+    tmp_path: Path,
+) -> None:
+    assert runner.invoke(app, ["--cwd", str(tmp_path), "init"]).exit_code == 0
+    workflow_commands = [
+        ("plan", "start"),
+        ("implement", "start"),
+        ("validate", "start"),
+    ]
+    for group, command in workflow_commands:
+        result = runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "--json", group, command, "task-0001"],
+        )
+        assert result.exit_code == 2, (group, command, result.stdout)
+        payload = json.loads(result.stdout)
+        assert payload["ok"] is False
+        assert payload["error"]["code"] == "USAGE_ERROR"
+        assert f"taskledger {group} {command} --task task-0001" in " ".join(
+            payload["error"]["remediation"]
+        )
+
+
+def test_task_show_accepts_positional_task_ref_and_task_option(tmp_path: Path) -> None:
     assert runner.invoke(app, ["--cwd", str(tmp_path), "init"]).exit_code == 0
     assert (
         runner.invoke(
@@ -93,7 +101,7 @@ def test_positional_task_ref_is_rejected_and_task_option_works(tmp_path: Path) -
                 "--slug",
                 "contract-task",
                 "--description",
-                "Exercise the strict command grammar.",
+                "Exercise the task resource grammar.",
             ],
         ).exit_code
         == 0
@@ -101,18 +109,154 @@ def test_positional_task_ref_is_rejected_and_task_option_works(tmp_path: Path) -
 
     positional = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "plan", "start", "contract-task"],
+        ["--cwd", str(tmp_path), "--json", "task", "show", "contract-task"],
     )
-    assert positional.exit_code != 0
+    assert positional.exit_code == 0, positional.stdout
+    positional_payload = json.loads(positional.stdout)
+    assert positional_payload["ok"] is True
+    assert positional_payload["result"]["task"]["id"] == "task-0001"
 
     explicit = runner.invoke(
         app,
-        ["--cwd", str(tmp_path), "--json", "plan", "start", "--task", "contract-task"],
+        ["--cwd", str(tmp_path), "--json", "task", "show", "--task", "contract-task"],
     )
     assert explicit.exit_code == 0, explicit.stdout
-    payload = json.loads(explicit.stdout)
-    assert payload["ok"] is True
-    assert payload["result"]["task_id"] == "task-0001"
+    explicit_payload = json.loads(explicit.stdout)
+    assert explicit_payload["ok"] is True
+    assert explicit_payload["result"]["task"]["id"] == "task-0001"
+
+
+def test_task_cancel_requires_explicit_target_even_when_active_exists(
+    tmp_path: Path,
+) -> None:
+    assert runner.invoke(app, ["--cwd", str(tmp_path), "init"]).exit_code == 0
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "create",
+                "Task A",
+                "--slug",
+                "task-a",
+                "--description",
+                "A",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "activate",
+                "task-a",
+            ],
+        ).exit_code
+        == 0
+    )
+
+    result = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "--json", "task", "cancel", "--reason", "duplicate"],
+    )
+    assert result.exit_code == 2, result.stdout
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "USAGE_ERROR"
+    assert "requires an explicit target" in payload["error"]["message"]
+
+
+def test_task_cancel_accepts_positional_task_ref_and_active_flag(
+    tmp_path: Path,
+) -> None:
+    assert runner.invoke(app, ["--cwd", str(tmp_path), "init"]).exit_code == 0
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "create",
+                "Task A",
+                "--slug",
+                "task-a",
+                "--description",
+                "A",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "--json",
+                "task",
+                "cancel",
+                "task-a",
+                "--reason",
+                "duplicate",
+            ],
+        ).exit_code
+        == 0
+    )
+    show_a = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "--json", "task", "show", "task-a"],
+    )
+    assert show_a.exit_code == 0
+    show_payload = json.loads(show_a.stdout)
+    assert show_payload["result"]["task"]["status_stage"] == "cancelled"
+
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "create",
+                "Task B",
+                "--slug",
+                "task-b",
+                "--description",
+                "B",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "task", "activate", "task-b"],
+        ).exit_code
+        == 0
+    )
+    cancel_active = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "task",
+            "cancel",
+            "--active",
+            "--reason",
+            "duplicate",
+        ],
+    )
+    assert cancel_active.exit_code == 0, cancel_active.stdout
+    active_payload = json.loads(cancel_active.stdout)
+    assert active_payload["result"]["target"]["selection"] == "active_explicit"
 
 
 def test_global_json_only_for_task_show(tmp_path: Path) -> None:

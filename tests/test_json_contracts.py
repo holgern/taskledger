@@ -202,3 +202,46 @@ def test_python_m_taskledger_uses_canonical_json_command_names(tmp_path: Path) -
     assert result.returncode == 0, result.stdout
     payload = json.loads(result.stdout)
     assert payload["command"] == "status"
+
+
+def test_workflow_positional_task_ref_returns_json_usage_error_envelope(
+    tmp_path: Path,
+) -> None:
+    _init_project(tmp_path)
+    result = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "--json", "plan", "start", "task-0001"],
+    )
+    assert result.exit_code == 2, result.stdout
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is False
+    assert payload["command"] == "plan.start"
+    assert payload["error"]["code"] == "USAGE_ERROR"
+    assert "plan start --task task-0001" in " ".join(payload["error"]["remediation"])
+
+
+def test_python_m_taskledger_json_parse_error_envelope(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "taskledger",
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "task",
+            "show",
+            "--json",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2, result.stdout
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "USAGE_ERROR"
+    assert payload["error"]["exit_code"] == 2

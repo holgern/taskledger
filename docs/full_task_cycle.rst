@@ -284,6 +284,7 @@ After validation passes, close the task and inspect final state:
    taskledger task close --note "Fixed parser delimiter handling and validated parser regressions."
    taskledger release tag 0.4.2 --at-task parser-fix --note "0.4.2 released."
    taskledger task show
+   taskledger task show parser-fix
    taskledger status --full
    taskledger doctor
 
@@ -320,7 +321,7 @@ cycle:
    taskledger doctor locks
    taskledger lock break --reason "Recover stale planning lock."
    taskledger implement resume --reason "Reacquire implementation lock for existing running run."
-   taskledger task uncancel --reason "Restore the task to a safe durable stage."
+   taskledger task uncancel --task TASK_REF --reason "Restore the task to a safe durable stage."
    taskledger repair index
    taskledger repair task --reason "Inspect task record after manual edit."
    taskledger reindex

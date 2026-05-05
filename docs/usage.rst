@@ -196,6 +196,7 @@ pretending the task is cancelled:
 .. code-block:: bash
 
    taskledger task show
+   taskledger task show task-0001
    taskledger lock show
    taskledger doctor
    taskledger lock break --reason "Recover stale implementation lock."
@@ -383,6 +384,7 @@ Machine-readable output
    taskledger --json status --full
    taskledger --json task active
    taskledger --json task show
+   taskledger --json task show task-0001
    taskledger --json context --for validation --format json
 
 .. code-block:: json
@@ -432,7 +434,7 @@ Integrity and recovery
    taskledger lock show
    taskledger lock break --reason "recover stale planning lock"
    taskledger implement resume --reason "Reacquire implementation lock for existing running run."
-   taskledger task uncancel --reason "Restore the task to a safe durable stage."
+   taskledger task uncancel --task TASK_REF --reason "Restore the task to a safe durable stage."
    taskledger next-action
    taskledger repair index
 

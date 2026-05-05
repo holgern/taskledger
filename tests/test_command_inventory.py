@@ -12,6 +12,11 @@ from taskledger.command_inventory import (
     HUMAN_ORIENTED,
     REPAIR,
     STABLE_FOR_AGENTS,
+    TARGETING_ACTIVE_DEFAULT,
+    TARGETING_EXPLICIT_REQUIRED,
+    TARGETING_NONE,
+    TARGETING_POSITIONAL_OR_ACTIVE,
+    TARGETING_POSITIONAL_RESOURCE,
     TIER_CRITICAL,
     TIER_NORMAL,
     TIER_RARE,
@@ -255,6 +260,7 @@ def test_commands_json_includes_new_fields() -> None:
     first = cmds[0]
     for field in (
         "tier",
+        "targeting",
         "deprecated",
         "replaced_by",
         "ledger_effect",
@@ -263,3 +269,23 @@ def test_commands_json_includes_new_fields() -> None:
         "agent_safe",
     ):
         assert field in first, f"Missing field: {field}"
+
+
+def test_targeting_values_are_valid() -> None:
+    valid = {
+        TARGETING_NONE,
+        TARGETING_ACTIVE_DEFAULT,
+        TARGETING_POSITIONAL_RESOURCE,
+        TARGETING_POSITIONAL_OR_ACTIVE,
+        TARGETING_EXPLICIT_REQUIRED,
+    }
+    invalid = [k for k, v in COMMAND_METADATA.items() if v.targeting not in valid]
+    assert invalid == [], f"Commands with invalid targeting: {invalid}"
+
+
+def test_targeting_metadata_for_key_commands() -> None:
+    assert COMMAND_METADATA["plan start"].targeting == TARGETING_ACTIVE_DEFAULT
+    assert COMMAND_METADATA["implement start"].targeting == TARGETING_ACTIVE_DEFAULT
+    assert COMMAND_METADATA["validate start"].targeting == TARGETING_ACTIVE_DEFAULT
+    assert COMMAND_METADATA["task show"].targeting == TARGETING_POSITIONAL_OR_ACTIVE
+    assert COMMAND_METADATA["task cancel"].targeting == TARGETING_EXPLICIT_REQUIRED

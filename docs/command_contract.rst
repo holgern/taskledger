@@ -20,8 +20,8 @@ should prefer ``--root``.
 Task Scoping
 ------------
 
-Task-scoped commands default to the active task. Use ``--task TASK_REF`` only
-when explicitly targeting another task.
+Task-scoped workflow commands default to the active task. Use
+``--task TASK_REF`` when explicitly targeting another task.
 
 .. code-block:: bash
 
@@ -32,7 +32,15 @@ when explicitly targeting another task.
    taskledger implement finish --task task-0001 --summary "Implemented."
    taskledger validate status --task task-0001
 
-Optional positional task refs are not supported.
+Task-resource commands accept the task as their direct positional resource:
+
+.. code-block:: bash
+
+   taskledger task show task-0001
+   taskledger task cancel task-0001 --reason "Duplicate"
+   taskledger task report task-0001
+
+Optional positional task refs are not supported for workflow commands.
 
 Plan guidance command
 ---------------------
@@ -181,7 +189,8 @@ latest implementation run and no active lock, it should direct agents to
 For an approved task with a non-implementation run still marked running,
 ``next-action`` must not direct agents to ``taskledger implement start``.
 It should report a repair-oriented action and point to ``taskledger doctor``.
-Truly cancelled tasks recover through ``taskledger task uncancel --reason "..."``
+Truly cancelled tasks recover through
+``taskledger task uncancel --task TASK_REF --reason "..."``
 
 Compact mutation output
 ........................

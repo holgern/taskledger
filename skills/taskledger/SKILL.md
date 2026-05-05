@@ -41,7 +41,7 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 7. If a durable handoff exists, claim it with `taskledger handoff claim handoff-0001` before continuing and close it after the intended next action starts.
 8. After `taskledger import ... --replace`, assume imported locks are non-portable by default. Run `taskledger next-action`; if it reports `implement-resume`, use `taskledger implement resume --reason "Continue imported implementation."`.
 
-9. Mutation commands (`todo add`, `todo done`, `todo undone`, `implement finish`) emit compact acknowledgements. For full task or todo detail, use `task show`, `status`, `next-action`, or `todo show`.
+9. Mutation commands (`todo add`, `todo done`, `todo undone`, `implement finish`) emit compact acknowledgements. For full task or todo detail, use `task show TASK_REF`, `task show` for the active task, `status`, `next-action`, or `todo show`.
    Example human output:
 
 ```text
@@ -72,6 +72,9 @@ If any `taskledger ...` command fails with a Python traceback before taskledger 
 4. If the health probe fails with the same import traceback, report that taskledger CLI startup is broken and no ledger mutation was recorded.
 5. If the health probe succeeds, rerun the failed command once, then continue.
 6. For repeated setup mutations, prefer batch commands such as `question add-many` when available.
+7. If a command fails with a usage/parse error, do not retry a mutating command by dropping the target selector. Inspect `--help` and use explicit targeting:
+   - task-resource commands: `taskledger task show TASK_REF`, `taskledger task cancel TASK_REF --reason "..."`, `taskledger task uncancel TASK_REF --reason "..."`
+   - workflow commands: `taskledger plan start --task TASK_REF`, `taskledger implement start --task TASK_REF`, `taskledger validate start --task TASK_REF`
 
 ## Branch-scoped ledger protocol
 
@@ -172,16 +175,17 @@ Rules for agents:
 
 ## Which read command to use
 
-| Need                       | Command                             |
-| -------------------------- | ----------------------------------- |
-| Next step                  | `next-action`                       |
-| Next implementation item   | `todo next`                         |
-| Current task summary       | `task show`                         |
-| Project/ledger overview    | `status`, `tree`                    |
-| Human dashboard            | `serve`                             |
-| Reviewable markdown report | `task report`                       |
-| Fresh worker context       | `context` or durable `handoff show` |
-| Command audit              | `task transcript`                   |
+| Need                       | Command                                             |
+| -------------------------- | --------------------------------------------------- |
+| Next step                  | `next-action`                                       |
+| Next implementation item   | `todo next`                                         |
+| Active task summary        | `task show`                                         |
+| Specific task summary      | `task show TASK_REF` or `task show --task TASK_REF` |
+| Project/ledger overview    | `status`, `tree`                                    |
+| Human dashboard            | `serve`                                             |
+| Reviewable markdown report | `task report`                                       |
+| Fresh worker context       | `context` or durable `handoff show`                 |
+| Command audit              | `task transcript`                                   |
 
 ## Validation protocol
 
@@ -266,7 +270,7 @@ To receive work:
 - Never use repair to bypass approval, validation, or active implementation locks.
 - If validation fails, record the failure and return to implementation or replanning.
 - If indexes are stale, run `taskledger repair index`; `taskledger reindex` is a compatibility alias.
-- If a task is truly cancelled and the user wants to continue, use `taskledger task uncancel --reason "..." [--to STAGE]` to restore a safe durable stage before re-entering an active stage.
+- If a task is truly cancelled and the user wants to continue, use `taskledger task uncancel --task TASK_REF --reason "..." [--to STAGE]` to restore a safe durable stage before re-entering an active stage.
 - If dependencies must be bypassed, only a user waiver may unblock implementation.
 
 ## Transcript review mode
@@ -319,7 +323,7 @@ taskledger implement resume --reason "Reacquire implementation lock for existing
 taskledger implement resume --repair-expired-lock --reason "Continue after expired lock."
 taskledger implement restart --summary "Fix failed validation findings."
 taskledger implement change --path taskledger/services/tasks.py --kind edit --summary "Hardened validation gates."
-taskledger task uncancel --actor agent --allow-agent-uncancel --reason "User explicitly requested continuation in harness."
+taskledger task uncancel --task TASK_REF --actor agent --allow-agent-uncancel --reason "User explicitly requested continuation in harness."
 taskledger todo done todo-0001 --evidence "uv run pytest -q" --artifact tests/test_parser.py
 taskledger validate check --criterion ac-0001 --status pass --evidence "uv run pytest -q"
 taskledger handoff create --mode implementation --todo todo-0003 --intended-actor agent --intended-harness codex --summary "Ready for focused implementation."

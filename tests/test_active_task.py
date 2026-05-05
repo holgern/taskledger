@@ -339,3 +339,39 @@ def test_export_import_preserves_active_task(tmp_path: Path) -> None:
     )
     active = _json(runner.invoke(app, ["--cwd", str(dest), "--json", "task", "active"]))
     assert active["result"]["task_id"] == "task-0001"
+
+
+def test_task_list_marks_active_task_without_active_stage(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+    _create_task(tmp_path, "list-active")
+    assert (
+        runner.invoke(
+            app, ["--cwd", str(tmp_path), "task", "activate", "list-active"]
+        ).exit_code
+        == 0
+    )
+
+    result = runner.invoke(app, ["--cwd", str(tmp_path), "task", "list"])
+    assert result.exit_code == 0, result.stdout
+    assert "* task-0001" in result.stdout
+    assert "active" in result.stdout
+
+
+def test_status_human_output_shows_active_task_before_counts(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+    _create_task(tmp_path, "status-active")
+    assert (
+        runner.invoke(
+            app, ["--cwd", str(tmp_path), "task", "activate", "status-active"]
+        ).exit_code
+        == 0
+    )
+
+    result = runner.invoke(app, ["--cwd", str(tmp_path), "status"])
+    assert result.exit_code == 0, result.stdout
+    lines = [line for line in result.stdout.splitlines() if line.strip()]
+    active_idx = next(
+        i for i, line in enumerate(lines) if line.startswith("Active task:")
+    )
+    counts_idx = next(i for i, line in enumerate(lines) if line.startswith("Counts:"))
+    assert active_idx < counts_idx
