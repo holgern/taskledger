@@ -247,7 +247,6 @@ def _render_review_markdown(
     return "\n".join(lines) + "\n"
 
 
-
 def _append_duplicate_warning(
     lines: list[str],
     duplicate_ids: Sequence[str],

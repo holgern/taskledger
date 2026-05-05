@@ -89,7 +89,6 @@ def load_agent_command_logs(
     return records
 
 
-
 def detect_duplicate_log_ids(
     workspace_root: Path,
     *,
