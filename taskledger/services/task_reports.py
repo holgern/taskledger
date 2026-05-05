@@ -213,14 +213,17 @@ def build_task_report_payload(
             val: object = list_plans(workspace_root, task.id)
         elif key == "questions":
             val = list_questions(workspace_root, task.id)
-        elif key == "runs":
-            val = list_runs(workspace_root, task.id)
-        elif key == "changes":
-            val = list_changes(workspace_root, task.id)
+        elif key in ("runs", "changes"):
+            val = (
+                list_runs(workspace_root, task.id)
+                if key == "runs"
+                else list_changes(workspace_root, task.id)
+            )
         elif key == "todos":
             val = load_todos(workspace_root, task.id).todos
         elif key == "links":
             val = load_links(workspace_root, task.id).links
+
         elif key == "requirements":
             val = load_requirements(workspace_root, task.id).requirements
         elif key == "lock":
@@ -236,6 +239,10 @@ def build_task_report_payload(
                 task_id=task.id,
                 limit=options.command_log_limit or None,
             )
+        elif key == "duplicate_log_ids":
+            from taskledger.storage.agent_logs import detect_duplicate_log_ids
+
+            val = detect_duplicate_log_ids(workspace_root, task_id=task.id)
         elif key == "relationships":
             val = build_task_relationship_payload(workspace_root, task)
         elif key == "validation_report":
@@ -933,6 +940,7 @@ def _append_command_log(
     options: TaskReportOptions,
 ) -> None:
     from taskledger.domain.models import AgentCommandLogRecord, TaskRecord
+    from taskledger.services.agent_transcripts import _logical_rows
 
     assert isinstance(task, TaskRecord)
     lines.append("## Command Transcript")
@@ -944,56 +952,56 @@ def _append_command_log(
         lines.append("")
         return
 
-    rows = [item for item in logs if isinstance(item, AgentCommandLogRecord)]
-    lines.append("| Time | Exit | Kind | Command | Output |")
-    lines.append("| --- | ---: | --- | --- | --- |")
-    for item in rows:
-        output_refs = _command_log_output_refs(item)
-        exit_value = item.exit_code if item.exit_code is not None else "-"
+    rows = _logical_rows(logs)
+    lines.append("| Time | Exit | Command | Result |")
+    lines.append("| --- | ---: | --- | --- |")
+    for row in rows:
+        exit_value = row.get("effective_exit")
+        exit_str = str(exit_value) if isinstance(exit_value, int) else "-"
+        result = str(row.get("result", ""))
         lines.append(
-            f"| {item.started_at} | {exit_value} | {item.command_kind} | "
-            f"{item.command_line} | {output_refs} |"
+            f"| {row['started_at']} | {exit_str} | "
+            f"{row['display_command']} | {result} |"
         )
     lines.append("")
+
+    duplicate_ids = _load("duplicate_log_ids")  # type: ignore[operator]
+    if isinstance(duplicate_ids, list) and duplicate_ids:
+        lines.append("### Duplicate Log IDs")
+        lines.append("")
+        for lid in duplicate_ids:
+            lines.append(f"- {lid}")
+        lines.append("")
 
     if not options.include_command_output:
         return
 
-    for item in rows:
-        lines.append(f"### {item.log_id} — {item.command_line}")
+    for row in rows:
+        records = row.get("_records", [])
+        # Use the last record for output (managed for pairs, self for standalone)
+        primary = records[-1] if records else None
+        if not isinstance(primary, AgentCommandLogRecord):
+            continue
+        lines.append(f"### {primary.log_id} — {row['display_command']}")
         lines.append("")
-        lines.append(f"Exit: {item.exit_code if item.exit_code is not None else '-'}")
-        lines.append(f"Kind: {item.command_kind}")
-        if item.run_id:
-            lines.append(f"Run: {item.run_id}")
+        exit_value = row.get("effective_exit")
+        lines.append(f"Exit: {exit_value if isinstance(exit_value, int) else '-'}")
+        lines.append(f"Kind: {primary.command_kind}")
+        if primary.run_id:
+            lines.append(f"Run: {primary.run_id}")
         lines.append("")
         lines.append("#### stdout")
         lines.append("")
         lines.append("```text")
-        lines.append(item.visible_stdout_excerpt or "(empty)")
+        lines.append(primary.visible_stdout_excerpt or "(empty)")
         lines.append("```")
         lines.append("")
         lines.append("#### stderr")
         lines.append("")
         lines.append("```text")
-        lines.append(item.visible_stderr_excerpt or "(empty)")
+        lines.append(primary.visible_stderr_excerpt or "(empty)")
         lines.append("```")
         lines.append("")
-
-
-def _command_log_output_refs(item: object) -> str:
-    from taskledger.domain.models import AgentCommandLogRecord
-
-    assert isinstance(item, AgentCommandLogRecord)
-    refs = [
-        item.visible_stdout_ref,
-        item.visible_stderr_ref,
-        item.visible_combined_ref,
-        item.managed_stdout_ref,
-        item.managed_stderr_ref,
-        item.managed_combined_ref,
-    ]
-    return ", ".join(ref for ref in refs if isinstance(ref, str)) or "inline"
 
 
 def _append_locks(

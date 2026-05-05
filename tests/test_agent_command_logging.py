@@ -245,11 +245,11 @@ def test_managed_shell_capture_and_transcript_report_rendering(tmp_path: Path) -
             "--task",
             task_id,
             "--include-output",
+            "--raw",
         ],
     )
     assert transcript.exit_code == 0, transcript.stdout
-    assert "## Command Transcript" in transcript.stdout
-    assert "###" in transcript.stdout
+    assert "## Raw Command Transcript" in transcript.stdout
 
     report = runner.invoke(
         app,
@@ -267,7 +267,7 @@ def test_managed_shell_capture_and_transcript_report_rendering(tmp_path: Path) -
     )
     assert report.exit_code == 0, report.stdout
     assert "## Command Transcript" in report.stdout
-    assert "| Time | Exit | Kind | Command | Output |" in report.stdout
+    assert "| Time | Exit | Command | Result |" in report.stdout
 
 
 def test_task_transcript_json_contract(tmp_path: Path) -> None:
@@ -462,4 +462,196 @@ def test_transcript_tolerates_duplicate_log_ids_by_default(tmp_path: Path) -> No
         ],
     )
     assert transcript.exit_code == 0, transcript.stdout
-    assert "## Command Transcript" in transcript.stdout
+    assert "## Transcript Review" in transcript.stdout
+    assert "### Duplicate Log IDs" in transcript.stdout
+    assert "- dup-0001" in transcript.stdout
+
+
+def test_default_transcript_produces_review_output(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+    _enable_agent_logging(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "create",
+                "default-review-test",
+                "--description",
+                "Test default review mode.",
+            ],
+        ).exit_code
+        == 0
+    )
+    record = AgentCommandLogRecord(
+        log_id="log-default-001",
+        ledger_ref="main",
+        started_at="2026-05-03T10:00:00+00:00",
+        finished_at="2026-05-03T10:00:01+00:00",
+        duration_ms=1000,
+        command_kind="taskledger_cli",
+        argv=("taskledger", "task", "show"),
+        command_line="taskledger task show --task task-0001",
+        cwd=str(tmp_path),
+        exit_code=0,
+        status="succeeded",
+        task_id="task-0001",
+    )
+    append_agent_command_log(tmp_path, record)
+
+    transcript = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "task", "transcript", "--task", "task-0001"],
+    )
+    assert transcript.exit_code == 0, transcript.stdout
+    # Default mode is review, not raw
+    assert "## Transcript Review" in transcript.stdout
+    assert "### Summary" in transcript.stdout
+
+
+def test_raw_flag_produces_raw_table_output(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+    _enable_agent_logging(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "create",
+                "raw-flag-test",
+                "--description",
+                "Test raw flag mode.",
+            ],
+        ).exit_code
+        == 0
+    )
+    record = AgentCommandLogRecord(
+        log_id="log-raw-001",
+        ledger_ref="main",
+        started_at="2026-05-03T10:00:00+00:00",
+        finished_at="2026-05-03T10:00:01+00:00",
+        duration_ms=1000,
+        command_kind="taskledger_cli",
+        argv=("taskledger", "task", "show"),
+        command_line="taskledger task show --task task-0001",
+        cwd=str(tmp_path),
+        exit_code=0,
+        status="succeeded",
+        task_id="task-0001",
+    )
+    append_agent_command_log(tmp_path, record)
+
+    transcript = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "task", "transcript", "--task", "task-0001", "--raw"],
+    )
+    assert transcript.exit_code == 0, transcript.stdout
+    assert "## Raw Command Transcript" in transcript.stdout
+    assert "## Transcript Review" not in transcript.stdout
+
+
+def test_report_command_log_uses_logical_rows(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+    _enable_agent_logging(tmp_path)
+    task_id = _prepare_approved_task(tmp_path)
+
+    # Add a wrapper + managed pair
+    wrapper = AgentCommandLogRecord(
+        log_id="log-rpt-wrapper",
+        ledger_ref="main",
+        started_at="2026-05-03T10:00:00+00:00",
+        finished_at="2026-05-03T10:00:01+00:00",
+        duration_ms=1000,
+        command_kind="taskledger_cli",
+        argv=("taskledger", "implement", "command"),
+        command_line="taskledger implement command -- python -c 'print(1'",
+        cwd=str(tmp_path),
+        exit_code=0,
+        status="succeeded",
+        task_id=task_id,
+    )
+    managed = AgentCommandLogRecord(
+        log_id="log-rpt-managed",
+        ledger_ref="main",
+        started_at="2026-05-03T10:00:01+00:00",
+        finished_at="2026-05-03T10:00:02+00:00",
+        duration_ms=1000,
+        command_kind="managed_shell",
+        argv=("python", "-c", "print(1)"),
+        command_line="python -c 'print(1'",
+        cwd=str(tmp_path),
+        exit_code=0,
+        status="succeeded",
+        task_id=task_id,
+    )
+    append_agent_command_log(tmp_path, wrapper)
+    append_agent_command_log(tmp_path, managed)
+
+    report = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "report",
+            "--task",
+            task_id,
+            "--include",
+            "command-log",
+        ],
+    )
+    assert report.exit_code == 0, report.stdout
+    # Report should use logical-row table (no Kind column)
+    assert "| Time | Exit | Command | Result |" in report.stdout
+    # Should show the managed command text, not the wrapper text
+    assert "python -c" in report.stdout
+    # Old raw-style header should NOT appear
+    assert "| Time | Exit | Kind | Command | Output |" not in report.stdout
+
+
+def test_duplicate_log_id_warning_in_raw_mode(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "create",
+                "dup-raw-test",
+                "--description",
+                "Duplicate IDs in raw mode.",
+            ],
+        ).exit_code
+        == 0
+    )
+    record = AgentCommandLogRecord(
+        log_id="dup-raw-001",
+        ledger_ref="main",
+        started_at="2026-05-03T10:00:00+00:00",
+        finished_at="2026-05-03T10:00:01+00:00",
+        duration_ms=1000,
+        command_kind="taskledger_cli",
+        argv=("taskledger", "task", "show"),
+        command_line="taskledger task show --task task-0001",
+        cwd=str(tmp_path),
+        exit_code=0,
+        status="succeeded",
+        task_id="task-0001",
+    )
+    append_agent_command_log(tmp_path, record)
+    append_agent_command_log(tmp_path, record)
+
+    transcript = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "task", "transcript", "--task", "task-0001", "--raw"],
+    )
+    assert transcript.exit_code == 0, transcript.stdout
+    assert "## Raw Command Transcript" in transcript.stdout
+    assert "### Duplicate Log IDs" in transcript.stdout
+    assert "- dup-raw-001" in transcript.stdout

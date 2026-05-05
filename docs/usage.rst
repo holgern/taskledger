@@ -270,7 +270,7 @@ agent log store:
 
    taskledger task transcript --task task-0030 -o task30-transcript.md
    taskledger task transcript --task task-0030 --include-output
-   taskledger task transcript --task task-0030 --review
+   taskledger task transcript --task task-0030 --raw
    taskledger task transcript --task task-0030 --failures
    taskledger --json task transcript --task task-0030
 

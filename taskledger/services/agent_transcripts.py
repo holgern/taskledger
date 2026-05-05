@@ -5,7 +5,10 @@ from pathlib import Path
 
 from taskledger.errors import LaunchError
 from taskledger.services.workflow_guidance import has_planning_profile
-from taskledger.storage.agent_logs import load_agent_command_logs
+from taskledger.storage.agent_logs import (
+    detect_duplicate_log_ids,
+    load_agent_command_logs,
+)
 from taskledger.storage.task_store import resolve_task, resolve_v2_paths
 
 
@@ -15,15 +18,15 @@ def render_task_transcript(
     *,
     format_name: str = "markdown",
     include_output: bool = False,
-    mode: str = "table",
+    mode: str = "review",
     limit: int | None = None,
 ) -> dict[str, object]:
     if format_name not in {"markdown", "json"}:
         raise LaunchError(f"Unsupported transcript format: {format_name}")
-    if mode not in {"table", "review", "failures"}:
+    if mode not in {"raw", "table", "review", "failures"}:
         raise LaunchError(f"Unsupported transcript mode: {mode}")
-    if format_name == "json" and mode != "table":
-        raise LaunchError("JSON transcript mode supports only the default table view.")
+    if format_name == "json" and mode not in {"raw", "table"}:
+        raise LaunchError("JSON transcript mode supports only raw/table view.")
     if limit is not None and limit <= 0:
         raise LaunchError("--limit must be a positive integer.")
 
@@ -33,6 +36,7 @@ def render_task_transcript(
         task_id=task.id,
         limit=limit,
     )
+    duplicate_ids = detect_duplicate_log_ids(workspace_root, task_id=task.id)
 
     if format_name == "json":
         return {
@@ -46,7 +50,12 @@ def render_task_transcript(
         }
 
     if mode == "review":
-        content = _render_review_markdown(workspace_root, task_id=task.id, logs=logs)
+        content = _render_review_markdown(
+            workspace_root,
+            task_id=task.id,
+            logs=logs,
+            duplicate_ids=duplicate_ids,
+        )
     elif mode == "failures":
         content = _render_failures_markdown(task_id=task.id, logs=logs)
     else:
@@ -55,6 +64,7 @@ def render_task_transcript(
             task_id=task.id,
             logs=logs,
             include_output=include_output,
+            duplicate_ids=duplicate_ids,
         )
     return {
         "kind": "task_transcript",
@@ -73,10 +83,11 @@ def _render_markdown(
     task_id: str,
     logs: Sequence[object],
     include_output: bool,
+    duplicate_ids: Sequence[str] = (),
 ) -> str:
     from taskledger.domain.models import AgentCommandLogRecord
 
-    lines: list[str] = ["## Command Transcript", ""]
+    lines: list[str] = ["## Raw Command Transcript", ""]
     lines.append("| Time | Exit | Kind | Command | Output |")
     lines.append("| --- | ---: | --- | --- | --- |")
 
@@ -84,6 +95,7 @@ def _render_markdown(
     if not typed_logs:
         lines.append("| - | - | - | (no command logs) | - |")
         lines.append("")
+        _append_duplicate_warning(lines, duplicate_ids)
         return "\n".join(lines) + "\n"
 
     for item in typed_logs:
@@ -140,6 +152,7 @@ def _render_markdown(
             lines.append("```")
             lines.append("")
 
+    _append_duplicate_warning(lines, duplicate_ids)
     return "\n".join(lines) + "\n"
 
 
@@ -148,6 +161,7 @@ def _render_review_markdown(
     *,
     task_id: str,
     logs: Sequence[object],
+    duplicate_ids: Sequence[str] = (),
 ) -> str:
     rows = _logical_rows(logs)
     failed_rows = [row for row in rows if row["failed"]]
@@ -229,7 +243,22 @@ def _render_review_markdown(
             lines.append(f"- {warning}")
         lines.append("")
 
+    _append_duplicate_warning(lines, duplicate_ids)
     return "\n".join(lines) + "\n"
+
+
+
+def _append_duplicate_warning(
+    lines: list[str],
+    duplicate_ids: Sequence[str],
+) -> None:
+    if not duplicate_ids:
+        return
+    lines.append("### Duplicate Log IDs")
+    lines.append("")
+    for lid in duplicate_ids:
+        lines.append(f"- {lid}")
+    lines.append("")
 
 
 def _render_failures_markdown(
@@ -309,6 +338,7 @@ def _logical_rows(logs: Sequence[object]) -> list[dict[str, object]]:
                         "failed": failed,
                         "mismatch": mismatch,
                         "result": result,
+                        "_records": [current, managed],
                     }
                 )
                 i += 2
@@ -332,6 +362,7 @@ def _logical_rows(logs: Sequence[object]) -> list[dict[str, object]]:
                 "failed": _is_failed(exit_code),
                 "mismatch": False,
                 "result": "failed" if _is_failed(exit_code) else "passed",
+                "_records": [current],
             }
         )
         i += 1

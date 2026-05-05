@@ -537,16 +537,18 @@ def transcript_command(
         typer.Option("--include-output/--no-include-output"),
     ] = False,
     review: Annotated[bool, typer.Option("--review")] = False,
+    raw: Annotated[bool, typer.Option("--raw")] = False,
     failures: Annotated[bool, typer.Option("--failures")] = False,
     limit: Annotated[int | None, typer.Option("--limit")] = None,
 ) -> None:
     state = cli_state_from_context(ctx)
     try:
-        if review and failures:
-            raise LaunchError("Use either --review or --failures, not both.")
-        mode = "table"
-        if review:
-            mode = "review"
+        exclusive = sum([review, raw, failures])
+        if exclusive > 1:
+            raise LaunchError("Use at most one of --review, --raw, or --failures.")
+        mode = "review"
+        if raw:
+            mode = "raw"
         elif failures:
             mode = "failures"
         task = resolve_cli_task(state.cwd, task_ref)

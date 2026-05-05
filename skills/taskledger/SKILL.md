@@ -274,11 +274,12 @@ To receive work:
 Use transcript review rendering for fast post-run diagnosis:
 
 ```bash
-taskledger task transcript --task TASK_REF --review
+taskledger task transcript --task TASK_REF
+taskledger task transcript --task TASK_REF --raw
 taskledger task transcript --task TASK_REF --failures
 ```
 
-Use raw transcript mode (`task transcript` without `--review`/`--failures`) when full audit rows are needed.
+Review mode is the default. Use `--raw` when full per-record audit rows are needed.
 
 ## Command examples
 

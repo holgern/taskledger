@@ -89,6 +89,43 @@ def load_agent_command_logs(
     return records
 
 
+
+def detect_duplicate_log_ids(
+    workspace_root: Path,
+    *,
+    task_id: str | None = None,
+) -> list[str]:
+    """Return log IDs that appear more than once for the given task."""
+    paths = resolve_v2_paths(workspace_root)
+    logs_dir = agent_logs_dir(paths)
+    if not logs_dir.exists():
+        return []
+
+    id_counts: dict[str, int] = {}
+    for path in sorted(logs_dir.glob("*.ndjson")):
+        try:
+            file_lines = path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            continue
+        for line in file_lines:
+            if not line.strip():
+                continue
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(payload, dict):
+                continue
+            log_id = payload.get("log_id")
+            if not isinstance(log_id, str):
+                continue
+            if task_id is not None and payload.get("task_id") != task_id:
+                continue
+            id_counts[log_id] = id_counts.get(log_id, 0) + 1
+
+    return sorted(lid for lid, count in id_counts.items() if count > 1)
+
+
 def write_agent_command_artifact(
     workspace_root: Path,
     *,
@@ -109,6 +146,7 @@ __all__ = [
     "agent_log_artifacts_dir",
     "agent_logs_dir",
     "append_agent_command_log",
+    "detect_duplicate_log_ids",
     "load_agent_command_logs",
     "write_agent_command_artifact",
 ]

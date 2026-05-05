@@ -235,17 +235,20 @@ exit code while returning wrapper exit code ``0``:
 Transcript review modes
 -----------------------
 
-``task transcript`` keeps the default raw audit table. Review-oriented
-rendering is available with:
+``task transcript`` defaults to review mode, which groups wrapper +
+managed-shell pairs, highlights failures and wrapper/managed mismatches, and
+flags late lifecycle commands. Raw per-record audit table is available with
+``--raw``::
 
 .. code-block:: bash
 
-   taskledger task transcript --task TASK_REF --review
+   taskledger task transcript --task TASK_REF
+   taskledger task transcript --task TASK_REF --raw
    taskledger task transcript --task TASK_REF --failures
 
-``--review`` groups wrapper + managed-shell pairs, highlights failures and
-wrapper/managed mismatches, and flags late lifecycle commands.
-``--failures`` renders only failed command rows and retry detection.
+``--review`` is the default (no flag needed). ``--raw`` shows every record
+without collapsing. ``--failures`` renders only failed command rows and retry
+detection. ``--raw``, ``--review``, and ``--failures`` are mutually exclusive.
 
 ``taskledger doctor`` and ``taskledger doctor locks`` report running runs without
 matching active locks. Orphaned running planning runs can be finished only
