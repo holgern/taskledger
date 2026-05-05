@@ -303,6 +303,14 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         PHASE_PLANNING,
         ledger_effect=EFFECT_READ,
     ),
+    "plan export": CommandSpec(
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_READ,
+        external_effect=EXTERNAL_FILE_WRITE,
+    ),
     "plan list": CommandSpec(
         STABLE_FOR_AGENTS,
         "safe_read_only",
@@ -355,6 +363,13 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         external_effect=EXTERNAL_PROCESS_EXEC,
     ),
     "plan revise": CommandSpec(
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        ADVANCED,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
+    ),
+    "plan amend": CommandSpec(
         STABLE_FOR_AGENTS,
         "ledger_mutation",
         ADVANCED,

@@ -134,6 +134,21 @@ def test_planning_guidance_docs_are_present() -> None:
     assert 'plan_guidance(Path.cwd(), "task-0001")' in api_rst
 
 
+def test_plan_revision_docs_and_skill_rules_are_present() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    usage = (ROOT / "docs" / "usage.rst").read_text(encoding="utf-8")
+    command_contract = (ROOT / "docs" / "command_contract.rst").read_text(
+        encoding="utf-8"
+    )
+    skill = (ROOT / "skills" / "taskledger" / "SKILL.md").read_text(encoding="utf-8")
+
+    assert "taskledger plan export --version latest --file ./plan.md" in readme
+    assert "taskledger plan amend" in usage
+    assert "Never edit `.taskledger/` files directly." in skill
+    assert "taskledger plan revise" in skill
+    assert "taskledger plan export" in command_contract
+
+
 def test_transfer_docs_cover_project_identity_and_dry_run() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     usage = (ROOT / "docs" / "usage.rst").read_text(encoding="utf-8")

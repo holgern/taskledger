@@ -6,7 +6,9 @@ from typing import cast
 
 from taskledger.domain.models import ActorRef, HarnessRef
 from taskledger.domain.policies import plan_propose_decision
+from taskledger.domain.states import EXIT_CODE_BAD_INPUT
 from taskledger.services import tasks as _tasks
+from taskledger.services.plan_editing import render_editable_plan
 from taskledger.services.plan_hash import approved_plan_content_hash
 from taskledger.services.plan_lint import lint_plan
 from taskledger.storage.indexes import rebuild_v2_indexes
@@ -175,6 +177,7 @@ def upsert_plan(
     criteria: tuple[str, ...] = (),
     from_answers: bool = False,
     allow_open_questions: bool = False,
+    auto_revise: bool = False,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
     _tasks._ensure_not_archived(task, operation="upsert plan for")
@@ -210,9 +213,126 @@ def upsert_plan(
         payload["operation"] = "regenerated"
         payload["command"] = "plan upsert"
         return payload
+    auto_revised = False
+    if auto_revise:
+        lock = _tasks._current_lock(workspace_root, task.id)
+        if task.status_stage == "plan_review" and lock is None:
+            revised = start_planning(workspace_root, task.id)
+            auto_revised = True
     payload = propose_plan(workspace_root, task.id, body=body, criteria=criteria)
     payload["operation"] = "proposed"
     payload["command"] = "plan upsert"
+    if auto_revised:
+        payload["auto_revise_started"] = True
+        if isinstance(revised.get("run_id"), str):
+            payload["revision_run_id"] = revised["run_id"]
+    return payload
+
+
+def export_plan(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    version: int | None = None,
+) -> dict[str, object]:
+    task = resolve_task(workspace_root, task_ref)
+    plan = resolve_plan(workspace_root, task.id, version=version)
+    return {
+        "kind": "plan_export",
+        "task_id": task.id,
+        "plan_version": plan.plan_version,
+        "text": render_editable_plan(plan),
+    }
+
+
+def amend_plan(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    drop_criteria: tuple[str, ...] = (),
+    drop_todos: tuple[str, ...] = (),
+    remove_files: tuple[str, ...] = (),
+    reason: str,
+) -> dict[str, object]:
+    if not reason.strip():
+        raise _tasks._cli_error("--reason is required.", EXIT_CODE_BAD_INPUT)
+
+    task = resolve_task(workspace_root, task_ref)
+    _tasks._ensure_not_archived(task, operation="amend plan for")
+    _tasks._enforce_decision(
+        _tasks.plan_revise_decision(task, _tasks._current_lock(workspace_root, task.id))
+    )
+    latest = resolve_plan(workspace_root, task.id)
+    criterion_ids = {item.id for item in latest.criteria}
+    unknown_criteria = sorted(
+        {item for item in drop_criteria if item not in criterion_ids}
+    )
+    if unknown_criteria:
+        raise _tasks._cli_error(
+            "Unknown criterion id(s): " + ", ".join(unknown_criteria),
+            EXIT_CODE_BAD_INPUT,
+        )
+    todo_ids = {item.id for item in latest.todos}
+    unknown_todos = sorted({item for item in drop_todos if item not in todo_ids})
+    if unknown_todos:
+        raise _tasks._cli_error(
+            "Unknown todo id(s): " + ", ".join(unknown_todos),
+            EXIT_CODE_BAD_INPUT,
+        )
+
+    drop_criteria_set = set(drop_criteria)
+    drop_todos_set = set(drop_todos)
+    remove_files_set = set(remove_files)
+    updated_criteria = tuple(
+        item for item in latest.criteria if item.id not in drop_criteria_set
+    )
+    updated_todos = tuple(
+        item for item in latest.todos if item.id not in drop_todos_set
+    )
+    updated_files = tuple(item for item in latest.files if item not in remove_files_set)
+
+    draft = replace(
+        latest,
+        criteria=updated_criteria,
+        todos=updated_todos,
+        files=updated_files,
+    )
+    revised = start_planning(workspace_root, task.id)
+    payload = propose_plan(workspace_root, task.id, body=render_editable_plan(draft))
+    payload["command"] = "plan amend"
+    payload["operation"] = "amended"
+    payload["from_plan_version"] = latest.plan_version
+    payload["reason"] = reason
+    payload["dropped_criteria"] = sorted(drop_criteria_set)
+    payload["dropped_todos"] = sorted(drop_todos_set)
+    payload["removed_files"] = sorted(remove_files_set)
+    if isinstance(revised.get("run_id"), str):
+        payload["revision_run_id"] = revised["run_id"]
+
+    warnings = payload.get("warnings")
+    payload_warnings: list[str] = list(warnings) if isinstance(warnings, list) else []
+    if drop_criteria_set and not drop_todos_set:
+        payload_warnings.append(
+            "Dropped acceptance criteria did not remove todos; "
+            "add --drop-todo if intended."
+        )
+    if payload_warnings:
+        payload["warnings"] = payload_warnings
+
+    _tasks._append_event(
+        resolve_v2_paths(workspace_root).project_dir,
+        task.id,
+        "plan.amended",
+        {
+            "from_plan_version": latest.plan_version,
+            "to_plan_version": payload["plan_version"],
+            "reason": reason,
+            "dropped_criteria": sorted(drop_criteria_set),
+            "dropped_todos": sorted(drop_todos_set),
+            "removed_files": sorted(remove_files_set),
+        },
+    )
+    rebuild_v2_indexes(resolve_v2_paths(workspace_root))
     return payload
 
 

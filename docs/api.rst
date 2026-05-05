@@ -85,6 +85,8 @@ Plan API
 - ``propose_plan``
 - ``plan_template``
 - ``upsert_plan``
+- ``export_plan``
+- ``amend_plan``
 - ``list_plan_versions``
 - ``show_plan``
 - ``diff_plan``

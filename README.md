@@ -141,6 +141,16 @@ taskledger validate check --criterion ac-0001 --status pass --evidence "pytest -
 taskledger validate finish --result passed --summary "Validated the rewrite."
 ```
 
+To revise a proposed plan, re-enter planning and edit an exported workspace
+copy. Never edit `.taskledger/` files directly:
+
+```bash
+taskledger plan revise
+taskledger plan export --version latest --file ./plan.md
+# edit ./plan.md
+taskledger plan upsert --file ./plan.md
+```
+
 For manually completed work (e.g., manual testing, operations tasks, or work
 completed outside the task-first lifecycle), use `task record` to create a
 done task directly without acquiring lifecycle locks. **Note**: `task record`

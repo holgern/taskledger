@@ -6,8 +6,10 @@ from typing import Annotated, cast
 import typer
 
 from taskledger.api.plans import (
+    amend_plan,
     approve_plan,
     diff_plan,
+    export_plan,
     lint_plan,
     list_plan_versions,
     materialize_plan_todos,
@@ -37,6 +39,7 @@ from taskledger.cli_common import (
 from taskledger.domain.states import EXIT_CODE_VALIDATION_FAILED
 from taskledger.errors import LaunchError
 from taskledger.services.actors import resolve_actor, resolve_harness
+from taskledger.services.plan_editing import ensure_plan_input_path_allowed
 from taskledger.services.plan_lint import PlanLintPayload
 from taskledger.services.workflow_guidance import (
     has_planning_profile,
@@ -115,7 +118,7 @@ def propose_command(
         payload = propose_plan(
             state.cwd,
             task.id,
-            body=read_text_input(text=text, from_file=from_file, file_label="--file"),
+            body=_read_plan_text_input(state.cwd, text=text, from_file=from_file),
             criteria=tuple(criterion or ()),
         )
     except LaunchError as exc:
@@ -206,7 +209,7 @@ def regenerate_command(
         payload = regenerate_plan_from_answers(
             state.cwd,
             task.id,
-            body=read_text_input(text=text, from_file=from_file, file_label="--file"),
+            body=_read_plan_text_input(state.cwd, text=text, from_file=from_file),
             allow_open_questions=allow_open_questions,
         )
     except LaunchError as exc:
@@ -230,6 +233,10 @@ def upsert_command(
         bool,
         typer.Option("--allow-open-questions"),
     ] = False,
+    auto_revise: Annotated[
+        bool,
+        typer.Option("--auto-revise"),
+    ] = False,
 ) -> None:
     state = cli_state_from_context(ctx)
     try:
@@ -237,10 +244,11 @@ def upsert_command(
         payload = upsert_plan(
             state.cwd,
             task.id,
-            body=read_text_input(text=text, from_file=from_file, file_label="--file"),
+            body=_read_plan_text_input(state.cwd, text=text, from_file=from_file),
             criteria=tuple(criterion or ()),
             from_answers=from_answers,
             allow_open_questions=allow_open_questions,
+            auto_revise=auto_revise,
         )
     except LaunchError as exc:
         emit_error(ctx, exc)
@@ -317,6 +325,42 @@ def list_command(
         if isinstance(item, dict):
             lines.append(f"v{item['plan_version']}  {item['status']}")
     emit_payload(ctx, payload, human="\n".join(lines) if plans else "PLANS\n(empty)")
+
+
+def export_command(
+    ctx: typer.Context,
+    task_ref: TaskOption = None,
+    version: Annotated[str | None, typer.Option("--version")] = None,
+    output: Annotated[Path | None, typer.Option("--file")] = None,
+    overwrite: Annotated[bool, typer.Option("--overwrite")] = False,
+    to_stdout: Annotated[bool, typer.Option("--stdout")] = False,
+) -> None:
+    state = cli_state_from_context(ctx)
+    try:
+        if output is not None and to_stdout:
+            raise LaunchError("Use either --file or --stdout, not both.")
+        task = resolve_cli_task(state.cwd, task_ref)
+        resolved_version = _parse_version_ref(version)
+        payload = export_plan(state.cwd, task.id, version=resolved_version)
+        plan_text = str(payload["text"])
+        if output is not None:
+            target = output.expanduser()
+            if target.exists() and not overwrite:
+                raise LaunchError(
+                    f"Refusing to overwrite {target}. Use --overwrite to replace it."
+                )
+            written = write_text_output(target, plan_text)
+            emit_payload(
+                ctx,
+                {**payload, "output_path": str(written)},
+                human=f"wrote editable plan to {written}",
+                result_type="plan_export",
+            )
+            return
+    except LaunchError as exc:
+        emit_error(ctx, exc)
+        raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+    emit_payload(ctx, payload, human=plan_text, result_type="plan_export")
 
 
 def diff_command(
@@ -478,6 +522,44 @@ def revise_command(
     emit_payload(ctx, payload, human=f"restarted planning {payload['task_id']}")
 
 
+def amend_command(
+    ctx: typer.Context,
+    task_ref: TaskOption = None,
+    drop_criterion: Annotated[
+        list[str] | None,
+        typer.Option("--drop-criterion"),
+    ] = None,
+    drop_todo: Annotated[
+        list[str] | None,
+        typer.Option("--drop-todo"),
+    ] = None,
+    remove_file: Annotated[
+        list[str] | None,
+        typer.Option("--remove-file"),
+    ] = None,
+    reason: Annotated[str, typer.Option("--reason")] = "",
+) -> None:
+    state = cli_state_from_context(ctx)
+    try:
+        task = resolve_cli_task(state.cwd, task_ref)
+        payload = amend_plan(
+            state.cwd,
+            task.id,
+            drop_criteria=tuple(drop_criterion or ()),
+            drop_todos=tuple(drop_todo or ()),
+            remove_files=tuple(remove_file or ()),
+            reason=reason,
+        )
+    except LaunchError as exc:
+        emit_error(ctx, exc)
+        raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+    emit_payload(
+        ctx,
+        payload,
+        human=f"amended plan v{payload['plan_version']} for {payload['task_id']}",
+    )
+
+
 def plan_command_command(
     ctx: typer.Context,
     allow_failure: Annotated[bool, typer.Option("--allow-failure")] = False,
@@ -551,6 +633,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
     app.command("template")(template_command)
     app.command("regenerate")(regenerate_command)
     app.command("upsert")(upsert_command)
+    app.command("export")(export_command)
     app.command("materialize-todos")(materialize_todos_command)
     app.command("show")(show_command)
     app.command("list")(list_command)
@@ -560,6 +643,7 @@ def register_plan_v2_commands(app: typer.Typer) -> None:
     app.command("accept")(accept_command)
     app.command("reject")(reject_command)
     app.command("revise")(revise_command)
+    app.command("amend")(amend_command)
     app.command(
         "command",
         context_settings=command_context_settings,
@@ -597,3 +681,31 @@ def _render_plan_lint(payload: PlanLintPayload) -> str:
                 "- Internal inconsistency: lint failed but returned no issue records."
             )
     return "\n".join(lines)
+
+
+def _read_plan_text_input(
+    workspace_root: Path,
+    *,
+    text: str | None,
+    from_file: Path | None,
+) -> str:
+    if from_file is not None:
+        ensure_plan_input_path_allowed(workspace_root, from_file)
+    return read_text_input(text=text, from_file=from_file, file_label="--file")
+
+
+def _parse_version_ref(value: str | None) -> int | None:
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    if not normalized or normalized == "latest":
+        return None
+    try:
+        parsed = int(normalized)
+    except ValueError as exc:
+        raise LaunchError(
+            "Invalid --version value. Use an integer or 'latest'."
+        ) from exc
+    if parsed < 1:
+        raise LaunchError("Invalid --version value. Use an integer >= 1.")
+    return parsed

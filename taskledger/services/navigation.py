@@ -1280,6 +1280,23 @@ def _commands_for_next_item(
                         f"taskledger plan approve --version {version} --actor user",
                     )
                 )
+                commands.append(
+                    _command(
+                        "revise",
+                        "Revise proposed plan",
+                        "taskledger plan revise",
+                    )
+                )
+                commands.append(
+                    _command(
+                        "export",
+                        "Export editable plan",
+                        (
+                            "taskledger plan export "
+                            f"--version {version} --file ./plan.md"
+                        ),
+                    )
+                )
             return commands
     if item_kind == "task" and isinstance(item_id, str):
         if action in ("implement-resume", "expired-lock-resume"):

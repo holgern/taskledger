@@ -438,6 +438,7 @@ def upsert_plan(
     criteria: tuple[str, ...] = (),
     from_answers: bool = False,
     allow_open_questions: bool = False,
+    auto_revise: bool = False,
 ) -> dict[str, object]:
     from taskledger.services.planning_flow import upsert_plan as _upsert_plan
 
@@ -448,6 +449,43 @@ def upsert_plan(
         criteria=criteria,
         from_answers=from_answers,
         allow_open_questions=allow_open_questions,
+        auto_revise=auto_revise,
+    )
+
+
+def export_plan(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    version: int | None = None,
+) -> dict[str, object]:
+    from taskledger.services.planning_flow import export_plan as _export_plan
+
+    return _export_plan(
+        workspace_root,
+        task_ref,
+        version=version,
+    )
+
+
+def amend_plan(
+    workspace_root: Path,
+    task_ref: str,
+    *,
+    drop_criteria: tuple[str, ...] = (),
+    drop_todos: tuple[str, ...] = (),
+    remove_files: tuple[str, ...] = (),
+    reason: str,
+) -> dict[str, object]:
+    from taskledger.services.planning_flow import amend_plan as _amend_plan
+
+    return _amend_plan(
+        workspace_root,
+        task_ref,
+        drop_criteria=drop_criteria,
+        drop_todos=drop_todos,
+        remove_files=remove_files,
+        reason=reason,
     )
 
 
@@ -1955,7 +1993,15 @@ def _lock_conflict_message(task_id: str, lock: TaskLock) -> str:
 def _enforce_decision(decision: Decision) -> None:
     if decision.ok:
         return
-    raise _cli_error(decision.reason, decision.exit_code)
+    error = _cli_error(decision.reason, decision.exit_code)
+    if decision.details:
+        error.taskledger_data = dict(decision.details)
+        next_commands = decision.details.get("next_commands")
+        if isinstance(next_commands, list) and next_commands:
+            error.taskledger_remediation = [
+                str(item) for item in next_commands if str(item).strip()
+            ]
+    raise error
 
 
 def _default_actor() -> ActorRef:

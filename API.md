@@ -104,6 +104,8 @@ from taskledger.errors import (
 - `propose_plan`
 - `plan_template`
 - `upsert_plan`
+- `export_plan`
+- `amend_plan`
 - `regenerate_plan_from_answers`
 - `materialize_plan_todos`
 - `list_plan_versions`

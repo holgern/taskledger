@@ -344,6 +344,34 @@ def plan_propose_decision(
         ctx.task.status_stage not in {"draft", "plan_review"}
         or ctx.active_stage != "planning"
     ):
+        if ctx.task.status_stage == "plan_review" and ctx.active_stage is None:
+            next_commands = (
+                "taskledger plan revise",
+                "taskledger plan export --version latest --file ./plan.md",
+                "taskledger plan upsert --file ./plan.md",
+            )
+            return Decision(
+                allowed=False,
+                code="POLICY_DENIED",
+                message=(
+                    "Plan proposals require active planning.\n\n"
+                    "This task is in plan_review and has no active planning run.\n"
+                    "To revise the proposed plan:\n"
+                    "  taskledger plan revise\n"
+                    "  taskledger plan export --version latest --file ./plan.md\n"
+                    "  # edit ./plan.md\n"
+                    "  taskledger plan upsert --file ./plan.md\n\n"
+                    "Do not edit files under .taskledger/ directly."
+                ),
+                details={
+                    "remediation": (
+                        "Run `taskledger plan revise`, export/edit a workspace plan "
+                        "file, then run `taskledger plan upsert --file ./plan.md`."
+                    ),
+                    "next_commands": list(next_commands),
+                },
+                exit_code=EXIT_CODE_INVALID_TRANSITION,
+            )
         return _policy_decision(
             False,
             "Plan proposals require active planning.",

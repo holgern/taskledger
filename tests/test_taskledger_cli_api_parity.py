@@ -97,6 +97,7 @@ def test_task_first_subcommands_are_registered(tmp_path: Path) -> None:
         "plan": (
             "start",
             "propose",
+            "export",
             "upsert",
             "list",
             "show",
@@ -105,6 +106,7 @@ def test_task_first_subcommands_are_registered(tmp_path: Path) -> None:
             "accept",
             "reject",
             "revise",
+            "amend",
         ),
         "question": ("add", "list", "open", "answer", "answer-many", "dismiss"),
         "implement": (

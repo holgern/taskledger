@@ -2,8 +2,10 @@ from pathlib import Path
 
 from taskledger.services.plan_lint import lint_plan
 from taskledger.services.tasks import (
+    amend_plan,
     approve_plan,
     diff_plan,
+    export_plan,
     list_plan_versions,
     materialize_plan_todos,
     plan_template,
@@ -21,6 +23,8 @@ __all__ = [
     "start_planning",
     "propose_plan",
     "upsert_plan",
+    "export_plan",
+    "amend_plan",
     "list_plan_versions",
     "show_plan",
     "diff_plan",

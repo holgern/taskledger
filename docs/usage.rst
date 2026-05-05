@@ -117,6 +117,22 @@ Planning workflow integration:
    taskledger plan lint --version 1
    taskledger plan upsert --file plan.md
 
+Revising a proposed plan safely:
+
+.. code-block:: bash
+
+   taskledger plan revise
+   taskledger plan export --version latest --file ./plan.md
+   # edit ./plan.md (never edit .taskledger/ directly)
+   taskledger plan upsert --file ./plan.md
+   taskledger plan diff --from 1 --to 2
+
+For structured scope trims, use:
+
+.. code-block:: bash
+
+   taskledger plan amend --drop-criterion ac-0007 --drop-todo plan-todo-0010 --reason "User reduced scope."
+
 Guidance output is deterministic and read-only. It is advisory only and does not
 enforce plan fields by itself. It cannot override lifecycle gates, plan approval,
 validation requirements, lock rules, required user answers, or higher-priority

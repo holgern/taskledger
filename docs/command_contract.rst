@@ -70,6 +70,20 @@ The command payload shape is:
 * ``profile``
 * ``question_policy``
 
+Plan revision commands
+----------------------
+
+``taskledger plan export`` renders an editable plan draft outside durable
+storage, and ``taskledger plan amend`` applies structured plan-review edits:
+
+.. code-block:: bash
+
+   taskledger plan export [--task TASK_REF] [--version latest|N] [--file PATH] [--overwrite] [--stdout]
+   taskledger plan amend [--task TASK_REF] [--drop-criterion CRITERION_ID ...] [--drop-todo TODO_ID ...] [--remove-file PATH ...] --reason "..."
+
+Plan proposal commands that accept ``--file`` reject file paths under
+``.taskledger/`` because that directory is private durable ledger state.
+
 Archive import lock policy
 --------------------------
 
