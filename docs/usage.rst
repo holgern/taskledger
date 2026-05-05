@@ -151,6 +151,19 @@ task directly without acquiring locks or lifecycle gates. **Never use**
    taskledger task record "Deploy v0.4.1" --summary "Deployed to production" --change "deploy.sh:run:Updated config" --evidence "Monitoring shows no errors"
    taskledger task record "Manual testing" --summary "Tested new API endpoints" --allow-empty-record --reason "Exploratory testing"
 
+Archiving tasks
+---------------
+
+Archiving hides tasks from default list/tree/dashboard views without deleting
+history. It is a visibility operation, not an export archive operation.
+
+.. code-block:: bash
+
+   taskledger task archive task-0030 --reason "Hide historical task"
+   taskledger task list --archived
+   taskledger task unarchive task-0030 --reason "Reopen historical task" --slug task-0030-reopened
+   taskledger tree --include-archived
+
 Post-completion follow-up deltas
 --------------------------------
 

@@ -581,6 +581,10 @@ def tree_command(
         bool,
         typer.Option("--details", help="Show compact per-task counts."),
     ] = False,
+    include_archived: Annotated[
+        bool,
+        typer.Option("--include-archived", help="Include archived tasks."),
+    ] = False,
     plain: Annotated[
         bool,
         typer.Option("--plain", help="Use ASCII tree glyphs."),
@@ -596,6 +600,7 @@ def tree_command(
             task_ref=task_ref,
             include_all_ledgers=all_ledgers,
             details=details,
+            include_archived=include_archived,
         )
     except LaunchError as exc:
         emit_error(ctx, exc)

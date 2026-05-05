@@ -34,6 +34,7 @@ class TreeOptions:
     task_ref: str | None = None
     details: bool = False
     plain: bool = False
+    include_archived: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -61,6 +62,7 @@ def build_tree(workspace_root: Path, options: TreeOptions) -> dict[str, Any]:
         "current_ledger_ref": _current_ledger_ref(locator.config_path),
         "scope": scope,
         "include_all_ledgers": options.include_all_ledgers,
+        "include_archived": options.include_archived,
         "details": options.details,
         "ledgers": ledgers,
     }
@@ -81,6 +83,7 @@ def build_tree(workspace_root: Path, options: TreeOptions) -> dict[str, Any]:
                         active_task_id=active_task_id if is_current else None,
                         task_ref=options.task_ref if is_current else None,
                         details=options.details,
+                        include_archived=options.include_archived,
                         tasks=tasks,
                         releases=releases,
                     )
@@ -94,6 +97,7 @@ def build_tree(workspace_root: Path, options: TreeOptions) -> dict[str, Any]:
             active_task_id=active_task_id,
             task_ref=options.task_ref,
             details=options.details,
+            include_archived=options.include_archived,
         )
         ledgers.append(ledger_data)
 
@@ -152,11 +156,19 @@ def _build_ledger(
     active_task_id: str | None,
     task_ref: str | None,
     details: bool,
+    include_archived: bool,
     tasks: list[TaskRecord] | None = None,
     releases: list[ReleaseRecord] | None = None,
 ) -> dict[str, Any]:
     if tasks is None:
-        tasks = list_tasks(workspace_root)
+        all_tasks = list_tasks(workspace_root)
+    else:
+        all_tasks = list(tasks)
+    tasks = (
+        all_tasks
+        if include_archived
+        else [task for task in all_tasks if task.archived_at is None]
+    )
     if releases is None:
         releases = list_releases(workspace_root)
 
@@ -166,7 +178,7 @@ def _build_ledger(
         if not lock_is_expired(lock):
             lock_by_task[lock.task_id] = lock
 
-    next_task_id = _compute_next_task_id(tasks)
+    next_task_id = _compute_next_task_id(all_tasks)
 
     task_nodes, orphans = _build_task_nodes(
         tasks,
@@ -242,7 +254,7 @@ def _build_task_nodes(
     # If task_ref is specified, filter to that task's subtree
     if task_ref:
         try:
-            target = resolve_task(workspace_root, task_ref)
+            target = resolve_task(workspace_root, task_ref, include_archived=True)
         except Exception:
             return [], []
         # Collect all descendants
@@ -310,6 +322,7 @@ def _build_task_nodes(
             "slug": task.slug,
             "title": task.title,
             "status_stage": task.status_stage,
+            "archived": task.archived_at is not None,
             "active_stage": _active_stage(task.id),
             "is_active": task.id == active_task_id,
             "task_type": task.task_type,
@@ -472,6 +485,8 @@ def _render_task_node(
     # Recorded marker
     if task.get("task_type") == "recorded":
         parts.append("{recorded}")
+    if task.get("archived"):
+        parts.append("{archived}")
 
     # Active marker
     if task.get("is_active"):

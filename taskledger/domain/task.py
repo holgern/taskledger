@@ -57,6 +57,9 @@ class TaskRecord:
     closed_at: str | None = None
     closed_by: ActorRef | None = None
     closure_note: str | None = None
+    archived_at: str | None = None
+    archived_by: ActorRef | None = None
+    archive_reason: str | None = None
     file_version: str = TASKLEDGER_V2_FILE_VERSION
     schema_version: int = TASKLEDGER_SCHEMA_VERSION
     object_type: str = "task"
@@ -107,6 +110,12 @@ class TaskRecord:
             payload["closed_by"] = self.closed_by.to_dict()
         if self.closure_note is not None:
             payload["closure_note"] = self.closure_note
+        if self.archived_at is not None:
+            payload["archived_at"] = self.archived_at
+        if self.archived_by is not None:
+            payload["archived_by"] = self.archived_by.to_dict()
+        if self.archive_reason is not None:
+            payload["archive_reason"] = self.archive_reason
         if self.recorded_at is not None:
             payload["recorded_at"] = self.recorded_at
         if self.recorded_by is not None:
@@ -158,6 +167,11 @@ class TaskRecord:
             if data.get("closed_by") is not None
             else None,
             closure_note=_optional_string(data.get("closure_note")),
+            archived_at=_optional_string(data.get("archived_at")),
+            archived_by=ActorRef.from_dict(data.get("archived_by"))
+            if data.get("archived_by") is not None
+            else None,
+            archive_reason=_optional_string(data.get("archive_reason")),
             file_version=_optional_string(data.get("file_version"))
             or TASKLEDGER_V2_FILE_VERSION,
             schema_version=_int_value(data, "schema_version"),
@@ -235,3 +249,7 @@ class IntroductionRecord:
             schema_version=_int_value(data, "schema_version"),
             object_type=_string_value(data, "object_type"),
         )
+
+
+def is_archived_task(task: TaskRecord) -> bool:
+    return task.archived_at is not None

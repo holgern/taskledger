@@ -8,6 +8,7 @@ import typer
 
 from taskledger.api.tasks import (
     activate_task,
+    archive_task,
     cancel_task,
     close_task,
     create_follow_up_task,
@@ -19,6 +20,7 @@ from taskledger.api.tasks import (
     show_active_task,
     show_task,
     task_dossier,
+    unarchive_task,
     uncancel_task,
 )
 from taskledger.cli_common import (
@@ -256,9 +258,32 @@ def follow_up_command(
     emit_payload(ctx, payload, human=f"{lead}\nnext: {next_command}")
 
 
-def list_command(ctx: typer.Context) -> None:
+def list_command(
+    ctx: typer.Context,
+    archived: Annotated[
+        bool,
+        typer.Option("--archived", help="Show archived tasks only."),
+    ] = False,
+    include_archived: Annotated[
+        bool,
+        typer.Option("--include-archived", help="Show visible and archived tasks."),
+    ] = False,
+    slug: Annotated[str | None, typer.Option("--slug", help="Filter by slug.")] = None,
+) -> None:
     state = cli_state_from_context(ctx)
-    payload = {"kind": "task_list", "tasks": list_task_summaries(state.cwd)}
+    if archived and include_archived:
+        error = LaunchError("Use either --archived or --include-archived, not both.")
+        emit_error(ctx, error)
+        raise typer.Exit(code=launch_error_exit_code(error))
+    payload = {
+        "kind": "task_list",
+        "tasks": list_task_summaries(
+            state.cwd,
+            archived_only=archived,
+            include_archived=include_archived,
+            slug=slug,
+        ),
+    }
     human_lines = ["TASKS"]
     if not payload["tasks"]:
         human_lines.append("(empty)")
@@ -271,10 +296,13 @@ def list_command(ctx: typer.Context) -> None:
                 if active
                 else str(task["status_stage"])
             )
+            archived_tag = "  archived" if bool(task.get("archived")) else ""
             active_tag = "  active" if bool(task.get("is_active")) else ""
-            human_lines.append(
-                f"{marker}{task['id']}  {task['slug']}  {stage}{active_tag}"
+            line = (
+                f"{marker}{task['id']}  {task['slug']}  "
+                f"{stage}{active_tag}{archived_tag}"
             )
+            human_lines.append(line)
     emit_payload(ctx, payload, human="\n".join(human_lines))
 
 
@@ -326,6 +354,13 @@ def show_command(
     ctx: typer.Context,
     task_arg: TaskRefArgument = None,
     task_ref: TaskOption = None,
+    include_archived: Annotated[
+        bool,
+        typer.Option(
+            "--include-archived",
+            help="Allow archived slug resolution for this read.",
+        ),
+    ] = False,
 ) -> None:
     state = cli_state_from_context(ctx)
     try:
@@ -334,8 +369,13 @@ def show_command(
             arg_ref=task_arg,
             option_ref=task_ref,
             command="task show",
+            include_archived=include_archived,
         )
-        payload = show_task(state.cwd, target.task.id)
+        payload = show_task(
+            state.cwd,
+            target.task.id,
+            include_archived=include_archived,
+        )
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
@@ -365,6 +405,53 @@ def show_command(
         ctx,
         payload,
         human="\n".join(human_lines),
+    )
+
+
+def archive_command(
+    ctx: typer.Context,
+    ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+    reason: Annotated[
+        str,
+        typer.Option("--reason", help="Why this task is archived."),
+    ],
+    force: Annotated[bool, typer.Option("--force")] = False,
+) -> None:
+    state = cli_state_from_context(ctx)
+    try:
+        payload = archive_task(state.cwd, ref, reason=reason, force=force)
+    except LaunchError as exc:
+        emit_error(ctx, exc)
+        raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+    emit_payload(
+        ctx,
+        payload,
+        human=f"archived {payload['task_id']} ({payload['slug']})",
+    )
+
+
+def unarchive_command(
+    ctx: typer.Context,
+    ref: Annotated[str, typer.Argument(..., help="Task ref.")],
+    reason: Annotated[
+        str,
+        typer.Option("--reason", help="Why this task is unarchived."),
+    ],
+    slug: Annotated[
+        str | None,
+        typer.Option("--slug", help="Optional slug override on unarchive."),
+    ] = None,
+) -> None:
+    state = cli_state_from_context(ctx)
+    try:
+        payload = unarchive_task(state.cwd, ref, reason=reason, slug=slug)
+    except LaunchError as exc:
+        emit_error(ctx, exc)
+        raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+    emit_payload(
+        ctx,
+        payload,
+        human=f"unarchived {payload['task_id']} ({payload['slug']})",
     )
 
 
@@ -791,6 +878,8 @@ def register_task_v2_commands(app: typer.Typer) -> None:
     app.command("cancel")(cancel_command)
     app.command("uncancel")(uncancel_command)
     app.command("close")(close_command)
+    app.command("archive")(archive_command)
+    app.command("unarchive")(unarchive_command)
     app.command("events")(events_command)
     app.command("dossier")(dossier_command)
     app.command("transcript")(transcript_command)

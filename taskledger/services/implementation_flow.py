@@ -28,6 +28,7 @@ def start_implementation(
     repair_expired_lock: bool = False,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
+    _tasks._ensure_not_archived(task, operation="start implementation for")
     return _start_implementation_for_task(
         workspace_root,
         task,
@@ -93,6 +94,7 @@ def restart_implementation(
     repair_expired_lock: bool = False,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
+    _tasks._ensure_not_archived(task, operation="restart implementation for")
     if task.status_stage != "failed_validation":
         raise _tasks._cli_error(
             "Implementation restart requires failed_validation state.",
@@ -206,6 +208,7 @@ def resume_implementation(
     repair_expired_lock: bool = False,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
+    _tasks._ensure_not_archived(task, operation="resume implementation for")
     resume_reason = reason.strip()
     if not resume_reason:
         raise _tasks._cli_error(
@@ -299,6 +302,7 @@ def _require_running_implementation_with_decision(
     action: str,
 ) -> tuple[TaskRecord, TaskRunRecord]:
     task = resolve_task(workspace_root, task_ref)
+    _tasks._ensure_not_archived(task, operation=action + " on")
     run = _tasks._require_running_run(
         workspace_root,
         task,
@@ -457,6 +461,7 @@ def finish_implementation(
     summary: str,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
+    _tasks._ensure_not_archived(task, operation="finish implementation for")
     run = _tasks._require_running_run(
         workspace_root,
         task,

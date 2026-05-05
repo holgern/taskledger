@@ -726,3 +726,89 @@ def test_read_project_archive_rejects_oversized_payload(tmp_path: Path) -> None:
 
     with pytest.raises(LaunchError, match="payload is too large"):
         read_project_archive(archive_path)
+
+
+def test_export_import_preserves_archived_task_metadata_and_slug_reuse(
+    tmp_path: Path,
+) -> None:
+    source_root = tmp_path / "source-archive"
+    dest_root = tmp_path / "dest-archive"
+    source_root.mkdir()
+    dest_root.mkdir()
+    _init_project(source_root)
+    _init_project(dest_root)
+    _copy_project_uuid(source_root, dest_root)
+
+    record = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(source_root),
+            "task",
+            "record",
+            "Legacy archive",
+            "--slug",
+            "legacy-archive",
+            "--description",
+            "Historical archived task",
+            "--summary",
+            "Completed",
+            "--allow-empty-record",
+            "--reason",
+            "test",
+        ],
+    )
+    assert record.exit_code == 0, record.output
+    archive = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(source_root),
+            "task",
+            "archive",
+            "legacy-archive",
+            "--reason",
+            "Hide old task",
+        ],
+    )
+    assert archive.exit_code == 0, archive.output
+
+    archive_path = tmp_path / "archive-metadata.tar.gz"
+    export_result = runner.invoke(
+        app,
+        ["--cwd", str(source_root), "export", str(archive_path)],
+    )
+    assert export_result.exit_code == 0, export_result.output
+
+    import_result = runner.invoke(
+        app,
+        ["--cwd", str(dest_root), "import", str(archive_path)],
+    )
+    assert import_result.exit_code == 0, import_result.output
+
+    visible = runner.invoke(app, ["--cwd", str(dest_root), "task", "list"])
+    assert visible.exit_code == 0, visible.output
+    assert "legacy-archive" not in visible.output
+
+    archived = runner.invoke(
+        app,
+        ["--cwd", str(dest_root), "task", "list", "--archived"],
+    )
+    assert archived.exit_code == 0, archived.output
+    assert "legacy-archive" in archived.output
+
+    create = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(dest_root),
+            "--json",
+            "task",
+            "create",
+            "New legacy archive",
+            "--slug",
+            "legacy-archive",
+        ],
+    )
+    payload = _json(create)
+    assert payload["result"]["slug"] == "legacy-archive"

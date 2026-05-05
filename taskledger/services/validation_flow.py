@@ -44,6 +44,7 @@ def start_validation(
     harness: HarnessRef | None = None,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
+    _tasks._ensure_not_archived(task, operation="start validation for")
     if task.status_stage != "implemented":
         raise _tasks._cli_error(
             "Validation requires implemented state.",
@@ -110,6 +111,7 @@ def _require_running_validation_with_decision(
     task_ref: str,
 ) -> tuple[TaskRecord, TaskRunRecord]:
     task = resolve_task(workspace_root, task_ref)
+    _tasks._ensure_not_archived(task, operation="record validation checks on")
     run = _tasks._require_running_run(
         workspace_root,
         task,
@@ -231,6 +233,7 @@ def finish_validation(
     recommendation: str | None = None,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
+    _tasks._ensure_not_archived(task, operation="finish validation for")
     run = _tasks._require_running_run(
         workspace_root,
         task,

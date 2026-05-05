@@ -152,6 +152,17 @@ taskledger task record "Deploy to production" --summary "Deployed v0.4.1 to prod
 taskledger task record "Manual API testing" --summary "Tested new endpoints" --allow-empty-record --reason "Exploratory testing, no formal changes tracked"
 ```
 
+Archive is a visibility operation: it hides tasks from default list/tree/dashboard
+views without deleting history. Task ids stay monotonic and are never reused.
+Slugs can be reused after archive.
+
+```bash
+taskledger task archive task-0030 --reason "Hide historical task"
+taskledger task list --archived
+taskledger task unarchive task-0030 --reason "Need to continue work" --slug task-0030-reopened
+taskledger tree --include-archived
+```
+
 If validation finds an implementation bug, keep the accepted plan and restart
 implementation explicitly:
 

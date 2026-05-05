@@ -39,7 +39,7 @@ from taskledger.storage.task_store import (
     list_plans,
     list_questions,
     list_runs,
-    list_tasks,
+    list_tasks_by_visibility,
     load_active_locks,
     load_active_task_state,
     load_requirements,
@@ -106,7 +106,7 @@ def serve_project_summary(workspace_root: Path) -> dict[str, object]:
 
 
 def serve_task_summaries(workspace_root: Path) -> dict[str, object]:
-    tasks = list_tasks(workspace_root)
+    tasks = list_tasks_by_visibility(workspace_root, visibility="visible")
     active_locks = {
         lock.task_id: lock
         for lock in load_active_locks(workspace_root)

@@ -229,6 +229,22 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         ledger_effect=EFFECT_WRITE,
         targeting=TARGETING_POSITIONAL_OR_ACTIVE,
     ),
+    "task archive": CommandSpec(
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        ADVANCED,
+        PHASE_REPORTING,
+        ledger_effect=EFFECT_WRITE,
+        targeting=TARGETING_POSITIONAL_RESOURCE,
+    ),
+    "task unarchive": CommandSpec(
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        ADVANCED,
+        PHASE_REPORTING,
+        ledger_effect=EFFECT_WRITE,
+        targeting=TARGETING_POSITIONAL_RESOURCE,
+    ),
     "task events": CommandSpec(
         STABLE_FOR_AGENTS,
         "safe_read_only",

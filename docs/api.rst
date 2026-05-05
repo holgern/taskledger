@@ -51,7 +51,10 @@ Task API
 - ``cancel_task``
 - ``uncancel_task``
 - ``close_task``
+- ``archive_task``
+- ``unarchive_task``
 - ``create_follow_up_task``
+- ``list_archived_task_summaries``
 - ``add_requirement``
 - ``remove_requirement``
 - ``waive_requirement``

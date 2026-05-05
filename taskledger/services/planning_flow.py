@@ -33,6 +33,7 @@ def start_planning(
     harness: HarnessRef | None = None,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
+    _tasks._ensure_not_archived(task, operation="start planning for")
     if task.status_stage not in {"draft", "plan_review"}:
         raise _tasks._cli_error(
             "Planning can only start from draft or plan_review.",
@@ -77,6 +78,7 @@ def propose_plan(
     criteria: tuple[str, ...] = (),
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
+    _tasks._ensure_not_archived(task, operation="propose plan for")
     run = _tasks._require_run(workspace_root, task, task.latest_planning_run)
     lock = _tasks._lock_for_mutation(workspace_root, task.id)
     _tasks._enforce_decision(plan_propose_decision(task, lock, run=run))
@@ -175,6 +177,7 @@ def upsert_plan(
     allow_open_questions: bool = False,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
+    _tasks._ensure_not_archived(task, operation="upsert plan for")
     questions = list_questions(workspace_root, task.id)
     open_required = _tasks._required_open_question_ids(questions)
     if open_required and not allow_open_questions:
@@ -231,6 +234,7 @@ def approve_plan(
     approval_source: str | None = None,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
+    _tasks._ensure_not_archived(task, operation="approve plan for")
     _tasks._enforce_decision(
         _tasks.plan_approve_decision(
             task, _tasks._current_lock(workspace_root, task.id)
@@ -439,6 +443,7 @@ def mark_planning_guidance_viewed(
     task_ref: str,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
+    _tasks._ensure_not_archived(task, operation="mark planning guidance viewed on")
     run = _tasks._optional_run(workspace_root, task, task.latest_planning_run)
     if run is None or run.run_type != "planning" or run.status != "running":
         return {"recorded": False, "run_id": None}

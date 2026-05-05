@@ -125,18 +125,22 @@ def test_serve_task_summaries_reads_tasks_and_locks_once(
 ) -> None:
     _create_task_and_activate(tmp_path)
     calls = {"tasks": 0, "locks": 0}
-    original_list_tasks = serve_read_model.list_tasks
+    original_list_tasks = serve_read_model.list_tasks_by_visibility
     original_load_active_locks = serve_read_model.load_active_locks
 
-    def counted_list_tasks(workspace_root: Path):
+    def counted_list_tasks(workspace_root: Path, *, visibility: str = "visible"):
         calls["tasks"] += 1
-        return original_list_tasks(workspace_root)
+        return original_list_tasks(workspace_root, visibility=visibility)
 
     def counted_load_active_locks(workspace_root: Path):
         calls["locks"] += 1
         return original_load_active_locks(workspace_root)
 
-    monkeypatch.setattr(serve_read_model, "list_tasks", counted_list_tasks)
+    monkeypatch.setattr(
+        serve_read_model,
+        "list_tasks_by_visibility",
+        counted_list_tasks,
+    )
     monkeypatch.setattr(
         serve_read_model,
         "load_active_locks",
@@ -160,6 +164,29 @@ def test_serve_task_summaries_include_display_metadata(tmp_path: Path) -> None:
     assert "updated_at" in item
     assert item["labels"] == []
     assert item["owner"] is None
+
+
+def test_serve_task_summaries_hide_archived_tasks(tmp_path: Path) -> None:
+    ensure_v2_layout(tmp_path)
+    visible = TaskRecord(
+        id="task-0001",
+        slug="visible-task",
+        title="Visible Task",
+        body="visible",
+    )
+    archived = TaskRecord(
+        id="task-0002",
+        slug="archived-task",
+        title="Archived Task",
+        body="archived",
+        archived_at="2026-05-05T00:00:00Z",
+    )
+    save_task(tmp_path, visible)
+    save_task(tmp_path, archived)
+
+    payload = serve_task_summaries(tmp_path)
+    task_ids = [item["id"] for item in payload["tasks"]]
+    assert task_ids == ["task-0001"]
 
 
 def test_serve_dashboard_snapshot_loads_selected_task_collections_once(

@@ -38,6 +38,8 @@ Task-resource commands accept the task as their direct positional resource:
 
    taskledger task show task-0001
    taskledger task cancel task-0001 --reason "Duplicate"
+   taskledger task archive task-0001 --reason "Hide historical task"
+   taskledger task unarchive task-0001 --reason "Restore task"
    taskledger task report task-0001
 
 Optional positional task refs are not supported for workflow commands.

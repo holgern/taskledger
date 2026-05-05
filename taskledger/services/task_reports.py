@@ -977,7 +977,8 @@ def _append_command_log(
         return
 
     for row in rows:
-        records = row.get("_records", [])
+        raw_records = row.get("_records", [])
+        records = raw_records if isinstance(raw_records, list) else []
         # Use the last record for output (managed for pairs, self for standalone)
         primary = records[-1] if records else None
         if not isinstance(primary, AgentCommandLogRecord):

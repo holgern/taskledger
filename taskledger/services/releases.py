@@ -295,6 +295,7 @@ def _task_context_payload(workspace_root: Path, task: TaskRecord) -> dict[str, o
         "slug": task.slug,
         "title": task.title,
         "status_stage": task.status_stage,
+        "archived": task.archived_at is not None,
         "task_type": task.task_type,
         "labels": list(task.labels),
         "summary": summary,
@@ -521,6 +522,7 @@ def _task_summary(task: TaskRecord) -> dict[str, object]:
         "slug": task.slug,
         "title": task.title,
         "status_stage": task.status_stage,
+        "archived": task.archived_at is not None,
     }
 
 

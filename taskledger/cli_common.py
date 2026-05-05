@@ -50,8 +50,17 @@ def cli_state_from_context(ctx: typer.Context) -> CLIState:
     return state
 
 
-def resolve_cli_task(workspace_root: Path, task_ref: str | None) -> TaskRecord:
-    task = resolve_task_or_active(workspace_root, task_ref)
+def resolve_cli_task(
+    workspace_root: Path,
+    task_ref: str | None,
+    *,
+    include_archived: bool = False,
+) -> TaskRecord:
+    task = resolve_task_or_active(
+        workspace_root,
+        task_ref,
+        include_archived=include_archived,
+    )
     from taskledger.services.agent_logging import note_task
 
     note_task(task.id)
@@ -66,6 +75,7 @@ def resolve_task_target(
     command: str,
     require_explicit: bool = False,
     active: bool = False,
+    include_archived: bool = False,
 ) -> ResolvedTaskTarget:
     arg_value = arg_ref.strip() if isinstance(arg_ref, str) else ""
     option_value = option_ref.strip() if isinstance(option_ref, str) else ""
@@ -89,19 +99,31 @@ def resolve_task_target(
 
     if active:
         return ResolvedTaskTarget(
-            task=resolve_cli_task(workspace_root, None),
+            task=resolve_cli_task(
+                workspace_root,
+                None,
+                include_archived=include_archived,
+            ),
             selection="active_explicit",
         )
 
     if arg_supplied:
         return ResolvedTaskTarget(
-            task=resolve_cli_task(workspace_root, arg_value),
+            task=resolve_cli_task(
+                workspace_root,
+                arg_value,
+                include_archived=include_archived,
+            ),
             selection="positional_arg",
         )
 
     if option_supplied:
         return ResolvedTaskTarget(
-            task=resolve_cli_task(workspace_root, option_value),
+            task=resolve_cli_task(
+                workspace_root,
+                option_value,
+                include_archived=include_archived,
+            ),
             selection="task_option",
         )
 
@@ -121,7 +143,11 @@ def resolve_task_target(
         )
 
     return ResolvedTaskTarget(
-        task=resolve_cli_task(workspace_root, None),
+        task=resolve_cli_task(
+            workspace_root,
+            None,
+            include_archived=include_archived,
+        ),
         selection="active_default",
     )
 

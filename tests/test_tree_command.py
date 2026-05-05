@@ -571,3 +571,87 @@ class TestRecordedTaskType:
         tasks = data["result"]["ledgers"][0]["tasks"]
         assert len(tasks) == 1
         assert tasks[0]["task_type"] == "recorded"
+
+
+class TestArchivedTasks:
+    def test_tree_hides_archived_by_default(self, tmp_path: Path) -> None:
+        _init(tmp_path)
+        result = runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "record",
+                "Legacy",
+                "--slug",
+                "legacy",
+                "--description",
+                "Legacy done task",
+                "--summary",
+                "Legacy complete",
+                "--allow-empty-record",
+                "--reason",
+                "test",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        archived = runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "archive",
+                "legacy",
+                "--reason",
+                "hide",
+            ],
+        )
+        assert archived.exit_code == 0, archived.output
+
+        result = _tree(tmp_path)
+        assert result.exit_code == 0, result.output
+        assert "legacy" not in result.output
+        assert "next=task-0002" in result.output
+
+    def test_tree_include_archived_marks_nodes(self, tmp_path: Path) -> None:
+        _init(tmp_path)
+        result = runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "record",
+                "Legacy",
+                "--slug",
+                "legacy",
+                "--description",
+                "Legacy done task",
+                "--summary",
+                "Legacy complete",
+                "--allow-empty-record",
+                "--reason",
+                "test",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        archived = runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "task",
+                "archive",
+                "legacy",
+                "--reason",
+                "hide",
+            ],
+        )
+        assert archived.exit_code == 0, archived.output
+
+        result = _tree(tmp_path, "--include-archived")
+        assert result.exit_code == 0, result.output
+        assert "legacy" in result.output
+        assert "{archived}" in result.output

@@ -13,7 +13,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TypeVar
+from typing import Literal, TypeVar
 
 import yaml
 
@@ -41,6 +41,7 @@ from taskledger.domain.states import (
     TASKLEDGER_SCHEMA_VERSION,
     TASKLEDGER_V2_FILE_VERSION,
 )
+from taskledger.domain.task import is_archived_task
 from taskledger.errors import ActiveTaskNotFound, LaunchError, NoActiveTask
 from taskledger.storage.atomic import atomic_write_text
 from taskledger.storage.frontmatter import (
@@ -53,6 +54,7 @@ from taskledger.storage.paths import ProjectPaths
 from taskledger.timeutils import utc_now_iso
 
 T = TypeVar("T")
+TaskVisibility = Literal["visible", "archived", "all"]
 
 
 def _link_id_from_path(path: str) -> str:
@@ -160,12 +162,50 @@ def list_tasks(workspace_root: Path) -> list[TaskRecord]:
     )
 
 
-def resolve_task(workspace_root: Path, ref: str) -> TaskRecord:
+def list_tasks_by_visibility(
+    workspace_root: Path,
+    *,
+    visibility: TaskVisibility = "visible",
+) -> list[TaskRecord]:
+    tasks = list_tasks(workspace_root)
+    if visibility == "all":
+        return tasks
+    if visibility == "archived":
+        return [task for task in tasks if is_archived_task(task)]
+    return [task for task in tasks if not is_archived_task(task)]
+
+
+def resolve_task(
+    workspace_root: Path,
+    ref: str,
+    *,
+    include_archived: bool = False,
+) -> TaskRecord:
     normalized_ref = ref.strip().lower()
     normalized_id = _normalize_numeric_ref(normalized_ref, "task")
-    for task in list_tasks(workspace_root):
-        if task.id == ref or task.id == normalized_id or task.slug == normalized_ref:
+    tasks = list_tasks(workspace_root)
+    for task in tasks:
+        if task.id == ref or task.id == normalized_id:
             return task
+    visible_matches = [
+        task
+        for task in tasks
+        if not is_archived_task(task) and task.slug == normalized_ref
+    ]
+    if len(visible_matches) == 1:
+        return visible_matches[0]
+    if len(visible_matches) > 1:
+        raise LaunchError(f"Duplicate visible task slug: {ref}")
+    if not include_archived:
+        raise LaunchError(f"Task not found: {ref}")
+    archived_matches = [
+        task for task in tasks if is_archived_task(task) and task.slug == normalized_ref
+    ]
+    if len(archived_matches) == 1:
+        return archived_matches[0]
+    if len(archived_matches) > 1:
+        ids = ", ".join(sorted(task.id for task in archived_matches))
+        raise LaunchError(f"Archived task slug is ambiguous: {ref}. Use one of: {ids}")
     raise LaunchError(f"Task not found: {ref}")
 
 
@@ -276,9 +316,15 @@ def resolve_active_task(workspace_root: Path) -> TaskRecord:
 def resolve_task_or_active(
     workspace_root: Path,
     ref: str | None = None,
+    *,
+    include_archived: bool = False,
 ) -> TaskRecord:
     if ref is not None and ref.strip():
-        return resolve_task(workspace_root, ref)
+        return resolve_task(
+            workspace_root,
+            ref,
+            include_archived=include_archived,
+        )
     return resolve_active_task(workspace_root)
 
 

@@ -97,6 +97,7 @@ def link_introduction(
     workspace_root: Path, task_ref: str, introduction_ref: str
 ) -> TaskRecord:
     task = resolve_task(workspace_root, task_ref)
+    _tasks._ensure_not_archived(task, operation="link introduction on")
     intro = resolve_introduction(workspace_root, introduction_ref)
     updated = replace(
         task,
@@ -125,6 +126,7 @@ def add_requirement(
     task = _tasks._task_with_sidecars(
         workspace_root, resolve_task(workspace_root, task_ref)
     )
+    _tasks._ensure_not_archived(task, operation="add requirement to")
     required = resolve_task(workspace_root, required_task_ref)
     requirements = list(task.requirements)
     if required.id not in requirements:
@@ -154,6 +156,7 @@ def remove_requirement(
     task = _tasks._task_with_sidecars(
         workspace_root, resolve_task(workspace_root, task_ref)
     )
+    _tasks._ensure_not_archived(task, operation="remove requirement from")
     required = resolve_task(workspace_root, required_task_ref)
     remaining = tuple(item for item in task.requirements if item != required.id)
     updated = replace(
@@ -195,6 +198,7 @@ def waive_requirement(
     task = _tasks._task_with_sidecars(
         workspace_root, resolve_task(workspace_root, task_ref)
     )
+    _tasks._ensure_not_archived(task, operation="waive requirement on")
     required = resolve_task(workspace_root, required_task_ref)
     sidecar = load_requirements(workspace_root, task.id)
     requirements = list(sidecar.requirements)
@@ -263,6 +267,7 @@ def add_file_link(
     task = _tasks._task_with_sidecars(
         workspace_root, resolve_task(workspace_root, task_ref)
     )
+    _tasks._ensure_not_archived(task, operation="add file link to")
     links = list(task.file_links)
     existing = next((item for item in links if item.path == path), None)
     new_link = FileLink(
@@ -291,6 +296,7 @@ def remove_file_link(workspace_root: Path, task_ref: str, *, path: str) -> TaskR
     task = _tasks._task_with_sidecars(
         workspace_root, resolve_task(workspace_root, task_ref)
     )
+    _tasks._ensure_not_archived(task, operation="remove file link from")
     remaining = tuple(item for item in task.file_links if item.path != path)
     updated = replace(
         task,
@@ -330,6 +336,7 @@ def add_todo(
     task = _tasks._task_with_sidecars(
         workspace_root, resolve_task(workspace_root, task_ref)
     )
+    _tasks._ensure_not_archived(task, operation="add todo to")
     lock = _tasks._lock_for_mutation(workspace_root, task.id)
     # Infer source from active lock unless explicitly provided
     if source is not None:
@@ -388,6 +395,7 @@ def set_todo_done(
     task = _tasks._task_with_sidecars(
         workspace_root, resolve_task(workspace_root, task_ref)
     )
+    _tasks._ensure_not_archived(task, operation="update todo on")
     normalized_todo_id = _tasks._normalize_local_id(todo_id, "todo")
     _tasks._enforce_decision(
         todo_toggle_decision(

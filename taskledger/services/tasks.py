@@ -53,6 +53,7 @@ from taskledger.domain.states import (
     TaskStatusStage,
     normalize_run_type,
 )
+from taskledger.domain.task import is_archived_task
 from taskledger.errors import LaunchError, NoActiveTask
 from taskledger.ids import next_project_id, slugify_project_ref
 from taskledger.services.task_queries import (
@@ -77,13 +78,14 @@ from taskledger.storage.locks import (
     write_lock,
 )
 from taskledger.storage.task_store import (
+    TaskVisibility,
     V2Paths,
     ensure_v2_layout,
     list_changes,
     list_plans,
     list_questions,
     list_runs,
-    list_tasks,
+    list_tasks_by_visibility,
     load_active_locks,
     load_active_task_state,
     load_links,
@@ -182,23 +184,68 @@ def close_task(*args, **kwargs):  # type: ignore[no-untyped-def]
     return _impl(*args, **kwargs)
 
 
-def list_task_summaries(workspace_root: Path) -> list[dict[str, object]]:
-    tasks = list_tasks(workspace_root)
+def archive_task(*args, **kwargs):  # type: ignore[no-untyped-def]
+    from taskledger.services.task_archive import archive_task as _impl
+
+    return _impl(*args, **kwargs)
+
+
+def unarchive_task(*args, **kwargs):  # type: ignore[no-untyped-def]
+    from taskledger.services.task_archive import unarchive_task as _impl
+
+    return _impl(*args, **kwargs)
+
+
+def list_archived_task_summaries(*args, **kwargs):  # type: ignore[no-untyped-def]
+    from taskledger.services.task_archive import (
+        list_archived_task_summaries as _impl,
+    )
+
+    return _impl(*args, **kwargs)
+
+
+def list_task_summaries(
+    workspace_root: Path,
+    *,
+    include_archived: bool = False,
+    archived_only: bool = False,
+    slug: str | None = None,
+) -> list[dict[str, object]]:
+    if include_archived and archived_only:
+        raise _cli_error(
+            "Use either include_archived or archived_only, not both.",
+            EXIT_CODE_BAD_INPUT,
+        )
+    visibility: TaskVisibility
+    if include_archived:
+        visibility = "all"
+    elif archived_only:
+        visibility = "archived"
+    else:
+        visibility = "visible"
+    tasks = list_tasks_by_visibility(workspace_root, visibility=visibility)
+    slug_filter = slug.strip().lower() if slug and slug.strip() else None
     active_state = load_active_task_state(workspace_root)
     active_task_id = active_state.task_id if active_state is not None else None
-    return [
-        {
-            "id": task.id,
-            "slug": task.slug,
-            "title": task.title,
-            "status": task.status_stage,
-            "status_stage": task.status_stage,
-            "is_active": task.id == active_task_id,
-            "active_stage": _task_active_stage(workspace_root, task),
-            "accepted_plan_version": task.accepted_plan_version,
-        }
-        for task in tasks
-    ]
+    rows = []
+    for task in tasks:
+        if slug_filter is not None and task.slug != slug_filter:
+            continue
+        rows.append(
+            {
+                "id": task.id,
+                "slug": task.slug,
+                "title": task.title,
+                "status": task.status_stage,
+                "status_stage": task.status_stage,
+                "is_active": task.id == active_task_id,
+                "active_stage": _task_active_stage(workspace_root, task),
+                "accepted_plan_version": task.accepted_plan_version,
+                "archived": is_archived_task(task),
+                "archived_at": task.archived_at,
+            }
+        )
+    return rows
 
 
 def resolve_active_task(workspace_root: Path) -> TaskRecord:
@@ -219,10 +266,18 @@ def show_active_task(workspace_root: Path) -> dict[str, object]:
     )
 
 
-def show_task(workspace_root: Path, ref: str) -> dict[str, object]:
+def show_task(
+    workspace_root: Path,
+    ref: str,
+    *,
+    include_archived: bool = False,
+) -> dict[str, object]:
     from taskledger.services.handoff import build_task_relationship_payload
 
-    task = _task_with_sidecars(workspace_root, resolve_task(workspace_root, ref))
+    task = _task_with_sidecars(
+        workspace_root,
+        resolve_task(workspace_root, ref, include_archived=include_archived),
+    )
     lock = read_lock(task_lock_path(resolve_v2_paths(workspace_root), task.id))
     plans = list_plans(workspace_root, task.id)
     questions = list_questions(workspace_root, task.id)
@@ -517,6 +572,7 @@ def reject_plan(
     reason: str | None = None,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
+    _ensure_not_archived(task, operation="reject plan for")
     _enforce_decision(
         plan_approve_decision(task, _current_lock(workspace_root, task.id))
     )
@@ -542,6 +598,7 @@ def reject_plan(
 
 def revise_plan(workspace_root: Path, task_ref: str) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
+    _ensure_not_archived(task, operation="revise plan for")
     _enforce_decision(
         plan_revise_decision(task, _current_lock(workspace_root, task.id))
     )
@@ -558,6 +615,7 @@ def add_question(
     harness: HarnessRef | None = None,
 ) -> QuestionRecord:
     task = resolve_task(workspace_root, task_ref)
+    _ensure_not_archived(task, operation="add question to")
     _enforce_decision(
         question_add_decision(
             task,
@@ -597,6 +655,7 @@ def add_questions(
     allow_duplicates: bool = False,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
+    _ensure_not_archived(task, operation="add questions to")
     _enforce_decision(
         question_add_decision(
             task,
@@ -655,6 +714,7 @@ def answer_question(
     answer_source: str = "user",
 ) -> QuestionRecord:
     task = resolve_task(workspace_root, task_ref)
+    _ensure_not_archived(task, operation="answer question on")
     _enforce_decision(
         question_mutation_decision(
             task,
@@ -697,6 +757,7 @@ def answer_questions(
     answer_source: str = "harness",
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
+    _ensure_not_archived(task, operation="answer questions on")
     if not answers:
         raise _cli_error("At least one answer is required.", EXIT_CODE_BAD_INPUT)
     known = {item.id: item for item in list_questions(workspace_root, task.id)}
@@ -828,6 +889,7 @@ def dismiss_question(
     question_id: str,
 ) -> QuestionRecord:
     task = resolve_task(workspace_root, task_ref)
+    _ensure_not_archived(task, operation="dismiss question on")
     _enforce_decision(
         question_mutation_decision(
             task,
@@ -2950,6 +3012,18 @@ def _stale_lock_error(task_id: str, lock: TaskLock) -> LaunchError:
         "lock": lock.to_dict(),
     }
     return error
+
+
+def _ensure_not_archived(task: TaskRecord, *, operation: str) -> None:
+    if not is_archived_task(task):
+        return
+    raise _cli_error(
+        (
+            f"Cannot {operation} archived task {task.id}. "
+            f"Use taskledger task unarchive {task.id} first."
+        ),
+        EXIT_CODE_INVALID_TRANSITION,
+    )
 
 
 def _task_with_sidecars(workspace_root: Path, task: TaskRecord) -> TaskRecord:

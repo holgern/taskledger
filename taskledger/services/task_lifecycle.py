@@ -42,6 +42,7 @@ from taskledger.storage.task_store import (
     ensure_v2_layout,
     list_runs,
     list_tasks,
+    list_tasks_by_visibility,
     load_active_task_state,
     resolve_task,
     resolve_v2_paths,
@@ -294,10 +295,13 @@ def create_task(
     owner: str | None = None,
 ) -> TaskRecord:
     paths = ensure_v2_layout(workspace_root)
-    tasks = list_tasks(workspace_root)
-    task_slug = _tasks._unique_slug(tasks, slug or title)
+    all_tasks = list_tasks(workspace_root)
+    visible_tasks = list_tasks_by_visibility(workspace_root, visibility="visible")
+    task_slug = _tasks._unique_slug(visible_tasks, slug or title)
     task = TaskRecord(
-        id=_allocate_task_id_and_advance(workspace_root, [item.id for item in tasks]),
+        id=_allocate_task_id_and_advance(
+            workspace_root, [item.id for item in all_tasks]
+        ),
         slug=task_slug,
         title=title,
         body=description.strip(),
@@ -335,13 +339,15 @@ def create_follow_up_task(
         workspace_root,
         resolve_task(workspace_root, parent_ref),
     )
+    _tasks._ensure_not_archived(parent, operation="create follow-up for")
     if parent.status_stage != "done":
         raise _tasks._cli_error(
             "Follow-up tasks require a done parent task.",
             EXIT_CODE_INVALID_TRANSITION,
         )
-    tasks = list_tasks(workspace_root)
-    task_slug = _tasks._unique_slug(tasks, slug or title)
+    all_tasks = list_tasks(workspace_root)
+    visible_tasks = list_tasks_by_visibility(workspace_root, visibility="visible")
+    task_slug = _tasks._unique_slug(visible_tasks, slug or title)
     body = _follow_up_description(parent, description=description, reason=reason)
     copied_links = _copy_follow_up_links(
         parent.file_links,
@@ -349,7 +355,9 @@ def create_follow_up_task(
         copy_links=copy_links,
     )
     child = TaskRecord(
-        id=_allocate_task_id_and_advance(workspace_root, [item.id for item in tasks]),
+        id=_allocate_task_id_and_advance(
+            workspace_root, [item.id for item in all_tasks]
+        ),
         slug=task_slug,
         title=title,
         body=body,
@@ -466,14 +474,17 @@ def record_completed_task(
             )
 
     paths = ensure_v2_layout(workspace_root)
-    tasks = list_tasks(workspace_root)
-    task_slug = _tasks._unique_slug(tasks, slug or title)
+    all_tasks = list_tasks(workspace_root)
+    visible_tasks = list_tasks_by_visibility(workspace_root, visibility="visible")
+    task_slug = _tasks._unique_slug(visible_tasks, slug or title)
     now = utc_now_iso()
     resolved_completed_by = completed_by or _tasks._default_actor()
     resolved_recorded_by = recorded_by or _tasks._default_actor()
 
     task = TaskRecord(
-        id=_allocate_task_id_and_advance(workspace_root, [item.id for item in tasks]),
+        id=_allocate_task_id_and_advance(
+            workspace_root, [item.id for item in all_tasks]
+        ),
         slug=task_slug,
         title=title.strip(),
         body=(description or "").strip(),
@@ -627,6 +638,7 @@ def activate_task(
     force: bool = False,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, ref)
+    _tasks._ensure_not_archived(task, operation="activate")
     previous = load_active_task_state(workspace_root)
     previous_task_id = previous.task_id if previous is not None else None
     if previous_task_id == task.id and previous is not None:
@@ -742,6 +754,7 @@ def edit_task(
     add_notes: tuple[str, ...] = (),
 ) -> TaskRecord:
     task = resolve_task(workspace_root, ref)
+    _tasks._ensure_not_archived(task, operation="edit")
     _tasks._enforce_decision(
         metadata_edit_decision(task, _tasks._current_lock(workspace_root, task.id))
     )
@@ -783,6 +796,7 @@ def cancel_task(
     reason: str | None = None,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, ref)
+    _tasks._ensure_not_archived(task, operation="cancel")
     require_transition(task.status_stage, "cancelled")
     from taskledger.storage.locks import read_lock
     from taskledger.storage.task_store import task_lock_path
@@ -827,6 +841,7 @@ def uncancel_task(
     allow_agent_uncancel: bool = False,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, ref)
+    _tasks._ensure_not_archived(task, operation="uncancel")
     if task.status_stage != "cancelled":
         resumable_run = _tasks._resumable_implementation_run(
             workspace_root,
@@ -898,6 +913,7 @@ def close_task(
     note: str | None = None,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, ref)
+    _tasks._ensure_not_archived(task, operation="close")
     if task.status_stage != "done":
         raise _tasks._cli_error(
             "Only done tasks can be closed via task close.",

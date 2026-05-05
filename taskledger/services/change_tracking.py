@@ -47,6 +47,7 @@ def add_change(
     artifact_refs: tuple[str, ...] = (),
 ) -> CodeChangeRecord:
     task = resolve_task(workspace_root, task_ref)
+    _tasks._ensure_not_archived(task, operation="record changes on")
     run = _tasks._require_running_run(
         workspace_root,
         task,
@@ -151,6 +152,7 @@ def run_planning_command(
             "plan command requires a command to run.", EXIT_CODE_BAD_INPUT
         )
     task = resolve_task(workspace_root, task_ref)
+    _tasks._ensure_not_archived(task, operation="run planning command on")
     run = _tasks._require_running_run(
         workspace_root,
         task,

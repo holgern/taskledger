@@ -22,6 +22,7 @@ Use taskledger for staged coding work that needs a durable task record, reviewab
 - Do not mark validation passed without checking every mandatory acceptance criterion.
 - Do not inline large source files into taskledger records by default; use `@path` references.
 - Do not import or call `taskledger.storage.*`, `taskledger.services.*`, or `taskledger.domain.*` from ad-hoc Python during normal task work. Use CLI commands or public `taskledger.api.*` only.
+- Do not mutate archived tasks; unarchive first (`taskledger task unarchive TASK_ID --reason "..."`) unless the user explicitly requested read-only archived reporting.
 - Do not use repair commands (`repair lock`, `repair run`, `repair task`, `repair index`) in the normal lifecycle. Use them only after `doctor`/`lock show` proves there is stale or corrupted state. (`lock break` is a deprecated alias for `repair lock`.)
 - Do not pass approval escape hatches such as `--allow-empty-criteria`, `--allow-open-questions`, `--allow-empty-todos`, `--no-materialize-todos`, `--allow-lint-errors`, or `--allow-agent-approval` unless the user explicitly requested that bypass and gave a reason. All escape hatches require `--reason`.
 

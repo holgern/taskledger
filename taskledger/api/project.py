@@ -208,6 +208,7 @@ def project_tree(
     task_ref: str | None = None,
     include_all_ledgers: bool = False,
     details: bool = False,
+    include_archived: bool = False,
 ) -> dict[str, Any]:
     return build_tree(
         workspace_root,
@@ -215,6 +216,7 @@ def project_tree(
             task_ref=task_ref,
             include_all_ledgers=include_all_ledgers,
             details=details,
+            include_archived=include_archived,
         ),
     )
 
