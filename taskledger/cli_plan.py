@@ -115,7 +115,7 @@ def propose_command(
         payload = propose_plan(
             state.cwd,
             task.id,
-            body=read_text_input(text=text, from_file=from_file),
+            body=read_text_input(text=text, from_file=from_file, file_label="--file"),
             criteria=tuple(criterion or ()),
         )
     except LaunchError as exc:
@@ -206,7 +206,7 @@ def regenerate_command(
         payload = regenerate_plan_from_answers(
             state.cwd,
             task.id,
-            body=read_text_input(text=text, from_file=from_file),
+            body=read_text_input(text=text, from_file=from_file, file_label="--file"),
             allow_open_questions=allow_open_questions,
         )
     except LaunchError as exc:
@@ -237,7 +237,7 @@ def upsert_command(
         payload = upsert_plan(
             state.cwd,
             task.id,
-            body=read_text_input(text=text, from_file=from_file),
+            body=read_text_input(text=text, from_file=from_file, file_label="--file"),
             criteria=tuple(criterion or ()),
             from_answers=from_answers,
             allow_open_questions=allow_open_questions,
@@ -572,12 +572,28 @@ def _render_plan_lint(payload: PlanLintPayload) -> str:
         f"Plan lint {'passed' if payload['passed'] else 'failed'} "
         f"for {payload['plan_id']}"
     ]
-    errors = cast(list[str], payload.get("errors", []))
-    warnings = cast(list[str], payload.get("warnings", []))
-    for item in errors:
-        lines.append(f"- ERROR: {item}")
-    for item in warnings:
-        lines.append(f"- WARN: {item}")
-    if not errors and not warnings:
-        lines.append("- No lint findings.")
+    summary = payload.get("summary", {})
+    errors = int(summary.get("errors", 0)) if isinstance(summary, dict) else 0
+    warnings = int(summary.get("warnings", 0)) if isinstance(summary, dict) else 0
+    lines.append(f"Summary: {errors} error(s), {warnings} warning(s)")
+
+    raw_issues = cast(list[object], payload.get("issues", []))
+    issues = [item for item in raw_issues if isinstance(item, dict)]
+    for issue in issues:
+        severity = str(issue.get("severity", "warning")).upper()
+        code = str(issue.get("code", "unknown"))
+        location = str(issue.get("location", "plan"))
+        message = str(issue.get("message", ""))
+        lines.append(f"- {severity} {code} at {location}: {message}")
+        hint = issue.get("hint")
+        if isinstance(hint, str) and hint.strip():
+            lines.append(f"  Hint: {hint}")
+
+    if not issues:
+        if payload["passed"]:
+            lines.append("- No lint findings.")
+        else:
+            lines.append(
+                "- Internal inconsistency: lint failed but returned no issue records."
+            )
     return "\n".join(lines)

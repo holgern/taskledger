@@ -729,14 +729,25 @@ def answer_question(
             EXIT_CODE_INVALID_TRANSITION,
         )
     question = resolve_question(workspace_root, task.id, question_id)
+    resolved_actor = actor or ActorRef(actor_type="user", actor_name="user")
+    normalized_source = answer_source.strip().lower() if answer_source else ""
+    if question.required_for_plan and normalized_source not in {
+        "explicit_user_chat",
+        "user_file",
+    }:
+        raise _cli_error(
+            "Required planning question requires explicit user source. "
+            "Use --source explicit_user_chat after the user answers in chat.",
+            EXIT_CODE_APPROVAL_REQUIRED,
+        )
     answered = replace(
         question,
         status="answered",
         answer=stripped,
         answered_at=utc_now_iso(),
-        answered_by=(actor.actor_name if actor is not None else "user"),
-        answered_by_actor=actor or ActorRef(actor_type="user", actor_name="user"),
-        answer_source=answer_source,
+        answered_by=resolved_actor.actor_name,
+        answered_by_actor=resolved_actor,
+        answer_source=normalized_source or None,
     )
     save_question(workspace_root, answered)
     _append_event(
@@ -811,6 +822,11 @@ def question_status(workspace_root: Path, task_ref: str) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
     questions = list_questions(workspace_root, task.id)
     required_open = _required_open_question_ids(questions)
+    answered_required = [
+        item.id
+        for item in questions
+        if item.status == "answered" and item.required_for_plan
+    ]
     answered = [item for item in questions if item.status == "answered"]
     latest_plan = _latest_plan_or_none(workspace_root, task.id)
     answered_since_latest_plan = (
@@ -824,6 +840,7 @@ def question_status(workspace_root: Path, task_ref: str) -> dict[str, object]:
         "task_id": task.id,
         "required_open": len(required_open),
         "required_open_questions": required_open,
+        "answered_required_questions": answered_required,
         "answered": len([item for item in questions if item.status == "answered"]),
         "answered_since_latest_plan": answered_since_latest_plan,
         "plan_regeneration_needed": regeneration_needed,

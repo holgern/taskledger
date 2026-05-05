@@ -245,3 +245,60 @@ def test_python_m_taskledger_json_parse_error_envelope(tmp_path: Path) -> None:
     assert payload["ok"] is False
     assert payload["error"]["code"] == "USAGE_ERROR"
     assert payload["error"]["exit_code"] == 2
+
+
+def test_plan_lint_usage_error_includes_waiver_hint(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "taskledger",
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "plan",
+            "lint",
+            "--allow-empty-criteria",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2, result.stdout
+    payload = json.loads(result.stdout)
+    assert payload["error"]["code"] == "USAGE_ERROR"
+    remediation = " ".join(payload["error"]["remediation"])
+    assert "Lint has no waiver flags" in remediation
+    assert "allow-lint-errors" in remediation
+
+
+def test_doctor_usage_error_for_errors_argument_has_specific_hint(
+    tmp_path: Path,
+) -> None:
+    _init_project(tmp_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "taskledger",
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "doctor",
+            "errors",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2, result.stdout
+    payload = json.loads(result.stdout)
+    assert payload["error"]["code"] == "USAGE_ERROR"
+    remediation = " ".join(payload["error"]["remediation"])
+    assert "doctor locks" in remediation
+    assert "doctor schema" in remediation

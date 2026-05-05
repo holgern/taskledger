@@ -597,7 +597,56 @@ def _format_human_error(error: Exception | str) -> str:
 
         return "\n".join(lines)
 
+    if error_code == "APPROVAL_REQUIRED":
+        details = error_data.get("details")
+        if isinstance(details, dict):
+            plan_lint = details.get("plan_lint")
+            if isinstance(plan_lint, dict):
+                lint_lines = _render_plan_lint_error_details(plan_lint)
+                if lint_lines:
+                    return "\n".join([message, *lint_lines])
+
     return message
+
+
+def _render_plan_lint_error_details(plan_lint: dict[str, object]) -> list[str]:
+    raw_issues = plan_lint.get("issues")
+    if not isinstance(raw_issues, list) or not raw_issues:
+        return []
+    issues = [item for item in raw_issues if isinstance(item, dict)]
+    if not issues:
+        return []
+
+    lines: list[str] = [""]
+    summary = plan_lint.get("summary")
+    if isinstance(summary, dict):
+        errors = int(summary.get("errors", 0))
+        warnings = int(summary.get("warnings", 0))
+        lines.append(f"Plan lint details: {errors} error(s), {warnings} warning(s)")
+    else:
+        lines.append("Plan lint details:")
+
+    max_issues = 5
+    for issue in issues[:max_issues]:
+        severity = str(issue.get("severity", "warning")).upper()
+        code = str(issue.get("code", "unknown"))
+        location = str(issue.get("location", "plan"))
+        issue_message = str(issue.get("message", ""))
+        lines.append(f"- {severity} {code} at {location}: {issue_message}")
+        hint = issue.get("hint")
+        if isinstance(hint, str) and hint.strip():
+            lines.append(f"  Hint: {hint}")
+    if len(issues) > max_issues:
+        lines.append(
+            f"... {len(issues) - max_issues} more issue(s); run plan lint "
+            "for full output."
+        )
+    plan_version = plan_lint.get("plan_version")
+    if isinstance(plan_version, int):
+        lines.append(f"Run: taskledger plan lint --version {plan_version}")
+    else:
+        lines.append("Run: taskledger plan lint --version N")
+    return lines
 
 
 def _task_id_from_value(value: Any) -> str | None:
@@ -630,16 +679,17 @@ def read_text_input(
     text: str | None,
     from_file: Path | None = None,
     text_label: str = "--text",
+    file_label: str = "--from-file",
 ) -> str:
     if text and from_file is not None:
-        raise LaunchError(f"Use either {text_label} or --from-file, not both.")
+        raise LaunchError(f"Use either {text_label} or {file_label}, not both.")
     if from_file is not None:
         try:
             return from_file.read_text(encoding="utf-8")
         except OSError as exc:
             raise LaunchError(f"Failed to read {from_file}: {exc}") from exc
     if text is None:
-        raise LaunchError(f"Provide {text_label} or --from-file.")
+        raise LaunchError(f"Provide {text_label} or {file_label}.")
     if not text.strip():
         raise LaunchError("Text input must not be empty.")
     return text

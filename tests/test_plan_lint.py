@@ -118,6 +118,7 @@ def _add_and_answer_required_question(
             "q-0001",
             "--text",
             answer,
+            "--from-user-chat",
         ],
     )
     assert result.exit_code == 0, result.output
@@ -271,6 +272,23 @@ todos:
   - text: Update `taskledger/services/plan_lint.py` to reject empty bodies.
     validation_hint: pytest tests/test_plan_lint.py
 ---
+"""
+
+_SHORT_PATH_TODO_PLAN = """\
+---
+goal: Create CI workflow.
+acceptance_criteria:
+  - id: ac-0001
+    text: CI workflow file exists.
+todos:
+  - id: plan-todo-0001
+    text: Create .github/workflows/ci.yml
+    validation_hint: test -f .github/workflows/ci.yml
+---
+
+## Goal
+
+Create the workflow file.
 """
 
 
@@ -937,3 +955,47 @@ class TestPlanLintMissingBody:
         payload = _json(result)
         codes = [i["code"] for i in payload["result"]["issues"]]
         assert "missing_plan_body" not in codes
+
+
+class TestPlanLintHumanOutput:
+    def test_plan_lint_human_output_renders_issue_details(self, tmp_path: Path) -> None:
+        _init_project(tmp_path)
+        _create_task(tmp_path, "human-details")
+        _start_planning(tmp_path, "human-details")
+        _propose_plan(tmp_path, _VAGUE_TODO_PLAN, slug="human-details")
+
+        result = runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(tmp_path),
+                "plan",
+                "lint",
+                "--task",
+                "human-details",
+            ],
+        )
+
+        assert result.exit_code == EXIT_CODE_VALIDATION_FAILED
+        assert "Plan lint failed" in result.stdout
+        assert "Summary:" in result.stdout
+        assert "ERROR todo_not_concrete" in result.stdout
+        assert "plan.todos[0]" in result.stdout
+        assert "No lint findings" not in result.stdout
+
+    def test_plan_lint_accepts_short_file_path_todo(self, tmp_path: Path) -> None:
+        _init_project(tmp_path)
+        _create_task(tmp_path, "short-path")
+        _start_planning(tmp_path, "short-path")
+        _propose_plan(tmp_path, _SHORT_PATH_TODO_PLAN, slug="short-path")
+
+        result = runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "--json", "plan", "lint", "--task", "short-path"],
+        )
+
+        assert result.exit_code == 0, result.output
+        payload = _json(result)
+        assert payload["result"]["passed"] is True
+        codes = [i["code"] for i in payload["result"]["issues"]]
+        assert "todo_not_concrete" not in codes

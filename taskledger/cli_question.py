@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Annotated, Literal, cast
+from typing import Annotated, cast
 
 import typer
 import yaml
@@ -26,6 +26,7 @@ from taskledger.cli_common import (
 )
 from taskledger.domain.models import ActorRef
 from taskledger.errors import LaunchError
+from taskledger.services.actors import resolve_actor
 from taskledger.storage.task_store import list_questions
 
 _QUESTION_ANSWER_RE = re.compile(r"^(q-\d+):\s*(.+)$")
@@ -209,6 +210,7 @@ def _add_many_command(
                 text=None,
                 from_file=yaml_file,
                 text_label="--yaml-file",
+                file_label="--yaml-file",
             )
             questions = _parse_question_add_many_yaml(
                 raw,
@@ -273,9 +275,30 @@ def _list_command(
 
 def _answer_command(
     ctx: typer.Context,
-    question_id: Annotated[str, typer.Argument(..., help="Question id.")],
     text: Annotated[str, typer.Option("--text")],
-    actor: Annotated[str, typer.Option("--actor")] = "user",
+    question_id_arg: Annotated[
+        str | None,
+        typer.Argument(help="Question id."),
+    ] = None,
+    question_id_opt: Annotated[
+        str | None,
+        typer.Option("--question", help="Question id."),
+    ] = None,
+    actor: Annotated[
+        str | None,
+        typer.Option("--actor", help="Actor type: user, agent, or system."),
+    ] = None,
+    source: Annotated[
+        str | None,
+        typer.Option("--source", help="Answer provenance."),
+    ] = None,
+    from_user_chat: Annotated[
+        bool,
+        typer.Option(
+            "--from-user-chat",
+            help="Shorthand for --source explicit_user_chat.",
+        ),
+    ] = False,
     task_ref: Annotated[
         str | None,
         typer.Option("--task", help="Task ref. Defaults to the active task."),
@@ -283,15 +306,26 @@ def _answer_command(
 ) -> None:
     state = cli_state_from_context(ctx)
     try:
+        question_id = _resolve_question_id(
+            question_id_arg=question_id_arg,
+            question_id_opt=question_id_opt,
+        )
         task = resolve_cli_task(state.cwd, task_ref)
+        resolved_actor = resolve_actor(
+            actor_type=actor,
+            actor_name=actor,
+            workspace_root=state.cwd,
+        )
         question = answer_question(
             state.cwd,
             task.id,
             question_id,
             text=text,
-            actor=ActorRef(
-                actor_type=cast(Literal["agent", "user", "system"], actor),
-                actor_name=actor,
+            actor=resolved_actor,
+            answer_source=_resolve_answer_source(
+                source=source,
+                from_user_chat=from_user_chat,
+                actor=resolved_actor,
             ),
         )
     except LaunchError as exc:
@@ -302,9 +336,23 @@ def _answer_command(
 
 def _answer_many_command(
     ctx: typer.Context,
-    text: Annotated[str | None, typer.Option("--text")] = None,
+    text: Annotated[list[str] | None, typer.Option("--text")] = None,
     from_file: Annotated[Path | None, typer.Option("--file")] = None,
-    actor: Annotated[str, typer.Option("--actor")] = "user",
+    actor: Annotated[
+        str | None,
+        typer.Option("--actor", help="Actor type: user, agent, or system."),
+    ] = None,
+    source: Annotated[
+        str | None,
+        typer.Option("--source", help="Answer provenance."),
+    ] = None,
+    from_user_chat: Annotated[
+        bool,
+        typer.Option(
+            "--from-user-chat",
+            help="Shorthand for --source explicit_user_chat.",
+        ),
+    ] = False,
     task_ref: Annotated[
         str | None,
         typer.Option("--task", help="Task ref. Defaults to the active task."),
@@ -313,16 +361,26 @@ def _answer_many_command(
     state = cli_state_from_context(ctx)
     try:
         task = resolve_cli_task(state.cwd, task_ref)
-        raw = read_text_input(text=text, from_file=from_file)
+        raw = read_text_input(
+            text="\n".join(text) if text else None,
+            from_file=from_file,
+            file_label="--file",
+        )
+        resolved_actor = resolve_actor(
+            actor_type=actor,
+            actor_name=actor,
+            workspace_root=state.cwd,
+        )
         payload = answer_questions(
             state.cwd,
             task.id,
             _parse_answer_many_input(raw),
-            actor=ActorRef(
-                actor_type=cast(Literal["agent", "user", "system"], actor),
-                actor_name=actor,
+            actor=resolved_actor,
+            answer_source=_resolve_answer_source(
+                source=source,
+                from_user_chat=from_user_chat,
+                actor=resolved_actor,
             ),
-            answer_source="harness",
         )
     except LaunchError as exc:
         emit_error(ctx, exc)
@@ -447,9 +505,27 @@ def _status_command(
 def _render_question_status_human(payload: dict[str, object]) -> str:
     lines = [
         f"Required open: {payload['required_open']}",
-        f"Plan regeneration needed: {payload['plan_regeneration_needed']}",
-        f"Next: {payload['next_action']}",
     ]
+    required_open_questions = payload.get("required_open_questions")
+    if isinstance(required_open_questions, list) and required_open_questions:
+        lines.append(
+            "Open required questions: "
+            + ", ".join(str(item) for item in required_open_questions)
+        )
+    answered_required_questions = payload.get("answered_required_questions")
+    if isinstance(answered_required_questions, list) and answered_required_questions:
+        lines.append(
+            "Answered required questions: "
+            + ", ".join(str(item) for item in answered_required_questions)
+        )
+    lines.extend(
+        [
+            f"Plan regeneration needed: {payload['plan_regeneration_needed']}",
+            f"Next: {payload['next_action']}",
+        ]
+    )
+    if isinstance(required_open_questions, list) and required_open_questions:
+        lines.append("Do not infer answers. Ask the user for open required questions.")
     template_command = payload.get("template_command")
     if isinstance(template_command, str):
         lines.append(f"Template: {template_command}")
@@ -465,6 +541,43 @@ def _render_question_status_human(payload: dict[str, object]) -> str:
             + ", ".join(str(item) for item in recommended_fields)
         )
     return "\n".join(lines)
+
+
+def _resolve_question_id(
+    *,
+    question_id_arg: str | None,
+    question_id_opt: str | None,
+) -> str:
+    if bool(question_id_arg) == bool(question_id_opt):
+        raise LaunchError(
+            "Provide exactly one question id, either as a positional "
+            "argument or --question."
+        )
+    question_id = question_id_arg or question_id_opt
+    assert question_id is not None
+    return question_id
+
+
+def _resolve_answer_source(
+    *,
+    source: str | None,
+    from_user_chat: bool,
+    actor: ActorRef,
+) -> str:
+    if source is not None and from_user_chat:
+        raise LaunchError("Use either --source or --from-user-chat, not both.")
+    if from_user_chat:
+        return "explicit_user_chat"
+    if source is not None:
+        normalized = source.strip().lower()
+        if not normalized:
+            raise LaunchError("Answer source must not be empty.")
+        return normalized
+    if actor.actor_type == "user":
+        return "explicit_user_chat"
+    if actor.actor_type == "agent":
+        return "agent_inferred"
+    return "system_default"
 
 
 def register_question_v2_commands(app: typer.Typer) -> None:

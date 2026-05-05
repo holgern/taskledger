@@ -944,18 +944,68 @@ def emit_reindex_command(ctx: typer.Context) -> None:
     emit_payload(ctx, payload, human="reindexed v2 task state")
 
 
-def _doctor_human(payload: dict[str, object], *, limit: int = 20) -> str:
+def _doctor_human(
+    payload: dict[str, object], *, limit: int = 20, verbose: bool = False
+) -> str:
     """Render doctor diagnostics in human-readable format."""
     diagnostics = [
         item
         for item in cast(list[object], payload.get("diagnostics", []))
         if isinstance(item, dict)
     ]
+    raw_errors = [str(item) for item in cast(list[object], payload.get("errors", []))]
+    raw_warnings = [
+        str(item) for item in cast(list[object], payload.get("warnings", []))
+    ]
+    mismatches = [
+        item
+        for item in cast(list[object], payload.get("run_lock_mismatches", []))
+        if isinstance(item, dict)
+    ]
     lines = [
         f"healthy: {str(payload['healthy']).lower()}",
-        f"errors: {len(cast(list[object], payload['errors']))}  "
-        f"warnings: {len(cast(list[object], payload['warnings']))}",
+        f"errors: {len(raw_errors)}  warnings: {len(raw_warnings)}",
     ]
+    if raw_errors:
+        lines.append("")
+        lines.append("Errors:")
+        max_errors = limit if verbose else min(limit, 8)
+        for message in raw_errors[:max_errors]:
+            lines.append(f"- {message}")
+        if len(raw_errors) > max_errors:
+            lines.append(
+                f"... {len(raw_errors) - max_errors} more error(s); "
+                "use --verbose or --json."
+            )
+    if raw_warnings and verbose:
+        lines.append("")
+        lines.append("Warnings:")
+        for message in raw_warnings[:limit]:
+            lines.append(f"- {message}")
+        if len(raw_warnings) > limit:
+            lines.append(
+                f"... {len(raw_warnings) - limit} more warning(s); use --json."
+            )
+
+    if mismatches:
+        lines.append("")
+        lines.append("Run/lock mismatches:")
+        for item in mismatches[:limit]:
+            task_id = item.get("task_id", "?")
+            run_type = item.get("run_type", "?")
+            run_id = item.get("run_id", "?")
+            lines.append(f"- {task_id} {run_type} {run_id}")
+            next_command = item.get("next_command")
+            if isinstance(next_command, str) and next_command.strip():
+                lines.append(f"  next: {next_command}")
+            note = item.get("note")
+            if isinstance(note, str) and note.strip():
+                lines.append(f"  note: {note}")
+        if len(mismatches) > limit:
+            lines.append(
+                f"... {len(mismatches) - limit} more mismatch(es); use --json."
+            )
+
     if diagnostics:
         lines.append("")
         lines.append("Diagnostics:")
@@ -983,13 +1033,13 @@ def _doctor_human(payload: dict[str, object], *, limit: int = 20) -> str:
     return "\n".join(lines)
 
 
-def emit_doctor_command(ctx: typer.Context) -> None:
+def emit_doctor_command(ctx: typer.Context, *, verbose: bool = False) -> None:
     state = cli_state_from_context(ctx)
     payload = inspect_v2_project(state.cwd)
     emit_payload(
         ctx,
         payload,
-        human=_doctor_human(payload),
+        human=_doctor_human(payload, verbose=verbose),
     )
 
 
@@ -1122,6 +1172,9 @@ def _lock_inspection_human(payload: dict[str, object]) -> str:
                     f"{item.get('task_id')} {item.get('run_type')} "
                     f"{item.get('run_id')} next: {item.get('next_command')}"
                 )
+                note = item.get("note")
+                if isinstance(note, str) and note.strip():
+                    lines.append(f"  note: {note}")
     else:
         lines.append("(empty)")
     return "\n".join(lines)

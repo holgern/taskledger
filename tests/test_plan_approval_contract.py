@@ -319,6 +319,38 @@ def test_plan_approval_requires_criteria_by_default(tmp_path: Path) -> None:
     assert "acceptance criterion" in payload["error"]["message"]
 
 
+def test_plan_accept_human_error_includes_lint_issue_details(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+    _prepare_proposed_plan(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "plan",
+            "approve",
+            "--task",
+            "approval-task",
+            "--version",
+            "1",
+            "--actor",
+            "user",
+            "--note",
+            "approved",
+            "--allow-empty-todos",
+            "--reason",
+            "test lint detail rendering",
+        ],
+    )
+
+    assert result.exit_code != 0
+    combined = result.stdout + result.stderr
+    assert "Plan lint details:" in combined
+    assert "missing_todos" in combined
+    assert "plan.todos" in combined
+
+
 def test_plan_approve_default_actor_is_agent(tmp_path: Path) -> None:
     """Verify that plan approve defaults to agent,
     requiring explicit --actor user for user approval."""

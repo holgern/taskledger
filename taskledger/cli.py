@@ -327,10 +327,49 @@ def _usage_error_remediation(
     message: str,
 ) -> list[str]:
     remediation: list[str] = ["Review command usage and retry."]
+    lower_message = message.lower()
+    if "no such option" in lower_message:
+        if command == "question.answer" and "--question" in lower_message:
+            return [
+                'Use `taskledger question answer q-0001 --text "..."`.',
+                'Or use `taskledger question answer --question q-0001 --text "..."`.',
+            ]
+        if command == "plan.lint" and (
+            "--allow-empty-criteria" in lower_message
+            or "--allow-empty-todos" in lower_message
+            or "--allow-open-questions" in lower_message
+        ):
+            return [
+                "Lint has no waiver flags.",
+                (
+                    "Fix lint findings, or use plan approval waiver flags with "
+                    "explicit user intent."
+                ),
+                (
+                    "Example: `taskledger plan approve --version N --actor user "
+                    '--allow-lint-errors --reason "..."`.'
+                ),
+            ]
+    if command == "doctor" and "no such command 'errors'" in lower_message:
+        return [
+            "Use `taskledger doctor` for project health summary.",
+            (
+                "Use `taskledger doctor locks`, `taskledger doctor schema`, "
+                "or `taskledger doctor indexes` for focused diagnostics."
+            ),
+        ]
     extra_match = re.search(r"unexpected extra argument \(([^)]+)\)", message, re.I)
     if extra_match is None:
         return remediation
     extra = extra_match.group(1).strip()
+    if command == "doctor" and extra == "errors":
+        return [
+            "Use `taskledger doctor` for project health summary.",
+            (
+                "Use `taskledger doctor locks`, `taskledger doctor schema`, "
+                "or `taskledger doctor indexes` for focused diagnostics."
+            ),
+        ]
     command_parts = command.split(".")
     if (
         len(command_parts) >= 2
@@ -849,10 +888,19 @@ def serve_command(
 
 
 @doctor_app.callback()
-def doctor_command(ctx: typer.Context) -> None:
+def doctor_command(
+    ctx: typer.Context,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            help="Show expanded doctor output including raw warnings.",
+        ),
+    ] = False,
+) -> None:
     if ctx.invoked_subcommand is not None:
         return
-    emit_doctor_command(ctx)
+    emit_doctor_command(ctx, verbose=verbose)
 
 
 @doctor_app.command("locks")

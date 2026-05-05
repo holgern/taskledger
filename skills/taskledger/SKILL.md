@@ -101,20 +101,21 @@ If any `taskledger ...` command fails with a Python traceback before taskledger 
    - Use `taskledger question add-many --required-for-plan --text $'Question 1\nQuestion 2'` when you already know multiple questions.
 7. Ask the questions directly in the harness chat. Do not ask the user to run `taskledger question answer`.
 8. Stop after asking required questions; do not invent answers.
-9. When the user answers in chat, record the answers yourself with `taskledger question answer-many` or `taskledger question answer`.
-10. Run `taskledger question status` and review all answered questions with `taskledger question answers` before writing the plan.
-11. Before reading source files to discover plan format, run `taskledger plan template --from-answers --file ./plan.md` when answered questions exist, or `taskledger plan template --file ./plan.md` for a fresh plan skeleton.
-12. If answered questions exist, write the next plan with `taskledger plan upsert --from-answers --file ./plan.md`.
-13. Use `taskledger plan upsert --file ./plan.md` for plans that are not based on newly answered questions.
-14. Ensure the plan front matter includes `acceptance_criteria` and `todos`; approved plan todos materialize into the implementation checklist.
-15. For diagnostic commands needed to build the plan, preserve their output in a linked artifact or use `taskledger plan command -- ...`.
-16. A proposed plan must include concrete `acceptance_criteria` and `todos` in front matter unless the user explicitly says the task is trivial.
-17. After writing the plan, do not run `taskledger repair lock`; planning locks are released by plan proposal/upsert. Run `taskledger next-action`.
-18. After `taskledger plan upsert --from-answers`, run `taskledger question status`. If it still reports `Plan regeneration needed: True`, do not ask for approval. Inspect `taskledger question answers`, `taskledger plan show --version N`, and `taskledger doctor`.
-19. Before asking the user to approve, run `taskledger plan lint --version N` and fix lint errors. Do not ask for approval on plans with lint errors.
-20. Record approval only with clear user intent such as approve, accept, go ahead, or start implementation. Prefer `taskledger plan accept --version N --note "User approved in harness: ..."` for normal chat approval. Use `taskledger plan approve --version N --actor user --approval-source explicit_chat --note "..."` only when explicit actor/source metadata is needed (advanced).
-21. Never replace a user-provided rich plan with only generated YAML criteria and todos. Preserve the user's plan body after the front matter and use front matter only to expose machine-readable fields to Taskledger.
-22. A Taskledger plan is not just YAML front matter. The YAML block is for machine-readable `goal`, `acceptance_criteria`, `todos`, file links, and test commands. The rich human plan must remain as Markdown after the second `---`. Before approval, inspect `taskledger plan show --version N` or the saved `plan-vN.md` and verify that the accepted plan body is non-empty and contains the implementation rationale.
+9. Required planning questions are user-blocking. Do not satisfy them from repository inference. Record required answers only from explicit user responses with `--source explicit_user_chat` (or `--from-user-chat`).
+10. When the user answers in chat, record the answers yourself with `taskledger question answer-many` or `taskledger question answer`.
+11. Run `taskledger question status` and review all answered questions with `taskledger question answers` before writing the plan.
+12. Before reading source files to discover plan format, run `taskledger plan template --from-answers --file ./plan.md` when answered questions exist, or `taskledger plan template --file ./plan.md` for a fresh plan skeleton.
+13. If answered questions exist, write the next plan with `taskledger plan upsert --from-answers --file ./plan.md`.
+14. Use `taskledger plan upsert --file ./plan.md` for plans that are not based on newly answered questions.
+15. Ensure the plan front matter includes `acceptance_criteria` and `todos`; approved plan todos materialize into the implementation checklist.
+16. For diagnostic commands needed to build the plan, preserve their output in a linked artifact or use `taskledger plan command -- ...`.
+17. A proposed plan must include concrete `acceptance_criteria` and `todos` in front matter unless the user explicitly says the task is trivial.
+18. After writing the plan, do not run `taskledger repair lock`; planning locks are released by plan proposal/upsert. Run `taskledger next-action`.
+19. After `taskledger plan upsert --from-answers`, run `taskledger question status`. If it still reports `Plan regeneration needed: True`, do not ask for approval. Inspect `taskledger question answers`, `taskledger plan show --version N`, and `taskledger doctor`.
+20. Before asking the user to approve, run `taskledger plan lint --version N` and fix lint errors. Lint waiver flags are on `plan approve`/`plan accept`, not on `plan lint`.
+21. Record approval only with clear user intent such as approve, accept, go ahead, or start implementation. Prefer `taskledger plan accept --version N --note "User approved in harness: ..."` for normal chat approval. Use `taskledger plan approve --version N --actor user --approval-source explicit_chat --note "..."` only when explicit actor/source metadata is needed (advanced).
+22. Never replace a user-provided rich plan with only generated YAML criteria and todos. Preserve the user's plan body after the front matter and use front matter only to expose machine-readable fields to Taskledger.
+23. A Taskledger plan is not just YAML front matter. The YAML block is for machine-readable `goal`, `acceptance_criteria`, `todos`, file links, and test commands. The rich human plan must remain as Markdown after the second `---`. Before approval, inspect `taskledger plan show --version N` or the saved `plan-vN.md` and verify that the accepted plan body is non-empty and contains the implementation rationale.
 
 The plan file should use version ids like `plan-v1`, `plan-v2` in references. Do not use zero-padded forms.
 
@@ -268,6 +269,7 @@ To receive work:
 - If a cancelled task is restored with `task uncancel`, run `taskledger next-action` before starting work. If the task still has a running implementation run, resume that run instead of starting a new one.
 - If `taskledger next-action` recommends a command but `taskledger can <action>` rejects it, treat this as a lifecycle inconsistency. Run `taskledger doctor` and follow the repair guidance.
 - Use `taskledger repair run --task TASK --run RUN --reason "..."` only when diagnostics identify an orphaned running planning run with no matching active lock.
+- If doctor reports a running implementation run with no matching lock and the task is still resumable, run `taskledger implement resume --task TASK --run RUN --reason "Reacquire implementation lock."`.
 - Never use repair to bypass approval, validation, or active implementation locks.
 - If validation fails, record the failure and return to implementation or replanning.
 - If indexes are stale, run `taskledger repair index`; `taskledger reindex` is a compatibility alias.
@@ -298,7 +300,10 @@ taskledger task create "Parser fix" --slug parser-fix
 taskledger task follow-up parser-fix "Rename parser copy" --description "Small post-completion delta." --activate
 taskledger question add --text "Should legacy storage be removed?" --required-for-plan
 taskledger question add-many --required-for-plan --text $'What release boundary should be used?\nShould the changelog include validation evidence?'
-taskledger question answer-many --text "q-0001: No."
+taskledger question answer --question q-0001 --text "No." --from-user-chat
+taskledger question answer-many --text $'q-0001: No.\nq-0002: Yes.' --from-user-chat
+taskledger question answer-many --text "q-0001: No." --text "q-0002: Yes." --from-user-chat
+taskledger question answer-many --file answers.yaml --source explicit_user_chat
 taskledger question status
 taskledger question answers
 taskledger question list --status answered
@@ -315,6 +320,7 @@ taskledger context --for spec-reviewer --run run-0008
 taskledger context --for code-reviewer --run run-0008
 taskledger release tag 0.4.1 --at-task task-0030 --note "0.4.1 released"
 taskledger release changelog 0.4.2 --since 0.4.1 --until-task task-0035 --output /tmp/taskledger-0.4.2-changelog-source.md
+taskledger import ./taskledger-transfer.tar.gz --dry-run
 taskledger ledger status
 taskledger ledger fork feature-a
 taskledger ledger switch main

@@ -321,23 +321,13 @@ def _todo_is_concrete(todo: TaskTodo) -> bool:
     if not text:
         return False
 
-    # Fewer than 3 meaningful words
-    words = [w for w in text.split() if len(w) > 1]
-    if len(words) < 3:
-        return False
-
-    # Too short
-    stripped = text.replace(" ", "")
-    if len(stripped) < 12:
-        return False
-
     # Generic phrase match
     if text.lower().strip() in _GENERIC_TODO_PHRASES:
         return False
 
     # Contains a file path, module path, function, class, command, or test
     concrete_indicators = [
-        re.compile(r"[.\w/\\]+\.\w{1,4}"),  # file paths like foo.py, bar.rs
+        re.compile(r"[.\w/\\-]+\.\w{1,8}"),  # file paths like foo.py, bar.rs
         re.compile(r"`[^`]+`"),  # backticked commands/symbols
         re.compile(r"\w+\.\w+\("),  # function calls like foo.bar()
         re.compile(r"\btests?/\w"),  # test directory references
@@ -360,6 +350,16 @@ def _todo_is_concrete(todo: TaskTodo) -> bool:
     if "/" in text or "\\" in text or "." in text:
         return True
 
+    # Fewer than 3 meaningful words
+    words = [w for w in text.split() if len(w) > 1]
+    if len(words) < 3:
+        return False
+
+    # Too short
+    stripped = text.replace(" ", "")
+    if len(stripped) < 12:
+        return False
+
     return False
 
 
@@ -368,7 +368,7 @@ def _has_file_reference(plan: PlanRecord) -> bool:
         return True
     # Check body for file-like paths
     for line in plan.body.splitlines():
-        if re.search(r"[.\w/\\]+\.\w{1,4}", line):
+        if re.search(r"[.\w/\\-]+\.\w{1,8}", line):
             return True
     return False
 

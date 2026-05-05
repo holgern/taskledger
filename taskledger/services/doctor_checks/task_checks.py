@@ -125,13 +125,36 @@ def scan_task_integrity(  # noqa: C901
                 f"Task {task.id} has a running run without a matching active lock."
             )
             for run in running_runs:
-                next_command = "taskledger doctor"
+                next_command = f"taskledger task show --task {task.id}"
+                note = "Inspect task and run state before choosing repair."
                 if run.run_type == "planning":
                     next_command = (
                         "taskledger repair run "
                         f"--task {task.id} --run {run.run_id} "
                         '--reason "Finish orphaned planning run."'
                     )
+                    note = "Planning run can be explicitly finished with repair run."
+                elif run.run_type == "implementation":
+                    if (
+                        run.run_id == task.latest_implementation_run
+                        and task.status_stage
+                        in {"approved", "implementing", "failed_validation"}
+                    ):
+                        next_command = (
+                            "taskledger implement resume "
+                            f"--task {task.id} --run {run.run_id} "
+                            '--reason "Reacquire implementation lock."'
+                        )
+                        note = (
+                            "Reacquire the missing implementation lock for this "
+                            "running run."
+                        )
+                    else:
+                        next_command = "taskledger doctor locks"
+                        note = (
+                            "Historical or non-resumable implementation run. "
+                            "Inspect run state before repair."
+                        )
                 run_lock_mismatches.append(
                     {
                         "kind": "running_run_without_matching_lock",
@@ -140,6 +163,7 @@ def scan_task_integrity(  # noqa: C901
                         "run_type": run.run_type,
                         "status": run.status,
                         "next_command": next_command,
+                        "note": note,
                     }
                 )
 

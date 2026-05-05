@@ -883,6 +883,36 @@ def test_v2_lock_break_and_expired_lock_report(tmp_path: Path) -> None:
     assert not lock_path.exists()
 
 
+def test_doctor_human_reports_non_looping_implementation_mismatch_hint(
+    tmp_path: Path,
+) -> None:
+    task_id, run_id = _prepare_resumable_implementation_task(tmp_path)
+    _break_task_lock(tmp_path, task_ref="resume-task")
+
+    result = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "doctor"],
+    )
+
+    assert result.exit_code == 0, result.stdout
+    assert "Run/lock mismatches:" in result.stdout
+    assert f"- {task_id} implementation {run_id}" in result.stdout
+    assert "taskledger implement resume" in result.stdout
+    assert "taskledger doctor" not in result.stdout
+
+
+def test_doctor_verbose_option_is_supported(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+
+    result = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "doctor", "--verbose"],
+    )
+
+    assert result.exit_code == 0, result.stdout
+    assert "healthy:" in result.stdout
+
+
 def test_implement_resume_reacquires_lock_after_break(tmp_path: Path) -> None:
     task_id, run_id = _prepare_resumable_implementation_task(tmp_path)
     _break_task_lock(tmp_path)

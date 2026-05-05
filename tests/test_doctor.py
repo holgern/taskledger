@@ -301,6 +301,7 @@ def test_inspect_running_run_without_matching_lock(tmp_path: Path) -> None:
                 "taskledger repair run --task task-0001 --run run-0001 "
                 '--reason "Finish orphaned planning run."'
             ),
+            "note": "Planning run can be explicitly finished with repair run.",
         }
     ]
 
@@ -350,6 +351,9 @@ def test_doctor_reports_missing_lock_for_running_implementation_with_recovery_hi
         "taskledger implement resume --task task-0001 --reason" in hint
         for hint in result["repair_hints"]
     )
+    mismatch = result["run_lock_mismatches"][0]
+    assert mismatch["next_command"].startswith("taskledger implement resume")
+    assert mismatch["next_command"] != "taskledger doctor"
 
 
 def test_inspect_lock_without_running_run(tmp_path: Path) -> None:
