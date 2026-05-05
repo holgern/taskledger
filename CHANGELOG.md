@@ -1,5 +1,51 @@
 # Changelog
 
+## v0.3.0 - 2026-05-05
+
+### Added
+
+- Added agent command transcript logging: opt-in config, append-only NDJSON storage, CLI stdout/stderr tee capture, managed-shell capture, `task transcript` command, and `task report --include command-log` section. Export/import preserves transcript archives.
+- Added planning guidance profiles: `plan guidance` command, `--include-guidance` plan template injection, and `prompt_profiles.planning` config with advisory required-fields rendering.
+- Added transcript review mode as the default `task transcript` output, with `--raw` flag for the original table view, duplicate log ID warnings, and logical-row grouping for wrapper/managed-shell pairs.
+- Added enriched command metadata: tier, deprecated, replaced_by, ledger_effect, workspace_effect, external_effect, and agent_safe fields on CommandSpec. Added `--tier` and `--include-deprecated` CLI filters. Deprecated `lock break` in favor of `repair lock`.
+- Added first-class expired-lock resume path: `implement resume --repair-expired-lock` releases expired implementation locks with audit trail, and `next-action` emits `expired-lock-resume` when applicable.
+- Added task-resource positional refs for read-only commands (`task show`, `task view`, etc.) with explicit `--task` required for destructive commands (`task cancel`, `task uncancel`, `task edit`).
+- Added JSON usage-error envelopes for workflow positional-ref rejection and CLI parse errors.
+- Added soft task archive: `task archive`/`task unarchive` commands, archived-task visibility filtering across list/tree/status, and slug reuse semantics.
+- Added export/import project metadata guard, dry-run safety, and include-flag controls.
+- Added plan revision workflow: `plan export`, `plan amend`, and `--auto-revise` with safe plan input path guard and plan.amended audit events.
+- Added plan approval provenance: approval_source and approved_plan_hash stored on acceptance, with hash-mismatch warnings in reports.
+- Added implement finish warning for missing git change scans.
+
+### Changed
+
+- Split run/lock helpers into `services/run_store.py` from the tasks.py monolith; `tasks.py` re-exports for backward compatibility.
+- Wrapper commands now mirror inner exit status by default instead of always succeeding.
+- Planning guidance recommendation is now integrated into `plan start` and `next-action` with a one-time viewed marker.
+- Plan lint human output now renders summary and issue details instead of bare pass/fail.
+- Question `answer-many` now validates repeat inputs, aliases, and provenance.
+- Doctor mismatch guidance and verbose output improved with actionable repair hints.
+
+### Fixed
+
+- Fixed task report Plans section so non-accepted plans show reviewable details instead of being omitted.
+- Fixed pre-commit `--all-files` regressions across test files.
+
+### Documentation
+
+- Documented planning guidance profiles in README, usage, command contract, API, and skill.
+- Documented transcript logging, managed command capture, and review mode in usage and skill.
+- Documented expired-lock-resume path and `--repair-expired-lock` in SKILL.md.
+- Documented command-surface safety guidance, task-resource positional refs, and destructive-target rules in SKILL.md and command contract.
+- Documented plan revision workflow commands and safety semantics in SKILL.md and command examples.
+- Updated failure-review remediation hints for known mistakes in docs and skill.
+
+### Quality
+
+- Added regression test modules for agent command logging, expired-lock resume, task archive, and plan revision workflow.
+- Expanded command inventory, CLI contract, JSON contract, and docs/skill tests for metadata enrichment, deprecation, targeting, and envelope behavior.
+- Full suite: 770+ tests passing, ruff and mypy clean.
+
 ## v0.2.0 - 2026-05-03
 
 ### Added
