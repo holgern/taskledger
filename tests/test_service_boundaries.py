@@ -55,8 +55,14 @@ CLI_SERVICES_IMPORT_WHITELIST: dict[str, str] = {
     "taskledger/cli_plan.py:taskledger.services.actors": (
         "Plan commands resolve actor/harness context."
     ),
+    "taskledger/cli_plan.py:taskledger.services.plan_editing": (
+        "Plan input path validation currently lives in services/plan_editing.py."
+    ),
     "taskledger/cli_plan.py:taskledger.services.plan_lint": (
         "Plan lint payload model is still service-owned."
+    ),
+    "taskledger/cli_question.py:taskledger.services.actors": (
+        "Question commands resolve actor/harness context."
     ),
     "taskledger/cli_plan.py:taskledger.services.workflow_guidance": (
         "Planning guidance profile read model is service-owned."
@@ -85,10 +91,10 @@ CLI_SERVICES_IMPORT_WHITELIST: dict[str, str] = {
 }
 
 EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
-    "taskledger/cli.py:207": (
-        "Top-level command dispatch keeps unexpected crashes in structured output."
+    "taskledger/cli.py:210": (
+        "Optional command group import fallback reports missing modules gracefully."
     ),
-    "taskledger/cli.py:672": (
+    "taskledger/cli.py:850": (
         "Serve command optional import fallback reports missing dashboard gracefully."
     ),
     "taskledger/cli_ledger.py:111": (
@@ -130,8 +136,8 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
     "taskledger/services/doctor_checks/task_checks.py:55": (
         "Task scan continues past broken introduction ref resolution."
     ),
-    "taskledger/services/tree.py:246": (
-        "Tree command keeps partial output when optional metadata parsing fails."
+    "taskledger/services/tree.py:258": (
+        "Tree command handles task ref resolution errors by returning empty."
     ),
     "taskledger/services/web_dashboard.py:299": (
         "Dashboard request handling must keep the server alive on unexpected "
@@ -154,15 +160,17 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
         "Path probe falls back when environment inspection raises platform-"
         "specific errors."
     ),
-    "taskledger/storage/project_config.py:317": (
-        "TOML parser error handling catches runtime-specific exceptions."
+    "taskledger/storage/project_config.py:328": (
+        "TOML parser error handling catches runtime-specific exceptions "
+        "during project config loading."
     ),
-    "taskledger/storage/task_store.py:367": (
-        "Task-store metadata fallback keeps reads available when optional front "
-        "matter parse fails."
+    "taskledger/storage/task_store.py:413": (
+        "rewrite_task_refs falls back to plain string replacement when "
+        "front matter parsing fails."
     ),
-    "taskledger/storage/task_store.py:885": (
-        "Task-store listing tolerates partial decode errors and keeps scanning."
+    "taskledger/storage/task_store.py:931": (
+        "list_handoffs_with_errors tolerates malformed handoff records "
+        "and continues scanning."
     ),
 }
 

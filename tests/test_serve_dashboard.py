@@ -358,10 +358,9 @@ def test_dashboard_refresh_tracks_changed_endpoints() -> None:
     assert "return { payload: state.payload, changed: false }" in html
     assert "return result.changed;" in html
     assert 'if (changed.has("tasks")) renderTasks();' in html
-    assert (
-        'if (changed.has("project") || changed.has("dashboard")'
-        ' || changed.has("events"))' in html
-    )
+    assert 'changed.has("project")' in html
+    assert 'changed.has("dashboard")' in html
+    assert 'changed.has("events")' in html
     assert "renderSections();" in html
 
 

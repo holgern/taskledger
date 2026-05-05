@@ -74,7 +74,16 @@ def _init_task_with_questions(tmp_path: Path) -> None:
     assert (
         runner.invoke(
             app,
-            ["--cwd", str(tmp_path), "question", "answer", "q-0001", "--text", "A1"],
+            [
+                "--cwd",
+                str(tmp_path),
+                "question",
+                "answer",
+                "q-0001",
+                "--text",
+                "A1",
+                "--from-user-chat",
+            ],
         ).exit_code
         == 0
     )
