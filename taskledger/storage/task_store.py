@@ -24,6 +24,7 @@ from taskledger.domain.models import (
     CodeChangeRecord,
     DependencyRequirement,
     FileLink,
+    ImplementationCheckRecord,
     IntroductionRecord,
     LinkCollection,
     PlanRecord,
@@ -541,6 +542,35 @@ def resolve_change(
     raise LaunchError(f"Change not found: {change_id}")
 
 
+def list_checks(workspace_root: Path, task_id: str) -> list[ImplementationCheckRecord]:
+    paths = resolve_v2_paths(workspace_root)
+    directory = task_checks_dir(paths, task_id)
+    return sorted(
+        [_load_check(path) for path in directory.glob("check-*.md")],
+        key=lambda c: c.check_id,
+    )
+
+
+def save_check(
+    workspace_root: Path,
+    check: ImplementationCheckRecord,
+) -> ImplementationCheckRecord:
+    paths = ensure_v2_layout(workspace_root)
+    path = check_markdown_path(paths, check.task_id, check.check_id)
+    _write_markdown_record(path, check.to_dict(), "")
+    return check
+
+
+def resolve_check(
+    workspace_root: Path, task_id: str, check_id: str
+) -> ImplementationCheckRecord:
+    normalized_id = _normalize_numeric_ref(check_id, "check")
+    for check in list_checks(workspace_root, task_id):
+        if check.check_id == check_id or check.check_id == normalized_id:
+            return check
+    raise LaunchError(f"Check not found: {check_id}")
+
+
 def load_active_locks(workspace_root: Path) -> list[TaskLock]:
     paths = ensure_v2_layout(workspace_root)
     locks: list[TaskLock] = []
@@ -740,6 +770,10 @@ def task_changes_dir(paths: V2Paths, task_id: str) -> Path:
     return task_dir(paths, task_id) / "changes"
 
 
+def task_checks_dir(paths: V2Paths, task_id: str) -> Path:
+    return task_dir(paths, task_id) / "checks"
+
+
 def task_artifacts_dir(paths: V2Paths, task_id: str) -> Path:
     return task_dir(paths, task_id) / "artifacts"
 
@@ -791,6 +825,10 @@ def change_markdown_path(paths: V2Paths, task_id: str, change_id: str) -> Path:
     return task_changes_dir(paths, task_id) / f"{change_id}.md"
 
 
+def check_markdown_path(paths: V2Paths, task_id: str, check_id: str) -> Path:
+    return task_checks_dir(paths, task_id) / f"{check_id}.md"
+
+
 def _load_task(path: Path) -> TaskRecord:
     return _load_record(path, TaskRecord.from_dict)
 
@@ -817,6 +855,10 @@ def _load_run(path: Path) -> TaskRunRecord:
 
 def _load_change(path: Path) -> CodeChangeRecord:
     return _load_record(path, CodeChangeRecord.from_dict)
+
+
+def _load_check(path: Path) -> ImplementationCheckRecord:
+    return _load_record(path, ImplementationCheckRecord.from_dict)
 
 
 def _load_record(path: Path, parser: Callable[[dict[str, object]], T]) -> T:

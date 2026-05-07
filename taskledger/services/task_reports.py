@@ -29,6 +29,7 @@ VALID_SECTIONS = (
     "acceptance-criteria",
     "todos",
     "implementation",
+    "checks",
     "changes",
     "command-log",
     "validation",
@@ -67,6 +68,7 @@ IMPLEMENTATION_SECTIONS = (
     "acceptance-criteria",
     "todos",
     "implementation",
+    "checks",
     "changes",
     "locks",
     "next-action",
@@ -79,6 +81,7 @@ VALIDATION_SECTIONS = (
     "acceptance-criteria",
     "todos",
     "implementation",
+    "checks",
     "changes",
     "validation",
     "next-action",
@@ -96,6 +99,7 @@ FULL_SECTIONS = (
     "acceptance-criteria",
     "todos",
     "implementation",
+    "checks",
     "changes",
     "command-log",
     "validation",
@@ -185,6 +189,7 @@ def build_task_report_payload(
     from taskledger.services.validation import build_validation_gate_report
     from taskledger.storage.task_store import (
         list_changes,
+        list_checks,
         list_plans,
         list_questions,
         list_runs,
@@ -213,11 +218,15 @@ def build_task_report_payload(
             val: object = list_plans(workspace_root, task.id)
         elif key == "questions":
             val = list_questions(workspace_root, task.id)
-        elif key in ("runs", "changes"):
+        elif key in ("runs", "changes", "checks"):
             val = (
                 list_runs(workspace_root, task.id)
                 if key == "runs"
-                else list_changes(workspace_root, task.id)
+                else (
+                    list_changes(workspace_root, task.id)
+                    if key == "changes"
+                    else list_checks(workspace_root, task.id)
+                )
             )
         elif key == "todos":
             val = load_todos(workspace_root, task.id).todos
@@ -299,6 +308,7 @@ def render_task_report_markdown(payload: dict[str, object]) -> str:
         "todos": _append_todos,
         "implementation": _append_implementation,
         "changes": _append_changes,
+        "checks": _append_checks,
         "command-log": _append_command_log,
         "validation": _append_validation,
         "locks": _append_locks,
@@ -859,6 +869,60 @@ def _append_implementation(
         lines.append("")
 
 
+def _append_checks(
+    lines: list[str],
+    task: object,
+    _load: object,
+    accepted_plan: object,
+    options: TaskReportOptions,
+) -> None:
+    from taskledger.domain.models import (
+        CodeChangeRecord,
+        ImplementationCheckRecord,
+        TaskRecord,
+    )
+
+    assert isinstance(task, TaskRecord)
+    checks = _load("checks")  # type: ignore[operator]
+    changes = _load("changes")  # type: ignore[operator]
+
+    # Collect legacy command changes as checks
+    legacy_checks: list[dict[str, object]] = []
+    for ch in changes or []:
+        if isinstance(ch, CodeChangeRecord) and ch.kind == "command":
+            legacy_checks.append(ch.to_dict())
+        elif isinstance(ch, dict) and ch.get("kind") == "command":
+            legacy_checks.append(ch)
+
+    all_items: list[dict[str, object]] = []
+    for ck in checks or []:
+        if isinstance(ck, ImplementationCheckRecord):
+            all_items.append(ck.to_dict())
+        elif isinstance(ck, dict):
+            all_items.append(ck)
+    all_items.extend(legacy_checks)
+
+    lines.append("## Checks")
+    lines.append("")
+
+    if not all_items:
+        lines.append("- none")
+        lines.append("")
+        return
+
+    lines.append("| ID | Category | Status | Exit | Command |")
+    lines.append("| --- | --- | --- | ---: | --- |")
+    for item in all_items:
+        cid = item.get("check_id") or item.get("change_id", "?")
+        cat = item.get("category", "other")
+        status = item.get("status", "unknown")
+        exit_code = item.get("exit_code")
+        cmd = item.get("command", "?")
+        exit_str = str(exit_code) if exit_code is not None else "?"
+        lines.append(f"| {cid} | {cat} | {status} | {exit_str} | `{cmd}` |")
+    lines.append("")
+
+
 def _append_changes(
     lines: list[str],
     task: object,
@@ -880,8 +944,12 @@ def _append_changes(
 
     for ch in changes:
         if isinstance(ch, CodeChangeRecord):
+            if ch.kind == "command":
+                continue  # shown under Checks
             lines.append(f"- {ch.kind} `{ch.path}`: {ch.summary}")
         elif isinstance(ch, dict):
+            if ch.get("kind") == "command":
+                continue  # shown under Checks
             k = ch.get("kind", "?")
             p = ch.get("path", "?")
             s = ch.get("summary", "?")

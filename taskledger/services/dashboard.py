@@ -8,6 +8,7 @@ from taskledger.services.validation import build_validation_gate_report
 from taskledger.storage.locks import lock_is_expired
 from taskledger.storage.task_store import (
     list_changes,
+    list_checks,
     list_plans,
     list_questions,
     list_runs,
@@ -36,6 +37,7 @@ def dashboard(
     questions = list_questions(workspace_root, task.id)
     runs = list_runs(workspace_root, task.id)
     changes = list_changes(workspace_root, task.id)
+    checks = list_checks(workspace_root, task.id)
 
     active_stage: str | None = None
     if lock is not None and not lock_is_expired(lock):
@@ -88,6 +90,7 @@ def dashboard(
         },
         "runs": [r.to_dict() for r in runs],
         "changes": [c.to_dict() for c in changes],
+        "checks": [c.to_dict() for c in checks],
         "validation": build_validation_gate_report(workspace_root, task),
         "events": _recent_task_events(workspace_root, task.id),
         "lock": lock.to_dict() if lock is not None else None,
@@ -233,11 +236,46 @@ def render_dashboard_text(payload: dict[str, object]) -> str:  # noqa: C901
 
     lines.append("")
 
-    # changes
-    changes = payload.get("changes")
-    if isinstance(changes, list | tuple) and len(changes) > 0:
-        lines.append(f"Changes: {len(changes)}")
-        for c in changes:
+    changes_raw = payload.get("changes") or []
+    checks = payload.get("checks") or []
+    legacy_command_changes = [
+        c
+        for c in (changes_raw if isinstance(changes_raw, list | tuple) else [])
+        if isinstance(c, dict) and c.get("kind") == "command"
+    ]
+    all_checks = (
+        list(checks if isinstance(checks, list) else []) + legacy_command_changes
+    )
+    if isinstance(all_checks, list | tuple) and len(all_checks) > 0:
+        lines.append(f"Checks: {len(all_checks)}")
+        for ck in all_checks:
+            assert isinstance(ck, dict)
+            if "check_id" in ck:
+                ck_id = ck.get("check_id", "?")
+                ck_cmd = ck.get("command", "?")
+                ck_exit = ck.get("exit_code")
+                ck_cat = ck.get("category", "other")
+                exit_str = f" (exit {ck_exit})" if ck_exit is not None else ""
+                lines.append(f"  {ck_id} {ck_cat} {ck_cmd}{exit_str}")
+            else:
+                # Legacy command change displayed as check
+                ck_id = ck.get("change_id", "?")
+                ck_cmd = ck.get("command", ck.get("summary", "?"))
+                ck_exit = ck.get("exit_code")
+                exit_str = f" (exit {ck_exit})" if ck_exit is not None else ""
+                lines.append(f"  {ck_id} {ck_cmd}{exit_str}")
+    else:
+        lines.append("Checks: none")
+    # changes (exclude legacy command records shown as checks above)
+    changes_raw = payload.get("changes") or []
+    real_changes = [
+        c
+        for c in (changes_raw if isinstance(changes_raw, list | tuple) else [])
+        if isinstance(c, dict) and c.get("kind") != "command"
+    ]
+    if isinstance(real_changes, list | tuple) and len(real_changes) > 0:
+        lines.append(f"Changes: {len(real_changes)}")
+        for c in real_changes:
             assert isinstance(c, dict)
             cid = c.get("change_id", "?")
             cpath = c.get("path", "?")

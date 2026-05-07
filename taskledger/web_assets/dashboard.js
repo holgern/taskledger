@@ -1062,6 +1062,42 @@ function renderRunsSection(runs) {
   );
 }
 
+function renderChecksSection(checks) {
+  if (!checks)
+    return emptyState(endpointOrFallback("dashboard", "Loading checks..."));
+  if (checks.length === 0)
+    return emptyState("No verification checks are recorded.");
+  const taskKey = dashboardTaskKey();
+  return h(
+    "div",
+    { class: "change-grid" },
+    checks.map((check) => {
+      const statusClass =
+        check.status === "passed"
+          ? "success"
+          : check.status === "failed"
+          ? "danger"
+          : "info";
+      const card = h("div", { class: "item-card" }, [
+        h("div", { class: "item-title" }, [
+          h("strong", { text: check.command || check.check_id || "?" }),
+          badge(check.category || "check", "info"),
+          badge(check.status || "unknown", statusClass),
+        ]),
+        h("code", { text: `exit ${check.exit_code ?? "?"}` }),
+      ]);
+      card.append(
+        jsonDetails(
+          "Check metadata",
+          check,
+          "check." + taskKey + "." + (check.check_id || "check") + ".metadata"
+        )
+      );
+      return card;
+    })
+  );
+}
+
 function renderChangesSection(changes) {
   if (!changes)
     return emptyState(endpointOrFallback("dashboard", "Loading changes..."));
@@ -1210,6 +1246,11 @@ function renderSections() {
       "Runs",
       renderRunsSection(dashboard?.runs),
       "section.runs." + taskKey
+    ),
+    collapsibleCard(
+      "Checks",
+      renderChecksSection(dashboard?.checks),
+      "section.checks." + taskKey
     ),
     collapsibleCard(
       "Changes",

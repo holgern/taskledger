@@ -433,20 +433,26 @@ def run_implementation_command(
             run.run_id,
             output,
         )
-    change = _tasks.add_change(
+    from taskledger.services.check_tracking import (
+        add_check,
+        classify_check_command,
+    )
+
+    check = add_check(
         workspace_root,
         task_ref,
-        path=".",
-        kind="command",
-        summary=_tasks._command_summary(argv, completed.returncode, artifact_ref),
+        argv=argv,
         command=shlex.join(argv),
         exit_code=completed.returncode,
+        summary=_tasks._command_summary(argv, completed.returncode, artifact_ref),
+        category=classify_check_command(argv),
         artifact_refs=((artifact_ref,) if artifact_ref else ()),
     )
     return {
-        "kind": "implementation_command",
-        "task_id": change.task_id,
-        "change": change.to_dict(),
+        "kind": "implementation_check",
+        "task_id": check.task_id,
+        "check": check.to_dict(),
+        "change": None,
         "exit_code": completed.returncode,
         "artifact_path": artifact_ref,
         "stdout": completed.stdout,

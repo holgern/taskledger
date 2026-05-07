@@ -307,10 +307,14 @@ def command_command(
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+    check_data = payload.get("check") or {}
     emit_payload(
         ctx,
         payload,
-        human=f"ran implementation command exit={payload['exit_code']}",
+        human=(
+            f"recorded check {check_data.get('check_id', '?')}"
+            f" exit={payload['exit_code']}"
+        ),
     )
     raw_exit_code = payload.get("exit_code", 0)
     if isinstance(raw_exit_code, int):

@@ -164,11 +164,11 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
         "TOML parser error handling catches runtime-specific exceptions "
         "during project config loading."
     ),
-    "taskledger/storage/task_store.py:413": (
+    "taskledger/storage/task_store.py:414": (
         "rewrite_task_refs falls back to plain string replacement when "
         "front matter parsing fails."
     ),
-    "taskledger/storage/task_store.py:931": (
+    "taskledger/storage/task_store.py:970": (
         "list_handoffs_with_errors tolerates malformed handoff records "
         "and continues scanning."
     ),

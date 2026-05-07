@@ -164,12 +164,12 @@ def test_implement_command_records_stdout_stderr_and_exit_code(
         )
     )
     command_payload = result["result"]
-    assert command_payload["kind"] == "implementation_command"
+    assert command_payload["kind"] == "implementation_check"
     assert command_payload["exit_code"] == 0
     assert "ok" in command_payload["stdout"]
     assert "err" in command_payload["stderr"]
-    assert command_payload["change"]["kind"] == "command"
-    assert command_payload["change"]["exit_code"] == 0
+    assert command_payload["check"]["category"] in ("test", "other")
+    assert command_payload["check"]["exit_code"] == 0
 
 
 def test_implement_command_mirrors_inner_exit_code_by_default(tmp_path: Path) -> None:

@@ -16,6 +16,7 @@ from taskledger.domain.models import (
     CodeChangeRecord,
     DependencyRequirement,
     FileLink,
+    ImplementationCheckRecord,
     IntroductionRecord,
     LinkCollection,
     PlanRecord,
@@ -58,6 +59,7 @@ from taskledger.storage.task_store import (
     resolve_v2_paths,
     save_active_task_state,
     save_change,
+    save_check,
     save_handoff,
     save_introduction,
     save_links,
@@ -72,6 +74,7 @@ from taskledger.storage.task_store import (
     task_lock_path,
 )
 from taskledger.storage.task_store import list_changes as list_v2_changes
+from taskledger.storage.task_store import list_checks as list_v2_checks
 from taskledger.storage.task_store import list_handoffs as list_v2_handoffs
 from taskledger.storage.task_store import list_introductions as list_v2_introductions
 from taskledger.storage.task_store import list_plans as list_v2_plans
@@ -258,6 +261,11 @@ def _export_v2_payload(
             for task in tasks
             for change in list_v2_changes(workspace_root, task.id)
         ],
+        "checks": [
+            check.to_dict()
+            for task in tasks
+            for check in list_v2_checks(workspace_root, task.id)
+        ],
         "handoffs": [
             handoff.to_dict()
             for task in tasks
@@ -424,6 +432,8 @@ def _import_v2_payload(  # noqa: C901
         save_run(workspace_root, TaskRunRecord.from_dict(item))
     for item in _dict_list(raw_v2.get("changes")):
         save_change(workspace_root, CodeChangeRecord.from_dict(item))
+    for item in _dict_list(raw_v2.get("checks")):
+        save_check(workspace_root, ImplementationCheckRecord.from_dict(item))
     for item in _dict_list(raw_v2.get("handoffs")):
         save_handoff(workspace_root, TaskHandoffRecord.from_dict(item))
     _import_locks(paths, raw_v2, lock_policy=normalized_lock_policy)

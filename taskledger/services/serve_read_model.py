@@ -36,6 +36,7 @@ from taskledger.storage.locks import lock_is_expired
 from taskledger.storage.paths import resolve_project_paths
 from taskledger.storage.task_store import (
     list_changes,
+    list_checks,
     list_plans,
     list_questions,
     list_runs,
@@ -78,6 +79,7 @@ class TaskDashboardSnapshot:
     questions: list[QuestionRecord]
     runs: list[TaskRunRecord]
     changes: list[dict[str, object]]
+    checks: list[dict[str, object]]
     todos: TodoCollection
     requirements: RequirementCollection
 
@@ -190,6 +192,7 @@ def serve_dashboard_snapshot(
         },
         "runs": [run.to_dict() for run in snapshot.runs],
         "changes": snapshot.changes if options.include_changes else [],
+        "checks": snapshot.checks if options.include_changes else [],
         "lock": snapshot.lock.to_dict() if snapshot.lock is not None else None,
     }
     if options.include_validation:
@@ -238,6 +241,7 @@ def _load_task_dashboard_snapshot(
         questions=list_questions(workspace_root, task.id),
         runs=list_runs(workspace_root, task.id),
         changes=[change.to_dict() for change in list_changes(workspace_root, task.id)],
+        checks=[check.to_dict() for check in list_checks(workspace_root, task.id)],
         todos=load_todos(workspace_root, task.id),
         requirements=load_requirements(workspace_root, task.id),
     )

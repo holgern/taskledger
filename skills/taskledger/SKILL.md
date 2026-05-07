@@ -142,7 +142,7 @@ The plan file should use version ids like `plan-v1`, `plan-v2` in references. Do
    - `taskledger implement change --path ... --kind edit --summary "..."`
    - Run verification through `taskledger implement command -- ...` so exit code and output are recorded.
    - `implement command` mirrors the inner command exit code by default. Use `--allow-failure` when you intentionally want to record a non-zero command without failing the wrapper command.
-   - Mark each todo done only after the relevant command or inspection evidence exists: `taskledger todo done <todo-id> --evidence "implement command change-NNNN exited 0"`.
+   - Mark each todo done only after the relevant command or inspection evidence exists: `taskledger todo done <todo-id> --evidence "check-NNNN exited 0"`.
    - Optional: add `--source planner|implementer|user` to override the inferred source, though this is rarely needed.
 6. `taskledger implement checklist` after each meaningful change to track progress.
 7. In Git workspaces, prefer `taskledger implement scan-changes --from-git --summary "..."` before `implement finish` so change evidence includes a git-backed reconciliation checkpoint.

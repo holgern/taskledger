@@ -45,6 +45,7 @@ class TaskRunRecord:
     worklog: tuple[str, ...] = ()
     deviations_from_plan: tuple[str, ...] = ()
     change_refs: tuple[str, ...] = ()
+    check_refs: tuple[str, ...] = ()
     todo_updates: tuple[str, ...] = ()
     artifact_refs: tuple[str, ...] = ()
     checks: tuple[ValidationCheck, ...] = ()
@@ -79,6 +80,7 @@ class TaskRunRecord:
             "worklog": list(self.worklog),
             "deviations_from_plan": list(self.deviations_from_plan),
             "change_refs": list(self.change_refs),
+            "check_refs": list(self.check_refs),
             "todo_updates": list(self.todo_updates),
             "artifact_refs": list(self.artifact_refs),
             "checks": [item.to_dict() for item in self.checks],
@@ -114,6 +116,7 @@ class TaskRunRecord:
             worklog=_string_tuple(data.get("worklog")),
             deviations_from_plan=_string_tuple(data.get("deviations_from_plan")),
             change_refs=_string_tuple(data.get("change_refs")),
+            check_refs=_string_tuple(data.get("check_refs")),
             todo_updates=_string_tuple(data.get("todo_updates")),
             artifact_refs=_string_tuple(data.get("artifact_refs")),
             checks=tuple(

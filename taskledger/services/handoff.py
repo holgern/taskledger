@@ -27,6 +27,7 @@ from taskledger.services.workflow_guidance import (
 from taskledger.storage.locks import lock_is_expired, lock_status, read_lock
 from taskledger.storage.task_store import (
     list_changes,
+    list_checks,
     list_plans,
     list_questions,
     list_runs,
@@ -178,6 +179,7 @@ def build_handoff_payload(
     runs = list_runs(workspace_root, task.id)
     todos = list(load_todos(workspace_root, task.id).todos)
     changes = list_changes(workspace_root, task.id)
+    checks = list_checks(workspace_root, task.id)
     accepted_plan = (
         resolve_plan(workspace_root, task.id, version=task.accepted_plan_version)
         if task.accepted_plan_version is not None
@@ -257,6 +259,7 @@ def build_handoff_payload(
         "lock": lock.to_dict() if lock is not None else None,
         "lock_status": lock_status(lock),
         "changes": [change.to_dict() for change in changes],
+        "checks": [check.to_dict() for check in checks],
         "focused_changes": focus["focused_changes"],
         "validation_history": validation_history,
         "validation_status": validation_status_report,
@@ -332,7 +335,8 @@ def render_markdown_handoff(payload: dict[str, object]) -> str:
     elif context_for == "validator":
         _append_todo_completion_summary(lines, payload.get("todo_summary"))
         _append_implementation_summary(lines, payload["runs"])
-        _append_change_log(lines, payload["changes"])
+        _append_change_log(lines, payload["changes"], include_commands=False)
+        _append_checks_log(lines, payload.get("checks"), payload["changes"])
         _append_validation_status(lines, payload.get("validation_status"))
         _append_validation_history(lines, payload["validation_history"])
         _append_required_commands(lines, payload.get("accepted_plan"))
@@ -360,7 +364,8 @@ def render_markdown_handoff(payload: dict[str, object]) -> str:
         _append_todos(lines, payload["todos"])
         _append_lock_and_runs(lines, payload)
         _append_implementation_summary(lines, payload["runs"])
-        _append_change_log(lines, payload["changes"])
+        _append_change_log(lines, payload["changes"], include_commands=False)
+        _append_checks_log(lines, payload.get("checks"), payload["changes"])
         _append_validation_status(lines, payload.get("validation_status"))
         _append_validation_history(lines, payload["validation_history"])
         _append_required_commands(lines, payload.get("accepted_plan"))
@@ -736,15 +741,45 @@ def _append_implementation_summary(lines: list[str], runs: object) -> None:
     lines.append("")
 
 
-def _append_change_log(lines: list[str], changes: object) -> None:
+def _append_change_log(
+    lines: list[str], changes: object, *, include_commands: bool = True
+) -> None:
     if not isinstance(changes, list):
         return
+    filtered = changes
+    if not include_commands:
+        filtered = [
+            c for c in changes if isinstance(c, dict) and c.get("kind") != "command"
+        ]
     lines.extend(["## Code Changes", ""])
-    for item in changes:
+    for item in filtered:
         if isinstance(item, dict):
             lines.append(f"- @{item['path']}: {item['summary']}")
-    if not changes:
+    if not filtered:
         lines.append("- none")
+    lines.append("")
+
+
+def _append_checks_log(lines: list[str], checks: object, changes: object) -> None:
+    all_checks: list[dict] = []
+    if isinstance(checks, list):
+        for ck in checks:
+            if isinstance(ck, dict):
+                all_checks.append(ck)
+    # Legacy command changes displayed as checks
+    if isinstance(changes, list):
+        for ch in changes:
+            if isinstance(ch, dict) and ch.get("kind") == "command":
+                all_checks.append(ch)
+    if not all_checks:
+        return
+    lines.extend(["## Checks", ""])
+    for ck in all_checks:
+        cid = ck.get("check_id") or ck.get("change_id", "?")
+        cmd = ck.get("command", "?")
+        exit_code = ck.get("exit_code")
+        exit_str = f" (exit {exit_code})" if exit_code is not None else ""
+        lines.append(f"- {cid}: `{cmd}`{exit_str}")
     lines.append("")
 
 

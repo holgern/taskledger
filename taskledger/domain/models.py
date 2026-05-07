@@ -7,6 +7,7 @@ from taskledger.domain.active_state import (
 )
 from taskledger.domain.actor import ActorRef, HarnessRef
 from taskledger.domain.change import AgentCommandLogRecord, CodeChangeRecord
+from taskledger.domain.check import ImplementationCheckRecord
 from taskledger.domain.event import TaskEvent
 from taskledger.domain.handoff import TaskHandoffRecord
 from taskledger.domain.lock import TaskLock
