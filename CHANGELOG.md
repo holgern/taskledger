@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.3.1 - 2026-05-12
+
+### Added
+
+- Added task-scoped export/import with `--task` positional ref on export, safe ID remapping (`--id-policy preserve|renumber`), counter repair, and artifact path remapping on import. Full-ledger export remains the default; single-task archives filter task-scoped records and clear `active_task`.
+- Added `taskledger plan review` command to show the current or specified plan version with structured JSON output and content rendering.
+- Added `next-action` routing to recommend `plan review --version N` when a plan is awaiting approval.
+
+### Documentation
+
+- Updated README, command contract, and SKILL.md for task-scoped transfer workflow and `plan review` command.
+
+### Quality
+
+- Added regression coverage for task-scoped export/import ID mapping, conflict policy, counter repair, artifact remap, and plan review end-to-end.
+- Full suite: 878 tests passing, ruff and mypy clean.
+
 ## v0.3.0 - 2026-05-05
 
 ### Added
