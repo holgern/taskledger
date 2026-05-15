@@ -27,4 +27,4 @@ required_question_topics = []
 extra_guidance = ""
 
 [agent_logging]
-enabled = true
+enabled = false
