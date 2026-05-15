@@ -309,9 +309,68 @@ DEFAULT_PROJECT_TOML = DEFAULT_TASKLEDGER_TOML
 _DEFAULT_CONFIG = ProjectConfig()
 
 
+def update_taskledger_dir(config_path: Path, taskledger_dir: str) -> None:
+    if not config_path.exists():
+        raise LaunchError(f"Project config does not exist: {config_path}")
+    try:
+        current_text = config_path.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        raise LaunchError(f"Failed to read {config_path}: {exc}") from exc
+    updated_text = _apply_taskledger_dir_patch(current_text, taskledger_dir)
+    from taskledger.storage.atomic import atomic_write_text
+
+    atomic_write_text(config_path, updated_text)
+
+
 def load_project_config_overrides(paths: ProjectPaths) -> dict[str, object]:
     data = load_project_config_document(paths.config_path)
     return {key: value for key, value in data.items() if key in WORKFLOW_CONFIG_KEYS}
+
+
+def _apply_taskledger_dir_patch(text: str, taskledger_dir: str) -> str:
+    lines = text.split("\n") if text else []
+    rendered = repr(taskledger_dir)
+    found = False
+    new_lines: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("taskledger_dir") and _is_toml_key_line(
+            stripped, "taskledger_dir"
+        ):
+            new_lines.append(f"taskledger_dir = {rendered}")
+            found = True
+        else:
+            new_lines.append(line)
+    if found:
+        return _join_lines(new_lines)
+
+    insert_at = 0
+    for idx, line in enumerate(new_lines):
+        stripped = line.strip()
+        if stripped.startswith("config_version") and _is_toml_key_line(
+            stripped, "config_version"
+        ):
+            insert_at = idx + 1
+            break
+    new_lines.insert(insert_at, f"taskledger_dir = {rendered}")
+    return _join_lines(new_lines)
+
+
+def _is_toml_key_line(stripped: str, key: str) -> bool:
+    if not stripped.startswith(key):
+        return False
+    rest = stripped[len(key) :]
+    if not rest:
+        return False
+    rest = rest.lstrip()
+    return rest.startswith("=")
+
+
+def _join_lines(lines: list[str]) -> str:
+    result = "\n".join(lines)
+    if result and not result.endswith("\n"):
+        result += "\n"
+    return result
 
 
 def load_project_config_document(path: Path) -> dict[str, object]:

@@ -91,10 +91,10 @@ CLI_SERVICES_IMPORT_WHITELIST: dict[str, str] = {
 }
 
 EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
-    "taskledger/cli.py:210": (
+    "taskledger/cli.py:223": (
         "Optional command group import fallback reports missing modules gracefully."
     ),
-    "taskledger/cli.py:850": (
+    "taskledger/cli.py:863": (
         "Serve command optional import fallback reports missing dashboard gracefully."
     ),
     "taskledger/cli_ledger.py:111": (
@@ -160,7 +160,7 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
         "Path probe falls back when environment inspection raises platform-"
         "specific errors."
     ),
-    "taskledger/storage/project_config.py:328": (
+    "taskledger/storage/project_config.py:387": (
         "TOML parser error handling catches runtime-specific exceptions "
         "during project config loading."
     ),

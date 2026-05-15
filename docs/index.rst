@@ -18,6 +18,7 @@ Contents
    public_surface
    command_contract
    transfer
+   sync
 
 Indices and tables
 ------------------

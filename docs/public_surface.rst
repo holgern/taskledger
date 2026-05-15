@@ -12,6 +12,7 @@ Supported CLI groups
 
 - ``task``, ``plan``, ``question``, ``implement``, ``validate``, ``todo``
 - ``intro``, ``file``, ``link``, ``require``, ``release``, ``lock``, ``handoff``
+- ``storage``, ``sync``
 - ``doctor``, ``repair``, ``next-action``, ``can``, ``reindex``
 - ``init``, ``status``, ``export``, ``import``, ``snapshot``
 - ``context``, ``view``, ``serve``, ``search``, ``grep``, ``symbols``, ``deps``
@@ -54,6 +55,12 @@ todo subcommands
 - ``todo add``, ``todo list``, ``todo done``, ``todo show``, ``todo status``, ``todo next``
 - Todo source is inferred from active lock: ``implementer`` during implementation, ``planner`` during planning, ``user`` otherwise.
 
+storage and sync subcommands
+----------------------------
+
+- ``storage where``, ``storage move --to PATH --mode copy|move [--adopt-existing] [--force]``
+- ``sync preflight``, ``sync status``, ``sync commit --message "..."``
+
 Supported Python API modules
 ----------------------------
 
@@ -66,6 +73,7 @@ Supported Python API modules
 - ``taskledger.api.locks``
 - ``taskledger.api.handoff``
 - ``taskledger.api.releases``
+- ``taskledger.api.storage``
 - ``taskledger.api.search``
 
 ``taskledger.api.task_runs`` includes the public lifecycle helpers

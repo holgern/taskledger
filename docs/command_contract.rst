@@ -191,7 +191,7 @@ Ledger commands
 ---------------
 
 Branch-scoped ledgers isolate ignored local task state by the checked-in
-``ledger_ref`` stored in ``.taskledger.toml``:
+``ledger_ref`` stored in ``taskledger.toml``:
 
 .. code-block:: bash
 
@@ -204,9 +204,34 @@ Branch-scoped ledgers isolate ignored local task state by the checked-in
 
 ``ledger fork`` creates a new local namespace under
 ``.taskledger/ledgers/<ref>/`` and updates only Taskledger-owned ledger keys in
-``.taskledger.toml``. ``ledger switch`` changes the checked-in pointer to an
+``taskledger.toml``. ``ledger switch`` changes the checked-in pointer to an
 existing local ledger. ``ledger adopt`` copies a task from another local ledger
 into the current ledger and renumbers on collision.
+
+Storage and sync helper commands
+--------------------------------
+
+Taskledger also exposes local storage discovery and sync helpers:
+
+.. code-block:: bash
+
+   taskledger storage where
+   taskledger storage move --to ../taskledger-state/project-a --mode copy|move [--adopt-existing] [--force]
+   taskledger sync preflight
+   taskledger sync status
+   taskledger sync commit --message "Sync project-a taskledger state"
+
+Rules:
+
+* ``storage where`` is read-only and reports the resolved workspace root,
+  config path, ``taskledger_dir``, project identity, ledger ref, Git detection,
+  and active lock count.
+* ``storage move`` updates ``taskledger.toml`` atomically after the target has
+  been copied or explicitly adopted.
+* ``sync preflight`` performs only local checks. It must not perform network
+  push/pull operations.
+* ``sync status`` and ``sync commit`` operate only on the Git repository that
+  contains the resolved ``taskledger_dir``.
 ``next-action`` result contract
 -------------------------------
 

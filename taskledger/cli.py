@@ -61,6 +61,7 @@ from taskledger.cli_misc import (
 )
 from taskledger.cli_plan import register_plan_v2_commands
 from taskledger.cli_question import register_question_v2_commands
+from taskledger.cli_storage import register_storage_commands, register_sync_commands
 from taskledger.cli_task import register_task_v2_commands
 from taskledger.cli_validate import register_validate_v2_commands
 from taskledger.command_inventory import COMMAND_METADATA
@@ -94,6 +95,14 @@ release_app = typer.Typer(
     add_completion=False,
     help="Manage release tags and changelog context.",
 )
+storage_app = typer.Typer(
+    add_completion=False,
+    help="Inspect and migrate storage locations.",
+)
+sync_app = typer.Typer(
+    add_completion=False,
+    help="Preflight and manage local storage sync helpers.",
+)
 repair_app = typer.Typer(add_completion=False, help="Repair taskledger state.")
 doctor_app = typer.Typer(
     add_completion=False,
@@ -114,6 +123,8 @@ app.add_typer(require_app, name="require")
 app.add_typer(lock_app, name="lock")
 app.add_typer(handoff_app, name="handoff")
 app.add_typer(release_app, name="release")
+app.add_typer(storage_app, name="storage")
+app.add_typer(sync_app, name="sync")
 app.add_typer(doctor_app, name="doctor")
 app.add_typer(repair_app, name="repair")
 app.add_typer(migrate_app, name="migrate")
@@ -133,6 +144,8 @@ register_link_v2_commands(link_app)
 register_require_v2_commands(require_app)
 register_lock_v2_commands(lock_app)
 register_handoff_v2_commands(handoff_app)
+register_storage_commands(storage_app)
+register_sync_commands(sync_app)
 
 
 def _optional_group_failure(

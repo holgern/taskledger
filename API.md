@@ -12,6 +12,7 @@ This repository exposes a task-first public API. The supported modules are:
 - `taskledger.api.locks`
 - `taskledger.api.handoff`
 - `taskledger.api.releases`
+- `taskledger.api.storage`
 - `taskledger.api.search`
 
 ## Import boundary
@@ -233,6 +234,14 @@ record body and return compact metadata, including `context_hash` and
 - `show_release`
 - `tag_release`
 
+### `taskledger.api.storage`
+
+- `storage_where`
+- `storage_move`
+- `sync_preflight`
+- `sync_status`
+- `sync_commit`
+
 ### `taskledger.api.search`
 
 - `search_workspace`
@@ -256,6 +265,8 @@ The public task-first CLI surface is organized around these command groups:
 - `require`
 - `release`
 - `lock`
+- `storage`
+- `sync`
 - `context`
 - `handoff`
 - `repair`

@@ -29,7 +29,7 @@ The supported command surface is organized as:
 
 **Operations:**
 
-- `context`, `next-action`, `can`, `search`, `grep`, `symbols`, `deps`, `actor`, `view`, `serve`
+- `context`, `next-action`, `can`, `search`, `grep`, `symbols`, `deps`, `actor`, `view`, `serve`, `storage`, `sync`
 
 **Repair and inspection:**
 
@@ -298,12 +298,13 @@ fresh-context transfer.
 ## Storage layout
 
 `taskledger` keeps project-local configuration in the workspace root and durable
-records under the configured storage root. The checked-in `.taskledger.toml`
-stores only a branch-scoped ledger pointer and next task number. Operational task
-state remains ignored under `.taskledger/ledgers/<ledger_ref>/`:
+records under the configured storage root. The checked-in `taskledger.toml`
+stores project identity plus the current branch-scoped ledger pointer and next
+task number. Operational task state remains ignored under
+`.taskledger/ledgers/<ledger_ref>/`:
 
 ```text
-.taskledger.toml
+taskledger.toml
 .taskledger/
   storage.yaml
   ledgers/
@@ -321,7 +322,7 @@ optional derived caches or registries and are not required for task correctness.
 
 ### Branch-scoped ledgers
 
-`.taskledger/` stays ignored and local. `.taskledger.toml` is safe to commit and
+`.taskledger/` stays ignored and local. `taskledger.toml` is safe to commit and
 contains the current `ledger_ref`, optional parent ref, and the next logical task
 number for the checked-out source branch.
 
@@ -331,10 +332,10 @@ the Git branch:
 ```bash
 git checkout -b feature-a
 taskledger ledger fork feature-a
-git add .taskledger.toml
+git add taskledger.toml
 ```
 
-Returning to a branch whose `.taskledger.toml` points back to `main` hides the
+Returning to a branch whose `taskledger.toml` points back to `main` hides the
 feature branch's active task and task list. Two ledgers may both contain a logical
 `task-0030`; this is expected because task IDs are scoped by `ledger_ref`. Use
 `taskledger ledger adopt --from REF TASK_REF` when branch-local task history
@@ -349,14 +350,48 @@ taskledger init --taskledger-dir /mnt/cloud/taskledger/project-a
 ```text
 /home/me/src/project-a/taskledger.toml
 /mnt/cloud/taskledger/project-a/storage.yaml
-/mnt/cloud/taskledger/project-a/releases/
-/mnt/cloud/taskledger/project-a/tasks/
-/mnt/cloud/taskledger/project-a/events/
-/mnt/cloud/taskledger/project-a/indexes/
+/mnt/cloud/taskledger/project-a/ledgers/main/releases/
+/mnt/cloud/taskledger/project-a/ledgers/main/tasks/
+/mnt/cloud/taskledger/project-a/ledgers/main/events/
+/mnt/cloud/taskledger/project-a/ledgers/main/indexes/
 ```
 
 Use one `taskledger_dir` per source project. Do not share one storage directory
 across unrelated repositories.
+
+### Sync across PCs without committing `.taskledger/`
+
+Use a sibling private Git repository for the external storage root instead of
+committing `.taskledger/` into the source repository:
+
+```toml
+# /home/me/src/project-a/taskledger.toml
+taskledger_dir = "../taskledger-state/project-a"
+```
+
+```text
+/home/me/src/project-a/                  # source repo
+/home/me/src/taskledger-state/           # private state repo
+/home/me/src/taskledger-state/project-a/ # taskledger_dir
+```
+
+Keep one active writer at a time. Before starting on a PC, pull the private
+state repo, then run `taskledger doctor` and `taskledger next-action`. After
+stopping at a clean lifecycle boundary, commit and push the state repo. If work
+must move mid-run, prefer `taskledger export TASK_REF` / `taskledger import
+ARCHIVE` because imported runtime locks are quarantined by default.
+
+Helpful local commands:
+
+```bash
+taskledger storage where
+taskledger sync preflight
+taskledger sync status
+taskledger sync commit --message "Sync project-a taskledger state"
+```
+
+See `docs/sync.rst` for the full second-PC bootstrap, daily sync protocol, and
+Syncthing/rclone caveats.
 
 ## JSON output
 

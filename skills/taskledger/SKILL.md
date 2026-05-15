@@ -79,10 +79,10 @@ If any `taskledger ...` command fails with a Python traceback before taskledger 
 
 ## Branch-scoped ledger protocol
 
-- `.taskledger/` is ignored local state. `.taskledger.toml` is checked in and
+- `.taskledger/` is ignored local state. `taskledger.toml` is checked in and
   stores the current `ledger_ref` and next task number.
 - After creating a long-lived Git branch, run `taskledger ledger fork REF` and
-  commit the `.taskledger.toml` change with the branch work.
+  commit the `taskledger.toml` change with the branch work.
 - Default commands read only the current ledger under
   `.taskledger/ledgers/<ledger_ref>/`.
 - Duplicate logical task IDs in different ledgers are expected. Use
@@ -193,6 +193,8 @@ Rules for agents:
 | Active task summary        | `task show`                                         |
 | Specific task summary      | `task show TASK_REF` or `task show --task TASK_REF` |
 | Project/ledger overview    | `status`, `tree`                                    |
+| Storage location           | `storage where`                                     |
+| Sync safety check          | `sync preflight`                                    |
 | Human dashboard            | `serve`                                             |
 | Reviewable markdown report | `task report`                                       |
 | Fresh worker context       | `context` or durable `handoff show`                 |
@@ -339,6 +341,9 @@ taskledger ledger fork feature-a
 taskledger ledger switch main
 taskledger ledger adopt --from feature-a task-0030
 taskledger ledger doctor
+taskledger storage where
+taskledger sync preflight
+taskledger sync status
 taskledger implement resume --reason "Reacquire implementation lock for existing running run."
 taskledger implement resume --repair-expired-lock --reason "Continue after expired lock."
 taskledger implement restart --summary "Fix failed validation findings."
