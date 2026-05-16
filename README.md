@@ -378,8 +378,7 @@ taskledger_dir = "../taskledger-state/project-a"
 Keep one active writer at a time. Before starting on a PC, pull the private
 state repo, then run `taskledger doctor` and `taskledger next-action`. After
 stopping at a clean lifecycle boundary, commit and push the state repo. If work
-must move mid-run, prefer `taskledger export TASK_REF` / `taskledger import
-ARCHIVE` because imported runtime locks are quarantined by default.
+must move mid-run, prefer `taskledger export TASK_REF` / `taskledger import ARCHIVE` because imported runtime locks are quarantined by default.
 
 Helpful local commands:
 

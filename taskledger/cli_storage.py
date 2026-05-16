@@ -68,7 +68,7 @@ def _render_sync_preflight(payload: dict[str, object]) -> str:
 
 def _render_storage_move(payload: dict[str, object]) -> str:
     lines = [
-        f"{payload['mode'].capitalize()}d storage to {payload['target']}",
+        f"{str(payload['mode']).capitalize()}d storage to {payload['target']}",
         f"Config: {payload['config_path']}",
         f"Source: {payload['source']}",
     ]

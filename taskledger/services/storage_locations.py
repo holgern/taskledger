@@ -211,8 +211,8 @@ def build_sync_preflight_report(workspace_root: Path) -> SyncPreflightReport:
             doctor_warnings = ()
         else:
             doctor_healthy = bool(doctor["healthy"])
-            doctor_errors = tuple(str(item) for item in doctor["errors"])
-            doctor_warnings = tuple(str(item) for item in doctor["warnings"])
+            doctor_errors = tuple(str(item) for item in doctor["errors"])  # type: ignore[attr-defined]
+            doctor_warnings = tuple(str(item) for item in doctor["warnings"])  # type: ignore[attr-defined]
     else:
         doctor_healthy = False
         doctor_errors = (
@@ -289,7 +289,7 @@ def move_taskledger_storage(
         atomic_write_text(locator.config_path, original_config_text)
         raise LaunchError(
             "taskledger doctor failed after updating taskledger_dir:\n"
-            + "\n".join(str(item) for item in doctor["errors"])
+            + "\n".join(str(item) for item in doctor["errors"])  # type: ignore[attr-defined]
         )
 
     backup_path: Path | None = None
@@ -323,7 +323,7 @@ def move_taskledger_storage(
         adopted_existing=adopt_existing,
         backup_path=backup_path.as_posix() if backup_path is not None else None,
         doctor_healthy=bool(doctor["healthy"]),
-        doctor_errors=tuple(str(item) for item in doctor["errors"]),
+        doctor_errors=tuple(str(item) for item in doctor["errors"]),  # type: ignore[attr-defined]
         next_commands=tuple(next_commands),
         warnings=tuple(warnings),
     )

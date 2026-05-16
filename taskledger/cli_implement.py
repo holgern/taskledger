@@ -307,7 +307,7 @@ def command_command(
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-    check_data = payload.get("check") or {}
+    check_data: dict[str, object] = payload.get("check") or {}  # type: ignore[assignment]
     emit_payload(
         ctx,
         payload,
