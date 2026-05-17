@@ -186,19 +186,19 @@ Rules for agents:
 
 ## Which read command to use
 
-| Need                       | Command                                             |
-| -------------------------- | --------------------------------------------------- |
-| Next step                  | `next-action`                                       |
-| Next implementation item   | `todo next`                                         |
-| Active task summary        | `task show`                                         |
-| Specific task summary      | `task show TASK_REF` or `task show --task TASK_REF` |
-| Project/ledger overview    | `status`, `tree`                                    |
-| Storage location           | `storage where`                                     |
-| Sync safety check          | `sync preflight`                                    |
-| Human dashboard            | `serve`                                             |
-| Reviewable report          | `task report` or `report html`                      |
-| Fresh worker context       | `context` or durable `handoff show`                 |
-| Command audit              | `task transcript`                                   |
+| Need                     | Command                                             |
+| ------------------------ | --------------------------------------------------- |
+| Next step                | `next-action`                                       |
+| Next implementation item | `todo next`                                         |
+| Active task summary      | `task show`                                         |
+| Specific task summary    | `task show TASK_REF` or `task show --task TASK_REF` |
+| Project/ledger overview  | `status`, `tree`                                    |
+| Storage location         | `storage where`                                     |
+| Sync safety check        | `sync preflight`                                    |
+| Human dashboard          | `serve`                                             |
+| Reviewable report        | `task report` or `report html`                      |
+| Fresh worker context     | `context` or durable `handoff show`                 |
+| Command audit            | `task transcript`                                   |
 
 ## Validation protocol
 

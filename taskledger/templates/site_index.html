@@ -1,9 +1,13 @@
-{% extends "base.html" %}
-{% block content %}
+{% extends "base.html" %} {% block content %}
 <section id="project-summary" aria-labelledby="project-summary-heading">
   <h2 id="project-summary-heading">Project summary</h2>
   {% if active_task %}
-  <p>Active task: <a href="tasks/{{ active_task.task_id }}.html">{{ active_task.task_id }} — {{ active_task.title }}</a></p>
+  <p>
+    Active task:
+    <a href="tasks/{{ active_task.task_id }}.html"
+      >{{ active_task.task_id }} — {{ active_task.title }}</a
+    >
+  </p>
   {% else %}
   <p>No active task.</p>
   {% endif %}
@@ -16,10 +20,16 @@
     {% for task in tasks %}
     <li>
       <article class="task-card" data-task-id="{{ task.id }}">
-        <h3><a href="tasks/{{ task.id }}.html">{{ task.id }} — {{ task.title }}</a></h3>
+        <h3>
+          <a href="tasks/{{ task.id }}.html"
+            >{{ task.id }} — {{ task.title }}</a
+          >
+        </h3>
         <dl>
-          <dt>Status</dt><dd>{{ task.status_stage }}</dd>
-          <dt>Active stage</dt><dd>{{ task.active_stage or "none" }}</dd>
+          <dt>Status</dt>
+          <dd>{{ task.status_stage }}</dd>
+          <dt>Active stage</dt>
+          <dd>{{ task.active_stage or "none" }}</dd>
         </dl>
       </article>
     </li>
@@ -30,4 +40,3 @@
   {% endif %}
 </section>
 {% endblock %}
-

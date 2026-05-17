@@ -1,5 +1,4 @@
-{% extends "base.html" %}
-{% block nav %}
+{% extends "base.html" %} {% block nav %}
 <nav aria-label="Report navigation">
   <ul>
     <li><a href="#summary">Summary</a></li>
@@ -9,16 +8,19 @@
     <li><a href="#events">Events</a></li>
   </ul>
 </nav>
-{% endblock %}
-{% block content %}
+{% endblock %} {% block content %}
 <article class="task-card" data-task-id="{{ task.id }}">
   <header>
     <h2>{{ task.id }} — {{ task.title }}</h2>
     <dl>
-      <dt>Slug</dt><dd><code>{{ task.slug }}</code></dd>
-      <dt>Status</dt><dd>{{ task.status_stage }}</dd>
-      <dt>Active stage</dt><dd>{{ active_stage or "none" }}</dd>
-      <dt>Updated</dt><dd><time>{{ task.updated_at }}</time></dd>
+      <dt>Slug</dt>
+      <dd><code>{{ task.slug }}</code></dd>
+      <dt>Status</dt>
+      <dd>{{ task.status_stage }}</dd>
+      <dt>Active stage</dt>
+      <dd>{{ active_stage or "none" }}</dd>
+      <dt>Updated</dt>
+      <dd><time>{{ task.updated_at }}</time></dd>
     </dl>
   </header>
 </article>
@@ -26,7 +28,9 @@
 <section id="summary" aria-labelledby="summary-heading">
   <h2 id="summary-heading">Summary</h2>
   <p><strong>Todo progress:</strong> {{ todos_done }}/{{ todos_total }} done</p>
-  <p><strong>Questions:</strong> {{ questions_open }}/{{ questions_total }} open</p>
+  <p>
+    <strong>Questions:</strong> {{ questions_open }}/{{ questions_total }} open
+  </p>
   <p><strong>Validation:</strong> {{ validation_status }}</p>
   <p><strong>Lock:</strong> {{ lock_stage }}</p>
 </section>
@@ -60,7 +64,10 @@
   {% if requirements %}
   <ul>
     {% for requirement in requirements %}
-    <li><code>{{ requirement.required_task_id or requirement.task_id }}</code> → {{ requirement.required_status }}</li>
+    <li>
+      <code>{{ requirement.required_task_id or requirement.task_id }}</code> →
+      {{ requirement.required_status }}
+    </li>
     {% endfor %}
   </ul>
   {% else %}
@@ -110,8 +117,8 @@
   <ul>
     {% for todo in todos %}
     <li>
-      <strong>[{{ "x" if todo.done else " " }}]</strong> <code>{{ todo.id }}</code> — {{ todo.text }}
-      {% if todo.evidence %}
+      <strong>[{{ "x" if todo.done else " " }}]</strong>
+      <code>{{ todo.id }}</code> — {{ todo.text }} {% if todo.evidence %}
       <ul>
         {% for evidence in todo.evidence %}
         <li>Evidence: {{ evidence }}</li>
@@ -131,7 +138,10 @@
   {% if implementation_runs %}
   <ul>
     {% for run in implementation_runs %}
-    <li><code>{{ run.run_id }}</code> — {{ run.status }}{% if run.summary %}: {{ run.summary }}{% endif %}</li>
+    <li>
+      <code>{{ run.run_id }}</code> — {{ run.status }}{% if run.summary %}: {{
+      run.summary }}{% endif %}
+    </li>
     {% endfor %}
   </ul>
   {% else %}
@@ -144,7 +154,10 @@
   {% if changes %}
   <ul>
     {% for change in changes %}
-    <li>{{ change.kind }} <code>{{ change.path }}</code>{% if change.summary %} — {{ change.summary }}{% endif %}</li>
+    <li>
+      {{ change.kind }} <code>{{ change.path }}</code>{% if change.summary %} —
+      {{ change.summary }}{% endif %}
+    </li>
     {% endfor %}
   </ul>
   {% else %}
@@ -157,7 +170,9 @@
   {% if checks %}
   <ul>
     {% for check in checks %}
-    <li><code>{{ check.check_id or check.change_id }}</code> — {{ check.status }}</li>
+    <li>
+      <code>{{ check.check_id or check.change_id }}</code> — {{ check.status }}
+    </li>
     {% endfor %}
   </ul>
   {% else %}
@@ -179,13 +194,14 @@
   <h2 id="command-log-heading">Command log</h2>
   <ul>
     {% for row in command_logs %}
-    <li><time>{{ row.started_at }}</time> — <code>{{ row.command }}</code> ({{ row.result }})</li>
+    <li>
+      <time>{{ row.started_at }}</time> — <code>{{ row.command }}</code> ({{
+      row.result }})
+    </li>
     {% endfor %}
   </ul>
 </section>
-{% endif %}
-
-{% if events %}
+{% endif %} {% if events %}
 <section id="events" aria-labelledby="events-heading">
   <h2 id="events-heading">Events</h2>
   <ul>
@@ -199,6 +215,4 @@
   <h2 id="events-heading">Events</h2>
   <p>none</p>
 </section>
-{% endif %}
-{% endblock %}
-
+{% endif %} {% endblock %}
