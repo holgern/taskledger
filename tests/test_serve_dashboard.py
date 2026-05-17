@@ -95,7 +95,7 @@ def test_serve_root_returns_html_index_without_task_ref(tmp_path: Path) -> None:
     create_done_task(ws, allow_lint_errors=True)
     with _running_server(ws, task_ref=None) as handle:
         html = _load_html(handle, "/")
-    assert "<!doctype html>" in html
+    assert "<!DOCTYPE html>" in html
     assert "Taskledger HTML reports" in html
     assert "<script" not in html.lower()
 
@@ -105,7 +105,7 @@ def test_serve_root_returns_task_html_with_task_ref(tmp_path: Path) -> None:
     task_id = create_done_task(ws, allow_lint_errors=True)
     with _running_server(ws, task_ref=task_id) as handle:
         html = _load_html(handle, "/")
-    assert "<!doctype html>" in html
+    assert "<!DOCTYPE html>" in html
     assert f"{task_id} —" in html
     assert 'id="summary"' in html
 
@@ -142,7 +142,7 @@ def test_serve_refresh_seconds_sets_meta_refresh(tmp_path: Path) -> None:
     create_done_task(ws, allow_lint_errors=True)
     with _running_server(ws, refresh_seconds=2) as handle:
         html = _load_html(handle, "/")
-    assert '<meta http-equiv="refresh" content="2">' in html
+    assert '<meta http-equiv="refresh" content="2" />' in html
 
 
 def test_serve_rejects_non_get_requests(tmp_path: Path) -> None:
