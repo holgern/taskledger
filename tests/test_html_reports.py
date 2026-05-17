@@ -17,7 +17,7 @@ def test_render_task_report_html_contains_semantic_sections(tmp_path: Path) -> N
     task_id = create_done_task(ws, allow_lint_errors=True)
     payload = render_task_report_html(ws, task_id)
     html = str(payload["content"])
-    assert html.startswith("<!doctype html>")
+    assert html.startswith("<!DOCTYPE html>")
     assert "<main>" in html
     assert 'id="summary"' in html
     assert 'id="next-action"' in html
@@ -57,7 +57,7 @@ def test_render_task_report_html_includes_meta_refresh_when_requested(
         ws, task_id, options=HtmlReportOptions(refresh_seconds=2)
     )
     html = str(payload["content"])
-    assert '<meta http-equiv="refresh" content="2">' in html
+    assert '<meta http-equiv="refresh" content="2" />' in html
 
 
 def test_render_task_report_html_has_no_script_or_fetch_tokens(tmp_path: Path) -> None:
