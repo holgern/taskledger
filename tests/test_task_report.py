@@ -407,7 +407,7 @@ class TestCLIReport:
         assert exit_code == 0, stdout
         assert output_path.exists()
         html = output_path.read_text(encoding="utf-8")
-        assert "<!doctype html>" in html
+        assert "<!DOCTYPE html>" in html
         assert task_id in html
 
     def test_report_html_active_output_writes_file(self, tmp_path: Path) -> None:
