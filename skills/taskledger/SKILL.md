@@ -196,7 +196,7 @@ Rules for agents:
 | Storage location           | `storage where`                                     |
 | Sync safety check          | `sync preflight`                                    |
 | Human dashboard            | `serve`                                             |
-| Reviewable markdown report | `task report`                                       |
+| Reviewable report          | `task report` or `report html`                      |
 | Fresh worker context       | `context` or durable `handoff show`                 |
 | Command audit              | `task transcript`                                   |
 

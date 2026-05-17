@@ -278,16 +278,18 @@ Rules for agents:
 
 ## Human monitoring UI
 
-`taskledger serve` starts a read-only local dashboard for humans monitoring task
-state. It now emphasizes the active task, next action, progress, blockers, and
-compact task browsing while staying local-only, read-only, and dependency-free.
-The MVP still binds to localhost only, refreshes with read-only JSON polling,
-and exposes no browser mutation endpoints.
+`taskledger serve` starts a read-only local server-rendered HTML dashboard for
+human monitoring. It emphasizes the active task, next action, progress, and
+task browsing while staying local-only and read-only.
 
 ```bash
-taskledger serve
+taskledger report html task-0040 --output task-0040.html
+taskledger report html --active --output active-task.html
+taskledger report site --output .taskledger-report/
+
+taskledger serve --refresh-seconds 2
 taskledger serve --open
-taskledger serve --task rewrite-v2 --refresh-ms 2000
+taskledger serve --task task-0040 --refresh-seconds 2
 ```
 
 Agents should keep using `taskledger next-action`, `taskledger todo next`, and
@@ -449,6 +451,7 @@ taskledger context --for implementation --format markdown
 taskledger context --for validation --format json
 taskledger task dossier --format markdown
 taskledger task report --task task-0030 -o task30.md
+taskledger report html task-0030 --output task30.html
 taskledger handoff create --mode implementation --intended-actor agent --intended-harness codex
 taskledger handoff claim handoff-0001
 taskledger handoff close handoff-0001 --reason "Implementation started."

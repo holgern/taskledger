@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import math
 import re
 import sys
 from collections.abc import Callable
@@ -33,6 +34,7 @@ from taskledger.cli_actor import harness_app
 from taskledger.cli_common import (
     CLIState,
     TaskOption,
+    TaskRefArgument,
     emit_error,
     emit_payload,
     launch_error_exit_code,
@@ -61,6 +63,7 @@ from taskledger.cli_misc import (
 )
 from taskledger.cli_plan import register_plan_v2_commands
 from taskledger.cli_question import register_question_v2_commands
+from taskledger.cli_report import register_report_commands
 from taskledger.cli_storage import register_storage_commands
 from taskledger.cli_sync import register_sync_commands
 from taskledger.cli_task import register_task_v2_commands
@@ -110,6 +113,7 @@ doctor_app = typer.Typer(
     help="Inspect taskledger integrity.",
     invoke_without_command=True,
 )
+report_app = typer.Typer(add_completion=False, help="Render HTML reports.")
 
 app.add_typer(task_app, name="task")
 app.add_typer(plan_app, name="plan")
@@ -132,6 +136,7 @@ app.add_typer(migrate_app, name="migrate")
 app.add_typer(actors_app, name="actor")
 app.add_typer(harness_app, name="harness")
 app.add_typer(ledger_app, name="ledger")
+app.add_typer(report_app, name="report")
 
 register_task_v2_commands(task_app)
 register_plan_v2_commands(plan_app)
@@ -147,6 +152,7 @@ register_lock_v2_commands(lock_app)
 register_handoff_v2_commands(handoff_app)
 register_storage_commands(storage_app)
 register_sync_commands(sync_app)
+register_report_commands(report_app)
 
 
 def _optional_group_failure(
@@ -848,10 +854,21 @@ def commands_command(
 @app.command("serve")
 def serve_command(
     ctx: typer.Context,
-    task_ref: TaskOption = None,
+    task_arg: TaskRefArgument = None,
+    task_ref: Annotated[
+        str | None,
+        typer.Option("--task", hidden=True),
+    ] = None,
     host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
     port: Annotated[int, typer.Option("--port")] = 8765,
-    refresh_ms: Annotated[int, typer.Option("--refresh-ms")] = 1000,
+    refresh_seconds: Annotated[
+        int | None,
+        typer.Option("--refresh-seconds"),
+    ] = 2,
+    refresh_ms: Annotated[
+        int | None,
+        typer.Option("--refresh-ms", hidden=True),
+    ] = None,
     open_browser: Annotated[bool, typer.Option("--open/--no-open")] = False,
 ) -> None:
     state = ctx.obj
@@ -870,13 +887,35 @@ def serve_command(
         emit_error(ctx, error)
         raise typer.Exit(code=launch_error_exit_code(error)) from error
     try:
+        selected_task_ref: str | None = None
+        if task_arg and task_ref and task_arg != task_ref:
+            raise LaunchError(
+                "taskledger serve received both TASK_REF and --task. Use only one.",
+                code="USAGE_ERROR",
+                exit_code=2,
+            )
+        selected_task_ref = task_arg or task_ref
+
+        warnings: list[str] = []
+        if refresh_ms is not None:
+            if refresh_seconds is not None and refresh_seconds != 2:
+                raise LaunchError(
+                    "Use either --refresh-seconds or --refresh-ms, not both.",
+                    code="USAGE_ERROR",
+                    exit_code=2,
+                )
+            refresh_seconds = max(1, math.ceil(refresh_ms / 1000))
+            warnings.append(
+                "--refresh-ms is deprecated; use --refresh-seconds instead."
+            )
+
         handle = launch_dashboard_server(
             DashboardServerConfig(
                 workspace_root=state.cwd,
                 host=host,
                 port=port,
-                task_ref=task_ref,
-                refresh_ms=refresh_ms,
+                task_ref=selected_task_ref,
+                refresh_seconds=refresh_seconds,
                 open_browser=open_browser,
             )
         )
@@ -890,8 +929,10 @@ def serve_command(
             "url": handle.url,
             "host": handle.host,
             "port": handle.port,
+            "refresh_seconds": refresh_seconds,
         },
-        human=f"Serving taskledger dashboard at {handle.url}\nPress Ctrl-C to stop.",
+        human=f"Serving taskledger HTML reports at {handle.url}\nPress Ctrl-C to stop.",
+        warnings=warnings if warnings else None,
     )
     try:
         handle.serve_forever()

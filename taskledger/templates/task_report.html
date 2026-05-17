@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block nav %}
+<nav aria-label="Report navigation">
+  <ul>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#next-action">Next action</a></li>
+    <li><a href="#todos">Todos</a></li>
+    <li><a href="#validation">Validation</a></li>
+    <li><a href="#events">Events</a></li>
+  </ul>
+</nav>
+{% endblock %}
+{% block content %}
+<article class="task-card" data-task-id="{{ task.id }}">
+  <header>
+    <h2>{{ task.id }} — {{ task.title }}</h2>
+    <dl>
+      <dt>Slug</dt><dd><code>{{ task.slug }}</code></dd>
+      <dt>Status</dt><dd>{{ task.status_stage }}</dd>
+      <dt>Active stage</dt><dd>{{ active_stage or "none" }}</dd>
+      <dt>Updated</dt><dd><time>{{ task.updated_at }}</time></dd>
+    </dl>
+  </header>
+</article>
+
+<section id="summary" aria-labelledby="summary-heading">
+  <h2 id="summary-heading">Summary</h2>
+  <p><strong>Todo progress:</strong> {{ todos_done }}/{{ todos_total }} done</p>
+  <p><strong>Questions:</strong> {{ questions_open }}/{{ questions_total }} open</p>
+  <p><strong>Validation:</strong> {{ validation_status }}</p>
+  <p><strong>Lock:</strong> {{ lock_stage }}</p>
+</section>
+
+<section id="next-action" aria-labelledby="next-action-heading">
+  <h2 id="next-action-heading">Next action</h2>
+  {% if next_action %}
+  <p><strong>Action:</strong> {{ next_action.action or "none" }}</p>
+  <p><strong>Reason:</strong> {{ next_action.reason or "none" }}</p>
+  {% else %}
+  <p>No next action.</p>
+  {% endif %}
+</section>
+
+<section id="description" aria-labelledby="description-heading">
+  <h2 id="description-heading">Description</h2>
+  <pre>{{ task.body or task.description_summary or "(no description)" }}</pre>
+</section>
+
+<section id="relationships" aria-labelledby="relationships-heading">
+  <h2 id="relationships-heading">Relationships</h2>
+  {% if relationships %}
+  <pre>{{ relationships }}</pre>
+  {% else %}
+  <p>none</p>
+  {% endif %}
+</section>
+
+<section id="requirements" aria-labelledby="requirements-heading">
+  <h2 id="requirements-heading">Requirements</h2>
+  {% if requirements %}
+  <ul>
+    {% for requirement in requirements %}
+    <li><code>{{ requirement.required_task_id or requirement.task_id }}</code> → {{ requirement.required_status }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>none</p>
+  {% endif %}
+</section>
+
+<section id="files" aria-labelledby="files-heading">
+  <h2 id="files-heading">Files</h2>
+  {% if links %}
+  <ul>
+    {% for link in links %}
+    <li><code>{{ link.path }}</code> — {{ link.kind }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>none</p>
+  {% endif %}
+</section>
+
+<section id="accepted-plan" aria-labelledby="accepted-plan-heading">
+  <h2 id="accepted-plan-heading">Accepted plan</h2>
+  {% if accepted_plan %}
+  <p><strong>Version:</strong> {{ accepted_plan.plan_version }}</p>
+  <pre>{{ accepted_plan.body or "(accepted plan body is empty)" }}</pre>
+  {% else %}
+  <p>No accepted plan.</p>
+  {% endif %}
+</section>
+
+<section id="acceptance-criteria" aria-labelledby="criteria-heading">
+  <h2 id="criteria-heading">Acceptance criteria</h2>
+  {% if acceptance_criteria %}
+  <ol>
+    {% for criterion in acceptance_criteria %}
+    <li><code>{{ criterion.id }}</code> — {{ criterion.text }}</li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <p>none</p>
+  {% endif %}
+</section>
+
+<section id="todos" aria-labelledby="todos-heading">
+  <h2 id="todos-heading">Todos</h2>
+  {% if todos %}
+  <ul>
+    {% for todo in todos %}
+    <li>
+      <strong>[{{ "x" if todo.done else " " }}]</strong> <code>{{ todo.id }}</code> — {{ todo.text }}
+      {% if todo.evidence %}
+      <ul>
+        {% for evidence in todo.evidence %}
+        <li>Evidence: {{ evidence }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>none</p>
+  {% endif %}
+</section>
+
+<section id="implementation" aria-labelledby="implementation-heading">
+  <h2 id="implementation-heading">Implementation runs</h2>
+  {% if implementation_runs %}
+  <ul>
+    {% for run in implementation_runs %}
+    <li><code>{{ run.run_id }}</code> — {{ run.status }}{% if run.summary %}: {{ run.summary }}{% endif %}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>none</p>
+  {% endif %}
+</section>
+
+<section id="changes" aria-labelledby="changes-heading">
+  <h2 id="changes-heading">Changes</h2>
+  {% if changes %}
+  <ul>
+    {% for change in changes %}
+    <li>{{ change.kind }} <code>{{ change.path }}</code>{% if change.summary %} — {{ change.summary }}{% endif %}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>none</p>
+  {% endif %}
+</section>
+
+<section id="checks" aria-labelledby="checks-heading">
+  <h2 id="checks-heading">Checks</h2>
+  {% if checks %}
+  <ul>
+    {% for check in checks %}
+    <li><code>{{ check.check_id or check.change_id }}</code> — {{ check.status }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>none</p>
+  {% endif %}
+</section>
+
+<section id="validation" aria-labelledby="validation-heading">
+  <h2 id="validation-heading">Validation</h2>
+  {% if validation_report %}
+  <pre>{{ validation_report }}</pre>
+  {% else %}
+  <p>none</p>
+  {% endif %}
+</section>
+
+{% if command_logs %}
+<section id="command-log" aria-labelledby="command-log-heading">
+  <h2 id="command-log-heading">Command log</h2>
+  <ul>
+    {% for row in command_logs %}
+    <li><time>{{ row.started_at }}</time> — <code>{{ row.command }}</code> ({{ row.result }})</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if events %}
+<section id="events" aria-labelledby="events-heading">
+  <h2 id="events-heading">Events</h2>
+  <ul>
+    {% for event in events %}
+    <li><time>{{ event.ts }}</time> — {{ event.event }}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% else %}
+<section id="events" aria-labelledby="events-heading">
+  <h2 id="events-heading">Events</h2>
+  <p>none</p>
+</section>
+{% endif %}
+{% endblock %}
+

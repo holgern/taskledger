@@ -41,6 +41,9 @@ CLI_SERVICES_IMPORT_WHITELIST: dict[str, str] = {
     "taskledger/cli.py:taskledger.services.web_dashboard": (
         "Serve command starts the optional web dashboard service."
     ),
+    "taskledger/cli_report.py:taskledger.services.html_reports": (
+        "Root report commands render HTML reports via the html_reports service."
+    ),
     "taskledger/cli_actor.py:taskledger.services.actors": (
         "Actor and harness resolution currently lives in services/actors.py."
     ),
@@ -95,10 +98,10 @@ CLI_SERVICES_IMPORT_WHITELIST: dict[str, str] = {
 }
 
 EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
-    "taskledger/cli.py:224": (
+    "taskledger/cli.py:230": (
         "Optional command group import fallback reports missing modules gracefully."
     ),
-    "taskledger/cli.py:864": (
+    "taskledger/cli.py:881": (
         "Serve command optional import fallback reports missing dashboard gracefully."
     ),
     "taskledger/cli_ledger.py:111": (
@@ -142,10 +145,6 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
     ),
     "taskledger/services/tree.py:258": (
         "Tree command handles task ref resolution errors by returning empty."
-    ),
-    "taskledger/services/web_dashboard.py:299": (
-        "Dashboard request handling must keep the server alive on unexpected "
-        "route errors."
     ),
     "taskledger/storage/ledger_config.py:85": (
         "Ledger config loader reports parse/runtime differences consistently "

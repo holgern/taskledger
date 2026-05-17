@@ -42,6 +42,21 @@ Task-resource commands accept the task as their direct positional resource:
    taskledger task unarchive task-0001 --reason "Restore task"
    taskledger task report task-0001
 
+Root reporting commands render standalone HTML:
+
+.. code-block:: bash
+
+   taskledger report html task-0040 --output task-0040.html
+   taskledger report html --active --output active-task.html
+   taskledger report site --output .taskledger-report/
+
+Serve supports optional positional task selection and refresh in seconds:
+
+.. code-block:: bash
+
+   taskledger serve --refresh-seconds 2
+   taskledger serve --task task-0040 --refresh-seconds 2
+
 Optional positional task refs are not supported for workflow commands.
 
 Plan guidance command
@@ -395,12 +410,12 @@ Human monitoring UI
 
 .. code-block:: bash
 
-   taskledger serve [--host 127.0.0.1] [--port 8765] [--task TASK_REF] [--refresh-ms 1000] [--open/--no-open]
+   taskledger serve [TASK_REF] [--host 127.0.0.1] [--port 8765] [--refresh-seconds 2] [--open/--no-open]
 
 Rules:
 
 * the MVP binds only to localhost;
-* it serves read-only HTML plus read-only JSON endpoints;
+* it serves read-only server-rendered HTML pages;
 * browser actions are not part of the MVP;
 * agents should continue to use ``next-action``, ``context``, ``view``, and
   ``--json`` commands as the canonical automation interface.

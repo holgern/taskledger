@@ -266,16 +266,18 @@ Rules for agents:
 Human monitoring UI
 -------------------
 
-``taskledger serve`` starts a read-only localhost dashboard for a human
-operator. It emphasizes the active task, next action, progress, blockers, and
-compact task browsing while continuing to refresh with JSON polling and expose
-no browser write actions.
+``taskledger serve`` starts a read-only localhost server-rendered HTML
+dashboard for a human operator. It re-renders HTML on each request and can add
+meta refresh when requested.
 
 .. code-block:: bash
 
-   taskledger serve
+   taskledger report html task-0040 --output task-0040.html
+   taskledger report html --active --output active-task.html
+   taskledger report site --output .taskledger-report/
+   taskledger serve --refresh-seconds 2
    taskledger serve --open
-   taskledger serve --task rewrite-v2 --refresh-ms 2000
+   taskledger serve --task task-0040 --refresh-seconds 2
 
 Agents should continue to use ``next-action``, ``todo next``, and ``--json`` as
 the canonical machine interface for routine same-session work. Reach for
@@ -292,7 +294,8 @@ It is for humans who want to review, archive, or share a task outside the termin
    taskledger task report --task task-0030 --include command-log
    taskledger task report --task task-0030
 
-``context`` is agent-handoff-oriented. ``task report`` is human-oriented.
+``context`` is agent-handoff-oriented. ``task report`` and root ``report`` HTML
+commands are human-oriented.
 ``task dossier`` remains the full agent-context dump.
 
 ``task transcript`` renders a per-task command transcript from the ledger-level

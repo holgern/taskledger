@@ -26,6 +26,7 @@ def test_cli_command_tree_matches_task_first_contract(tmp_path: Path) -> None:
         "init",
         "status",
         "serve",
+        "report",
         "doctor",
         "export",
         "import",
@@ -63,7 +64,6 @@ def test_legacy_cli_groups_are_removed(tmp_path: Path) -> None:
     for command in (
         "board",
         "next",
-        "report",
         "item",
         "memory",
         "repo",
