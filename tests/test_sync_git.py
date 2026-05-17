@@ -184,3 +184,57 @@ def test_sync_git_init_status_export_and_hooks(tmp_path: Path) -> None:
     assert hooks_uninstall.exit_code == 0, hooks_uninstall.stdout
     uninstall_payload = json.loads(hooks_uninstall.stdout)
     assert uninstall_payload["result"]["removed"]
+
+
+def test_sync_git_export_local_allows_missing_optional_layout_files(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "repo"
+    sync_repo = tmp_path / "state-repo"
+    workspace.mkdir()
+    assert runner.invoke(app, ["--root", str(workspace), "init"]).exit_code == 0
+
+    init_result = runner.invoke(
+        app,
+        [
+            "--root",
+            str(workspace),
+            "--json",
+            "sync",
+            "git",
+            "init",
+            "--repo",
+            str(sync_repo),
+            "--project-path",
+            "project-a",
+        ],
+    )
+    assert init_result.exit_code == 0, init_result.stdout
+    _git(sync_repo, "config", "user.email", "test@example.com")
+    _git(sync_repo, "config", "user.name", "Taskledger Test")
+
+    (sync_repo / ".gitignore").unlink()
+    (sync_repo / "meta" / "format.json").unlink()
+
+    export_result = runner.invoke(
+        app,
+        [
+            "--root",
+            str(workspace),
+            "--json",
+            "sync",
+            "git",
+            "export-local",
+            "--repo",
+            str(sync_repo),
+            "--project-path",
+            "project-a",
+            "--message",
+            "Export without layout files",
+            "--allow-dirty",
+        ],
+    )
+
+    assert export_result.exit_code == 0, export_result.stdout
+    export_payload = json.loads(export_result.stdout)
+    assert export_payload["result"]["kind"] == "taskledger_sync_git_export_local"

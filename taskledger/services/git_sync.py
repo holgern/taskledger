@@ -334,16 +334,8 @@ def git_sync_export_local(
                 "Sync repo has dirty paths outside project_path. "
                 "Use --allow-dirty to continue."
             )
-    _run_git(
-        config.repo_path,
-        "add",
-        "--all",
-        "--",
-        config.project_path,
-        "README.md",
-        ".gitignore",
-        "meta/format.json",
-    )
+    export_paths = _sync_export_paths(config.repo_path, config.project_path)
+    _run_git(config.repo_path, "add", "--all", "--", *export_paths)
     staged = _run_git(
         config.repo_path,
         "diff",
@@ -361,10 +353,7 @@ def git_sync_export_local(
             "-m",
             message or "Sync taskledger state",
             "--",
-            config.project_path,
-            "README.md",
-            ".gitignore",
-            "meta/format.json",
+            *export_paths,
         )
         commit_hash = _run_git(config.repo_path, "rev-parse", "HEAD").stdout.strip()
     warnings: list[str] = []
@@ -834,6 +823,26 @@ def _run_git(
     return result
 
 
+def _sync_export_paths(repo_path: Path, project_path: str) -> tuple[str, ...]:
+    paths = [project_path]
+    for candidate in ("README.md", ".gitignore", "meta/format.json"):
+        if (repo_path / candidate).exists() or _is_tracked_path(repo_path, candidate):
+            paths.append(candidate)
+    return tuple(paths)
+
+
+def _is_tracked_path(repo_path: Path, relative_path: str) -> bool:
+    result = _run_git(
+        repo_path,
+        "ls-files",
+        "--error-unmatch",
+        "--",
+        relative_path,
+        check=False,
+    )
+    return result.returncode == 0
+
+
 def _looks_like_storage_root(path: Path) -> bool:
     return path.exists() and (path / "storage.yaml").exists()
 
@@ -872,7 +881,7 @@ def _render_hook_script(
     return (
         "#!/bin/sh\n"
         f"{_HOOK_MARKER}\n"
-        "if [ \"${TASKLEDGER_GIT_HOOK:-}\" = \"1\" ]; then\n"
+        'if [ "${TASKLEDGER_GIT_HOOK:-}" = "1" ]; then\n'
         "  exit 0\n"
         "fi\n"
         "TASKLEDGER_GIT_HOOK=1 exec taskledger "
