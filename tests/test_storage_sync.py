@@ -56,7 +56,7 @@ def test_storage_where_reports_external_storage_details(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.stdout
     payload = json.loads(result.stdout)
     data = payload["result"]
-    assert data["taskledger_dir"] == str(storage.resolve())
+    assert data["taskledger_dir"] == storage.resolve().as_posix()
     assert data["inside_workspace"] is False
     assert data["is_git_repo"] is False
     assert data["ledger_ref"] == "main"
@@ -91,8 +91,8 @@ def test_storage_move_copy_updates_config_and_preserves_project_uuid(
     assert result.exit_code == 0, result.stdout
     payload = json.loads(result.stdout)
     data = payload["result"]
-    assert data["source"] == str((workspace / ".taskledger").resolve())
-    assert data["target"] == str(target.resolve())
+    assert data["source"] == (workspace / ".taskledger").resolve().as_posix()
+    assert data["target"] == target.resolve().as_posix()
     assert data["backup_path"] is None
     assert (target / "storage.yaml").exists()
     assert (target / "ledgers" / "main" / "tasks").is_dir()
@@ -224,7 +224,7 @@ def test_sync_status_reports_git_changes_for_external_state_repo(
     assert result.exit_code == 0, result.stdout
     payload = json.loads(result.stdout)
     data = payload["result"]
-    assert data["git_root"] == str(storage.resolve())
+    assert data["git_root"] == storage.resolve().as_posix()
     assert data["clean"] is False
     assert data["status_lines"]
 

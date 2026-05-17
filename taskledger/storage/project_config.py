@@ -610,7 +610,11 @@ def _validate_sync_config(raw: object, path: Path) -> None:
     project_path = sync_git.get("project_path")
     if isinstance(project_path, str):
         candidate = Path(project_path)
-        if candidate.is_absolute() or ".." in candidate.parts:
+        if (
+            candidate.is_absolute()
+            or project_path.startswith("/")
+            or ".." in candidate.parts
+        ):
             raise LaunchError(
                 "sync.git.project_path must be relative and must not escape repo "
                 f"in {path}"
