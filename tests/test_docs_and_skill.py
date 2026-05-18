@@ -172,6 +172,21 @@ def test_transfer_docs_cover_project_identity_and_dry_run() -> None:
     assert "taskledger import ./taskledger-transfer.tar.gz --dry-run" in skill
 
 
+def test_sync_docs_prefer_manual_git_for_shared_state_repos() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    usage = (ROOT / "docs" / "usage.rst").read_text(encoding="utf-8")
+    sync_doc = (ROOT / "docs" / "sync.rst").read_text(encoding="utf-8")
+    skill = (ROOT / "skills" / "taskledger" / "SKILL.md").read_text(encoding="utf-8")
+
+    for text in (readme, usage, sync_doc, skill):
+        assert "taskledger sync git commit --message" in text
+        assert 'cd "$(taskledger sync git cd)"' in text
+
+    assert "taskledger sync git pull" not in readme
+    assert "taskledger sync git push" not in readme
+    assert "taskledger sync git sync" not in readme
+
+
 def test_docs_do_not_reference_removed_commands() -> None:
     forbidden = [
         "taskledger repo ",

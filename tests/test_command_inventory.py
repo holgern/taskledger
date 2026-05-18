@@ -146,9 +146,14 @@ def test_lock_break_is_deprecated() -> None:
 
 
 def test_no_other_deprecated_commands() -> None:
-    """Only lock break should be deprecated for now."""
-    deprecated = [k for k, v in COMMAND_METADATA.items() if v.deprecated]
-    assert deprecated == ["lock break"]
+    """Deprecated commands should stay limited and intentional."""
+    deprecated = sorted(k for k, v in COMMAND_METADATA.items() if v.deprecated)
+    assert deprecated == [
+        "lock break",
+        "sync git pull",
+        "sync git push",
+        "sync git sync",
+    ]
 
 
 def test_process_exec_commands() -> None:
@@ -242,10 +247,27 @@ def test_deprecated_hidden_by_default_in_commands_cli() -> None:
     result = runner.invoke(app, ["commands"])
     assert result.exit_code == 0
     assert "lock break" not in result.stdout
+    assert "sync git pull" not in result.stdout
+    assert "sync git push" not in result.stdout
+    assert "sync git sync" not in result.stdout
 
     result_with = runner.invoke(app, ["commands", "--include-deprecated"])
     assert result_with.exit_code == 0
     assert "lock break" in result_with.stdout
+    assert "sync git pull" in result_with.stdout
+    assert "sync git push" in result_with.stdout
+    assert "sync git sync" in result_with.stdout
+
+
+def test_sync_git_command_metadata_matches_revised_surface() -> None:
+    assert COMMAND_METADATA["sync git status"].surface == "human"
+    assert COMMAND_METADATA["sync git cd"].effect == "safe_read_only"
+    assert COMMAND_METADATA["sync git path"].effect == "safe_read_only"
+    assert COMMAND_METADATA["sync git commit"].external_effect == EXTERNAL_PROCESS_EXEC
+    assert COMMAND_METADATA["sync git export-local"].surface == "advanced"
+    assert COMMAND_METADATA["sync git pull"].deprecated is True
+    assert COMMAND_METADATA["sync git push"].deprecated is True
+    assert COMMAND_METADATA["sync git sync"].deprecated is True
 
 
 def test_tier_filter_in_commands_cli() -> None:

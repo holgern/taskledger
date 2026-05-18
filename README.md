@@ -392,10 +392,11 @@ taskledger sync commit --message "Sync project-a taskledger state"
 taskledger sync export --output ./taskledger-transfer.tar.gz
 taskledger sync import ./taskledger-transfer.tar.gz --dry-run
 taskledger sync git init --repo ../taskledger-state --project-path project-a
-taskledger sync git pull
-taskledger sync git push --message "Sync project-a taskledger state"
-taskledger sync git sync --message "Sync project-a taskledger state"
-taskledger sync git hooks install
+taskledger sync git status
+taskledger sync git commit --message "Sync project-a taskledger state"
+cd "$(taskledger sync git cd)"
+git pull --ff-only
+git push
 ```
 
 See `docs/sync.rst` for the full second-PC bootstrap, daily sync protocol, and

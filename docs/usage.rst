@@ -495,9 +495,11 @@ For private multi-PC full-state sync with external storage, use:
 .. code-block:: bash
 
    taskledger sync git init --repo ../taskledger-state --project-path project-a
-   taskledger sync git pull
-   taskledger sync git push --message "Sync project-a taskledger state"
-   taskledger sync git sync --message "Sync project-a taskledger state"
+   taskledger sync git status
+   taskledger sync git commit --message "Sync project-a taskledger state"
+   cd "$(taskledger sync git cd)"
+   git pull --ff-only
+   git push
    taskledger snapshot ./artifacts
 
 Default export filenames are project-specific:

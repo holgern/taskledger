@@ -12,12 +12,14 @@ from taskledger.api.project import (
 )
 from taskledger.api.storage import sync_commit, sync_preflight, sync_status
 from taskledger.api.sync import (
+    sync_git_commit,
     sync_git_export_local,
     sync_git_hooks_install,
     sync_git_hooks_status,
     sync_git_hooks_uninstall,
     sync_git_import_local,
     sync_git_init,
+    sync_git_paths,
     sync_git_pull,
     sync_git_push,
     sync_git_status,
@@ -86,6 +88,98 @@ def _render_sync_commit(payload: dict[str, object]) -> str:
         lines.append("Warnings:")
         lines.extend(f"- {item}" for item in warnings if isinstance(item, str))
     return "\n".join(lines)
+
+
+def _extend_warnings(lines: list[str], payload: dict[str, object]) -> list[str]:
+    warnings = payload.get("warnings", [])
+    if isinstance(warnings, list) and warnings:
+        lines.append("Warnings:")
+        lines.extend(f"- {item}" for item in warnings if isinstance(item, str))
+    return lines
+
+
+def _render_git_sync_status(payload: dict[str, object]) -> str:
+    outside_dirty_count = payload.get("outside_dirty_count", 0)
+    lines = [
+        "Git sync status:",
+        f"  repo: {payload['repo_path']}",
+        f"  project path: {payload['project_path']}",
+        f"  storage: {payload['storage_path']}",
+        (f"  current project dirty: {'yes' if payload.get('project_dirty') else 'no'}"),
+        (
+            "  outside dirty: "
+            + (
+                f"{outside_dirty_count} path(s)"
+                if isinstance(outside_dirty_count, int) and outside_dirty_count
+                else "no"
+            )
+        ),
+        f"  ahead: {payload['ahead']}",
+        f"  behind: {payload['behind']}",
+        f"  active locks: {payload['active_lock_count']}",
+    ]
+    project_status_lines = payload.get("project_status_lines", [])
+    if isinstance(project_status_lines, list) and project_status_lines:
+        lines.append("")
+        lines.append("Current project changes:")
+        lines.extend(
+            f"  {item}" for item in project_status_lines if isinstance(item, str)
+        )
+    outside_status_lines = payload.get("outside_status_lines", [])
+    if isinstance(outside_status_lines, list) and outside_status_lines:
+        lines.append("")
+        lines.append("Other project changes:")
+        lines.extend(
+            f"  {item}" for item in outside_status_lines if isinstance(item, str)
+        )
+    return "\n".join(_extend_warnings(lines, payload))
+
+
+def _render_git_sync_commit(
+    payload: dict[str, object],
+    *,
+    label: str = "Git sync commit",
+) -> str:
+    lines = [
+        f"{label}:",
+        f"  repo: {payload['repo_path']}",
+        f"  project path: {payload['project_path']}",
+        f"  committed: {'yes' if payload['committed'] else 'no'}",
+        f"  commit: {payload['commit_hash'] or '-'}",
+    ]
+    return "\n".join(_extend_warnings(lines, payload))
+
+
+def _render_git_sync_network(payload: dict[str, object], *, label: str) -> str:
+    lines = [
+        f"{label}:",
+        f"  repo: {payload['repo_path']}",
+        f"  project path: {payload['project_path']}",
+    ]
+    if "pulled" in payload:
+        lines.append(f"  pulled: {'yes' if payload['pulled'] else 'no'}")
+    if "committed" in payload:
+        lines.append(f"  committed: {'yes' if payload['committed'] else 'no'}")
+    if "commit_hash" in payload:
+        lines.append(f"  commit: {payload['commit_hash'] or '-'}")
+    if "pushed" in payload:
+        lines.append(f"  pushed: {'yes' if payload['pushed'] else 'no'}")
+    if "doctor_healthy" in payload:
+        lines.append(
+            f"  doctor: {'healthy' if payload['doctor_healthy'] else 'issues'}"
+        )
+    return "\n".join(_extend_warnings(lines, payload))
+
+
+def _select_sync_git_path(payload: dict[str, object], kind: str) -> str:
+    mapping = {
+        "repo": "repo_path",
+        "project": "project_path",
+        "storage": "storage_path",
+    }
+    selected = payload[mapping[kind]]
+    assert isinstance(selected, str)
+    return selected
 
 
 def _looks_like_archive_output_target(value: str) -> bool:
@@ -454,16 +548,81 @@ def register_sync_commands(app: typer.Typer) -> None:  # noqa: C901
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-        human = (
-            "Git sync status:\n"
-            f"  repo: {payload['repo_path']}\n"
-            f"  project path: {payload['project_path']}\n"
-            f"  dirty: {'yes' if payload['dirty'] else 'no'}\n"
-            f"  ahead: {payload['ahead']}\n"
-            f"  behind: {payload['behind']}\n"
-            f"  active locks: {payload['active_lock_count']}"
+        emit_payload(
+            ctx,
+            payload,
+            result_type="sync_git_status",
+            human=_render_git_sync_status(payload),
         )
-        emit_payload(ctx, payload, result_type="sync_git_status", human=human)
+
+    @sync_git_app.command("cd")
+    def git_cd_command(
+        ctx: typer.Context,
+        repo: Annotated[Path | None, typer.Option("--repo")] = None,
+        project_path: Annotated[str | None, typer.Option("--project-path")] = None,
+        remote: Annotated[str | None, typer.Option("--remote")] = None,
+        branch: Annotated[str | None, typer.Option("--branch")] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = sync_git_paths(
+                state.cwd,
+                repo=repo,
+                project_path=project_path,
+                remote=remote,
+                branch=branch,
+            )
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        repo_path = payload["repo_path"]
+        assert isinstance(repo_path, str)
+        emit_payload(ctx, payload, result_type="sync_git_paths", human=repo_path)
+
+    @sync_git_app.command("path")
+    def git_path_command(
+        ctx: typer.Context,
+        repo: Annotated[Path | None, typer.Option("--repo")] = None,
+        project_path: Annotated[str | None, typer.Option("--project-path")] = None,
+        remote: Annotated[str | None, typer.Option("--remote")] = None,
+        branch: Annotated[str | None, typer.Option("--branch")] = None,
+        kind: Annotated[
+            str,
+            typer.Option(
+                "--kind",
+                help="Which sync path to print: repo, project, storage.",
+            ),
+        ] = "repo",
+    ) -> None:
+        if kind not in {"repo", "project", "storage"}:
+            emit_error(
+                ctx,
+                LaunchError("sync git path --kind must be repo, project, or storage."),
+            )
+            raise typer.Exit(code=2)
+        state = cli_state_from_context(ctx)
+        try:
+            payload = sync_git_paths(
+                state.cwd,
+                repo=repo,
+                project_path=project_path,
+                remote=remote,
+                branch=branch,
+            )
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        selected_path = _select_sync_git_path(payload, kind)
+        emit_payload(
+            ctx,
+            {
+                **payload,
+                "selected_kind": kind,
+                "selected_path": selected_path,
+            },
+            result_type="sync_git_paths",
+            human=selected_path,
+        )
 
     @sync_git_app.command("import-local")
     def git_import_local_command(
@@ -503,7 +662,44 @@ def register_sync_commands(app: typer.Typer) -> None:  # noqa: C901
             human="" if quiet else human,
         )
 
-    @sync_git_app.command("export-local")
+    @sync_git_app.command("commit")
+    def git_commit_command(
+        ctx: typer.Context,
+        repo: Annotated[Path | None, typer.Option("--repo")] = None,
+        project_path: Annotated[str | None, typer.Option("--project-path")] = None,
+        remote: Annotated[str | None, typer.Option("--remote")] = None,
+        branch: Annotated[str | None, typer.Option("--branch")] = None,
+        message: Annotated[str | None, typer.Option("--message")] = None,
+        allow_active_locks: Annotated[
+            bool, typer.Option("--allow-active-locks")
+        ] = False,
+        quiet: Annotated[bool, typer.Option("--quiet")] = False,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = sync_git_commit(
+                state.cwd,
+                repo=repo,
+                project_path=project_path,
+                remote=remote,
+                branch=branch,
+                message=message,
+                allow_active_locks=allow_active_locks,
+            )
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(
+            ctx,
+            payload,
+            result_type="sync_git_commit",
+            human="" if quiet else _render_git_sync_commit(payload),
+        )
+
+    @sync_git_app.command(
+        "export-local",
+        help="Compatibility alias for sync git commit.",
+    )
     def git_export_local_command(
         ctx: typer.Context,
         repo: Annotated[Path | None, typer.Option("--repo")] = None,
@@ -532,21 +728,19 @@ def register_sync_commands(app: typer.Typer) -> None:  # noqa: C901
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-        human = (
-            "Git export (local only):\n"
-            f"  repo: {payload['repo_path']}\n"
-            f"  project path: {payload['project_path']}\n"
-            f"  committed: {'yes' if payload['committed'] else 'no'}\n"
-            f"  commit: {payload['commit_hash'] or '-'}"
-        )
         emit_payload(
             ctx,
             payload,
             result_type="sync_git_export_local",
-            human="" if quiet else human,
+            human=""
+            if quiet
+            else _render_git_sync_commit(
+                payload,
+                label="Git sync export-local (compatibility alias)",
+            ),
         )
 
-    @sync_git_app.command("pull")
+    @sync_git_app.command("pull", hidden=True)
     def git_pull_command(
         ctx: typer.Context,
         repo: Annotated[Path | None, typer.Option("--repo")] = None,
@@ -568,16 +762,14 @@ def register_sync_commands(app: typer.Typer) -> None:  # noqa: C901
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-        human = (
-            "Git pull/import:\n"
-            f"  repo: {payload['repo_path']}\n"
-            f"  project path: {payload['project_path']}\n"
-            f"  pulled: {'yes' if payload['pulled'] else 'no'}\n"
-            f"  doctor: {'healthy' if payload['doctor_healthy'] else 'issues'}"
+        emit_payload(
+            ctx,
+            payload,
+            result_type="sync_git_pull",
+            human=_render_git_sync_network(payload, label="Git sync pull"),
         )
-        emit_payload(ctx, payload, result_type="sync_git_pull", human=human)
 
-    @sync_git_app.command("push")
+    @sync_git_app.command("push", hidden=True)
     def git_push_command(
         ctx: typer.Context,
         repo: Annotated[Path | None, typer.Option("--repo")] = None,
@@ -605,17 +797,14 @@ def register_sync_commands(app: typer.Typer) -> None:  # noqa: C901
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-        human = (
-            "Git push/export:\n"
-            f"  repo: {payload['repo_path']}\n"
-            f"  project path: {payload['project_path']}\n"
-            f"  committed: {'yes' if payload['committed'] else 'no'}\n"
-            f"  commit: {payload['commit_hash'] or '-'}\n"
-            f"  pushed: {'yes' if payload['pushed'] else 'no'}"
+        emit_payload(
+            ctx,
+            payload,
+            result_type="sync_git_push",
+            human=_render_git_sync_network(payload, label="Git sync push"),
         )
-        emit_payload(ctx, payload, result_type="sync_git_push", human=human)
 
-    @sync_git_app.command("sync")
+    @sync_git_app.command("sync", hidden=True)
     def git_sync_command(
         ctx: typer.Context,
         repo: Annotated[Path | None, typer.Option("--repo")] = None,
@@ -643,14 +832,12 @@ def register_sync_commands(app: typer.Typer) -> None:  # noqa: C901
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-        human = (
-            "Git sync:\n"
-            f"  repo: {payload['repo_path']}\n"
-            f"  pulled: {'yes' if payload['pulled'] else 'no'}\n"
-            f"  committed: {'yes' if payload['committed'] else 'no'}\n"
-            f"  pushed: {'yes' if payload['pushed'] else 'no'}"
+        emit_payload(
+            ctx,
+            payload,
+            result_type="sync_git_sync",
+            human=_render_git_sync_network(payload, label="Git sync"),
         )
-        emit_payload(ctx, payload, result_type="sync_git_sync", human=human)
 
     @sync_git_hooks_app.command("install")
     def hooks_install_command(

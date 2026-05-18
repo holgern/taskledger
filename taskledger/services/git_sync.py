@@ -86,6 +86,32 @@ def build_git_sync_config(
     )
 
 
+def git_sync_paths(
+    workspace_root: Path,
+    *,
+    repo: Path | None = None,
+    project_path: str | None = None,
+    remote: str | None = None,
+    branch: str | None = None,
+) -> dict[str, object]:
+    config = build_git_sync_config(
+        workspace_root,
+        repo=repo,
+        project_path=project_path,
+        remote=remote,
+        branch=branch,
+    )
+    storage_path = _storage_path(config)
+    return {
+        "kind": "taskledger_sync_git_paths",
+        "repo_path": config.repo_path.as_posix(),
+        "project_path": config.project_path,
+        "storage_path": storage_path.as_posix(),
+        "branch": config.branch,
+        "remote": config.remote,
+    }
+
+
 def git_sync_status(
     workspace_root: Path,
     *,
@@ -108,7 +134,11 @@ def git_sync_status(
     active_lock_count = _active_lock_count(locator.workspace_root)
     doctor = inspect_v2_project(locator.workspace_root)
     git_root = _git_root(config.repo_path)
-    status_lines = _project_status_lines(config.repo_path, config.project_path)
+    all_status_lines = _git_status_lines(config.repo_path)
+    project_status_lines, outside_status_lines = _split_status_by_project(
+        all_status_lines,
+        config.project_path,
+    )
     ahead, behind = _ahead_behind(config.repo_path)
     warnings: list[str] = []
     if not taskledger_dir_matches:
@@ -126,12 +156,17 @@ def git_sync_status(
         "taskledger_dir_matches": taskledger_dir_matches,
         "branch": _current_branch(config.repo_path),
         "remote": _remote_url(config.repo_path, config.remote),
-        "dirty": bool(status_lines),
+        "dirty": bool(project_status_lines),
         "ahead": ahead,
         "behind": behind,
         "active_lock_count": active_lock_count,
         "doctor_healthy": bool(doctor["healthy"]),
-        "status_lines": status_lines,
+        "status_lines": project_status_lines,
+        "project_dirty": bool(project_status_lines),
+        "project_status_lines": project_status_lines,
+        "outside_dirty": bool(outside_status_lines),
+        "outside_dirty_count": len(outside_status_lines),
+        "outside_status_lines": outside_status_lines,
         "warnings": warnings,
         "git_root": git_root.as_posix() if git_root is not None else None,
     }
@@ -286,7 +321,7 @@ def git_sync_import_local(
     }
 
 
-def git_sync_export_local(
+def git_sync_commit(
     workspace_root: Path,
     *,
     repo: Path | None = None,
@@ -294,8 +329,8 @@ def git_sync_export_local(
     remote: str | None = None,
     branch: str | None = None,
     message: str | None = None,
-    allow_dirty: bool = False,
     allow_active_locks: bool = False,
+    require_clean_repo: bool = False,
 ) -> dict[str, object]:
     config = build_git_sync_config(
         workspace_root,
@@ -308,7 +343,7 @@ def git_sync_export_local(
     storage_path = _storage_path(config)
     if locator.taskledger_dir.resolve() != storage_path.resolve():
         raise LaunchError(
-            "taskledger_dir must point at sync repo project_path for export-local."
+            "taskledger_dir must point at sync repo project_path for sync git commit."
         )
     doctor = inspect_v2_project(locator.workspace_root)
     if not doctor["healthy"]:
@@ -324,16 +359,17 @@ def git_sync_export_local(
             "Use --allow-active-locks to continue."
         )
     _ensure_git_repo(config.repo_path, remote_url=None, branch=config.branch)
-    if not allow_dirty:
-        outside_dirty = _dirty_paths_outside_project(
-            config.repo_path,
-            config.project_path,
-        )
-        if outside_dirty:
+    warnings: list[str] = []
+    outside_dirty = _dirty_paths_outside_project(config.repo_path, config.project_path)
+    if outside_dirty:
+        if require_clean_repo:
             raise LaunchError(
                 "Sync repo has dirty paths outside project_path. "
-                "Use --allow-dirty to continue."
+                "Commit or stash them first."
             )
+        warnings.append(
+            f"{len(outside_dirty)} dirty path(s) outside project_path were ignored."
+        )
     export_paths = _sync_export_paths(config.repo_path, config.project_path)
     _run_git(config.repo_path, "add", "--all", "--", *export_paths)
     staged = _run_git(
@@ -342,6 +378,8 @@ def git_sync_export_local(
         "--cached",
         "--quiet",
         "--exit-code",
+        "--",
+        *export_paths,
         check=False,
     )
     committed = staged.returncode != 0
@@ -356,20 +394,47 @@ def git_sync_export_local(
             *export_paths,
         )
         commit_hash = _run_git(config.repo_path, "rev-parse", "HEAD").stdout.strip()
-    warnings: list[str] = []
     if active_lock_count and allow_active:
         warnings.append(
             f"{active_lock_count} active lock(s) were synced. "
             "Do not continue the same run on two PCs."
         )
     return {
-        "kind": "taskledger_sync_git_export_local",
+        "kind": "taskledger_sync_git_commit",
         "repo_path": config.repo_path.as_posix(),
         "project_path": config.project_path,
         "committed": committed,
         "commit_hash": commit_hash,
         "active_lock_count": active_lock_count,
+        "outside_dirty_count": len(outside_dirty),
+        "outside_status_lines": outside_dirty,
         "warnings": warnings,
+    }
+
+
+def git_sync_export_local(
+    workspace_root: Path,
+    *,
+    repo: Path | None = None,
+    project_path: str | None = None,
+    remote: str | None = None,
+    branch: str | None = None,
+    message: str | None = None,
+    allow_dirty: bool = False,
+    allow_active_locks: bool = False,
+) -> dict[str, object]:
+    payload = git_sync_commit(
+        workspace_root,
+        repo=repo,
+        project_path=project_path,
+        remote=remote,
+        branch=branch,
+        message=message,
+        allow_active_locks=allow_active_locks,
+    )
+    return {
+        **payload,
+        "kind": "taskledger_sync_git_export_local",
     }
 
 
@@ -389,9 +454,13 @@ def git_sync_pull(
         remote=remote,
         branch=branch,
     )
-    if not allow_dirty and _project_status_lines(config.repo_path, config.project_path):
+    all_dirty = _git_status_lines(config.repo_path)
+    if all_dirty and not allow_dirty:
         raise LaunchError(
-            "Sync repo has local changes under project_path. Use --allow-dirty to pull."
+            "sync git pull updates the whole sync repository and requires a clean "
+            "working tree. Commit or stash unrelated project state first, or run:\n"
+            '  cd "$(taskledger sync git cd)"\n'
+            "  git pull --ff-only"
         )
     _run_git(config.repo_path, "pull", "--ff-only", config.remote, config.branch)
     imported = git_sync_import_local(
@@ -408,7 +477,7 @@ def git_sync_pull(
         "pulled": True,
         "import_local": imported,
         "doctor_healthy": imported["doctor_healthy"],
-        "warnings": [],
+        "warnings": [_network_wrapper_warning("pull")],
     }
 
 
@@ -430,28 +499,25 @@ def git_sync_push(
         remote=remote,
         branch=branch,
     )
-    exported = git_sync_export_local(
+    exported = git_sync_commit(
         workspace_root,
         repo=config.repo_path,
         project_path=config.project_path,
         remote=config.remote,
         branch=config.branch,
         message=message,
-        allow_dirty=allow_dirty,
         allow_active_locks=allow_active_locks,
     )
-    pushed = False
-    if bool(exported["committed"]):
-        _run_git(config.repo_path, "push", config.remote, config.branch)
-        pushed = True
+    _run_git(config.repo_path, "push", config.remote, config.branch)
     return {
         "kind": "taskledger_sync_git_push",
         "repo_path": config.repo_path.as_posix(),
         "project_path": config.project_path,
         "committed": exported["committed"],
         "commit_hash": exported["commit_hash"],
-        "pushed": pushed,
-        "warnings": exported["warnings"],
+        "pushed": True,
+        "warnings": list(cast(list[object], exported["warnings"]))
+        + [_network_wrapper_warning("push")],
     }
 
 
@@ -499,7 +565,8 @@ def git_sync(
         "committed": push_payload["committed"],
         "commit_hash": push_payload["commit_hash"],
         "pushed": push_payload["pushed"],
-        "warnings": list(cast(list[object], push_payload["warnings"])),
+        "warnings": list(cast(list[object], pull_payload["warnings"]))
+        + list(cast(list[object], push_payload["warnings"])),
     }
 
 
@@ -537,6 +604,18 @@ def install_git_hooks(
         if hook_path.exists():
             existing = hook_path.read_text(encoding="utf-8")
             managed = _HOOK_MARKER in existing
+            if managed and not force:
+                if _hook_targets_differ(
+                    existing,
+                    workspace_root=workspace_root,
+                    repo_path=config.repo_path,
+                    project_path=config.project_path,
+                ):
+                    raise LaunchError(
+                        "Existing taskledger-managed hook targets a different "
+                        "workspace or project_path. Shared sync repos are not "
+                        "multi-project-safe for single-project hooks without --force."
+                    )
             if not managed and not force:
                 skipped.append(hook_name)
                 sample_path = hooks_dir / f"{hook_name}.taskledger.sample"
@@ -731,12 +810,43 @@ def _active_lock_count(workspace_root: Path) -> int:
 
 
 def _project_status_lines(repo_path: Path, project_path: str) -> list[str]:
+    project_status_lines, _ = _split_status_by_project(
+        _git_status_lines(repo_path),
+        project_path,
+    )
+    return project_status_lines
+
+
+def _git_status_lines(repo_path: Path) -> list[str]:
     if _git_root(repo_path) is None:
         return []
-    result = _run_git(repo_path, "status", "--short", "--", project_path, check=False)
+    result = _run_git(repo_path, "status", "--porcelain", check=False)
     if result.returncode != 0:
         return []
     return [line for line in result.stdout.splitlines() if line.strip()]
+
+
+def _status_path_token(line: str) -> str:
+    token = line[3:].strip()
+    if "->" in token:
+        token = token.split("->", 1)[1].strip()
+    return token.strip('"')
+
+
+def _split_status_by_project(
+    lines: list[str],
+    project_path: str,
+) -> tuple[list[str], list[str]]:
+    prefix = project_path.rstrip("/") + "/"
+    project: list[str] = []
+    outside: list[str] = []
+    for line in lines:
+        token = _status_path_token(line)
+        if token == project_path or token.startswith(prefix):
+            project.append(line)
+        else:
+            outside.append(line)
+    return project, outside
 
 
 def _current_branch(repo_path: Path) -> str | None:
@@ -853,21 +963,37 @@ def _backup_path_for(source: Path) -> Path:
 
 
 def _dirty_paths_outside_project(repo_path: Path, project_path: str) -> list[str]:
-    result = _run_git(repo_path, "status", "--porcelain", check=False)
-    if result.returncode != 0:
-        return []
-    normalized_prefix = project_path.rstrip("/") + "/"
-    outside: list[str] = []
-    for line in result.stdout.splitlines():
-        if not line.strip():
-            continue
-        path_token = line[3:].strip()
-        if "->" in path_token:
-            path_token = path_token.split("->", 1)[1].strip()
-        if path_token == project_path or path_token.startswith(normalized_prefix):
-            continue
-        outside.append(path_token)
-    return outside
+    _, outside_lines = _split_status_by_project(
+        _git_status_lines(repo_path),
+        project_path,
+    )
+    return [_status_path_token(line) for line in outside_lines]
+
+
+def _network_wrapper_warning(command: str) -> str:
+    git_command = "git pull --ff-only" if command == "pull" else f"git {command}"
+    return (
+        f"sync git {command} operates on the whole sync Git repository. Prefer:\n"
+        '  cd "$(taskledger sync git cd)"\n'
+        f"  {git_command}"
+    )
+
+
+def _hook_targets_differ(
+    content: str,
+    *,
+    workspace_root: Path,
+    repo_path: Path,
+    project_path: str,
+) -> bool:
+    return any(
+        needle not in content
+        for needle in (
+            f"--root {workspace_root.as_posix()}",
+            f"--repo {repo_path.as_posix()}",
+            f"--project-path {project_path}",
+        )
+    )
 
 
 def _render_hook_script(

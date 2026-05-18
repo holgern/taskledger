@@ -63,24 +63,34 @@ Clone both repositories as siblings:
 Daily sync protocol
 -------------------
 
-Taskledger provides a Git sync command group that automates this workflow:
+Taskledger provides a Git sync command group that supports this workflow:
 
 .. code-block:: bash
 
    taskledger sync git init --repo ../taskledger-state --project-path project-a
    taskledger sync git status
-   taskledger sync git pull
-   taskledger sync git push --message "Sync project-a taskledger state"
-   taskledger sync git sync --message "Sync project-a taskledger state"
+   taskledger sync git commit --message "Sync project-a taskledger state"
+   cd "$(taskledger sync git cd)"
+   git pull --ff-only
+   git push
+
+In a shared ``taskledger-state`` repository, Taskledger can safely inspect and
+commit only the configured project path. Network pull/push remains a
+whole-repository Git operation, so use ``taskledger sync git cd`` and run Git
+directly when multiple projects share the same state repository.
 
 Before starting work on a PC:
 
 .. code-block:: bash
 
-   cd ~/src/taskledger-state
-   git pull --rebase
+   cd ~/src/project-a
+   taskledger sync git status
+   cd "$(taskledger sync git cd)"
+   git status --short
+   git pull --ff-only
 
    cd ~/src/project-a
+   taskledger sync git import-local
    taskledger doctor
    taskledger next-action
 
@@ -90,13 +100,11 @@ After finishing a task cycle or stopping at a safe boundary:
 
    cd ~/src/project-a
    taskledger doctor
-   taskledger task list
+   taskledger sync git status
+   taskledger sync git commit --message "Sync project-a taskledger state"
 
-   cd ~/src/taskledger-state
+   cd "$(taskledger sync git cd)"
    git status --short
-   git add project-a
-   git commit -m "Sync project-a taskledger state"
-   git pull --rebase
    git push
 
 Active lock rule
