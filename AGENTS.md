@@ -356,10 +356,7 @@ Docs, examples, command inventory, and skill files must agree.
 When changing commands or workflow behavior, update as needed:
 
 - `README.md`
-- `docs/command_contract.rst`
-- `docs/full_task_cycle.rst`
-- `docs/usage.rst`
-- `docs/public_surface.rst`
+- rst files in `docs/`
 - `API.md`
 - `skills/taskledger/SKILL.md`
 - `taskledger/command_inventory.py`
@@ -375,23 +372,7 @@ Do not package skills inside `taskledger/`.
 
 Every non-trivial behavior change needs verification.
 
-Prefer the test closest to the changed logic:
-
-- policy/gate change -> `tests/test_domain_policies.py` or lifecycle tests
-- task lifecycle change -> `tests/test_taskledger_v2_cli.py`, `tests/test_delta_remaining_contracts.py`, or service tests
-- active-task behavior -> `tests/test_active_task.py`
-- CLI grammar -> `tests/test_cli_command_contract.py`, `tests/test_taskledger_cli_api_parity.py`
-- JSON envelope -> `tests/test_json_contracts.py`
-- docs/skill command examples -> `tests/test_docs_and_skill.py`, `tests/test_command_example_linter.py`
-- plan approval -> `tests/test_plan_approval_contract.py`
-- plan todos -> `tests/test_plan_todo_materialization.py`
-- questions/regeneration -> `tests/test_question_filter_answers.py`, `tests/test_question_plan_regeneration.py`
-- todo gates -> `tests/test_todo_implementation_gate.py`
-- locks -> `tests/test_locks_audit.py`, doctor tests
-- storage -> `tests/test_storage_*.py`, `tests/test_storage_bundle_layout.py`, `tests/test_sidecar_collections.py`
-- handoff -> `tests/test_handoff_lifecycle.py`
-- search -> `tests/test_search.py`
-- export/import -> `tests/test_taskledger_v2_exchange.py`
+Prefer the test closest to the changed logic.
 
 ### 12.2 Regression paths to test
 
@@ -416,33 +397,11 @@ Include error paths when relevant:
 
 ### 12.3 Verification command progression
 
-Start narrow. Expand only when needed.
+Start narrow. Expand only when needed. Try to run specific test files first,
+only one example for a single pytest is given, figure it out which test to run.
 
 ```bash
-python -m pip install -e .
-python -m pip install -e ".[dev]"
-
 pytest tests/test_domain_policies.py
-pytest tests/test_active_task.py
-pytest tests/test_taskledger_v2_cli.py
-pytest tests/test_delta_remaining_contracts.py
-pytest tests/test_plan_approval_contract.py
-pytest tests/test_plan_todo_materialization.py
-pytest tests/test_question_filter_answers.py
-pytest tests/test_question_plan_regeneration.py
-pytest tests/test_todo_implementation_gate.py
-pytest tests/test_locks_audit.py
-pytest tests/test_handoff_lifecycle.py
-pytest tests/test_json_contracts.py
-pytest tests/test_docs_and_skill.py
-pytest tests/test_command_example_linter.py
-pytest tests/test_storage_bundle_layout.py
-pytest tests/test_storage_common.py
-pytest tests/test_storage_contexts.py
-pytest tests/test_storage_items.py
-pytest tests/test_storage_memories.py
-pytest tests/test_storage_repos.py
-pytest tests/test_storage_validation.py
 pytest
 
 ruff check --config=.ruff.toml .
