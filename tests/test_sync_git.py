@@ -296,7 +296,7 @@ def test_sync_git_cd_and_path_report_expected_locations(tmp_path: Path) -> None:
     assert path_result.exit_code == 0, _output(path_result)
     path_payload = json.loads(path_result.stdout)["result"]
     assert path_payload["selected_kind"] == "storage"
-    assert path_payload["selected_path"] == str(sync_repo / "project-a")
+    assert Path(path_payload["selected_path"]) == sync_repo / "project-a"
 
 
 def test_sync_git_pull_fails_fast_for_dirty_shared_repo(tmp_path: Path) -> None:
