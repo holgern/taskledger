@@ -172,6 +172,13 @@ def template_command(
     from_answers: Annotated[bool, typer.Option("--from-answers")] = False,
     output: Annotated[Path | None, typer.Option("--file")] = None,
     include_guidance: Annotated[bool, typer.Option("--include-guidance")] = False,
+    with_worker_pipeline: Annotated[
+        bool,
+        typer.Option(
+            "--with-worker-pipeline",
+            help="Include worker pipeline todo hints when enabled for this project.",
+        ),
+    ] = False,
 ) -> None:
     state = cli_state_from_context(ctx)
     try:
@@ -181,6 +188,7 @@ def template_command(
             task.id,
             from_answers=from_answers,
             include_guidance=include_guidance,
+            with_worker_pipeline=with_worker_pipeline,
         )
     except LaunchError as exc:
         emit_error(ctx, exc)

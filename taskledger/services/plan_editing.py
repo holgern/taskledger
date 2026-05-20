@@ -104,6 +104,8 @@ def _todo_payload(todo: object) -> dict[str, object]:
     }
     if todo.validation_hint:
         payload["validation_hint"] = todo.validation_hint
+    if todo.worker_step_id:
+        payload["worker_step"] = todo.worker_step_id
     return payload
 
 

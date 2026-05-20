@@ -149,6 +149,25 @@ may also materialize structured plan todos:
 Mandatory todos gate implementation completion. Optional todos remain visible but
 do not block ``implement finish``.
 
+If the project has an enabled worker pipeline, plan todos may optionally target
+configured worker steps. This is an advisory overlay, not a new lifecycle stage:
+
+.. code-block:: yaml
+
+   todos:
+     - id: plan-todo-0001
+       text: "Add failing regression tests."
+       worker_step: "tester"
+       validation_hint: "pytest tests/test_parser.py -q"
+
+Use the worker overlay explicitly:
+
+.. code-block:: bash
+
+   taskledger pipeline next
+   taskledger context --worker tester
+   taskledger handoff create --worker tester --summary "Add failing tests only."
+
 All approval escape hatches require ``--reason``:
 
 - ``--allow-empty-criteria --reason "..."``

@@ -29,7 +29,7 @@ The supported command surface is organized as:
 
 **Operations:**
 
-- `context`, `next-action`, `can`, `search`, `grep`, `symbols`, `deps`, `actor`, `view`, `serve`, `storage`, `sync`
+- `context`, `pipeline`, `next-action`, `can`, `search`, `grep`, `symbols`, `deps`, `actor`, `view`, `serve`, `storage`, `sync`
 
 **Repair and inspection:**
 
@@ -85,6 +85,35 @@ taskledger --json plan guidance
 This guidance is advisory and cannot override lifecycle gates, user approval,
 validation requirements, lock rules, or higher-priority harness instructions.
 See `docs/usage.rst` for the full key reference and workflow details.
+
+## Optional worker pipelines
+
+Projects may optionally configure worker pipelines in `taskledger.toml` to guide
+fresh-context handoffs. Worker pipelines are advisory overlays on the existing
+planning, implementation, and validation lifecycle. They can be three steps,
+four steps, five steps, or custom. When no worker pipeline is configured, the
+default taskledger behavior is unchanged.
+
+```toml
+[worker_pipeline]
+enabled = true
+name = "tdd-four-context"
+mode = "guided"
+
+[[worker_pipeline.steps]]
+id = "tester"
+lifecycle_stage = "implementation"
+base_context = "implementer"
+kind = "check"
+```
+
+```bash
+taskledger pipeline show
+taskledger pipeline next
+taskledger context --worker tester
+taskledger handoff create --worker tester --summary "Add failing tests only."
+taskledger plan template --with-worker-pipeline --file ./plan.md
+```
 
 ## Install
 

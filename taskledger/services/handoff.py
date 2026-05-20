@@ -21,10 +21,16 @@ from taskledger.domain.states import (
     normalize_handoff_mode,
 )
 from taskledger.errors import LaunchError
+from taskledger.services.worker_pipeline import (
+    resolve_worker_pipeline_step,
+    worker_step_context_for,
+    worker_step_handoff_mode,
+)
 from taskledger.services.workflow_guidance import (
     render_planning_guidance as _render_planning_guidance,
 )
 from taskledger.storage.locks import lock_is_expired, lock_status, read_lock
+from taskledger.storage.project_config import WorkerStepConfig
 from taskledger.storage.task_store import (
     list_changes,
     list_checks,
@@ -60,14 +66,25 @@ def render_handoff(
     *,
     mode: str | None = None,
     context_for: str | None = None,
+    worker_step_id: str | None = None,
     scope: str | None = None,
     todo_id: str | None = None,
     focus_run_id: str | None = None,
     format_name: str = "markdown",
 ) -> str | dict[str, object]:
-    request = build_context_request(
+    worker_step = _resolve_worker_step(
+        workspace_root,
+        worker_step_id,
         mode=mode,
         context_for=context_for,
+    )
+    resolved_mode = worker_step_handoff_mode(worker_step) if worker_step else mode
+    resolved_context_for = (
+        worker_step_context_for(worker_step) if worker_step else context_for
+    )
+    request = build_context_request(
+        mode=resolved_mode,
+        context_for=resolved_context_for,
         scope=scope,
         todo_id=todo_id,
         focus_run_id=focus_run_id,
@@ -78,6 +95,7 @@ def render_handoff(
         task_ref,
         mode=request.mode,
         context_for=request.context_for,
+        worker_step_id=worker_step_id,
         scope=request.scope,
         todo_id=request.todo_id,
         focus_run_id=request.focus_run_id,
@@ -149,20 +167,55 @@ def build_context_request(
     )
 
 
+def _resolve_worker_step(
+    workspace_root: Path,
+    worker_step_id: str | None,
+    *,
+    mode: str | None,
+    context_for: str | None,
+) -> WorkerStepConfig | None:
+    if worker_step_id is None:
+        return None
+    _, step = resolve_worker_pipeline_step(workspace_root, worker_step_id)
+    step_mode = worker_step_handoff_mode(step)
+    step_context = worker_step_context_for(step)
+    if mode is not None and normalize_handoff_mode(_canonical_mode(mode)) != step_mode:
+        raise LaunchError(
+            f"Worker step '{worker_step_id}' requires mode '{step_mode}', not '{mode}'."
+        )
+    if context_for is not None and normalize_context_for(context_for) != step_context:
+        raise LaunchError(
+            f"Worker step '{worker_step_id}' requires context '{step_context}', "
+            f"not '{context_for}'."
+        )
+    return step
+
+
 def build_handoff_payload(
     workspace_root: Path,
     task_ref: str,
     *,
     mode: str | None = None,
     context_for: str | None = None,
+    worker_step_id: str | None = None,
     scope: str | None = None,
     todo_id: str | None = None,
     focus_run_id: str | None = None,
     format_name: str = "markdown",
 ) -> dict[str, object]:
-    request = build_context_request(
+    worker_step = _resolve_worker_step(
+        workspace_root,
+        worker_step_id,
         mode=mode,
         context_for=context_for,
+    )
+    resolved_mode = worker_step_handoff_mode(worker_step) if worker_step else mode
+    resolved_context_for = (
+        worker_step_context_for(worker_step) if worker_step else context_for
+    )
+    request = build_context_request(
+        mode=resolved_mode,
+        context_for=resolved_context_for,
         scope=scope,
         todo_id=todo_id,
         focus_run_id=focus_run_id,
@@ -228,7 +281,7 @@ def build_handoff_payload(
         validation_status_report = build_validation_gate_report(workspace_root, task)
     relationships = build_task_relationship_payload(workspace_root, task)
 
-    return {
+    payload = {
         "kind": "task_handoff",
         "mode": request.mode,
         "context_for": request.context_for,
@@ -278,6 +331,9 @@ def build_handoff_payload(
             workspace_root, task, request.context_for
         ),
     }
+    if worker_step is not None:
+        payload["worker_step"] = worker_step.to_dict()
+    return payload
 
 
 def render_markdown_handoff(payload: dict[str, object]) -> str:
@@ -295,6 +351,7 @@ def render_markdown_handoff(payload: dict[str, object]) -> str:
     lines = [f"# {title_prefix}: {task['title']}", ""]
     _append_worker_role(lines, payload)
     _append_worker_contract(lines, payload)
+    _append_worker_step(lines, payload.get("worker_step"))
     _append_task_section(lines, task)
     _append_relationships(
         lines,
@@ -406,6 +463,28 @@ def _append_worker_contract(lines: list[str], payload: dict[str, object]) -> Non
     lines.extend(["", "You must not:"])
     for item in must_not_items:
         lines.append(f"- {item}")
+    lines.append("")
+
+
+def _append_worker_step(lines: list[str], worker_step: object) -> None:
+    if not isinstance(worker_step, dict):
+        return
+    lines.extend(["## Worker step", ""])
+    lines.append(f"- id: {worker_step.get('id')}")
+    lines.append(f"- label: {worker_step.get('label')}")
+    description = worker_step.get("description")
+    if isinstance(description, str) and description.strip():
+        lines.extend(["", "Description:", description.strip()])
+    required_output = worker_step.get("required_output")
+    if isinstance(required_output, list) and required_output:
+        lines.extend(["", "Required output:"])
+        for item in required_output:
+            lines.append(f"- {item}")
+    must_not = worker_step.get("must_not")
+    if isinstance(must_not, list) and must_not:
+        lines.extend(["", "Must not:"])
+        for item in must_not:
+            lines.append(f"- {item}")
     lines.append("")
 
 

@@ -690,6 +690,8 @@ def _append_plan_detail(lines: list[str], plan: object) -> None:
             lines.append(f"- [{todo.status}] {todo.id}: {todo.text}{mandatory}")
             if todo.validation_hint:
                 lines.append(f"  - Validation hint: {todo.validation_hint}")
+            if todo.worker_step_id:
+                lines.append(f"  - Worker step: {todo.worker_step_id}")
         lines.append("")
 
 

@@ -97,7 +97,7 @@ def propose_plan(
         supersedes=plans[-1].plan_version if plans else None,
         question_refs=tuple(item.id for item in questions if item.status == "open"),
         criteria=_tasks._criteria_from_plan_input(front_matter, criteria),
-        todos=_tasks._todos_from_plan_input(front_matter),
+        todos=_tasks._todos_from_plan_input(workspace_root, front_matter),
         generation_reason=_tasks._optional_front_matter_string(
             front_matter, "generation_reason"
         )

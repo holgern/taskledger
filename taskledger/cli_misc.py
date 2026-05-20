@@ -664,8 +664,11 @@ def register_handoff_v2_commands(app: typer.Typer) -> None:
     @app.command("create")
     def create_command(
         ctx: typer.Context,
-        mode: Annotated[str, typer.Option("--mode")],
+        mode: Annotated[str | None, typer.Option("--mode")] = None,
         context_for: Annotated[str | None, typer.Option("--for")] = None,
+        worker_step_id: Annotated[
+            str | None, typer.Option("--worker", help="Configured worker step id.")
+        ] = None,
         scope: Annotated[str | None, typer.Option("--scope")] = None,
         todo_id: Annotated[str | None, typer.Option("--todo")] = None,
         focus_run_id: Annotated[str | None, typer.Option("--run")] = None,
@@ -685,6 +688,7 @@ def register_handoff_v2_commands(app: typer.Typer) -> None:
                 task.id,
                 mode=mode,
                 context_for=context_for,
+                worker_step_id=worker_step_id,
                 scope=scope,
                 todo_id=todo_id,
                 focus_run_id=focus_run_id,

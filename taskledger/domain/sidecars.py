@@ -105,9 +105,10 @@ class TaskTodo:
     source_plan_id: str | None = None
     source_question_ids: tuple[str, ...] = field(default_factory=tuple)
     validation_hint: str | None = None
+    worker_step_id: str | None = None
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "id": self.id,
             "text": self.text,
             "done": self.done,
@@ -135,6 +136,9 @@ class TaskTodo:
             "source_question_ids": list(self.source_question_ids),
             "validation_hint": self.validation_hint,
         }
+        if self.worker_step_id is not None:
+            payload["worker_step_id"] = self.worker_step_id
+        return payload
 
     @classmethod
     def from_dict(cls, data: object) -> TaskTodo:
@@ -200,6 +204,7 @@ class TaskTodo:
             source_plan_id=_optional_string(data.get("source_plan_id")),
             source_question_ids=_string_tuple(data.get("source_question_ids")),
             validation_hint=_optional_string(data.get("validation_hint")),
+            worker_step_id=_optional_string(data.get("worker_step_id")),
         )
 
 

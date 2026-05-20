@@ -89,6 +89,16 @@ If any `taskledger ...` command fails with a Python traceback before taskledger 
   `taskledger ledger adopt --from REF TASK_REF` when branch-local task history
   should be copied into the current ledger.
 
+## Optional worker pipeline overlay
+
+- Worker pipelines are optional project-local overlays, not mandatory lifecycle stages.
+- No `[worker_pipeline]` config means no workflow change.
+- Use `taskledger pipeline show`, `taskledger pipeline list`, and `taskledger pipeline next` to inspect the configured overlay.
+- Use `taskledger context --worker STEP_ID` or `taskledger pipeline context STEP_ID` to render a worker-specific context on top of the existing base context.
+- Use `taskledger handoff create --worker STEP_ID` to derive handoff mode and context from a configured worker step.
+- Use `taskledger plan template --with-worker-pipeline --file ./plan.md` only when the project has an enabled worker pipeline and the task should use worker-tagged plan todos.
+- `worker_step` on plan todos is valid only when the project has an enabled worker pipeline.
+
 ## Planning protocol
 
 1. `taskledger task create "Short task request" --slug <slug>` when creating a fresh task.
@@ -105,6 +115,7 @@ If any `taskledger ...` command fails with a Python traceback before taskledger 
 10. When the user answers in chat, record the answers yourself with `taskledger question answer-many` or `taskledger question answer`.
 11. Run `taskledger question status` and review all answered questions with `taskledger question answers` before writing the plan.
 12. Before reading source files to discover plan format, run `taskledger plan template --from-answers --file ./plan.md` when answered questions exist, or `taskledger plan template --file ./plan.md` for a fresh plan skeleton.
+    - If the project has an enabled worker pipeline and this task should use worker-tagged todos, add `--with-worker-pipeline`.
 13. If answered questions exist, write the next plan with `taskledger plan upsert --from-answers --file ./plan.md`.
 14. Use `taskledger plan upsert --file ./plan.md` for plans that are not based on newly answered questions.
 15. Never edit `.taskledger/` files directly. Treat `.taskledger/` as Taskledger private durable state.

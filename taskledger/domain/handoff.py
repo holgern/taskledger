@@ -34,6 +34,7 @@ class TaskHandoffRecord:
     task_id: str
     mode: Literal["planning", "implementation", "validation", "review", "full"]
     context_for: ContextFor | None = field(default=None)
+    worker_step_id: str | None = field(default=None)
     scope: ContextScope = field(default="task")
     todo_id: str | None = field(default=None)
     focus_run_id: str | None = field(default=None)
@@ -68,7 +69,7 @@ class TaskHandoffRecord:
     created_by: ActorRef = field(default_factory=ActorRef)
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "handoff_id": self.handoff_id,
             "task_id": self.task_id,
             "mode": self.mode,
@@ -105,6 +106,9 @@ class TaskHandoffRecord:
             "schema_version": self.schema_version,
             "object_type": self.object_type,
         }
+        if self.worker_step_id is not None:
+            payload["worker_step_id"] = self.worker_step_id
+        return payload
 
     @classmethod
     def from_dict(cls, data: object) -> TaskHandoffRecord:
@@ -120,6 +124,7 @@ class TaskHandoffRecord:
                 if (v := _optional_string(data.get("context_for")))
                 else None
             ),
+            worker_step_id=_optional_string(data.get("worker_step_id")),
             scope=normalize_context_scope(
                 _optional_string(data.get("scope")) or "task"
             ),

@@ -139,6 +139,78 @@ enforce plan fields by itself. It cannot override lifecycle gates, plan approval
 validation requirements, lock rules, required user answers, or higher-priority
 harness instructions.
 
+Optional worker pipelines
+-------------------------
+
+Projects may optionally configure worker pipelines in ``taskledger.toml`` to
+guide fresh-context handoffs without changing the underlying task lifecycle.
+Worker pipelines are advisory overlays on the existing planning,
+implementation, and validation lifecycle. They can be three steps, four steps,
+five steps, or custom. When no worker pipeline is configured, taskledger
+behavior is unchanged.
+
+Example configuration:
+
+.. code-block:: toml
+
+   [worker_pipeline]
+   enabled = true
+   name = "api-contract-first"
+   mode = "template"
+
+   [[worker_pipeline.steps]]
+   id = "planner"
+   lifecycle_stage = "planning"
+   base_context = "planner"
+
+   [[worker_pipeline.steps]]
+   id = "api-designer"
+   label = "API Designer"
+   lifecycle_stage = "implementation"
+   base_context = "implementer"
+   kind = "todo"
+
+   [[worker_pipeline.steps]]
+   id = "coder"
+   lifecycle_stage = "implementation"
+   base_context = "implementer"
+   kind = "todo"
+
+   [[worker_pipeline.steps]]
+   id = "domain-reviewer"
+   lifecycle_stage = "review"
+   base_context = "spec-reviewer"
+   kind = "review"
+
+Inspect and use the configured overlay explicitly:
+
+.. code-block:: bash
+
+   taskledger pipeline show
+   taskledger pipeline list
+   taskledger pipeline next
+   taskledger pipeline context api-designer
+   taskledger context --worker api-designer
+   taskledger handoff create --worker api-designer --summary "Design the interfaces only."
+
+To include worker-step todo hints in a plan template, enable a worker pipeline
+with ``mode = "template"`` or ``mode = "guided"`` and opt in per task:
+
+.. code-block:: bash
+
+   taskledger plan template --with-worker-pipeline --file ./plan.md
+
+Use ``worker_step`` only on plan todos for projects that have an enabled worker
+pipeline:
+
+.. code-block:: yaml
+
+   todos:
+     - id: plan-todo-0001
+       text: "Add failing regression tests."
+       worker_step: "tester"
+       validation_hint: "pytest -q tests/test_parser.py"
+
 Release tagging and changelog context
 -------------------------------------
 

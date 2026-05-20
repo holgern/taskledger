@@ -61,6 +61,7 @@ from taskledger.cli_misc import (
     register_require_v2_commands,
     register_todo_v2_commands,
 )
+from taskledger.cli_pipeline import register_pipeline_commands
 from taskledger.cli_plan import register_plan_v2_commands
 from taskledger.cli_question import register_question_v2_commands
 from taskledger.cli_report import register_report_commands
@@ -114,6 +115,10 @@ doctor_app = typer.Typer(
     invoke_without_command=True,
 )
 report_app = typer.Typer(add_completion=False, help="Render HTML reports.")
+pipeline_app = typer.Typer(
+    add_completion=False,
+    help="Inspect optional worker pipeline overlays.",
+)
 
 app.add_typer(task_app, name="task")
 app.add_typer(plan_app, name="plan")
@@ -137,6 +142,7 @@ app.add_typer(actors_app, name="actor")
 app.add_typer(harness_app, name="harness")
 app.add_typer(ledger_app, name="ledger")
 app.add_typer(report_app, name="report")
+app.add_typer(pipeline_app, name="pipeline")
 
 register_task_v2_commands(task_app)
 register_plan_v2_commands(plan_app)
@@ -153,6 +159,7 @@ register_handoff_v2_commands(handoff_app)
 register_storage_commands(storage_app)
 register_sync_commands(sync_app)
 register_report_commands(report_app)
+register_pipeline_commands(pipeline_app)
 
 
 def _optional_group_failure(
@@ -255,7 +262,7 @@ def context_command(
     ctx: typer.Context,
     task_ref: TaskOption = None,
     context_for: Annotated[
-        str,
+        str | None,
         typer.Option(
             "--for",
             help=(
@@ -263,7 +270,11 @@ def context_command(
                 "spec-reviewer, code-reviewer, reviewer, full."
             ),
         ),
-    ] = "full",
+    ] = None,
+    worker_step_id: Annotated[
+        str | None,
+        typer.Option("--worker", help="Configured worker step id."),
+    ] = None,
     scope: Annotated[
         str | None,
         typer.Option("--scope", help="Context scope: task, todo, or run."),
@@ -284,6 +295,7 @@ def context_command(
             state.cwd,
             task.id,
             context_for=context_for,
+            worker_step_id=worker_step_id,
             scope=scope,
             todo_id=todo_id,
             focus_run_id=focus_run_id,

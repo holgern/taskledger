@@ -77,6 +77,10 @@ from taskledger.storage.locks import (
     remove_lock,
     write_lock,
 )
+from taskledger.storage.project_config import (
+    WorkerPipelineConfig,
+    load_worker_pipeline_config,
+)
 from taskledger.storage.task_store import (
     TaskVisibility,
     V2Paths,
@@ -903,6 +907,7 @@ def plan_template(
     *,
     from_answers: bool = False,
     include_guidance: bool = False,
+    with_worker_pipeline: bool = False,
 ) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
     guidance_text = ""
@@ -917,8 +922,12 @@ def plan_template(
         for item in list_questions(workspace_root, task.id)
         if item.status == "answered" and item.required_for_plan
     ]
+    worker_pipeline: WorkerPipelineConfig | None = None
+    if with_worker_pipeline:
+        worker_pipeline = _worker_pipeline_for_plan_template(workspace_root)
     template_text = _render_plan_template(
         answered_questions if from_answers else (),
+        worker_pipeline=worker_pipeline,
     )
     if include_guidance and guidance_text:
         template_text = _insert_guidance_into_plan_template(
@@ -935,6 +944,7 @@ def plan_template(
         else [],
         "recommended_plan_fields": list(_RECOMMENDED_PLAN_FIELDS),
         "guidance": guidance_text,
+        "with_worker_pipeline": with_worker_pipeline,
     }
 
 
@@ -1898,7 +1908,11 @@ def _plan_template_command(*, from_answers: bool) -> str:
     return f"{command} --file plan.md"
 
 
-def _render_plan_template(answered_questions: Sequence[QuestionRecord]) -> str:
+def _render_plan_template(
+    answered_questions: Sequence[QuestionRecord],
+    *,
+    worker_pipeline: WorkerPipelineConfig | None = None,
+) -> str:
     lines = [
         "---",
         'goal: "<one sentence describing the desired outcome>"',
@@ -1939,6 +1953,8 @@ def _render_plan_template(answered_questions: Sequence[QuestionRecord]) -> str:
         lines.extend(["", "## Notes from answered questions", ""])
         for item in answered_questions:
             lines.append(f"- {item.id}: {item.answer}")
+    if worker_pipeline is not None:
+        lines.extend(_worker_pipeline_template_hints(worker_pipeline))
     return "\n".join(lines) + "\n"
 
 
@@ -1972,6 +1988,56 @@ def _insert_guidance_into_plan_template(template_text: str, guidance_text: str) 
         + lines[front_matter_end_index + 1 :]
     )
     return "\n".join(updated_lines).rstrip() + "\n"
+
+
+def _worker_pipeline_for_plan_template(
+    workspace_root: Path,
+) -> WorkerPipelineConfig:
+    pipeline = load_worker_pipeline_config(workspace_root)
+    if pipeline is None or not pipeline.enabled:
+        raise _cli_error(
+            "taskledger plan template --with-worker-pipeline requires an enabled "
+            "worker pipeline.",
+            EXIT_CODE_BAD_INPUT,
+        )
+    if pipeline.mode not in {"template", "guided"}:
+        raise _cli_error(
+            "Worker pipeline plan template hints require "
+            "worker_pipeline.mode = 'template' or 'guided'.",
+            EXIT_CODE_BAD_INPUT,
+        )
+    return pipeline
+
+
+def _worker_pipeline_template_hints(pipeline: WorkerPipelineConfig) -> list[str]:
+    lines = ["", "## Optional worker pipeline todo hints", ""]
+    lines.append(
+        "This project has a configured worker pipeline. Add `worker_step` to any "
+        "plan todo that should map to a specific worker step."
+    )
+    lines.extend(["", "Configured worker steps:"])
+    for step in pipeline.steps:
+        lines.append(f"- {step.id}: {step.label} ({step.lifecycle_stage})")
+    example_steps = [
+        step
+        for step in pipeline.steps
+        if step.lifecycle_stage not in {"planning", "full"}
+    ] or list(pipeline.steps)
+    lines.extend(["", "Example:", "", "```yaml", "todos:"])
+    if example_steps:
+        for index, step in enumerate(example_steps[:2], start=1):
+            lines.extend(
+                [
+                    f"  - id: plan-todo-{index:04d}",
+                    f'    text: "<todo for {step.label}>"',
+                    f'    worker_step: "{step.id}"',
+                ]
+            )
+    else:
+        lines.append("  - id: plan-todo-0001")
+        lines.append('    text: "<todo text>"')
+    lines.extend(["```", ""])
+    return lines
 
 
 def _dependency_blockers(
@@ -2215,10 +2281,14 @@ def _criteria_from_plan_input(
     return tuple(items)
 
 
-def _todos_from_plan_input(front_matter: dict[str, object]) -> tuple[TaskTodo, ...]:
+def _todos_from_plan_input(
+    workspace_root: Path,
+    front_matter: dict[str, object],
+) -> tuple[TaskTodo, ...]:
     raw_todos = front_matter.get("todos")
     if raw_todos is None:
         return ()
+    pipeline = load_worker_pipeline_config(workspace_root)
     if not isinstance(raw_todos, list):
         raise _cli_error("Plan todos front matter must be a list.", EXIT_CODE_BAD_INPUT)
     items: list[TaskTodo] = []
@@ -2256,9 +2326,41 @@ def _todos_from_plan_input(front_matter: dict[str, object]) -> tuple[TaskTodo, .
                 mandatory=bool(item.get("mandatory", True)),
                 source="plan",
                 validation_hint=_optional_string_value(item.get("validation_hint")),
+                worker_step_id=_plan_todo_worker_step_id(
+                    pipeline,
+                    item,
+                    index=index,
+                ),
             )
         )
     return tuple(items)
+
+
+def _plan_todo_worker_step_id(
+    pipeline: WorkerPipelineConfig | None,
+    item: dict[str, object],
+    *,
+    index: int,
+) -> str | None:
+    raw_worker_step = item.get("worker_step")
+    if raw_worker_step is None:
+        return None
+    if not isinstance(raw_worker_step, str) or not raw_worker_step.strip():
+        raise _cli_error(
+            f"Plan todo {index} worker_step must be a non-empty string.",
+            EXIT_CODE_BAD_INPUT,
+        )
+    if pipeline is None or not pipeline.enabled:
+        raise _cli_error(
+            "Plan todo worker_step requires an enabled worker pipeline.",
+            EXIT_CODE_BAD_INPUT,
+        )
+    worker_step_id = raw_worker_step.strip()
+    try:
+        pipeline.resolve_step(worker_step_id)
+    except LaunchError as exc:
+        raise _cli_error(str(exc), EXIT_CODE_BAD_INPUT) from exc
+    return worker_step_id
 
 
 def _answer_snapshot_hash(questions: list[QuestionRecord]) -> str | None:

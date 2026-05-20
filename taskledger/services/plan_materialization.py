@@ -201,7 +201,7 @@ def regenerate_plan_from_answers(
         supersedes=plans[-1].plan_version if plans else None,
         question_refs=tuple(open_required),
         criteria=_tasks._criteria_from_plan_input(front_matter, criteria),
-        todos=_tasks._todos_from_plan_input(front_matter),
+        todos=_tasks._todos_from_plan_input(workspace_root, front_matter),
         generation_reason="after_questions",
         based_on_question_ids=tuple(item.id for item in answered),
         based_on_answer_hash=_tasks._answer_snapshot_hash(questions),

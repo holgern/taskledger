@@ -3,10 +3,14 @@ from pathlib import Path
 from typing import cast
 
 from taskledger.domain.models import ActorRef, HarnessRef, TaskHandoffRecord
-from taskledger.domain.states import normalize_actor_type
+from taskledger.domain.states import (
+    ContextFor,
+    ContextScope,
+    HandoffMode,
+    normalize_actor_type,
+)
 from taskledger.errors import LaunchError
 from taskledger.services.handoff import (
-    build_context_request,
     build_handoff_payload,
     render_handoff,
     render_markdown_handoff,
@@ -25,8 +29,9 @@ def create_handoff(
     workspace_root: Path,
     task_ref: str,
     *,
-    mode: str,
+    mode: str | None = None,
     context_for: str | None = None,
+    worker_step_id: str | None = None,
     scope: str | None = None,
     todo_id: str | None = None,
     focus_run_id: str | None = None,
@@ -47,38 +52,41 @@ def create_handoff(
     resolved_harness = harness or resolve_harness()
 
     task = resolve_task(workspace_root, task_ref)
-    request = build_context_request(
-        mode=mode,
-        context_for=context_for,
-        scope=scope,
-        todo_id=todo_id,
-        focus_run_id=focus_run_id,
-        format_name="markdown",
-    )
+    if mode is None and worker_step_id is None:
+        raise LaunchError("Handoff creation requires --mode or --worker.")
     payload = build_handoff_payload(
         workspace_root,
         task.id,
-        mode=request.mode,
-        context_for=request.context_for,
-        scope=request.scope,
-        todo_id=request.todo_id,
-        focus_run_id=request.focus_run_id,
+        mode=mode,
+        context_for=context_for,
+        worker_step_id=worker_step_id,
+        scope=scope,
+        todo_id=todo_id,
+        focus_run_id=focus_run_id,
         format_name="markdown",
     )
     context_body = render_markdown_handoff(payload)
     context_hash = f"sha256:{hashlib.sha256(context_body.encode('utf-8')).hexdigest()}"
     existing_handoffs = list_handoffs(workspace_root, task.id)
     existing_ids = [h.handoff_id for h in existing_handoffs]
+    resolved_mode = cast(HandoffMode, str(payload["mode"]))
+    resolved_context_for = payload.get("context_for")
+    resolved_scope = cast(ContextScope, str(payload["scope"]))
+    resolved_context = cast(
+        ContextFor | None,
+        resolved_context_for if isinstance(resolved_context_for, str) else None,
+    )
 
     handoff_id = next_project_id("handoff", existing_ids)
     handoff = TaskHandoffRecord(
         handoff_id=handoff_id,
         task_id=task.id,
-        mode=request.mode,
-        context_for=request.context_for,
-        scope=request.scope,
-        todo_id=request.todo_id,
-        focus_run_id=request.focus_run_id,
+        mode=resolved_mode,
+        context_for=resolved_context,
+        worker_step_id=worker_step_id,
+        scope=resolved_scope,
+        todo_id=todo_id,
+        focus_run_id=focus_run_id,
         context_format="markdown",
         context_hash=context_hash,
         generated_at=utc_now_iso(),
@@ -140,6 +148,7 @@ def show_handoff(
                 task.id,
                 mode=handoff.mode,
                 context_for=handoff.context_for,
+                worker_step_id=handoff.worker_step_id,
                 scope=handoff.scope,
                 todo_id=handoff.todo_id,
                 focus_run_id=handoff.focus_run_id,
@@ -161,6 +170,8 @@ def show_handoff(
         f"context_path: {context_path}",
         f"context_hash: {handoff.context_hash or 'none'}",
     ]
+    if handoff.worker_step_id:
+        lines.append(f"worker_step_id: {handoff.worker_step_id}")
     if handoff.todo_id:
         lines.append(f"todo_id: {handoff.todo_id}")
     if handoff.focus_run_id:
