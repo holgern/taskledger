@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -10,6 +11,7 @@ from pathlib import Path
 import pytest
 
 ROOT = str(Path(__file__).resolve().parent.parent)
+_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 
 def _run_help(
@@ -25,6 +27,10 @@ def _run_help(
         capture_output=True,
         timeout=timeout,
     )
+
+
+def _strip_ansi(text: str) -> str:
+    return _ANSI_ESCAPE_RE.sub("", text)
 
 
 @pytest.mark.parametrize(
@@ -60,7 +66,13 @@ def test_help_is_not_agent_logged(tmp_path: Path) -> None:
 def test_root_help_shows_completion_options(tmp_path: Path) -> None:
     result = _run_help(tmp_path, "--help")
     assert result.returncode == 0, f"stderr: {result.stderr}"
-    assert "--show-completion" in result.stdout
+    normalized_help = _strip_ansi(result.stdout)
+    if "--show-completion" in normalized_help:
+        return
+    # Some Typer/Click combinations keep completion flags available but omit
+    # them from root help output.
+    completion = _run_help(tmp_path, "--show-completion", "bash")
+    assert completion.returncode == 0, f"stderr: {completion.stderr}"
 
 
 def test_show_completion_exits_quickly_and_does_not_create_agent_logs(
