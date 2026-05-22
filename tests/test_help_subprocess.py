@@ -67,7 +67,7 @@ def test_root_help_shows_completion_options(tmp_path: Path) -> None:
 def test_show_completion_exits_quickly_and_does_not_create_agent_logs(
     tmp_path: Path,
 ) -> None:
-    result = _run_help(tmp_path, "--show-completion")
+    result = _run_help(tmp_path, "--show-completion", "bash")
     assert result.returncode == 0, f"stderr: {result.stderr}"
     assert "taskledger" in result.stdout
     agent_logs = tmp_path / ".taskledger" / "agent-logs"
