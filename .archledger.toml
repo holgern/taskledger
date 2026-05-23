@@ -1,11 +1,39 @@
 # Project-local archledger configuration.
 # This file lives in the source project root.
-config_version = 5
-archledger_dir = "../archledger-state/taskledger"
+config_version = 7
+archledger_dir = ".archledger"
 
 # Stable project identity. Commit this with your source tree.
-project_uuid = "5d87017e-db40-4c72-90c8-5d3753e13f43"
+project_uuid = "c864dcee-bb0a-43e1-b7d0-b9289fe1bf3a"
 project_name = "taskledger"
+
+[ids]
+prefix = "al"
+width = 4
+segment_mode = "type"
+default_segment = "content"
+
+[ids.segment_map]
+adr = "adr"
+archive_tombstone = "archive"
+black_box = "block"
+concept = "concept"
+constraint = "constraint"
+context_interface = "context"
+diagram = "diagram"
+glossary_term = "glossary"
+infrastructure = "deploy"
+interface = "block"
+quality_goal = "quality"
+quality_requirement = "quality"
+quality_scenario = "quality"
+requirement = "content"
+risk = "risk"
+runtime_scenario = "runtime"
+section = "content"
+stakeholder = "content"
+strategy_item = "strategy"
+white_box = "block"
 
 [source]
 format = "markdown"
@@ -15,13 +43,26 @@ record_extension = ".md"
 schema_version = 2
 
 [build]
+default_output = "ARCHITECTURE.md"
 default_format = "markdown"
-default_output_dir = "build"
+# [build].default_output_dir is relative to the directory containing
+# archledger.toml or .archledger.toml.
+default_output_dir = "."
 include_draft = false
 include_superseded = false
 strict = false
 keep_intermediate = false
 converter = "auto"
+pdf_engine = ""
+reference_docx = ""
+
+[diagrams]
+enabled = false
+renderer = "pass-through"
+default_type = "text"
+output_dir = "diagrams"
+image_format = "svg"
+kroki_url = ""
 
 [arc42]
 template_version = "9.0-EN"
@@ -30,11 +71,14 @@ title = "Architecture Documentation"
 include_help = false
 
 [skill]
-installed = true
+installed = false
 path = "skills/archledger/SKILL.md"
 
 [tracking]
 enabled = true
+# source-state.json stores SHA-256 content hashes only for files.
+# It does not persist mtimes or file sizes. Directory hashes are
+# derived from file hashes after scanning.
 state_file = "source-state.json"
 scanner = "auto"
 include = [
