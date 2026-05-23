@@ -15,6 +15,8 @@ Supported modules
 - ``taskledger.api.locks``
 - ``taskledger.api.handoff``
 - ``taskledger.api.releases``
+- ``taskledger.api.storage``
+- ``taskledger.api.sync``
 - ``taskledger.api.search``
 
 Import boundary
@@ -183,6 +185,15 @@ Release API
 - ``show_release``
 - ``tag_release``
 
+Storage API
+~~~~~~~~~~~
+
+- ``storage_where``
+- ``storage_move``
+- ``sync_preflight``
+- ``sync_status``
+- ``sync_commit``
+
 Search API
 ~~~~~~~~~~
 
@@ -190,3 +201,19 @@ Search API
 - ``grep_workspace``
 - ``symbols_workspace``
 - ``dependencies_for_module``
+
+Sync API
+~~~~~~~~
+
+- ``sync_git_init``
+- ``sync_git_paths``
+- ``sync_git_status``
+- ``sync_git_import_local``
+- ``sync_git_commit``
+- ``sync_git_export_local``
+- ``sync_git_pull``
+- ``sync_git_push``
+- ``sync_git_sync``
+- ``sync_git_hooks_install``
+- ``sync_git_hooks_status``
+- ``sync_git_hooks_uninstall``

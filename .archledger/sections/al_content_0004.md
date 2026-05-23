@@ -26,3 +26,12 @@ Key architectural choices:
 - **JSON indexes as derived caches** — Index files under `.taskledger/indexes/` are rebuilt from canonical records by `taskledger reindex`. They are never the source of truth.
 - **Policy-based gate decisions** — All lifecycle transitions go through functions in `taskledger/domain/policies.py` that return `Decision` objects with `allowed`, `code`, `message`, and `exit_code`. This keeps gate logic testable and separate from I/O.
 - **Atomic file writes** — All writes use `atomic_write_text` (write to temp, `os.replace`) to prevent partial writes on crash.
+
+## Maintenance
+
+`ARCHITECTURE.md` in the repository root is generated from archledger source records. Do not edit it directly.
+
+- **Edit**: `.archledger/sections/*.md` for section content, `.archledger/records/**/*.md` for individual records.
+- **Regenerate**: Run `archledger build` (or the configured build command) to regenerate `ARCHITECTURE.md`.
+- **Verify**: Run `pytest tests/test_docs_and_skill.py tests/test_service_boundaries.py` after changes.
+- **Authoritative source**: The archledger records under `.archledger/` are the single source of truth for architecture documentation. `docs/architecture_taskledger_split.rst` is a concise human-maintained summary.

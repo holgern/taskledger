@@ -3,7 +3,7 @@ schema_version: 2
 id: al_strategy_0024
 type: strategy_item
 title: "Layered architecture: CLI \u2192 Services \u2192 Domain \u2192 Storage"
-status: proposed
+status: accepted
 section: solution_strategy
 order: 10
 date: "2026-05-23"
@@ -17,7 +17,7 @@ updated_at: "2026-05-23T12:30:14Z"
 
 ## Strategy
 
-The codebase is organized into five layers with strict dependency direction: CLI (`taskledger/cli*.py`) → API (`taskledger/api/`) → Services (`taskledger/services/`) → Domain (`taskledger/domain/`) + Storage (`taskledger/storage/`). The Domain layer has no I/O dependencies. Storage is the only layer that touches the file system directly.
+The codebase is organized into five layers with target dependency direction: CLI (`taskledger/cli*.py`) → API (`taskledger/api/`) → Services (`taskledger/services/`) → Domain (`taskledger/domain/`) + Storage (`taskledger/storage/`). The Domain layer has no I/O dependencies. Storage owns canonical taskledger persistence and atomic record I/O. Other layers may perform bounded filesystem operations for external inputs/outputs (reports, Git sync, search, CLI file arguments). CLI should prefer API wrappers for public workflows, but current sanctioned exceptions are tracked in `tests/test_service_boundaries.py`.
 
 ## Trade-offs
 

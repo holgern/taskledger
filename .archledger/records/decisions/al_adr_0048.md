@@ -3,7 +3,7 @@ schema_version: 2
 id: al_adr_0048
 type: adr
 title: "Explicit lifecycle gates with policy decisions"
-status: proposed
+status: accepted
 section: architecture_decisions
 order: 30
 date: "2026-05-23"

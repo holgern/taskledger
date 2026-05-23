@@ -3,7 +3,7 @@ schema_version: 2
 id: al_runtime_0035
 type: runtime_scenario
 title: "Task lifecycle: create through done"
-status: proposed
+status: accepted
 section: runtime_view
 order: 10
 date: "2026-05-23"
@@ -14,6 +14,7 @@ body_format: markdown
 created_at: "2026-05-23T12:30:49Z"
 updated_at: "2026-05-23T12:30:49Z"
 ---
+
 **Trigger**: User or agent runs `taskledger task create`.
 
 **Flow**:

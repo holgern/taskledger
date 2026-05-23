@@ -15,14 +15,17 @@ body_format: markdown
 created_at: "2026-05-23T12:30:52Z"
 updated_at: "2026-05-23T12:30:52Z"
 ---
+
 **Node**: Developer workstation or CI runner
 
 **Software**:
+
 - Python 3.10+
 - taskledger (pip installed)
 - Host project with `taskledger.toml` config
 
 **Storage**:
+
 - `.taskledger/` directory in project root (Markdown/YAML front matter files)
 - JSON index caches under `.taskledger/indexes/`
 - Project config at `taskledger.toml`

@@ -3,7 +3,7 @@ schema_version: 2
 id: al_runtime_0037
 type: runtime_scenario
 title: "Handoff creation and claiming"
-status: proposed
+status: accepted
 section: runtime_view
 order: 30
 date: "2026-05-23"
@@ -14,6 +14,7 @@ body_format: markdown
 created_at: "2026-05-23T12:30:50Z"
 updated_at: "2026-05-23T12:30:50Z"
 ---
+
 **Trigger**: Worker runs `taskledger handoff create`.
 
 **Flow**:

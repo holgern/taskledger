@@ -3,7 +3,7 @@ schema_version: 2
 id: al_adr_0051
 type: adr
 title: "External skill packaging"
-status: proposed
+status: accepted
 section: architecture_decisions
 order: 60
 date: "2026-05-23"

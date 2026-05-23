@@ -3,7 +3,7 @@ schema_version: 2
 id: al_adr_0049
 type: adr
 title: "Typer CLI framework"
-status: proposed
+status: accepted
 section: architecture_decisions
 order: 40
 date: "2026-05-23"

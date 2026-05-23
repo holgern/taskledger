@@ -3,7 +3,7 @@ schema_version: 2
 id: al_adr_0046
 type: adr
 title: "Markdown/YAML front matter as canonical format"
-status: proposed
+status: accepted
 section: architecture_decisions
 order: 10
 date: "2026-05-23"

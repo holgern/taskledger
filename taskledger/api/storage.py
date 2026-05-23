@@ -42,3 +42,12 @@ def sync_status(workspace_root: Path) -> dict[str, object]:
 
 def sync_commit(workspace_root: Path, *, message: str) -> dict[str, object]:
     return sync_commit_storage(workspace_root, message=message).to_dict()
+
+
+__all__ = [
+    "storage_where",
+    "storage_move",
+    "sync_preflight",
+    "sync_status",
+    "sync_commit",
+]

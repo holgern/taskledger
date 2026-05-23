@@ -3,7 +3,7 @@ schema_version: 2
 id: al_adr_0050
 type: adr
 title: "Task bundle directory layout"
-status: proposed
+status: accepted
 section: architecture_decisions
 order: 50
 date: "2026-05-23"

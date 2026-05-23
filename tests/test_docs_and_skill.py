@@ -25,6 +25,8 @@ PUBLIC_API_MODULES = (
     "taskledger.api.locks",
     "taskledger.api.handoff",
     "taskledger.api.releases",
+    "taskledger.api.storage",
+    "taskledger.api.sync",
     "taskledger.api.search",
 )
 
@@ -294,3 +296,33 @@ def _command_key(tokens: list[str]) -> str | None:
     if len(remaining) == 1:
         return first
     return f"{first} {remaining[1]}"
+
+
+def test_service_boundary_whitelist_doc_matches_test_constants() -> None:
+    """Verify docs/service_boundary_whitelist.rst tracks current whitelist entries."""
+    from tests.test_service_boundaries import (
+        CLI_SERVICES_IMPORT_WHITELIST,
+        FUNCTION_LINE_WHITELIST,
+        MODULE_LINE_WHITELIST,
+    )
+
+    doc = (ROOT / "docs" / "service_boundary_whitelist.rst").read_text(encoding="utf-8")
+
+    # Module whitelist entries must appear in the doc
+    for module_path in MODULE_LINE_WHITELIST:
+        assert module_path in doc, (
+            f"Module whitelist entry missing from doc: {module_path}"
+        )
+
+    # Function whitelist entries must appear in the doc
+    for func_path in FUNCTION_LINE_WHITELIST:
+        # Doc uses :: separator same as test keys
+        assert func_path in doc, (
+            f"Function whitelist entry missing from doc: {func_path}"
+        )
+
+    # CLI services import whitelist entries must appear in the doc
+    for import_ref in CLI_SERVICES_IMPORT_WHITELIST:
+        # import_ref is like "taskledger/cli.py:taskledger.services.dashboard"
+        module_ref = import_ref.split(":", 1)[1]
+        assert module_ref in doc, f"CLI services import missing from doc: {module_ref}"

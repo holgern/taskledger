@@ -3,7 +3,7 @@ schema_version: 2
 id: al_adr_0047
 type: adr
 title: "JSON indexes as derived rebuildable caches"
-status: proposed
+status: accepted
 section: architecture_decisions
 order: 20
 date: "2026-05-23"

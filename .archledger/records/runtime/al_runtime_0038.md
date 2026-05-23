@@ -3,7 +3,7 @@ schema_version: 2
 id: al_runtime_0038
 type: runtime_scenario
 title: "Doctor integrity check"
-status: proposed
+status: accepted
 section: runtime_view
 order: 40
 date: "2026-05-23"
@@ -14,6 +14,7 @@ body_format: markdown
 created_at: "2026-05-23T12:30:52Z"
 updated_at: "2026-05-23T12:30:52Z"
 ---
+
 **Trigger**: User runs `taskledger doctor`.
 
 **Flow**:

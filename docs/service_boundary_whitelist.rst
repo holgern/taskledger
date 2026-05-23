@@ -9,15 +9,14 @@ drops below budget or is removed, update this note and the related test
 constants.
 
 Module line budget whitelist (>2000 lines)
------------------------------------------
+------------------------------------------
 
 * ``taskledger/services/tasks.py``
 
-  * Current reason: Compatibility facade still contains multiple workflows in
-    one file.
-  * Target split direction: Split into ``task_lifecycle.py``,
-    ``planning_flow.py``, ``implementation_flow.py``, ``validation_flow.py``,
-    ``task_queries.py``, ``task_repair.py``, and ``command_capture.py``.
+  * Current reason: Temporary compatibility facade while workflow services
+    are extracted.
+  * Target split direction: Continue reducing to a smaller compatibility
+    facade and move residual helpers into focused modules.
 
 Current split status
 --------------------
@@ -36,13 +35,74 @@ smaller compatibility facade and move residual helpers into focused modules.
 Function line budget whitelist (>250 lines)
 -------------------------------------------
 
-* ``taskledger/cli_task.py::register_task_v2_commands``
-* ``taskledger/cli_plan.py::register_plan_v2_commands``
-* ``taskledger/cli_implement.py::register_implement_v2_commands``
-* ``taskledger/services/doctor.py::inspect_v2_project``
-* ``taskledger/services/navigation.py::can_perform``
-* ``taskledger/services/web_dashboard.py::_render_dashboard_css``
-* ``taskledger/services/web_dashboard.py::_render_dashboard_script``
+* ``taskledger/services/doctor_checks/task_checks.py::scan_task_integrity``
+
+  * Current reason: Consolidated per-task integrity scan with change/lock
+    validation; further splitting into focused inspectors is planned.
+
+* ``taskledger/cli_sync.py::register_sync_commands``
+
+  * Current reason: Sync command registration currently co-locates legacy
+    sync, archive alias, git sync, and hook command wiring.
+
+CLI→services import whitelist
+-----------------------------
+
+CLI modules may import from ``taskledger.services`` only when listed in
+``tests/test_service_boundaries.py`` under ``CLI_SERVICES_IMPORT_WHITELIST``.
+
+Current sanctioned imports:
+
+* ``taskledger/cli.py:taskledger.services.dashboard`` — Dashboard and view
+  rendering are currently service-level read models.
+* ``taskledger/cli.py:taskledger.services.agent_logging`` — Root CLI
+  initializes recorder and payload/error notes.
+* ``taskledger/cli.py:taskledger.services.tree`` — Tree rendering currently
+  lives in services/tree.py.
+* ``taskledger/cli.py:taskledger.services.doctor`` — Repair command uses
+  doctor cleanup helper pending API wrapper.
+* ``taskledger/cli.py:taskledger.services.web_dashboard`` — Serve command
+  starts the optional web dashboard service.
+* ``taskledger/cli_report.py:taskledger.services.html_reports`` — Root report
+  commands render HTML reports via the html_reports service.
+* ``taskledger/cli_actor.py:taskledger.services.actors`` — Actor and harness
+  resolution currently lives in services/actors.py.
+* ``taskledger/cli_common.py:taskledger.services.agent_logging`` — CLI common
+  emits recorder task/payload/error notes.
+* ``taskledger/cli_implement.py:taskledger.services.actors`` — Implementation
+  commands resolve actor/harness context.
+* ``taskledger/cli_implement.py:taskledger.services.agent_logging`` —
+  Implement command wrapper records managed-shell command failures.
+* ``taskledger/cli_misc.py:taskledger.services.doctor`` — Doctor commands
+  still consume doctor service inspectors directly.
+* ``taskledger/cli_pipeline.py:taskledger.services.handoff`` — Pipeline
+  context rendering currently reuses the handoff service payloads.
+* ``taskledger/cli_pipeline.py:taskledger.services.worker_pipeline`` —
+  Pipeline CLI commands read the worker pipeline service overlay directly.
+* ``taskledger/cli_plan.py:taskledger.services.actors`` — Plan commands
+  resolve actor/harness context.
+* ``taskledger/cli_plan.py:taskledger.services.plan_editing`` — Plan input
+  path validation currently lives in services/plan_editing.py.
+* ``taskledger/cli_plan.py:taskledger.services.plan_lint`` — Plan lint
+  payload model is still service-owned.
+* ``taskledger/cli_question.py:taskledger.services.actors`` — Question
+  commands resolve actor/harness context.
+* ``taskledger/cli_plan.py:taskledger.services.workflow_guidance`` — Planning
+  guidance profile read model is service-owned.
+* ``taskledger/cli_plan.py:taskledger.services.agent_logging`` — Plan command
+  wrapper records managed-shell command failures.
+* ``taskledger/cli_plan.py:taskledger.services.planning_flow`` — Plan
+  guidance command marks guidance viewed via planning flow service.
+* ``taskledger/cli_task.py:taskledger.services.actors`` — Task record command
+  resolves completed-by actor metadata.
+* ``taskledger/cli_task.py:taskledger.services.agent_transcripts`` — Task
+  transcript rendering currently lives in services.
+* ``taskledger/cli_task.py:taskledger.services.task_reports`` — Task report
+  rendering and options are service-owned.
+* ``taskledger/cli_task.py:taskledger.services.tasks`` — Task events read
+  path still uses services.tasks list_events helper.
+* ``taskledger/cli_validate.py:taskledger.services.actors`` — Validation
+  commands resolve actor/harness context.
 
 Catch-all exception whitelist (``except Exception``)
 ----------------------------------------------------

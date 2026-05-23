@@ -13,6 +13,7 @@ This repository exposes a task-first public API. The supported modules are:
 - `taskledger.api.handoff`
 - `taskledger.api.releases`
 - `taskledger.api.storage`
+- `taskledger.api.sync`
 - `taskledger.api.search`
 
 ## Import boundary
@@ -253,6 +254,21 @@ details in JSON context payloads.
 - `grep_workspace`
 - `symbols_workspace`
 - `dependencies_for_module`
+
+### `taskledger.api.sync`
+
+- `sync_git_init`
+- `sync_git_paths`
+- `sync_git_status`
+- `sync_git_import_local`
+- `sync_git_commit`
+- `sync_git_export_local`
+- `sync_git_pull`
+- `sync_git_push`
+- `sync_git_sync`
+- `sync_git_hooks_install`
+- `sync_git_hooks_status`
+- `sync_git_hooks_uninstall`
 
 ## CLI command groups
 

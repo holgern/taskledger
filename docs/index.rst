@@ -19,6 +19,7 @@ Contents
    command_contract
    transfer
    sync
+   service_boundary_whitelist
 
 Indices and tables
 ------------------
