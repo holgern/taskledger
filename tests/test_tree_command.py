@@ -6,12 +6,10 @@ import json
 from pathlib import Path
 
 import pytest
-
 from click.testing import Result
 from typer.testing import CliRunner
 
 from taskledger.cli import app
-
 from tests.support.builders import init_workspace
 
 pytestmark = [pytest.mark.cli, pytest.mark.integration, pytest.mark.slow]

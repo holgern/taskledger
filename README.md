@@ -625,7 +625,8 @@ taskledger import ./taskledger-transfer.tar.gz --replace
 taskledger snapshot ./artifacts
 ```
 
-Default export filenames use this policy:
+When no explicit output path is passed, default export archives are written
+inside the resolved workspace root with this filename policy:
 
 ```text
 taskledger-export-{project_slug}-{ledger_ref}-{timestamp}.tar.gz

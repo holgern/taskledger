@@ -18,13 +18,14 @@ What transfer archives include
 Filename policy
 ---------------
 
-When no output path is passed to ``taskledger export``, taskledger writes:
+When no output path is passed to ``taskledger export``, taskledger writes into
+the resolved workspace root:
 
 .. code-block:: text
 
    taskledger-export-{project_slug}-{ledger_ref}-{timestamp}.tar.gz
 
-For task-scoped exports:
+For task-scoped exports, the same workspace-root default applies:
 
 .. code-block:: text
 

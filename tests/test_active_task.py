@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from typer.testing import CliRunner
 
 from taskledger.api.tasks import activate_task, create_task, deactivate_task

@@ -4,11 +4,9 @@ import json
 from pathlib import Path
 
 import pytest
-
 from typer.testing import CliRunner
 
 from taskledger.cli import app
-
 from tests.support.builders import init_workspace
 
 pytestmark = [pytest.mark.cli, pytest.mark.integration, pytest.mark.slow]
@@ -33,7 +31,11 @@ def _init_task_with_questions(tmp_path: Path) -> None:
     init_workspace(tmp_path)
     from taskledger.services.tasks import (
         activate_task as svc_activate,
+    )
+    from taskledger.services.tasks import (
         create_task as svc_create,
+    )
+    from taskledger.services.tasks import (
         start_planning as svc_start_planning,
     )
 

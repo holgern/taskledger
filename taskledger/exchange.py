@@ -831,15 +831,17 @@ def write_project_archive(
         selection=selection,
     )
 
-    output_path = output_path or (
-        _default_task_archive_path(
-            project_slug,
-            paths.ledger_ref,
-            selection.task_ids[0] if selection.task_ids else "task-0000",
+    if output_path is None:
+        default_archive_path = (
+            _default_task_archive_path(
+                project_slug,
+                paths.ledger_ref,
+                selection.task_ids[0] if selection.task_ids else "task-0000",
+            )
+            if selection.scope == "tasks"
+            else _default_archive_path(project_slug, paths.ledger_ref)
         )
-        if selection.scope == "tasks"
-        else _default_archive_path(project_slug, paths.ledger_ref)
-    )
+        output_path = locator.workspace_root / default_archive_path
     if output_path.exists():
         if overwrite:
             output_path.unlink()

@@ -25,7 +25,6 @@ from taskledger.exchange import (
     read_project_archive,
 )
 from taskledger.storage.agent_logs import load_agent_command_logs
-
 from tests.support.builders import init_workspace
 
 pytestmark = [pytest.mark.cli, pytest.mark.integration, pytest.mark.slow]
@@ -515,7 +514,9 @@ def test_default_export_filename_includes_project_slug_and_ledger(
         runner.invoke(app, ["--cwd", str(workspace), "--json", "export", "--overwrite"])
     )
     result = cast(dict[str, Any], export_result["result"])
-    filename = Path(cast(str, result["path"])).name
+    archive_path = Path(cast(str, result["path"]))
+    assert archive_path.parent == workspace
+    filename = archive_path.name
     assert filename.startswith("taskledger-export-taskledger-main-")
     assert filename.endswith(".tar.gz")
     assert result["filename_policy"] == "project-ledger-timestamp-v1"
@@ -534,7 +535,9 @@ def test_default_export_filename_sanitizes_project_name(tmp_path: Path) -> None:
     export_result = _json(
         runner.invoke(app, ["--cwd", str(workspace), "--json", "export", "--overwrite"])
     )
-    filename = Path(cast(str, export_result["result"]["path"])).name
+    archive_path = Path(cast(str, export_result["result"]["path"]))
+    assert archive_path.parent == workspace
+    filename = archive_path.name
     assert filename.startswith("taskledger-export-odoo-17-addons-main-")
 
 
@@ -595,6 +598,7 @@ def test_export_positional_task_ref_exports_task_archive(tmp_path: Path) -> None
     assert payload["selected_task_ids"] == ["task-0001"]
     assert payload["counts"]["tasks"] == 1
     archive_path = Path(cast(str, payload["path"]))
+    assert archive_path.parent == workspace
     assert archive_path.name.startswith("taskledger-task-")
     manifest, raw_payload, _ = _read_manifest_payload(archive_path)
     assert cast(dict[str, Any], manifest["scope"])["kind"] == "tasks"

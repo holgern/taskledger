@@ -619,7 +619,8 @@ For private multi-PC full-state sync with external storage, use:
    git push
    taskledger snapshot ./artifacts
 
-Default export filenames are project-specific:
+When no explicit output path is passed, default export archives are written
+inside the resolved workspace root. Filenames are project-specific:
 
 .. code-block:: text
 

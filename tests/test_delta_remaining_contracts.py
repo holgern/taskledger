@@ -14,7 +14,11 @@ from taskledger.services.tasks import (
     start_implementation,
     start_validation,
 )
-from tests.support.builders import create_approved_task, create_done_task, init_workspace
+from tests.support.builders import (
+    create_approved_task,
+    create_done_task,
+    init_workspace,
+)
 
 pytestmark = [pytest.mark.cli, pytest.mark.integration, pytest.mark.slow]
 

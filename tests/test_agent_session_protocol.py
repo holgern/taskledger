@@ -15,11 +15,9 @@ import sys
 from pathlib import Path
 
 import pytest
-
 from typer.testing import CliRunner
 
 from taskledger.cli import app
-
 from taskledger.services.tasks import (
     activate_task,
     create_task,

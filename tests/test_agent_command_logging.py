@@ -18,7 +18,6 @@ from taskledger.storage.project_config import (
     merge_project_config,
 )
 from taskledger.storage.task_store import resolve_v2_paths
-
 from tests.support.builders import init_workspace
 
 pytestmark = [pytest.mark.cli, pytest.mark.integration, pytest.mark.slow]

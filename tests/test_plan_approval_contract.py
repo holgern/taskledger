@@ -5,7 +5,6 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-
 from typer.testing import CliRunner
 
 from taskledger.cli import app
@@ -16,7 +15,6 @@ from taskledger.storage.task_store import (
     resolve_task,
     save_run,
 )
-
 from tests.support.builders import init_workspace
 
 pytestmark = [pytest.mark.cli, pytest.mark.integration, pytest.mark.slow]

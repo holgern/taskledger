@@ -8,6 +8,10 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+# Keep the repository tree clean when running pytest from the checkout.
+sys.dont_write_bytecode = True
+
+
 # Tests create many short-lived Markdown/YAML records under tmp_path.
 # Production durability still fsyncs; pytest opts into faster temporary IO.
 os.environ.setdefault("TASKLEDGER_TEST_FAST_IO", "1")
@@ -24,6 +28,26 @@ from tests.support.builders import (
     init_workspace,
 )
 
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """Remove local pytest/Python cache artifacts from repository test runs."""
+    if hasattr(session.config, "workerinput"):
+        return
+    shutil.rmtree(ROOT / ".pytest_cache", ignore_errors=True)
+    cache_roots = [
+        ROOT / "taskledger",
+        ROOT / "tests",
+        ROOT / "docs",
+        ROOT / "__pycache__",
+    ]
+    for cache_root in cache_roots:
+        if cache_root.name == "__pycache__":
+            shutil.rmtree(cache_root, ignore_errors=True)
+            continue
+        if not cache_root.exists():
+            continue
+        for cache_dir in cache_root.rglob("__pycache__"):
+            shutil.rmtree(cache_dir, ignore_errors=True)
 
 def _copy_template(src: Path, dst: Path) -> Path:
     shutil.copytree(src, dst, dirs_exist_ok=True)
