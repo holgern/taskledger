@@ -16,11 +16,11 @@ sys.dont_write_bytecode = True
 # Production durability still fsyncs; pytest opts into faster temporary IO.
 os.environ.setdefault("TASKLEDGER_TEST_FAST_IO", "1")
 
-import shutil
+import shutil  # noqa: E402
 
-import pytest
+import pytest  # noqa: E402
 
-from tests.support.builders import (
+from tests.support.builders import (  # noqa: E402
     create_approved_task,
     create_done_task,
     create_failed_validation_task,
