@@ -217,6 +217,7 @@ taskledger implement checklist
 taskledger implement change --path taskledger/storage/task_store.py --kind edit --summary "Normalized v2 markdown storage."
 taskledger todo done todo-0001 --evidence "Updated taskledger/storage/task_store.py"
 taskledger implement finish --summary "Implemented the approved plan."
+taskledger review record --result pass --summary "No blocking code-quality issues."
 
 taskledger context --for validation --format markdown
 taskledger validate start

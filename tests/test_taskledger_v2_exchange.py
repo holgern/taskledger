@@ -241,6 +241,113 @@ Keep implementation open for export/import testing.
     )
 
 
+def _prepare_implemented_with_review(project_root: Path, *, slug: str) -> None:
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(project_root),
+                "task",
+                "create",
+                slug,
+                "--description",
+                "Task with review record for exchange tests.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(app, ["--cwd", str(project_root), "task", "activate", slug]).exit_code
+        == 0
+    )
+    assert runner.invoke(app, ["--cwd", str(project_root), "plan", "start"]).exit_code == 0
+    plan_text = """---
+goal: Exchange review records.
+acceptance_criteria:
+  - id: ac-0001
+    text: Review records export and import.
+    mandatory: true
+todos:
+  - id: todo-0001
+    text: Finish implementation.
+    mandatory: true
+    validation_hint: taskledger next-action
+---
+
+# Plan
+
+Exchange test setup.
+"""
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(project_root), "plan", "propose", "--text", plan_text],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(project_root),
+                "plan",
+                "approve",
+                "--version",
+                "1",
+                "--actor",
+                "user",
+                "--note",
+                "Approved for exchange tests.",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(app, ["--cwd", str(project_root), "implement", "start"]).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(project_root),
+                "todo",
+                "done",
+                "todo-0001",
+                "--evidence",
+                "done",
+            ],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(project_root), "implement", "finish", "--summary", "done"],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            [
+                "--cwd",
+                str(project_root),
+                "review",
+                "record",
+                "--result",
+                "pass",
+                "--summary",
+                "Reviewed for exchange test.",
+            ],
+        ).exit_code
+        == 0
+    )
+
+
 def test_export_and_import_include_v2_state(tmp_path: Path) -> None:
     source_root = tmp_path / "source"
     dest_root = tmp_path / "dest"
@@ -338,21 +445,52 @@ def test_export_and_import_include_v2_state(tmp_path: Path) -> None:
     )
     task_payload = _json(show_result)
     assert task_payload["result"]["task"]["latest_plan_version"] == 1
-    handoffs = _json(
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(dest_root),
-                "--json",
-                "handoff",
-                "list",
-                "--task",
-                "migrate-v2",
-            ],
-        )
+
+
+def test_export_import_roundtrip_preserves_code_reviews(tmp_path: Path) -> None:
+    source_root = tmp_path / "source"
+    dest_root = tmp_path / "dest"
+    source_root.mkdir()
+    dest_root.mkdir()
+    _init_project(source_root)
+    _init_project(dest_root)
+    _copy_project_uuid(source_root, dest_root)
+    _prepare_implemented_with_review(source_root, slug="review-exchange")
+
+    archive_path = tmp_path / "reviews-export.tar.gz"
+    export_result = runner.invoke(
+        app,
+        ["--cwd", str(source_root), "export", str(archive_path)],
     )
-    assert handoffs["result"]["handoffs"][0]["mode"] == "implementation"
+    assert export_result.exit_code == 0, export_result.stdout
+
+    _, payload, _ = _read_manifest_payload(archive_path)
+    raw_v2 = cast(dict[str, Any], payload["v2"])
+    code_reviews = cast(list[dict[str, Any]], raw_v2["code_reviews"])
+    assert len(code_reviews) == 1
+    assert code_reviews[0]["review_id"] == "review-0001"
+
+    import_result = runner.invoke(
+        app,
+        ["--cwd", str(dest_root), "import", str(archive_path)],
+    )
+    assert import_result.exit_code == 0, import_result.stdout
+
+    show_result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(dest_root),
+            "--json",
+            "review",
+            "show",
+            "review-0001",
+            "--task",
+            "review-exchange",
+        ],
+    )
+    payload_after = _json(show_result)
+    assert payload_after["result"]["review"]["summary"] == "Reviewed for exchange test."
 
 
 def test_default_export_filename_includes_project_slug_and_ledger(

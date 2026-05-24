@@ -17,6 +17,7 @@ OBJECT_TYPES = frozenset(
         "run",
         "validation",
         "change",
+        "code_review",
         "intro",
         "lock",
         "event",
@@ -117,6 +118,7 @@ EventName = Literal[
     "actor.resolved",
     "doctor.reindexed",
     "task.recorded",
+    "code_review.recorded",
 ]
 
 ACTIVE_TASK_STAGES = frozenset({"planning", "implementing", "validating"})

@@ -22,6 +22,7 @@ from taskledger.services.tasks import (
 from tests.support.builders import (
     create_approved_task,
     create_done_task,
+    create_implemented_task,
     init_workspace,
 )
 
@@ -62,6 +63,7 @@ class TestServiceReport:
         assert "## Acceptance Criteria" in content
         assert "## Todo Checklist" in content
         assert "## Implementation" in content
+        assert "## Code Reviews" in content
         assert "## Code Changes" in content
         assert "## Validation" in content
 
@@ -84,8 +86,32 @@ class TestServiceReport:
         assert "## Plans" in content
         assert "## Questions" in content
         assert "## Implementation" not in content
+        assert "## Code Reviews" not in content
         assert "## Validation" not in content
         assert "## Code Changes" not in content
+
+    def test_task_report_implementation_preset_includes_code_reviews(
+        self, tmp_path: Path
+    ) -> None:
+        ws = init_workspace(tmp_path)
+        task_id = create_implemented_task(ws, allow_lint_errors=True)
+
+        from taskledger.services.code_review import record_code_review
+
+        record_code_review(
+            ws,
+            task_id,
+            result="pass",
+            body="No blocking issues.",
+        )
+
+        payload = render_task_report(
+            ws, task_id, options=TaskReportOptions(preset="implementation")
+        )
+        content = payload["content"]
+        assert isinstance(content, str)
+        assert "## Code Reviews" in content
+        assert "review-0001" in content
 
     def test_task_report_planning_report_includes_proposed_plan_details(
         self, tmp_path: Path

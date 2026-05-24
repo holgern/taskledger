@@ -13,6 +13,7 @@ from taskledger.domain.handoff import TaskHandoffRecord
 from taskledger.domain.lock import TaskLock
 from taskledger.domain.plan import PlanRecord
 from taskledger.domain.question import QuestionRecord
+from taskledger.domain.review import CodeReviewRecord
 from taskledger.domain.release import ReleaseRecord
 from taskledger.domain.run import TaskRunRecord
 from taskledger.domain.sidecars import (

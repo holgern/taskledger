@@ -11,6 +11,7 @@ Supported modules
 - ``taskledger.api.plans``
 - ``taskledger.api.questions``
 - ``taskledger.api.task_runs``
+- ``taskledger.api.reviews``
 - ``taskledger.api.introductions``
 - ``taskledger.api.locks``
 - ``taskledger.api.handoff``
@@ -146,6 +147,13 @@ Run API
 - ``finish_validation``
 - ``list_runs``
 - ``list_changes``
+
+Review API
+----------
+
+- ``record_code_review``
+- ``list_code_review_records``
+- ``show_code_review``
 
 Other APIs
 ----------

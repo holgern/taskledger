@@ -64,6 +64,7 @@ from taskledger.cli_misc import (
 from taskledger.cli_pipeline import register_pipeline_commands
 from taskledger.cli_plan import register_plan_v2_commands
 from taskledger.cli_question import register_question_v2_commands
+from taskledger.cli_review import register_review_commands
 from taskledger.cli_report import register_report_commands
 from taskledger.cli_storage import register_storage_commands
 from taskledger.cli_sync import register_sync_commands
@@ -119,6 +120,7 @@ pipeline_app = typer.Typer(
     add_completion=False,
     help="Inspect optional worker pipeline overlays.",
 )
+review_app = typer.Typer(add_completion=False, help="Record code review evidence.")
 
 app.add_typer(task_app, name="task")
 app.add_typer(plan_app, name="plan")
@@ -143,6 +145,7 @@ app.add_typer(harness_app, name="harness")
 app.add_typer(ledger_app, name="ledger")
 app.add_typer(report_app, name="report")
 app.add_typer(pipeline_app, name="pipeline")
+app.add_typer(review_app, name="review")
 
 register_task_v2_commands(task_app)
 register_plan_v2_commands(plan_app)
@@ -160,6 +163,7 @@ register_storage_commands(storage_app)
 register_sync_commands(sync_app)
 register_report_commands(report_app)
 register_pipeline_commands(pipeline_app)
+register_review_commands(review_app)
 
 
 def _optional_group_failure(

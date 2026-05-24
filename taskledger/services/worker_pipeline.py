@@ -7,6 +7,7 @@ from taskledger.domain.run import TaskRunRecord
 from taskledger.errors import LaunchError
 from taskledger.storage.project_config import load_worker_pipeline_config
 from taskledger.storage.task_store import (
+    list_code_reviews,
     list_handoffs,
     list_runs,
     load_todos,
@@ -104,12 +105,12 @@ def determine_next_worker_step(
     if open_worker_step_ids:
         return _first_matching_step(pipeline, open_worker_step_ids)
     runs = list_runs(workspace_root, task.id)
-    completed_handoff_steps = _closed_worker_handoff_step_ids(workspace_root, task.id)
+    completed_review_steps = _completed_worker_review_step_ids(workspace_root, task.id)
     if (
         task.status_stage in {"implemented", "validating", "failed_validation"}
         and _latest_run(runs, "validation") is None
     ):
-        review_step = _first_pending_review_step(pipeline, completed_handoff_steps)
+        review_step = _first_pending_review_step(pipeline, completed_review_steps)
         if review_step is not None:
             return review_step
     if task.status_stage in {"implemented", "validating", "failed_validation"}:
@@ -186,6 +187,14 @@ def _closed_worker_handoff_step_ids(workspace_root: Path, task_id: str) -> set[s
         and handoff.status == "closed"
         and handoff.worker_step_id.strip()
     }
+
+
+def _completed_worker_review_step_ids(workspace_root: Path, task_id: str) -> set[str]:
+    completed = _closed_worker_handoff_step_ids(workspace_root, task_id)
+    for review in list_code_reviews(workspace_root, task_id):
+        if review.worker_step_id and review.result == "pass":
+            completed.add(review.worker_step_id)
+    return completed
 
 
 def _first_pending_review_step(

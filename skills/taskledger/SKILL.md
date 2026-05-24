@@ -97,6 +97,7 @@ If any `taskledger ...` command fails with a Python traceback before taskledger 
 - Use `taskledger context --worker STEP_ID` or `taskledger pipeline context STEP_ID` to render a worker-specific context on top of the existing base context.
 - Use `taskledger handoff create --worker STEP_ID` to derive handoff mode and context from a configured worker step.
 - In `guided` mode, inspect `taskledger next-action` for `worker_pipeline.next_step`, `context_command`, and `handoff_command` hints. These are advisory only; they do not add new lifecycle gates.
+- For review worker steps, persist final review output with `taskledger review record --worker STEP_ID --result pass|fail|blocked --summary-file REVIEW.md` (or `--summary`).
 - Reviewer worker steps (`spec-reviewer`, `code-reviewer`) may require `--scope task` when no focused run is available.
 - Use `taskledger plan template --with-worker-pipeline --file ./plan.md` only when the project has an enabled worker pipeline and the task should use worker-tagged plan todos.
 - `worker_step` on plan todos is valid only when the project has an enabled worker pipeline.
@@ -161,6 +162,7 @@ The plan file should use version ids like `plan-v1`, `plan-v2` in references. Do
 7. In Git workspaces, prefer `taskledger implement scan-changes --from-git --summary "..."` before `implement finish` so change evidence includes a git-backed reconciliation checkpoint.
 8. Do not run `implement finish` until `todo status` says all todos are complete.
 9. `taskledger implement finish --summary "Completed all implementation todos..."`
+10. Optional: record durable code review evidence after implementation with `taskledger review record ...` before validation starts.
 
 **Critical**: `implement finish` will block until all non-skipped todos are done. Use `todo status` to verify readiness.
 
@@ -227,6 +229,7 @@ Rules for agents:
 ### Recovery Rules
 
 - If validation fails, record the failure and do not hide it.
+- Do not treat code review summaries as validation evidence unless the validation stage records criterion checks separately.
 - Run `taskledger validate status` to inspect all blocking issues before finishing.
 - If validation fails because implementation has a bug, finish validation as failed, run `taskledger next-action`, then restart implementation with `taskledger implement restart`. Use implementation context or an implementation handoff for the next actor.
 
@@ -343,6 +346,7 @@ taskledger context --for implementation --format markdown
 taskledger context --for implementer --todo todo-0003
 taskledger context --for spec-reviewer --run run-0008
 taskledger context --for code-reviewer --run run-0008
+taskledger review record --worker code-review --from-git --result pass --summary-file ./REVIEW.md
 taskledger release tag 0.4.1 --at-task task-0030 --note "0.4.1 released"
 taskledger release changelog 0.4.2 --since 0.4.1 --until-task task-0035 --output /tmp/taskledger-0.4.2-changelog-source.md
 taskledger import ./taskledger-transfer.tar.gz --dry-run

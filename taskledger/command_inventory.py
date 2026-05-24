@@ -24,6 +24,7 @@ PHASE_SETUP = "setup"
 PHASE_PLANNING = "planning"
 PHASE_APPROVAL = "approval"
 PHASE_IMPLEMENTATION = "implementation"
+PHASE_REVIEW = "review"
 PHASE_VALIDATION = "validation"
 PHASE_REPORTING = "reporting"
 PHASE_TRANSFER = "transfer"
@@ -707,6 +708,29 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         "safe_read_only",
         SUPPORT,
         PHASE_VALIDATION,
+        ledger_effect=EFFECT_READ,
+    ),
+    # ── review ────────────────────────────────────────────────────
+    "review record": CommandSpec(
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        PRIMARY,
+        PHASE_REVIEW,
+        tier=TIER_CRITICAL,
+        ledger_effect=EFFECT_WRITE,
+    ),
+    "review list": CommandSpec(
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_REVIEW,
+        ledger_effect=EFFECT_READ,
+    ),
+    "review show": CommandSpec(
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_REVIEW,
         ledger_effect=EFFECT_READ,
     ),
     # ── handoffs ──────────────────────────────────────────────────

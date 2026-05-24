@@ -8,6 +8,7 @@ This repository exposes a task-first public API. The supported modules are:
 - `taskledger.api.plans`
 - `taskledger.api.questions`
 - `taskledger.api.task_runs`
+- `taskledger.api.reviews`
 - `taskledger.api.introductions`
 - `taskledger.api.locks`
 - `taskledger.api.handoff`
@@ -166,6 +167,12 @@ payload = plan_guidance(Path.cwd(), "task-0001")
 - `list_runs`
 - `list_changes`
 
+### `taskledger.api.reviews`
+
+- `record_code_review`
+- `list_code_review_records`
+- `show_code_review`
+
 ### `taskledger.api.introductions`
 
 - `create_introduction`
@@ -279,6 +286,7 @@ The public task-first CLI surface is organized around these command groups:
 - `question`
 - `implement`
 - `validate`
+- `review`
 - `todo`
 - `intro`
 - `file`

@@ -22,6 +22,7 @@ from taskledger.domain.models import (
     ActiveHarnessState,
     ActiveTaskState,
     CodeChangeRecord,
+    CodeReviewRecord,
     DependencyRequirement,
     FileLink,
     ImplementationCheckRecord,
@@ -571,6 +572,37 @@ def resolve_check(
     raise LaunchError(f"Check not found: {check_id}")
 
 
+def list_code_reviews(workspace_root: Path, task_id: str) -> list[CodeReviewRecord]:
+    paths = ensure_v2_layout(workspace_root)
+    directory = task_reviews_dir(paths, task_id)
+    return sorted(
+        [_load_code_review(path) for path in directory.glob("review-*.md")],
+        key=lambda item: item.review_id,
+    )
+
+
+def save_code_review(
+    workspace_root: Path,
+    review: CodeReviewRecord,
+) -> CodeReviewRecord:
+    paths = ensure_v2_layout(workspace_root)
+    path = code_review_markdown_path(paths, review.task_id, review.review_id)
+    _write_markdown_record(path, review.to_dict(), review.body)
+    return review
+
+
+def resolve_code_review(
+    workspace_root: Path,
+    task_id: str,
+    review_ref: str,
+) -> CodeReviewRecord:
+    normalized_id = _normalize_numeric_ref(review_ref, "review")
+    for review in list_code_reviews(workspace_root, task_id):
+        if review.review_id == review_ref or review.review_id == normalized_id:
+            return review
+    raise LaunchError(f"Code review not found: {review_ref}")
+
+
 def load_active_locks(workspace_root: Path) -> list[TaskLock]:
     paths = ensure_v2_layout(workspace_root)
     locks: list[TaskLock] = []
@@ -774,6 +806,10 @@ def task_checks_dir(paths: V2Paths, task_id: str) -> Path:
     return task_dir(paths, task_id) / "checks"
 
 
+def task_reviews_dir(paths: V2Paths, task_id: str) -> Path:
+    return task_dir(paths, task_id) / "reviews"
+
+
 def task_artifacts_dir(paths: V2Paths, task_id: str) -> Path:
     return task_dir(paths, task_id) / "artifacts"
 
@@ -829,6 +865,10 @@ def check_markdown_path(paths: V2Paths, task_id: str, check_id: str) -> Path:
     return task_checks_dir(paths, task_id) / f"{check_id}.md"
 
 
+def code_review_markdown_path(paths: V2Paths, task_id: str, review_id: str) -> Path:
+    return task_reviews_dir(paths, task_id) / f"{review_id}.md"
+
+
 def _load_task(path: Path) -> TaskRecord:
     return _load_record(path, TaskRecord.from_dict)
 
@@ -859,6 +899,10 @@ def _load_change(path: Path) -> CodeChangeRecord:
 
 def _load_check(path: Path) -> ImplementationCheckRecord:
     return _load_record(path, ImplementationCheckRecord.from_dict)
+
+
+def _load_code_review(path: Path) -> CodeReviewRecord:
+    return _load_record(path, CodeReviewRecord.from_dict)
 
 
 def _load_record(path: Path, parser: Callable[[dict[str, object]], T]) -> T:
@@ -897,6 +941,7 @@ def _ensure_task_bundle(paths: V2Paths, task_id: str) -> None:
         task_requirements_dir(paths, task_id),
         task_runs_dir(paths, task_id),
         task_changes_dir(paths, task_id),
+        task_reviews_dir(paths, task_id),
         task_artifacts_dir(paths, task_id),
         task_audit_dir(paths, task_id),
         task_handoffs_dir(paths, task_id),

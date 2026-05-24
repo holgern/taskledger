@@ -68,6 +68,9 @@ CLI_SERVICES_IMPORT_WHITELIST: dict[str, str] = {
     "taskledger/cli_plan.py:taskledger.services.actors": (
         "Plan commands resolve actor/harness context."
     ),
+    "taskledger/cli_review.py:taskledger.services.actors": (
+        "Review commands resolve reviewer/harness context."
+    ),
     "taskledger/cli_plan.py:taskledger.services.plan_editing": (
         "Plan input path validation currently lives in services/plan_editing.py."
     ),
@@ -104,10 +107,10 @@ CLI_SERVICES_IMPORT_WHITELIST: dict[str, str] = {
 }
 
 EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
-    "taskledger/cli.py:237": (
+    "taskledger/cli.py:241": (
         "Optional command group import fallback reports missing modules gracefully."
     ),
-    "taskledger/cli.py:893": (
+    "taskledger/cli.py:897": (
         "Serve command optional import fallback reports missing dashboard gracefully."
     ),
     "taskledger/cli_ledger.py:111": (
@@ -173,11 +176,11 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
         "TOML parser error handling catches runtime-specific exceptions "
         "during project config loading."
     ),
-    "taskledger/storage/task_store.py:414": (
+    "taskledger/storage/task_store.py:415": (
         "rewrite_task_refs falls back to plain string replacement when "
         "front matter parsing fails."
     ),
-    "taskledger/storage/task_store.py:973": (
+    "taskledger/storage/task_store.py:1018": (
         "list_handoffs_with_errors tolerates malformed handoff records "
         "and continues scanning."
     ),

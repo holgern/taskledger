@@ -30,6 +30,7 @@ VALID_SECTIONS = (
     "todos",
     "implementation",
     "checks",
+    "code-reviews",
     "changes",
     "command-log",
     "validation",
@@ -69,6 +70,7 @@ IMPLEMENTATION_SECTIONS = (
     "todos",
     "implementation",
     "checks",
+    "code-reviews",
     "changes",
     "locks",
     "next-action",
@@ -82,6 +84,7 @@ VALIDATION_SECTIONS = (
     "todos",
     "implementation",
     "checks",
+    "code-reviews",
     "changes",
     "validation",
     "next-action",
@@ -100,6 +103,7 @@ FULL_SECTIONS = (
     "todos",
     "implementation",
     "checks",
+    "code-reviews",
     "changes",
     "command-log",
     "validation",
@@ -190,6 +194,7 @@ def build_task_report_payload(
     from taskledger.storage.task_store import (
         list_changes,
         list_checks,
+        list_code_reviews,
         list_plans,
         list_questions,
         list_runs,
@@ -218,14 +223,18 @@ def build_task_report_payload(
             val: object = list_plans(workspace_root, task.id)
         elif key == "questions":
             val = list_questions(workspace_root, task.id)
-        elif key in ("runs", "changes", "checks"):
+        elif key in ("runs", "changes", "checks", "code_reviews"):
             val = (
                 list_runs(workspace_root, task.id)
                 if key == "runs"
                 else (
                     list_changes(workspace_root, task.id)
                     if key == "changes"
-                    else list_checks(workspace_root, task.id)
+                    else (
+                        list_checks(workspace_root, task.id)
+                        if key == "checks"
+                        else list_code_reviews(workspace_root, task.id)
+                    )
                 )
             )
         elif key == "todos":
@@ -309,6 +318,7 @@ def render_task_report_markdown(payload: dict[str, object]) -> str:
         "implementation": _append_implementation,
         "changes": _append_changes,
         "checks": _append_checks,
+        "code-reviews": _append_code_reviews,
         "command-log": _append_command_log,
         "validation": _append_validation,
         "locks": _append_locks,
@@ -959,6 +969,38 @@ def _append_changes(
     lines.append("")
 
 
+def _append_code_reviews(
+    lines: list[str],
+    task: object,
+    _load: object,
+    accepted_plan: object,  # noqa: ARG001
+    options: TaskReportOptions,  # noqa: ARG001
+) -> None:
+    from taskledger.domain.models import CodeReviewRecord, TaskRecord
+
+    assert isinstance(task, TaskRecord)
+    lines.append("## Code Reviews")
+    lines.append("")
+
+    reviews = _load("code_reviews")  # type: ignore[operator]
+    if not isinstance(reviews, list) or not reviews:
+        lines.append("- none")
+        lines.append("")
+        return
+
+    lines.append("| ID | Result | Source | Run | Worker | Summary |")
+    lines.append("| --- | --- | --- | --- | --- | --- |")
+    for review in reviews:
+        if not isinstance(review, CodeReviewRecord):
+            continue
+        lines.append(
+            f"| {review.review_id} | {review.result} | {review.source} | "
+            f"{review.implementation_run or ''} | {review.worker_step_id or ''} | "
+            f"{(review.summary or _first_line(review.body) or '').replace('|', '\\|')} |"
+        )
+    lines.append("")
+
+
 def _append_validation(
     lines: list[str],
     task: object,
@@ -1166,6 +1208,14 @@ def _safe(value: object) -> str:
     if value is None:
         return "none"
     return str(value).replace("|", "\\|")
+
+
+def _first_line(value: str) -> str:
+    for line in value.splitlines():
+        stripped = line.strip()
+        if stripped:
+            return stripped
+    return ""
 
 
 def _event_summary(evt: dict[str, object]) -> str:

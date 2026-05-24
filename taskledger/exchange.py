@@ -18,6 +18,7 @@ from taskledger.domain.models import (
     ActiveTaskState,
     AgentCommandLogRecord,
     CodeChangeRecord,
+    CodeReviewRecord,
     DependencyRequirement,
     FileLink,
     ImplementationCheckRecord,
@@ -70,6 +71,7 @@ from taskledger.storage.task_store import (
     save_active_task_state,
     save_change,
     save_check,
+    save_code_review,
     save_handoff,
     save_introduction,
     save_links,
@@ -85,6 +87,7 @@ from taskledger.storage.task_store import (
 )
 from taskledger.storage.task_store import list_changes as list_v2_changes
 from taskledger.storage.task_store import list_checks as list_v2_checks
+from taskledger.storage.task_store import list_code_reviews as list_v2_code_reviews
 from taskledger.storage.task_store import list_handoffs as list_v2_handoffs
 from taskledger.storage.task_store import list_introductions as list_v2_introductions
 from taskledger.storage.task_store import list_plans as list_v2_plans
@@ -372,6 +375,11 @@ def _export_v2_payload(
             for task in tasks
             for check in list_v2_checks(workspace_root, task.id)
         ],
+        "code_reviews": [
+            review.to_dict()
+            for task in tasks
+            for review in list_v2_code_reviews(workspace_root, task.id)
+        ],
         "handoffs": [
             handoff.to_dict()
             for task in tasks
@@ -422,6 +430,7 @@ def _strip_export_bodies(v2_payload: dict[str, object]) -> None:
         "tasks": ("body",),
         "introductions": ("body",),
         "plans": ("body",),
+        "code_reviews": ("body",),
         "handoffs": ("context_body",),
     }
     for collection_key, body_fields in body_fields_by_collection.items():
@@ -506,6 +515,7 @@ def _rewrite_task_ids_in_payload(
         "runs",
         "changes",
         "checks",
+        "code_reviews",
         "handoffs",
         "todos",
         "links",
@@ -688,6 +698,8 @@ def _import_v2_payload(  # noqa: C901
         save_change(workspace_root, CodeChangeRecord.from_dict(item))
     for item in _dict_list(raw_v2.get("checks")):
         save_check(workspace_root, ImplementationCheckRecord.from_dict(item))
+    for item in _dict_list(raw_v2.get("code_reviews")):
+        save_code_review(workspace_root, CodeReviewRecord.from_dict(item))
     for item in _dict_list(raw_v2.get("handoffs")):
         save_handoff(workspace_root, TaskHandoffRecord.from_dict(item))
     _import_locks(paths, raw_v2, lock_policy=normalized_lock_policy)

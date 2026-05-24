@@ -30,6 +30,7 @@ Task-scoped workflow commands default to the active task. Use
    taskledger implement resume --task task-0001 --reason "Reacquire implementation lock."
    taskledger implement restart --task task-0001 --summary "Fix validation findings."
    taskledger implement finish --task task-0001 --summary "Implemented."
+   taskledger review record --task task-0001 --result pass --summary "No blocking issues."
    taskledger validate status --task task-0001
 
 Task-resource commands accept the task as their direct positional resource:
@@ -429,6 +430,23 @@ Rules:
 
 Focused context and handoff options
 -----------------------------------
+
+Code review commands
+--------------------
+
+``review`` stores optional durable code-review evidence without adding a new
+lifecycle stage:
+
+.. code-block:: bash
+
+   taskledger review record [--task TASK_REF] --result pass|fail|blocked (--summary TEXT | --summary-file PATH) [--from-git] [--commit COMMIT] [--worker STEP_ID] [--handoff HANDOFF_ID] [--run RUN_ID]
+   taskledger review list [--task TASK_REF]
+   taskledger review show REVIEW_REF [--task TASK_REF]
+
+JSON mode returns a stable payload with ``kind = "code_review_recorded"`` for
+``review record`` and includes ``review_id``, ``task_id``, ``result``,
+``source``, ``implementation_run``, ``worker_step_id``, and compact git
+metadata fields when present.
 
 Focused worker contexts keep lifecycle ``mode`` separate from worker-role
 ``--for``:

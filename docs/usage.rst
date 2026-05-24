@@ -495,6 +495,7 @@ transcripts and reports.
    taskledger implement change --path taskledger/storage/task_store.py --kind edit --summary "Updated storage semantics."
    taskledger implement scan-changes --from-git --summary "Implementation diff summary."
    taskledger implement finish --summary "Implemented the approved plan."
+   taskledger review record --result pass --summary "No blocking code-quality issues."
 
    taskledger context --for validation --format markdown
    taskledger validate start
@@ -531,6 +532,7 @@ Machine-readable output
    taskledger --json task show
    taskledger --json task show task-0001
    taskledger --json context --for validation --format json
+   taskledger --json review list --task task-0001
 
 .. code-block:: json
 

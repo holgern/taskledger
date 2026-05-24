@@ -290,6 +290,40 @@ Use the guided worker pipeline to surface the next implementation handoff.
     )
 
 
+def _close_spec_review_handoff(workspace: Path) -> None:
+    handoff = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(workspace),
+            "--json",
+            "handoff",
+            "create",
+            "--worker",
+            "spec-review",
+            "--scope",
+            "task",
+            "--summary",
+            "Review spec compliance.",
+        ],
+    )
+    assert handoff.exit_code == 0, handoff.stdout
+    handoff_id = str(_json(handoff)["result"]["handoff_id"])
+    close = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(workspace),
+            "handoff",
+            "close",
+            handoff_id,
+            "--reason",
+            "Review complete.",
+        ],
+    )
+    assert close.exit_code == 0, close.stdout
+
+
 def test_pipeline_commands_print_no_config_message(tmp_path: Path) -> None:
     assert runner.invoke(app, ["--cwd", str(tmp_path), "init"]).exit_code == 0
 
@@ -373,41 +407,74 @@ def test_pipeline_next_advances_after_closed_worker_review_handoff(
     assert first.exit_code == 0, first.stdout
     assert _json(first)["result"]["step"]["id"] == "spec-review"
 
-    handoff = runner.invoke(
-        app,
-        [
-            "--cwd",
-            str(tmp_path),
-            "--json",
-            "handoff",
-            "create",
-            "--worker",
-            "spec-review",
-            "--scope",
-            "task",
-            "--summary",
-            "Review spec compliance.",
-        ],
-    )
-    assert handoff.exit_code == 0, handoff.stdout
-    handoff_id = str(_json(handoff)["result"]["handoff_id"])
-    close = runner.invoke(
-        app,
-        [
-            "--cwd",
-            str(tmp_path),
-            "handoff",
-            "close",
-            handoff_id,
-            "--reason",
-            "Review complete.",
-        ],
-    )
-    assert close.exit_code == 0, close.stdout
+    _close_spec_review_handoff(tmp_path)
 
     second = runner.invoke(app, ["--cwd", str(tmp_path), "--json", "pipeline", "next"])
     assert second.exit_code == 0, second.stdout
     assert _json(second)["result"]["step"]["id"] == "code-review"
+
+
+def test_pipeline_next_advances_after_passing_code_review_record(
+    tmp_path: Path,
+) -> None:
+    _setup_implemented_review_task(tmp_path)
+    _close_spec_review_handoff(tmp_path)
+
+    before = runner.invoke(app, ["--cwd", str(tmp_path), "--json", "pipeline", "next"])
+    assert before.exit_code == 0, before.stdout
+    assert _json(before)["result"]["step"]["id"] == "code-review"
+
+    record = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "review",
+            "record",
+            "--worker",
+            "code-review",
+            "--result",
+            "pass",
+            "--summary",
+            "No blocking issues.",
+        ],
+    )
+    assert record.exit_code == 0, record.stdout
+
+    after = runner.invoke(app, ["--cwd", str(tmp_path), "--json", "pipeline", "next"])
+    assert after.exit_code == 0, after.stdout
+    assert _json(after)["result"]["step"]["id"] == "validator"
+
+
+def test_pipeline_next_keeps_code_review_when_latest_review_failed(
+    tmp_path: Path,
+) -> None:
+    _setup_implemented_review_task(tmp_path)
+    _close_spec_review_handoff(tmp_path)
+
+    record = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "review",
+            "record",
+            "--worker",
+            "code-review",
+            "--result",
+            "fail",
+            "--summary",
+            "Needs changes.",
+        ],
+    )
+    assert record.exit_code == 0, record.stdout
+
+    next_step = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "--json", "pipeline", "next"],
+    )
+    assert next_step.exit_code == 0, next_step.stdout
+    assert _json(next_step)["result"]["step"]["id"] == "code-review"
 
 
 def test_pipeline_next_ignores_cancelled_worker_review_handoff(tmp_path: Path) -> None:

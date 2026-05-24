@@ -10,7 +10,7 @@ Public surface
 Supported CLI groups
 --------------------
 
-- ``task``, ``plan``, ``question``, ``implement``, ``validate``, ``todo``
+- ``task``, ``plan``, ``question``, ``implement``, ``validate``, ``review``, ``todo``
 - ``intro``, ``file``, ``link``, ``require``, ``release``, ``lock``, ``handoff``
 - ``storage``, ``sync``
 - ``doctor``, ``repair``, ``next-action``, ``can``, ``reindex``
@@ -69,6 +69,7 @@ Supported Python API modules
 - ``taskledger.api.plans``
 - ``taskledger.api.questions``
 - ``taskledger.api.task_runs``
+- ``taskledger.api.reviews``
 - ``taskledger.api.introductions``
 - ``taskledger.api.locks``
 - ``taskledger.api.handoff``

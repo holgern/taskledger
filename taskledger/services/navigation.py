@@ -898,7 +898,7 @@ def _guided_worker_pipeline_payload(
     step = determine_next_worker_step(workspace_root, task, pipeline)
     if step is None:
         return None
-    return {
+    payload = {
         "configured": True,
         "enabled": True,
         "mode": pipeline.mode,
@@ -906,6 +906,10 @@ def _guided_worker_pipeline_payload(
         "context_command": f"taskledger pipeline context {step.id}",
         "handoff_command": _guided_worker_handoff_command(step.id, step.base_context),
     }
+    review_command = _guided_worker_review_command(step.id, step.lifecycle_stage)
+    if review_command is not None:
+        payload["review_command"] = review_command
+    return payload
 
 
 def _guided_worker_handoff_command(step_id: str, base_context: str) -> str:
@@ -915,17 +919,29 @@ def _guided_worker_handoff_command(step_id: str, base_context: str) -> str:
     return command + ' --summary "..."'
 
 
+def _guided_worker_review_command(step_id: str, lifecycle_stage: str) -> str | None:
+    if lifecycle_stage != "review":
+        return None
+    return (
+        "taskledger review record "
+        f"--worker {step_id} --from-git --result pass --summary-file REVIEW.md"
+    )
+
+
 def _append_guided_worker_pipeline_commands(
     commands: list[dict[str, object]],
     worker_pipeline: Mapping[str, object],
 ) -> list[dict[str, object]]:
     context_command = worker_pipeline.get("context_command")
     handoff_command = worker_pipeline.get("handoff_command")
+    review_command = worker_pipeline.get("review_command")
     extras: list[dict[str, object]] = []
     if isinstance(context_command, str):
         extras.append(_command("context", "Show worker context", context_command))
     if isinstance(handoff_command, str):
         extras.append(_command("handoff", "Create worker handoff", handoff_command))
+    if isinstance(review_command, str):
+        extras.append(_command("review", "Record code review", review_command))
     if not extras:
         return commands
     for index, item in enumerate(commands):
