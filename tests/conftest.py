@@ -49,6 +49,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         for cache_dir in cache_root.rglob("__pycache__"):
             shutil.rmtree(cache_dir, ignore_errors=True)
 
+
 def _copy_template(src: Path, dst: Path) -> Path:
     shutil.copytree(src, dst, dirs_exist_ok=True)
     return dst
@@ -121,6 +122,4 @@ def failed_validation_workspace_template(
 def failed_validation_workspace(
     tmp_path: Path, failed_validation_workspace_template: Path
 ) -> Path:
-    return _copy_template(
-        failed_validation_workspace_template, tmp_path / "workspace"
-    )
+    return _copy_template(failed_validation_workspace_template, tmp_path / "workspace")

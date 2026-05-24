@@ -30,7 +30,12 @@ from tests.support.builders import (
     init_workspace,
 )
 
-pytestmark = [pytest.mark.cli, pytest.mark.integration, pytest.mark.git, pytest.mark.slow]
+pytestmark = [
+    pytest.mark.cli,
+    pytest.mark.integration,
+    pytest.mark.git,
+    pytest.mark.slow,
+]
 
 
 def _runner() -> CliRunner:

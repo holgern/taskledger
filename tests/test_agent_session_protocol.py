@@ -42,6 +42,7 @@ runner = _make_runner()
 def _init_project(tmp_path: Path) -> None:
     init_workspace(tmp_path)
 
+
 def _json(result) -> dict[str, object]:
     return json.loads(result.stdout)
 
@@ -69,6 +70,7 @@ def _prepare_proposed_plan_with_todos(
     )
     propose_plan(tmp_path, task_id.id, body=plan_body)
 
+
 def _prepare_proposed_plan_no_todos(
     tmp_path: Path,
     *,
@@ -80,9 +82,8 @@ def _prepare_proposed_plan_no_todos(
     )
     activate_task(tmp_path, task_id.id, reason="test setup")
     start_planning(tmp_path, task_id.id)
-    propose_plan(
-        tmp_path, task_id.id, body="Fix things.", criteria=(criterion,)
-    )
+    propose_plan(tmp_path, task_id.id, body="Fix things.", criteria=(criterion,))
+
 
 # --- Lock break no-lock message ---
 

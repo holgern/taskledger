@@ -28,6 +28,7 @@ runner = _make_runner()
 def _init_project(tmp_path: Path) -> None:
     init_workspace(tmp_path)
 
+
 def _create_task(tmp_path: Path, slug: str = "active-flow") -> None:
     result = runner.invoke(
         app,

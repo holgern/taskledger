@@ -929,9 +929,7 @@ def _prepare_done_task(
     if include_links:
         from taskledger.services.task_collections import add_file_link
 
-        add_file_link(
-            tmp_path, slug, path="README.md", kind="doc"
-        )
+        add_file_link(tmp_path, slug, path="README.md", kind="doc")
         add_file_link(
             tmp_path,
             slug,
@@ -939,6 +937,7 @@ def _prepare_done_task(
             kind="other",
             label="spec",
         )
+
 
 def test_task_follow_up_creates_linked_child_and_copies_lightweight_links(
     tmp_path: Path,

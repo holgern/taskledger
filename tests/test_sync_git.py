@@ -9,7 +9,12 @@ from typer.testing import CliRunner
 
 from taskledger.cli import app
 
-pytestmark = [pytest.mark.cli, pytest.mark.integration, pytest.mark.git, pytest.mark.slow]
+pytestmark = [
+    pytest.mark.cli,
+    pytest.mark.integration,
+    pytest.mark.git,
+    pytest.mark.slow,
+]
 
 
 def _make_runner() -> CliRunner:
