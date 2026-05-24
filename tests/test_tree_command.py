@@ -5,10 +5,16 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from click.testing import Result
 from typer.testing import CliRunner
 
 from taskledger.cli import app
+
+from tests.support.builders import init_workspace
+
+pytestmark = [pytest.mark.cli, pytest.mark.integration, pytest.mark.slow]
 
 
 def _make_runner() -> CliRunner:
@@ -26,8 +32,7 @@ def _json(result: Result) -> dict:
 
 
 def _init(tmp_path: Path) -> None:
-    result = runner.invoke(app, ["--cwd", str(tmp_path), "init"])
-    assert result.exit_code == 0, result.output
+    init_workspace(tmp_path)
 
 
 def _create_task(tmp_path: Path, title: str, slug: str | None = None) -> None:

@@ -3,9 +3,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from typer.testing import CliRunner
 
 from taskledger.cli import app
+
+from tests.support.builders import init_workspace
+
+pytestmark = [pytest.mark.cli, pytest.mark.integration, pytest.mark.slow]
 
 
 def _runner() -> CliRunner:
@@ -24,30 +30,16 @@ def _json(result) -> dict[str, object]:
 
 def _init_task_with_questions(tmp_path: Path) -> None:
     """Create a task with planning started and two questions."""
-    assert runner.invoke(app, ["--cwd", str(tmp_path), "init"]).exit_code == 0
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "task",
-                "create",
-                "Test task",
-                "--slug",
-                "test-task",
-            ],
-        ).exit_code
-        == 0
+    init_workspace(tmp_path)
+    from taskledger.services.tasks import (
+        activate_task as svc_activate,
+        create_task as svc_create,
+        start_planning as svc_start_planning,
     )
-    assert (
-        runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "task", "activate", "test-task"],
-        ).exit_code
-        == 0
-    )
-    assert runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start"]).exit_code == 0
+
+    svc_create(tmp_path, title="Test task", slug="test-task", description="Test task.")
+    svc_activate(tmp_path, "test-task", reason="test setup")
+    svc_start_planning(tmp_path, "test-task")
     assert (
         runner.invoke(
             app,
@@ -229,7 +221,7 @@ def test_answers_json_format(tmp_path: Path) -> None:
 
 
 def test_answers_empty_when_none_answered(tmp_path: Path) -> None:
-    assert runner.invoke(app, ["--cwd", str(tmp_path), "init"]).exit_code == 0
+    init_workspace(tmp_path)
     assert (
         runner.invoke(
             app,
@@ -261,7 +253,7 @@ def test_answers_empty_when_none_answered(tmp_path: Path) -> None:
 
 
 def test_answer_empty_text_rejected(tmp_path: Path) -> None:
-    assert runner.invoke(app, ["--cwd", str(tmp_path), "init"]).exit_code == 0
+    init_workspace(tmp_path)
     assert (
         runner.invoke(
             app,
@@ -300,7 +292,7 @@ def test_answer_empty_text_rejected(tmp_path: Path) -> None:
 
 
 def test_answer_whitespace_only_rejected(tmp_path: Path) -> None:
-    assert runner.invoke(app, ["--cwd", str(tmp_path), "init"]).exit_code == 0
+    init_workspace(tmp_path)
     assert (
         runner.invoke(
             app,

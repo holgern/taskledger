@@ -19,6 +19,10 @@ from taskledger.storage.project_config import (
 )
 from taskledger.storage.task_store import resolve_v2_paths
 
+from tests.support.builders import init_workspace
+
+pytestmark = [pytest.mark.cli, pytest.mark.integration, pytest.mark.slow]
+
 
 def _make_runner() -> CliRunner:
     try:
@@ -31,8 +35,7 @@ runner = _make_runner()
 
 
 def _init_project(tmp_path: Path) -> None:
-    result = runner.invoke(app, ["--cwd", str(tmp_path), "init"])
-    assert result.exit_code == 0, result.stdout
+    init_workspace(tmp_path)
 
 
 def _enable_agent_logging(tmp_path: Path) -> None:

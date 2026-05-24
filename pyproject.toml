@@ -13,13 +13,16 @@ taskledger = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "--strict-markers"
+addopts = "--strict-markers --strict-config"
 testpaths = ["tests"]
 python_files = "test_*.py"
 markers = [
+    "unit: pure domain/service/storage tests without full CLI workflows",
     "cli: exercises the Typer CLI surface",
     "integration: exercises multiple taskledger layers or a full lifecycle",
     "slow: intentionally slower than normal unit tests",
+    "subprocess: starts a child process or managed shell command",
+    "git: shells out to git or requires a git repository",
 ]
 
 [project]
@@ -87,9 +90,22 @@ legacy_tox_ini = """
 [testenv]
 deps =
     pytest
-    pytest-cov[all]
 commands =
-    pytest -p no:odoo
+    pytest -q -m 'not slow and not integration' {posargs}
+
+[testenv:integration]
+deps =
+    pytest
+    pytest-xdist
+commands =
+    pytest -q -m 'slow or integration' -n auto --dist=worksteal {posargs}
+
+[testenv:full]
+deps =
+    pytest
+    pytest-xdist
+commands =
+    pytest -q -n auto --dist=worksteal {posargs}
 """
 
 [tool.mypy]

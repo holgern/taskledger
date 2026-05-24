@@ -13,6 +13,8 @@ import pytest
 ROOT = str(Path(__file__).resolve().parent.parent)
 _ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*m")
 
+pytestmark = [pytest.mark.subprocess, pytest.mark.integration, pytest.mark.slow]
+
 
 def _run_help(
     tmp_path: Path,

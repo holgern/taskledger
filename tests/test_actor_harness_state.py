@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import pytest
+
 import yaml
 from typer.testing import CliRunner
 
@@ -20,6 +22,8 @@ from taskledger.storage.task_store import (
     save_actor_state,
     save_harness_state,
 )
+
+pytestmark = [pytest.mark.cli, pytest.mark.integration, pytest.mark.slow]
 
 
 def _make_runner() -> CliRunner:

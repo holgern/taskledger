@@ -3,12 +3,17 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from typer.testing import CliRunner
 
 from taskledger.api.tasks import activate_task, create_task, deactivate_task
 from taskledger.cli import app
 from taskledger.errors import NoActiveTask
 from taskledger.storage.task_store import load_active_task_state, resolve_active_task
+from tests.support.builders import init_workspace
+
+pytestmark = [pytest.mark.cli, pytest.mark.integration, pytest.mark.slow]
 
 
 def _make_runner() -> CliRunner:
@@ -22,9 +27,7 @@ runner = _make_runner()
 
 
 def _init_project(tmp_path: Path) -> None:
-    result = runner.invoke(app, ["--cwd", str(tmp_path), "init"])
-    assert result.exit_code == 0
-
+    init_workspace(tmp_path)
 
 def _create_task(tmp_path: Path, slug: str = "active-flow") -> None:
     result = runner.invoke(

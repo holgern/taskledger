@@ -14,7 +14,7 @@ from taskledger.services.tasks import (
     start_implementation,
     start_validation,
 )
-from tests.support.builders import create_approved_task, init_workspace
+from tests.support.builders import create_approved_task, create_done_task, init_workspace
 
 pytestmark = [pytest.mark.cli, pytest.mark.integration, pytest.mark.slow]
 
@@ -913,179 +913,28 @@ def _prepare_done_task(
     title: str = "Parent task",
     include_links: bool = False,
 ) -> None:
-    _init(tmp_path)
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "task",
-                "create",
-                title,
-                "--slug",
-                slug,
-                "--description",
-                f"{title} description.",
-            ],
-        ).exit_code
-        == 0
+    init_workspace(tmp_path)
+    create_done_task(
+        tmp_path,
+        title=title,
+        slug=slug,
+        description=f"{title} description.",
+        criteria=("The task completes successfully.",),
+        allow_lint_errors=True,
     )
     if include_links:
-        assert (
-            runner.invoke(
-                app,
-                [
-                    "--cwd",
-                    str(tmp_path),
-                    "file",
-                    "add",
-                    "--task",
-                    slug,
-                    "--path",
-                    "README.md",
-                    "--kind",
-                    "doc",
-                ],
-            ).exit_code
-            == 0
-        )
-        assert (
-            runner.invoke(
-                app,
-                [
-                    "--cwd",
-                    str(tmp_path),
-                    "link",
-                    "add",
-                    "--task",
-                    slug,
-                    "--url",
-                    "https://example.com/spec",
-                    "--label",
-                    "spec",
-                ],
-            ).exit_code
-            == 0
-        )
-    assert (
-        runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "plan", "start", "--task", slug],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "plan",
-                "propose",
-                "--task",
-                slug,
-                "--criterion",
-                "The task completes successfully.",
-                "--text",
-                "## Goal\n\nComplete the task.",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "plan",
-                "approve",
-                "--task",
-                slug,
-                "--version",
-                "1",
-                "--actor",
-                "user",
-                "--note",
-                "Approved.",
-                "--allow-empty-todos",
-                "--allow-lint-errors",
-                "--reason",
-                "test",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "implement", "start", "--task", slug],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "implement",
-                "finish",
-                "--task",
-                slug,
-                "--summary",
-                "Implemented.",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "validate", "start", "--task", slug],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "validate",
-                "check",
-                "--task",
-                slug,
-                "--criterion",
-                "ac-0001",
-                "--status",
-                "pass",
-                "--evidence",
-                "pytest -q",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "validate",
-                "finish",
-                "--task",
-                slug,
-                "--result",
-                "passed",
-                "--summary",
-                "Validated.",
-            ],
-        ).exit_code
-        == 0
-    )
+        from taskledger.services.task_collections import add_file_link
 
+        add_file_link(
+            tmp_path, slug, path="README.md", kind="doc"
+        )
+        add_file_link(
+            tmp_path,
+            slug,
+            path="https://example.com/spec",
+            kind="other",
+            label="spec",
+        )
 
 def test_task_follow_up_creates_linked_child_and_copies_lightweight_links(
     tmp_path: Path,

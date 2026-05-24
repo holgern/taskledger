@@ -14,9 +14,21 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 from typer.testing import CliRunner
 
 from taskledger.cli import app
+
+from taskledger.services.tasks import (
+    activate_task,
+    create_task,
+    propose_plan,
+    start_planning,
+)
+from tests.support.builders import init_workspace
+
+pytestmark = [pytest.mark.cli, pytest.mark.integration, pytest.mark.slow]
 
 
 def _make_runner() -> CliRunner:
@@ -30,9 +42,7 @@ runner = _make_runner()
 
 
 def _init_project(tmp_path: Path) -> None:
-    result = runner.invoke(app, ["--cwd", str(tmp_path), "init"])
-    assert result.exit_code == 0
-
+    init_workspace(tmp_path)
 
 def _json(result) -> dict[str, object]:
     return json.loads(result.stdout)
@@ -44,28 +54,12 @@ def _prepare_proposed_plan_with_todos(
     criterion: str = "Must pass.",
     todo: str = "Fix the thing.",
 ) -> None:
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "task",
-                "create",
-                "test-task",
-                "--description",
-                "Test task.",
-            ],
-        ).exit_code
-        == 0
+    init_workspace(tmp_path)
+    task_id = create_task(
+        tmp_path, title="test-task", slug="test-task", description="Test task."
     )
-    assert (
-        runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "plan", "start", "--task", "test-task"],
-        ).exit_code
-        == 0
-    )
+    activate_task(tmp_path, task_id.id, reason="test setup")
+    start_planning(tmp_path, task_id.id)
     plan_body = (
         "---\n"
         "acceptance_criteria:\n"
@@ -75,60 +69,22 @@ def _prepare_proposed_plan_with_todos(
         "---\n\n"
         "# Plan\n\nFix things.\n"
     )
-    command = [
-        "--cwd",
-        str(tmp_path),
-        "plan",
-        "propose",
-        "--task",
-        "test-task",
-        "--text",
-        plan_body,
-    ]
-    assert runner.invoke(app, command).exit_code == 0
-
+    propose_plan(tmp_path, task_id.id, body=plan_body)
 
 def _prepare_proposed_plan_no_todos(
     tmp_path: Path,
     *,
     criterion: str = "Must pass.",
 ) -> None:
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "task",
-                "create",
-                "test-task",
-                "--description",
-                "Test task.",
-            ],
-        ).exit_code
-        == 0
+    init_workspace(tmp_path)
+    task_id = create_task(
+        tmp_path, title="test-task", slug="test-task", description="Test task."
     )
-    assert (
-        runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "plan", "start", "--task", "test-task"],
-        ).exit_code
-        == 0
+    activate_task(tmp_path, task_id.id, reason="test setup")
+    start_planning(tmp_path, task_id.id)
+    propose_plan(
+        tmp_path, task_id.id, body="Fix things.", criteria=(criterion,)
     )
-    command = [
-        "--cwd",
-        str(tmp_path),
-        "plan",
-        "propose",
-        "--task",
-        "test-task",
-        "--text",
-        "Fix things.",
-        "--criterion",
-        criterion,
-    ]
-    assert runner.invoke(app, command).exit_code == 0
-
 
 # --- Lock break no-lock message ---
 

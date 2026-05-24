@@ -3,10 +3,16 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from typer.testing import CliRunner
 
 from taskledger.cli import app
 from taskledger.storage.task_store import resolve_task
+
+from tests.support.builders import init_workspace
+
+pytestmark = [pytest.mark.cli, pytest.mark.integration, pytest.mark.slow]
 
 
 def _enable_event_logging(tmp_path: Path) -> None:
@@ -65,7 +71,7 @@ def _json(result) -> dict[str, object]:
 
 
 def _init_project(tmp_path: Path) -> None:
-    assert runner.invoke(app, ["--cwd", str(tmp_path), "init"]).exit_code == 0
+    init_workspace(tmp_path)
 
 
 def _setup_plan_review_task(tmp_path: Path) -> None:

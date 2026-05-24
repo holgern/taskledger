@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from typer.testing import CliRunner
 
 from taskledger.cli import app
@@ -13,6 +15,10 @@ from taskledger.storage.task_store import (
     resolve_v2_paths,
     rewrite_task_refs,
 )
+
+from tests.support.builders import init_workspace
+
+pytestmark = [pytest.mark.cli, pytest.mark.integration, pytest.mark.slow]
 
 
 def _make_runner() -> CliRunner:
@@ -31,8 +37,7 @@ def _json(result) -> dict[str, object]:
 
 
 def _init_project(tmp_path: Path) -> None:
-    result = runner.invoke(app, ["--cwd", str(tmp_path), "init"])
-    assert result.exit_code == 0
+    init_workspace(tmp_path)
 
 
 def _removed_index_paths(tmp_path: Path) -> tuple[Path, Path, Path]:

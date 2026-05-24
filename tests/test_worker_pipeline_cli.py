@@ -3,9 +3,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from typer.testing import CliRunner
 
 from taskledger.cli import app
+
+from tests.support.builders import init_workspace
+
+pytestmark = [pytest.mark.cli, pytest.mark.integration, pytest.mark.slow]
 
 
 def _runner() -> CliRunner:
@@ -113,7 +119,7 @@ kind = "validate"
 
 
 def _setup_implemented_review_task(workspace: Path) -> None:
-    assert runner.invoke(app, ["--cwd", str(workspace), "init"]).exit_code == 0
+    init_workspace(workspace)
     _append_pipeline_config(workspace / "taskledger.toml", _review_pipeline_config())
     assert (
         runner.invoke(
@@ -215,7 +221,7 @@ Drive review-step routing from closed worker handoffs once implementation is don
 
 
 def _setup_guided_implementation_task(workspace: Path) -> None:
-    assert runner.invoke(app, ["--cwd", str(workspace), "init"]).exit_code == 0
+    init_workspace(workspace)
     _append_pipeline_config(workspace / "taskledger.toml", _enabled_pipeline_config())
     assert (
         runner.invoke(
@@ -325,7 +331,7 @@ def _close_spec_review_handoff(workspace: Path) -> None:
 
 
 def test_pipeline_commands_print_no_config_message(tmp_path: Path) -> None:
-    assert runner.invoke(app, ["--cwd", str(tmp_path), "init"]).exit_code == 0
+    init_workspace(tmp_path)
 
     for command in (["pipeline", "show"], ["pipeline", "list"], ["pipeline", "next"]):
         result = runner.invoke(app, ["--cwd", str(tmp_path), *command])
@@ -334,7 +340,7 @@ def test_pipeline_commands_print_no_config_message(tmp_path: Path) -> None:
 
 
 def test_pipeline_commands_print_disabled_message(tmp_path: Path) -> None:
-    assert runner.invoke(app, ["--cwd", str(tmp_path), "init"]).exit_code == 0
+    init_workspace(tmp_path)
     _append_pipeline_config(tmp_path / "taskledger.toml", _disabled_pipeline_config())
 
     for command in (["pipeline", "show"], ["pipeline", "list"], ["pipeline", "next"]):
@@ -344,7 +350,7 @@ def test_pipeline_commands_print_disabled_message(tmp_path: Path) -> None:
 
 
 def test_pipeline_show_and_list_render_enabled_config(tmp_path: Path) -> None:
-    assert runner.invoke(app, ["--cwd", str(tmp_path), "init"]).exit_code == 0
+    init_workspace(tmp_path)
     _append_pipeline_config(tmp_path / "taskledger.toml", _enabled_pipeline_config())
 
     show_result = runner.invoke(
@@ -365,7 +371,7 @@ def test_pipeline_show_and_list_render_enabled_config(tmp_path: Path) -> None:
 
 
 def test_pipeline_next_returns_planner_before_plan_acceptance(tmp_path: Path) -> None:
-    assert runner.invoke(app, ["--cwd", str(tmp_path), "init"]).exit_code == 0
+    init_workspace(tmp_path)
     _append_pipeline_config(tmp_path / "taskledger.toml", _enabled_pipeline_config())
     assert (
         runner.invoke(

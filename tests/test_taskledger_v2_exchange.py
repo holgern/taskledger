@@ -26,6 +26,10 @@ from taskledger.exchange import (
 )
 from taskledger.storage.agent_logs import load_agent_command_logs
 
+from tests.support.builders import init_workspace
+
+pytestmark = [pytest.mark.cli, pytest.mark.integration, pytest.mark.slow]
+
 
 def _make_runner() -> CliRunner:
     return CliRunner()
@@ -35,8 +39,7 @@ runner = _make_runner()
 
 
 def _init_project(tmp_path: Path) -> None:
-    result = runner.invoke(app, ["--cwd", str(tmp_path), "init"])
-    assert result.exit_code == 0
+    init_workspace(tmp_path)
 
 
 def _copy_project_uuid(src_root: Path, dst_root: Path) -> None:
