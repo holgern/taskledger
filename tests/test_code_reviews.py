@@ -24,7 +24,11 @@ from taskledger.storage.task_store import (
     resolve_v2_paths,
     save_code_review,
 )
-from tests.support.builders import create_implemented_task, init_workspace
+from tests.support.builders import (
+    create_done_task,
+    create_implemented_task,
+    init_workspace,
+)
 
 
 def _runner() -> CliRunner:
@@ -129,6 +133,23 @@ def test_service_records_and_lists_manual_review(tmp_path: Path) -> None:
     assert len(listed) == 1
     shown = show_code_review(ws, task_id, "review-0001")
     assert shown.body == "No blocking issues."
+
+
+def test_service_records_review_after_task_is_done(tmp_path: Path) -> None:
+    ws = init_workspace(tmp_path)
+    task_id = create_done_task(ws, allow_lint_errors=True)
+
+    review = record_code_review(
+        ws,
+        task_id,
+        result="pass",
+        body="Post-completion code review.",
+    )
+
+    assert review.review_id == "review-0001"
+    assert review.implementation_run is not None
+    shown = show_code_review(ws, task_id, "review-1")
+    assert shown.body == "Post-completion code review."
 
 
 def test_service_rejects_review_record_outside_allowed_stages(tmp_path: Path) -> None:

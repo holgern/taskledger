@@ -30,7 +30,7 @@ from taskledger.storage.task_store import (
 from taskledger.timeutils import utc_now_iso
 
 ALLOWED_REVIEW_STAGES = frozenset(
-    {"implementing", "implemented", "validating", "failed_validation"}
+    {"implementing", "implemented", "validating", "failed_validation", "done"}
 )
 ALLOWED_WORKER_REVIEW_CONTEXTS = frozenset(
     {"code-reviewer", "reviewer", "spec-reviewer"}
@@ -57,7 +57,7 @@ def record_code_review(
     if task.status_stage not in ALLOWED_REVIEW_STAGES:
         raise _tasks._cli_error(
             "Code review can be recorded only during implementing, implemented, "
-            "validating, or failed_validation stages.",
+            "validating, failed_validation, or done stages.",
             EXIT_CODE_INVALID_TRANSITION,
         )
     if not body.strip():

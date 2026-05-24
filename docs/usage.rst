@@ -502,6 +502,10 @@ transcripts and reports.
    taskledger validate check --criterion ac-0001 --status pass --evidence "pytest -q tests/test_taskledger_v2_cli.py"
    taskledger validate finish --result passed --summary "Validated the rewrite."
 
+Code review evidence can also be recorded after ``validate finish`` has moved the
+task to ``done``. This appends durable review evidence to the task and does not
+reopen or otherwise mutate the task lifecycle stage.
+
 If validation finds an implementation bug and the accepted plan is still
 correct, restart implementation instead of replanning:
 

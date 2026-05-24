@@ -162,7 +162,7 @@ The plan file should use version ids like `plan-v1`, `plan-v2` in references. Do
 7. In Git workspaces, prefer `taskledger implement scan-changes --from-git --summary "..."` before `implement finish` so change evidence includes a git-backed reconciliation checkpoint.
 8. Do not run `implement finish` until `todo status` says all todos are complete.
 9. `taskledger implement finish --summary "Completed all implementation todos..."`
-10. Optional: record durable code review evidence after implementation with `taskledger review record ...` before validation starts.
+10. Optional: record durable code review evidence after implementation with `taskledger review record ...`; this is allowed before validation starts or after the task is already `done`.
 
 **Critical**: `implement finish` will block until all non-skipped todos are done. Use `todo status` to verify readiness.
 

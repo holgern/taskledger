@@ -435,7 +435,9 @@ Code review commands
 --------------------
 
 ``review`` stores optional durable code-review evidence without adding a new
-lifecycle stage:
+lifecycle stage. Review evidence may be recorded before validation or after a
+task has reached ``done``; storing the review remains append-only and does not
+reopen the completed task:
 
 .. code-block:: bash
 

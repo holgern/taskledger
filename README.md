@@ -226,6 +226,9 @@ taskledger validate check --criterion ac-0001 --status pass --evidence "pytest -
 taskledger validate finish --result passed --summary "Validated the rewrite."
 ```
 
+Review evidence may also be recorded after validation has moved a task to
+`done`; this appends a review record without reopening the completed task.
+
 To revise a proposed plan, re-enter planning and edit an exported workspace
 copy. Never edit `.taskledger/` files directly:
 
