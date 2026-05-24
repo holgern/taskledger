@@ -64,8 +64,8 @@ from taskledger.cli_misc import (
 from taskledger.cli_pipeline import register_pipeline_commands
 from taskledger.cli_plan import register_plan_v2_commands
 from taskledger.cli_question import register_question_v2_commands
-from taskledger.cli_review import register_review_commands
 from taskledger.cli_report import register_report_commands
+from taskledger.cli_review import register_review_commands
 from taskledger.cli_storage import register_storage_commands
 from taskledger.cli_sync import register_sync_commands
 from taskledger.cli_task import register_task_v2_commands

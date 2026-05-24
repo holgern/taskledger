@@ -993,10 +993,11 @@ def _append_code_reviews(
     for review in reviews:
         if not isinstance(review, CodeReviewRecord):
             continue
+        summary = (review.summary or _first_line(review.body) or "").replace("|", "\\|")
         lines.append(
             f"| {review.review_id} | {review.result} | {review.source} | "
             f"{review.implementation_run or ''} | {review.worker_step_id or ''} | "
-            f"{(review.summary or _first_line(review.body) or '').replace('|', '\\|')} |"
+            f"{summary} |"
         )
     lines.append("")
 

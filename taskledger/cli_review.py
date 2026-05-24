@@ -128,7 +128,9 @@ def register_review_commands(app: typer.Typer) -> None:
             "task_id": task.id,
             "reviews": [review.to_dict() for review in reviews],
         }
-        lines = ["ID           RESULT    SOURCE        RUN        WORKER        SUMMARY"]
+        lines = [
+            "ID           RESULT    SOURCE        RUN        WORKER        SUMMARY"
+        ]
         if not reviews:
             lines.append("(empty)")
         for review in reviews:

@@ -258,10 +258,14 @@ def _prepare_implemented_with_review(project_root: Path, *, slug: str) -> None:
         == 0
     )
     assert (
-        runner.invoke(app, ["--cwd", str(project_root), "task", "activate", slug]).exit_code
+        runner.invoke(
+            app, ["--cwd", str(project_root), "task", "activate", slug]
+        ).exit_code
         == 0
     )
-    assert runner.invoke(app, ["--cwd", str(project_root), "plan", "start"]).exit_code == 0
+    assert (
+        runner.invoke(app, ["--cwd", str(project_root), "plan", "start"]).exit_code == 0
+    )
     plan_text = """---
 goal: Exchange review records.
 acceptance_criteria:

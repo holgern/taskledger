@@ -61,7 +61,9 @@ def record_code_review(
             EXIT_CODE_INVALID_TRANSITION,
         )
     if not body.strip():
-        raise _tasks._cli_error("Code review summary must not be empty.", EXIT_CODE_BAD_INPUT)
+        raise _tasks._cli_error(
+            "Code review summary must not be empty.", EXIT_CODE_BAD_INPUT
+        )
 
     effective_run_id = run_id or task.latest_implementation_run
     if effective_run_id is None:
@@ -136,7 +138,9 @@ def record_code_review(
     return review
 
 
-def list_code_review_records(workspace_root: Path, task_ref: str) -> list[CodeReviewRecord]:
+def list_code_review_records(
+    workspace_root: Path, task_ref: str
+) -> list[CodeReviewRecord]:
     task = resolve_task(workspace_root, task_ref)
     _tasks._ensure_not_archived(task, operation="list code reviews on")
     return list_code_reviews(workspace_root, task.id)
@@ -270,7 +274,15 @@ def _collect_commit_metadata(workspace_root: Path, commit: str) -> dict[str, obj
         raise LaunchError(f"Git commit not found: {commit}")
     show_output = _git_text(
         workspace_root,
-        ("git", "show", "--stat", "--format=fuller", "--no-ext-diff", "--no-color", resolved),
+        (
+            "git",
+            "show",
+            "--stat",
+            "--format=fuller",
+            "--no-ext-diff",
+            "--no-color",
+            resolved,
+        ),
     ).strip()
     changed_paths = _git_text(
         workspace_root,
