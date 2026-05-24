@@ -73,7 +73,7 @@ def start_validation(
     )
     save_task(workspace_root, updated)
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         updated.id,
         "validation.started",
         {"run_id": updated_run.run_id},
@@ -286,7 +286,7 @@ def finish_validation(
         extra_data={"result": normalized_result},
     )
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         updated.id,
         "validation.finished",
         {"run_id": run.run_id, "result": normalized_result},

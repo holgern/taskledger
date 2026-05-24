@@ -100,7 +100,7 @@ def materialize_plan_todos(
         )
         save_task(workspace_root, updated)
         _tasks._append_event(
-            resolve_v2_paths(workspace_root).project_dir,
+            workspace_root,
             updated.id,
             "todo.added",
             {
@@ -265,7 +265,7 @@ def regenerate_plan_from_answers(
         )
     if finish_orphaned_run is not None:
         _tasks._append_event(
-            resolve_v2_paths(workspace_root).project_dir,
+            workspace_root,
             updated.id,
             "run.recovered",
             {
@@ -279,7 +279,7 @@ def regenerate_plan_from_answers(
             },
         )
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         updated.id,
         "plan.proposed",
         {

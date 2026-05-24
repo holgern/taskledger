@@ -9,6 +9,14 @@ from taskledger.cli import app
 from taskledger.storage.task_store import resolve_task
 
 
+def _enable_event_logging(tmp_path: Path) -> None:
+    config_path = tmp_path / "taskledger.toml"
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8") + "\n[event_logging]\nenabled = true\n",
+        encoding="utf-8",
+    )
+
+
 def _make_runner() -> CliRunner:
     try:
         return CliRunner(mix_stderr=False)
@@ -238,6 +246,7 @@ def test_plan_export_round_trips_after_revision(tmp_path: Path) -> None:
 
 def test_plan_amend_drops_criteria_and_todos_and_records_event(tmp_path: Path) -> None:
     _setup_plan_review_task(tmp_path)
+    _enable_event_logging(tmp_path)
 
     amend = runner.invoke(
         app,

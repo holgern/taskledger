@@ -529,6 +529,21 @@ Example status payload:
 }
 ```
 
+## Event logging
+
+Task lifecycle event logging is **disabled by default**. Enable it in
+`taskledger.toml` when debugging agent usage or lifecycle behavior:
+
+```toml
+[event_logging]
+enabled = true
+```
+
+When enabled, mutations append immutable `TaskEvent` records viewable with
+`taskledger task events`. When disabled (the default), no event records are
+written but `task events` still works and returns empty results. Existing event
+files remain readable regardless of the setting.
+
 ## Handoff-driven work
 
 Fresh-context handoff is a primary feature:

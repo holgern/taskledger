@@ -172,7 +172,7 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
         "Path probe falls back when environment inspection raises platform-"
         "specific errors."
     ),
-    "taskledger/storage/project_config.py:424": (
+    "taskledger/storage/project_config.py:438": (
         "TOML parser error handling catches runtime-specific exceptions "
         "during project config loading."
     ),

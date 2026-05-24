@@ -621,7 +621,7 @@ def reject_plan(
     updated = replace(task, status_stage="plan_review", updated_at=utc_now_iso())
     save_task(workspace_root, updated)
     _append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         updated.id,
         "plan.rejected",
         {"plan_version": latest.plan_version, "reason": reason},
@@ -677,7 +677,7 @@ def add_question(
     )
     save_question(workspace_root, question)
     _append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         task.id,
         "question.added",
         {"question_id": question.id, "required_for_plan": required_for_plan},
@@ -728,7 +728,7 @@ def add_questions(
     for question in created_questions:
         save_question(workspace_root, question)
         _append_event(
-            resolve_v2_paths(workspace_root).project_dir,
+            workspace_root,
             task.id,
             "question.added",
             {
@@ -791,7 +791,7 @@ def answer_question(
     )
     save_question(workspace_root, answered)
     _append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         task.id,
         "question.answered",
         {"question_id": answered.id},
@@ -964,7 +964,7 @@ def dismiss_question(
     dismissed = replace(question, status="dismissed")
     save_question(workspace_root, dismissed)
     _append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         task.id,
         "question.dismissed",
         {"question_id": dismissed.id},
@@ -1494,7 +1494,7 @@ def reindex(workspace_root: Path) -> dict[str, object]:
     paths = ensure_v2_layout(workspace_root)
     counts = rebuild_v2_indexes(paths)
     _append_event(
-        paths.project_dir, "*", "repair.index", dict(cast(dict[str, object], counts))
+        workspace_root, "*", "repair.index", dict(cast(dict[str, object], counts))
     )
     return {"kind": "taskledger_reindex", "counts": counts}
 
@@ -1693,9 +1693,9 @@ def _acquire_lock(
             _lock_conflict_message(task.id, read_lock(lock_path) or lock),
             EXIT_CODE_LOCK_CONFLICT,
         ) from exc
-    _append_event(paths.project_dir, task.id, "lock.acquired", lock.to_dict())
+    _append_event(workspace_root, task.id, "lock.acquired", lock.to_dict())
     _append_event(
-        paths.project_dir,
+        workspace_root,
         task.id,
         "stage.entered",
         {"stage": stage, "run_id": run.run_id},
@@ -1728,10 +1728,10 @@ def _release_lock(
             EXIT_CODE_LOCK_CONFLICT,
         )
     data = {"stage": expected_stage, "run_id": run_id, **(extra_data or {})}
-    _append_event(paths.project_dir, task.id, event_name, data)
+    _append_event(workspace_root, task.id, event_name, data)
     remove_lock(lock_path)
     _append_event(
-        paths.project_dir,
+        workspace_root,
         task.id,
         "lock.released",
         {"lock_id": lock.lock_id, "stage": expected_stage},
@@ -1763,7 +1763,7 @@ def _release_expired_lock(
     _write_broken_lock_audit(paths, task_id, broken)
     remove_lock(lock_path)
     _append_event(
-        paths.project_dir,
+        workspace_root,
         task_id,
         "lock.expired_released",
         {
@@ -2088,24 +2088,32 @@ def _default_harness() -> HarnessRef:
 
 
 def _append_event(
-    project_dir: Path,
+    workspace_root: Path,
     task_id: str,
     event_name: str,
     data: dict[str, object],
-) -> None:
+) -> str | None:
+    from taskledger.services.event_logging import event_logging_enabled
+
+    if not event_logging_enabled(workspace_root):
+        return None
+
+    paths = resolve_v2_paths(workspace_root)
     timestamp = utc_now_iso()
+    event_id = next_event_id(paths.events_dir, timestamp)
     append_event(
-        project_dir / "events",
+        paths.events_dir,
         TaskEvent(
             ts=timestamp,
             event=event_name,
             task_id=task_id,
             actor=_default_actor(),
             harness=_default_harness(),
-            event_id=next_event_id(project_dir / "events", timestamp),
+            event_id=event_id,
             data=data,
         ),
     )
+    return event_id
 
 
 def _summary_line(text: str | None) -> str | None:

@@ -8,6 +8,14 @@ from typer.testing import CliRunner
 from taskledger.cli import app
 
 
+def _enable_event_logging(tmp_path: Path) -> None:
+    config_path = tmp_path / "taskledger.toml"
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8") + "\n[event_logging]\nenabled = true\n",
+        encoding="utf-8",
+    )
+
+
 def _make_runner() -> CliRunner:
     try:
         return CliRunner(mix_stderr=False)
@@ -59,6 +67,7 @@ def _create_and_activate_task(tmp_path: Path, slug: str = "test-task") -> None:
 
 def test_task_events_human_output(tmp_path: Path) -> None:
     _init_project(tmp_path)
+    _enable_event_logging(tmp_path)
     _create_and_activate_task(tmp_path)
 
     result = runner.invoke(
@@ -72,6 +81,7 @@ def test_task_events_human_output(tmp_path: Path) -> None:
 
 def test_task_events_json_output(tmp_path: Path) -> None:
     _init_project(tmp_path)
+    _enable_event_logging(tmp_path)
     _create_and_activate_task(tmp_path)
 
     result = runner.invoke(
@@ -91,6 +101,7 @@ def test_task_events_json_output(tmp_path: Path) -> None:
 
 def test_task_events_all(tmp_path: Path) -> None:
     _init_project(tmp_path)
+    _enable_event_logging(tmp_path)
     _create_and_activate_task(tmp_path, "task-a")
     _create_and_activate_task(tmp_path, "task-b")
 
@@ -104,6 +115,7 @@ def test_task_events_all(tmp_path: Path) -> None:
 
 def test_task_events_limit(tmp_path: Path) -> None:
     _init_project(tmp_path)
+    _enable_event_logging(tmp_path)
     _create_and_activate_task(tmp_path)
 
     result = runner.invoke(
@@ -136,6 +148,7 @@ def test_task_events_empty(tmp_path: Path) -> None:
 
 def test_task_events_with_explicit_task_ref(tmp_path: Path) -> None:
     _init_project(tmp_path)
+    _enable_event_logging(tmp_path)
     _create_and_activate_task(tmp_path, "target-task")
     # deactivate so active task is gone, then use --task
     runner.invoke(

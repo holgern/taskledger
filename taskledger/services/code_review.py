@@ -23,7 +23,6 @@ from taskledger.storage.task_store import (
     resolve_handoff,
     resolve_run,
     resolve_task,
-    resolve_v2_paths,
     save_code_review,
     save_task,
 )
@@ -124,7 +123,7 @@ def record_code_review(
     save_code_review(workspace_root, review)
     save_task(workspace_root, replace(task, updated_at=utc_now_iso()))
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         task.id,
         "code_review.recorded",
         {

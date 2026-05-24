@@ -98,7 +98,7 @@ def add_change(
         ),
     )
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         task.id,
         "change.logged",
         {"change_id": change.change_id, "path": path},
@@ -200,7 +200,7 @@ def run_planning_command(
         replace(task, updated_at=utc_now_iso()),
     )
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         task.id,
         "plan.command",
         {

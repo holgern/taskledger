@@ -312,7 +312,7 @@ def create_task(
     )
     save_task(workspace_root, task)
     _tasks._append_event(
-        paths.project_dir,
+        workspace_root,
         task.id,
         "task.created",
         {"slug": task.slug, "title": task.title},
@@ -371,7 +371,7 @@ def create_follow_up_task(
     if copied_links:
         save_links(workspace_root, LinkCollection(task_id=child.id, links=copied_links))
     _tasks._append_event(
-        paths.project_dir,
+        workspace_root,
         parent.id,
         "task.follow_up.created",
         {
@@ -381,7 +381,7 @@ def create_follow_up_task(
         },
     )
     _tasks._append_event(
-        paths.project_dir,
+        workspace_root,
         child.id,
         "task.created",
         {
@@ -570,16 +570,14 @@ def record_completed_task(
     )
     save_task(workspace_root, updated)
 
-    # Events
-    project_dir = paths.project_dir
     _tasks._append_event(
-        project_dir,
+        workspace_root,
         task.id,
         "task.created",
         {"slug": task.slug, "title": task.title, "task_type": "recorded"},
     )
     _tasks._append_event(
-        project_dir,
+        workspace_root,
         task.id,
         "task.recorded",
         {
@@ -590,20 +588,20 @@ def record_completed_task(
     )
     for cid in change_ids:
         _tasks._append_event(
-            project_dir,
+            workspace_root,
             task.id,
             "change.logged",
             {"change_id": cid},
         )
     _tasks._append_event(
-        project_dir,
+        workspace_root,
         task.id,
         "implementation.finished",
         {"run_id": impl_run.run_id, "recorded": True},
     )
     if validation_run is not None:
         _tasks._append_event(
-            project_dir,
+            workspace_root,
             task.id,
             "validation.finished",
             {
@@ -663,16 +661,15 @@ def activate_task(
         previous_task_id=previous_task_id,
     )
     save_active_task_state(workspace_root, state)
-    project_dir = resolve_v2_paths(workspace_root).project_dir
     if previous_task_id is not None:
         _tasks._append_event(
-            project_dir,
+            workspace_root,
             previous_task_id,
             "task.deactivated",
             {"reason": reason, "next_task_id": task.id, "forced": force},
         )
     _tasks._append_event(
-        project_dir,
+        workspace_root,
         task.id,
         "task.activated",
         {"reason": reason, "previous_task_id": previous_task_id, "forced": force},
@@ -726,7 +723,7 @@ def clear_active_task(
     task = storage_resolve_active_task(workspace_root)
     clear_active_task_state(workspace_root)
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         task.id,
         "task.deactivated",
         {"reason": reason, "forced": force, "actor_type": actor_type},
@@ -780,7 +777,7 @@ def edit_task(
     )
     save_task(workspace_root, updated)
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         updated.id,
         "task.updated",
         {"title": updated.title},
@@ -817,7 +814,7 @@ def cancel_task(
     updated = replace(task, status_stage="cancelled", updated_at=utc_now_iso())
     save_task(workspace_root, updated)
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         updated.id,
         "task.cancelled",
         {"reason": reason},
@@ -890,7 +887,7 @@ def uncancel_task(
     updated = replace(task, status_stage=target, updated_at=utc_now_iso())
     save_task(workspace_root, updated)
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         updated.id,
         "task.uncancelled",
         {
@@ -931,7 +928,7 @@ def close_task(
     )
     save_task(workspace_root, updated)
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         updated.id,
         "task.closed",
         {"closed_at": closed_at, "note": note},

@@ -14,6 +14,7 @@ from taskledger.storage.meta import StorageMeta
 from taskledger.storage.paths import resolve_project_paths
 from taskledger.storage.project_config import (
     AgentLoggingConfig,
+    EventLoggingConfig,
     ProjectConfig,
     PromptProfile,
     load_project_config_overrides,
@@ -581,5 +582,60 @@ def test_validate_sync_git_rejects_parent_path_escape() -> None:
     with pytest.raises(LaunchError, match="project_path"):
         _validate_project_config_overrides(
             {"sync": {"git": {"project_path": "../escape"}}},
+            Path("taskledger.toml"),
+        )
+
+
+# -- event_logging config tests --
+
+
+def test_event_logging_disabled_by_default() -> None:
+    config = merge_project_config({})
+    assert config.event_logging.enabled is False
+
+
+def test_merge_project_config_with_event_logging_override() -> None:
+    config = merge_project_config({"event_logging": {"enabled": True}})
+    assert config.event_logging.enabled is True
+
+
+def test_merge_project_config_preserves_base_event_logging() -> None:
+    base = ProjectConfig(event_logging=EventLoggingConfig(enabled=True))
+    config = merge_project_config({}, base=base)
+    assert config.event_logging.enabled is True
+
+
+def test_default_taskledger_toml_includes_commented_event_logging() -> None:
+    rendered = render_default_taskledger_toml()
+    assert "# [event_logging]" in rendered
+    assert "# enabled = false" in rendered
+
+
+def test_validate_event_logging_rejects_non_table() -> None:
+    from taskledger.storage.project_config import _validate_project_config_overrides
+
+    with pytest.raises(LaunchError, match="event_logging.*table"):
+        _validate_project_config_overrides(
+            {"event_logging": True},
+            Path("taskledger.toml"),
+        )
+
+
+def test_validate_event_logging_rejects_non_boolean_enabled() -> None:
+    from taskledger.storage.project_config import _validate_project_config_overrides
+
+    with pytest.raises(LaunchError, match="event_logging.enabled.*boolean"):
+        _validate_project_config_overrides(
+            {"event_logging": {"enabled": "yes"}},
+            Path("taskledger.toml"),
+        )
+
+
+def test_validate_event_logging_rejects_unknown_keys() -> None:
+    from taskledger.storage.project_config import _validate_project_config_overrides
+
+    with pytest.raises(LaunchError, match="Unknown event_logging"):
+        _validate_project_config_overrides(
+            {"event_logging": {"unknown": True}},
             Path("taskledger.toml"),
         )

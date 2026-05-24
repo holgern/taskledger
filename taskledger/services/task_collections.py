@@ -106,7 +106,7 @@ def link_introduction(
     )
     save_task(workspace_root, updated)
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         updated.id,
         "task.updated",
         {"introduction_ref": intro.id},
@@ -241,7 +241,7 @@ def waive_requirement(
     )
     save_task(workspace_root, updated)
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         updated.id,
         "requirement.waived",
         {"required_task_id": required.id, "reason": reason.strip()},
@@ -372,7 +372,7 @@ def add_todo(
     save_todos(workspace_root, TodoCollection(task_id=updated.id, todos=updated.todos))
     save_task(workspace_root, updated)
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         updated.id,
         "todo.added",
         {"todo_id": todo.id, "text": todo.text},
@@ -437,7 +437,7 @@ def set_todo_done(
     save_todos(workspace_root, TodoCollection(task_id=updated.id, todos=updated.todos))
     save_task(workspace_root, updated)
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         updated.id,
         "todo.completed" if done else "todo.toggled",
         {

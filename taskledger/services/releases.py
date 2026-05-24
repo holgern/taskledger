@@ -91,7 +91,7 @@ def tag_release(
         "ledger_ref": paths.ledger_ref,
         "release": release.to_dict(),
         "boundary_task": _task_summary(boundary_task),
-        "events": [event_id],
+        "events": [event_id] if event_id is not None else [],
     }
 
 
@@ -494,7 +494,12 @@ def _append_release_event(
     task_id: str,
     event_name: str,
     data: dict[str, object],
-) -> str:
+) -> str | None:
+    from taskledger.services.event_logging import event_logging_enabled
+
+    if not event_logging_enabled(workspace_root):
+        return None
+
     paths = resolve_v2_paths(workspace_root)
     timestamp = utc_now_iso()
     event_id = next_event_id(paths.events_dir, timestamp)

@@ -56,7 +56,7 @@ def start_planning(
     )
     save_task(workspace_root, updated)
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         updated.id,
         "plan.started",
         {"run_id": run.run_id},
@@ -146,7 +146,7 @@ def propose_plan(
         delete_only=True,
     )
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         updated.id,
         "plan.proposed",
         {"plan_version": version},
@@ -324,7 +324,7 @@ def amend_plan(
         payload["warnings"] = payload_warnings
 
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         task.id,
         "plan.amended",
         {
@@ -501,7 +501,7 @@ def approve_plan(
         materialized = materialized_result["materialized_todos"]
         updated = resolve_task(workspace_root, updated.id)
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         updated.id,
         "plan.approved",
         {
@@ -581,7 +581,7 @@ def mark_planning_guidance_viewed(
     )
     save_run(workspace_root, updated)
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         task.id,
         "plan.guidance.viewed",
         {"run_id": run.run_id},

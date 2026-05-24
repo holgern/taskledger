@@ -13,7 +13,6 @@ from taskledger.services import tasks as _tasks
 from taskledger.storage.task_store import (
     list_checks,
     resolve_task,
-    resolve_v2_paths,
     save_check,
     save_run,
     save_task,
@@ -93,7 +92,7 @@ def add_check(
         ),
     )
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         task.id,
         "implementation.check.logged",
         {"check_id": check.check_id, "command": command},

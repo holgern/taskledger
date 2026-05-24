@@ -9,6 +9,14 @@ from typer.testing import CliRunner
 from taskledger.cli import app
 
 
+def _enable_event_logging(tmp_path: Path) -> None:
+    config_path = tmp_path / "taskledger.toml"
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8") + "\n[event_logging]\nenabled = true\n",
+        encoding="utf-8",
+    )
+
+
 def _make_runner() -> CliRunner:
     try:
         return CliRunner(mix_stderr=False)
@@ -30,6 +38,7 @@ def _json(result) -> dict[str, object]:
 
 def test_break_lock_writes_audit_file_and_repair_event(tmp_path: Path) -> None:
     _init_project(tmp_path)
+    _enable_event_logging(tmp_path)
     assert (
         runner.invoke(
             app,

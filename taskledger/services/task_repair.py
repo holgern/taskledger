@@ -36,7 +36,6 @@ def repair_task_record(
     if not reason.strip():
         raise _tasks._cli_error("Task repair requires --reason.", EXIT_CODE_BAD_INPUT)
     task = resolve_task(workspace_root, task_ref)
-    paths = resolve_v2_paths(workspace_root)
     warnings = [("Recorded a repair inspection event only; no task state was changed.")]
     recovery_commands: list[str] = []
     implementation_run = _tasks._optional_run(
@@ -61,7 +60,7 @@ def repair_task_record(
             '--reason "Restore the task to a safe durable stage."'
         )
     _tasks._append_event(
-        paths.project_dir,
+        workspace_root,
         task.id,
         "repair.task",
         {"reason": reason.strip()},
@@ -129,7 +128,7 @@ def repair_orphaned_planning_run(
         ),
     )
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         task.id,
         "repair.run",
         {
@@ -217,7 +216,7 @@ def repair_planning_command_changes(
             )
 
             _tasks._append_event(
-                paths.project_dir,
+                workspace_root,
                 task.id,
                 "repair.change",
                 {

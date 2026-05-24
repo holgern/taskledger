@@ -93,7 +93,7 @@ def archive_task(
         clear_active_task_state(workspace_root)
 
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         updated.id,
         "task.archived",
         {
@@ -165,7 +165,7 @@ def unarchive_task(
     )
     save_task(workspace_root, updated)
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         updated.id,
         "task.unarchived",
         {

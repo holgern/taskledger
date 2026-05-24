@@ -64,13 +64,13 @@ def break_lock(
     audit_path = _write_broken_lock_audit(paths, task.id, broken_lock)
     rel_path = audit_path.relative_to(paths.project_dir).as_posix()
     _append_event(
-        paths.project_dir,
+        workspace_root,
         task.id,
         "lock.broken",
         {"lock_id": lock.lock_id, "reason": reason, "audit_path": rel_path},
     )
     _append_event(
-        paths.project_dir,
+        workspace_root,
         task.id,
         "repair.lock_broken",
         {"lock_id": lock.lock_id, "reason": reason, "audit_path": rel_path},
@@ -118,24 +118,32 @@ def _default_harness() -> HarnessRef:
 
 
 def _append_event(
-    project_dir: Path,
+    workspace_root: Path,
     task_id: str,
     event_name: str,
     data: dict[str, object],
-) -> None:
+) -> str | None:
+    from taskledger.services.event_logging import event_logging_enabled
+
+    if not event_logging_enabled(workspace_root):
+        return None
+
+    paths = resolve_v2_paths(workspace_root)
     timestamp = utc_now_iso()
+    event_id = next_event_id(paths.events_dir, timestamp)
     append_event(
-        project_dir / "events",
+        paths.events_dir,
         TaskEvent(
             ts=timestamp,
             event=event_name,
             task_id=task_id,
             actor=_default_actor(),
             harness=_default_harness(),
-            event_id=next_event_id(project_dir / "events", timestamp),
+            event_id=event_id,
             data=data,
         ),
     )
+    return event_id
 
 
 def _write_broken_lock_audit(paths: V2Paths, task_id: str, lock: TaskLock) -> Path:

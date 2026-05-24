@@ -49,6 +49,7 @@ WORKFLOW_CONFIG_KEYS = frozenset(
         "default_artifact_order",
         "prompt_profiles",
         "agent_logging",
+        "event_logging",
         "worker_pipeline",
     }
 )
@@ -71,6 +72,7 @@ AGENT_LOGGING_CONFIG_KEYS = frozenset(
         "capture_human_oriented",
     }
 )
+EVENT_LOGGING_CONFIG_KEYS = frozenset({"enabled"})
 SUPPORTED_PROJECT_CONFIG_KEYS = (
     LOCATION_CONFIG_KEYS
     | IDENTITY_CONFIG_KEYS
@@ -172,6 +174,11 @@ class AgentLoggingConfig:
 
 
 @dataclass(slots=True, frozen=True)
+class EventLoggingConfig:
+    enabled: bool = False
+
+
+@dataclass(slots=True, frozen=True)
 class GitSyncProjectConfig:
     repo: str | None = None
     project_path: str | None = None
@@ -221,6 +228,7 @@ class ProjectConfig:
     default_artifact_order: tuple[str, ...] = ()
     prompt_profile: PromptProfile | None = None
     agent_logging: AgentLoggingConfig = AgentLoggingConfig()
+    event_logging: EventLoggingConfig = EventLoggingConfig()
     worker_pipeline: WorkerPipelineConfig | None = None
     sync_git: GitSyncProjectConfig = GitSyncProjectConfig()
 
@@ -321,6 +329,11 @@ def render_default_taskledger_toml(
         '# redact_patterns = ["(?i)(api[_-]?key|token|password|secret)=\\\\S+"]\n'
         "# capture_safe_read_only = true\n"
         "# capture_human_oriented = true\n"
+        "\n"
+        "# Task lifecycle event logging (disabled by default).\n"
+        "# Enable only when debugging agent usage or lifecycle behavior.\n"
+        "# [event_logging]\n"
+        "# enabled = false\n"
         "\n"
         "# Optional sync.git defaults for private external Git state.\n"
         "# [sync.git]\n"
@@ -519,6 +532,10 @@ def merge_project_config(
         overrides.get("agent_logging"),
         base.agent_logging,
     )
+    event_logging = _parse_event_logging(
+        overrides.get("event_logging"),
+        base.event_logging,
+    )
     worker_pipeline = parse_worker_pipeline(
         overrides.get("worker_pipeline"),
         base.worker_pipeline,
@@ -542,6 +559,7 @@ def merge_project_config(
         default_artifact_order=tuple(default_artifact_order),
         prompt_profile=prompt_profile,
         agent_logging=agent_logging,
+        event_logging=event_logging,
         worker_pipeline=worker_pipeline,
         sync_git=sync_git,
     )
@@ -599,6 +617,7 @@ def _validate_project_config_overrides(data: dict[str, object], path: Path) -> N
                 )
             _validate_prompt_profile(profile_name, profile_data, path)
     _validate_agent_logging(data.get("agent_logging"), path)
+    _validate_event_logging(data.get("event_logging"), path)
     validate_worker_pipeline(data.get("worker_pipeline"), path)
     _validate_sync_config(data.get("sync"), path)
 
@@ -1040,4 +1059,31 @@ def _parse_agent_logging(
         capture_human_oriented=bool(
             raw.get("capture_human_oriented", base.capture_human_oriented)
         ),
+    )
+
+
+def _validate_event_logging(raw: object, path: Path) -> None:
+    if raw is None:
+        return
+    if not isinstance(raw, dict):
+        raise LaunchError(
+            f"Project config key 'event_logging' must be a table in {path}"
+        )
+    unknown = set(raw.keys()) - EVENT_LOGGING_CONFIG_KEYS
+    if unknown:
+        joined = ", ".join(sorted(unknown))
+        raise LaunchError(f"Unknown event_logging keys in {path}: {joined}")
+    enabled = raw.get("enabled")
+    if enabled is not None and not isinstance(enabled, bool):
+        raise LaunchError(f"event_logging.enabled must be a boolean in {path}")
+
+
+def _parse_event_logging(
+    raw: object,
+    base: EventLoggingConfig,
+) -> EventLoggingConfig:
+    if raw is None or not isinstance(raw, dict):
+        return base
+    return EventLoggingConfig(
+        enabled=bool(raw.get("enabled", base.enabled)),
     )

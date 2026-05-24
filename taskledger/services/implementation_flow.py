@@ -68,7 +68,7 @@ def _start_implementation_for_task(
     )
     save_task(workspace_root, updated)
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         updated.id,
         "implementation.started",
         {"run_id": run.run_id},
@@ -175,7 +175,7 @@ def restart_implementation(
     )
     save_task(workspace_root, updated)
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         updated.id,
         "implementation.started",
         {
@@ -275,7 +275,7 @@ def resume_implementation(
     )
     save_task(workspace_root, updated)
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         updated.id,
         "run.resumed",
         {
@@ -334,7 +334,7 @@ def log_implementation(
     updated = replace(run, worklog=tuple([*run.worklog, message.strip()]))
     save_run(workspace_root, updated)
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         task.id,
         "implementation.logged",
         {"run_id": run.run_id, "message": message.strip()},
@@ -359,7 +359,7 @@ def add_implementation_deviation(
     )
     save_run(workspace_root, updated)
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         task.id,
         "implementation.logged",
         {"run_id": run.run_id, "deviation": message.strip()},
@@ -387,7 +387,7 @@ def add_implementation_artifact(
     )
     save_run(workspace_root, updated)
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         task.id,
         "implementation.logged",
         {"run_id": run.run_id, "artifact": path, "summary": summary.strip()},
@@ -494,7 +494,7 @@ def finish_implementation(
         event_name="stage.completed",
     )
     _tasks._append_event(
-        resolve_v2_paths(workspace_root).project_dir,
+        workspace_root,
         updated.id,
         "implementation.finished",
         {"run_id": run.run_id},

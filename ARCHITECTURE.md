@@ -297,7 +297,7 @@ The runtime view traces the main operational scenarios through the system:
 
 **Flow**:
 
-1. `task create` → TaskRecord persisted in `draft` stage with `task.created` event
+1. `task create` → TaskRecord persisted in `draft` stage (event recorded when `[event_logging] enabled = true`)
 2. `plan start` → Lock acquired, planning run started, stage → `planning`
 3. `plan propose` → PlanRecord persisted, todos materialized, stage → `plan_review`
 4. `plan approve` (user-only) → Stage → `approved`, lock released, run finished
@@ -485,7 +485,7 @@ Cross-cutting concerns that span multiple layers:
 - **JSON output envelope**: All CLI commands emit a consistent JSON envelope with `ok`, `command`, `result_type`, `result`, `events`, and `warnings` fields when `--json` is passed.
 - **YAML front matter serialization**: All canonical records use YAML front matter (`---` delimited) for metadata and Markdown for body. Serialization/deserialization is in `taskledger/storage/frontmatter.py`.
 - **Atomic file writes**: All file writes go through `atomic_write_text` (temp file → `os.replace` → directory fsync) to prevent corruption.
-- **Append-only event log**: Every mutation appends an immutable `TaskEvent` to the task's events directory. Events track who did what, when, and why.
+- **Append-only event log**: When `[event_logging] enabled = true`, mutations append immutable `TaskEvent` records to the ledger-level events directory. Event logging is disabled by default and intended for debugging agent usage patterns and lifecycle behavior. Existing event files remain readable through `task events`, reports, and import/export.
 - **Exit code taxonomy**: Errors map to stable exit codes (0=success, 1=generic, 2=bad input, 3=workflow rejection, 4=lock conflict, 5=missing, 6=storage, 7=validation failed).
 
 ## Actor metadata and role semantics
