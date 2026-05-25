@@ -25,6 +25,30 @@ from taskledger.errors import LaunchError
 from taskledger.timeutils import utc_now_iso
 
 
+def _waiver_to_dict(actor: ActorRef, reason: str, created_at: str) -> dict[str, object]:
+    return {
+        "actor": actor.to_dict(),
+        "reason": reason,
+        "created_at": created_at,
+    }
+
+
+def _waiver_from_dict(
+    data: object,
+    *,
+    invalid_message: str,
+) -> tuple[ActorRef, str, str] | None:
+    if data is None:
+        return None
+    if not isinstance(data, dict):
+        raise LaunchError(invalid_message)
+    return (
+        ActorRef.from_dict(data.get("actor")),
+        _string_value(data, "reason"),
+        _optional_string(data.get("created_at")) or utc_now_iso(),
+    )
+
+
 @dataclass(slots=True, frozen=True)
 class FileLink:
     path: str
@@ -239,22 +263,21 @@ class CriterionWaiver:
     created_at: str = field(default_factory=utc_now_iso)
 
     def to_dict(self) -> dict[str, object]:
-        return {
-            "actor": self.actor.to_dict(),
-            "reason": self.reason,
-            "created_at": self.created_at,
-        }
+        return _waiver_to_dict(self.actor, self.reason, self.created_at)
 
     @classmethod
     def from_dict(cls, data: object) -> CriterionWaiver | None:
-        if data is None:
+        parsed = _waiver_from_dict(
+            data,
+            invalid_message="Invalid criterion waiver: expected mapping.",
+        )
+        if parsed is None:
             return None
-        if not isinstance(data, dict):
-            raise LaunchError("Invalid criterion waiver: expected mapping.")
+        actor, reason, created_at = parsed
         return cls(
-            actor=ActorRef.from_dict(data.get("actor")),
-            reason=_string_value(data, "reason"),
-            created_at=_optional_string(data.get("created_at")) or utc_now_iso(),
+            actor=actor,
+            reason=reason,
+            created_at=created_at,
         )
 
 
@@ -265,22 +288,21 @@ class DependencyWaiver:
     created_at: str = field(default_factory=utc_now_iso)
 
     def to_dict(self) -> dict[str, object]:
-        return {
-            "actor": self.actor.to_dict(),
-            "reason": self.reason,
-            "created_at": self.created_at,
-        }
+        return _waiver_to_dict(self.actor, self.reason, self.created_at)
 
     @classmethod
     def from_dict(cls, data: object) -> DependencyWaiver | None:
-        if data is None:
+        parsed = _waiver_from_dict(
+            data,
+            invalid_message="Invalid dependency waiver: expected mapping.",
+        )
+        if parsed is None:
             return None
-        if not isinstance(data, dict):
-            raise LaunchError("Invalid dependency waiver: expected mapping.")
+        actor, reason, created_at = parsed
         return cls(
-            actor=ActorRef.from_dict(data.get("actor")),
-            reason=_string_value(data, "reason"),
-            created_at=_optional_string(data.get("created_at")) or utc_now_iso(),
+            actor=actor,
+            reason=reason,
+            created_at=created_at,
         )
 
 

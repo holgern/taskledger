@@ -17,6 +17,10 @@ from taskledger.domain.states import (
     EXIT_CODE_BAD_INPUT,
     IMPLEMENTABLE_TASK_STAGES,
 )
+from taskledger.services.next_action_payload import (
+    _todo_command_hints,
+    _todo_done_command,
+)
 from taskledger.services.tasks import (
     _build_todo_gate_report,
     _cli_error,
@@ -29,8 +33,6 @@ from taskledger.services.tasks import (
     _running_runs,
     _task_active_stage,
     _task_with_sidecars,
-    _todo_command_hints,
-    _todo_done_command,
 )
 from taskledger.services.validation import build_validation_gate_report
 from taskledger.services.worker_pipeline import determine_next_worker_step

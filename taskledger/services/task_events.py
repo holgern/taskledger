@@ -1,0 +1,73 @@
+from __future__ import annotations
+
+import getpass
+import os
+import socket
+from pathlib import Path
+
+import yaml
+
+from taskledger.domain.models import ActorRef, HarnessRef, TaskEvent, TaskLock
+from taskledger.storage.atomic import atomic_write_text
+from taskledger.storage.events import append_event, next_event_id
+from taskledger.storage.task_store import V2Paths, resolve_v2_paths, task_audit_dir
+from taskledger.timeutils import utc_now_iso
+
+
+def default_actor() -> ActorRef:
+    return ActorRef(
+        actor_type="agent",
+        actor_name=getpass.getuser() or "taskledger",
+        host=socket.gethostname(),
+        pid=os.getpid(),
+    )
+
+
+def default_harness() -> HarnessRef:
+    return HarnessRef(
+        harness_id="harness-unknown",
+        name=os.getenv("TASKLEDGER_HARNESS") or "unknown",
+        kind="unknown",
+        session_id=os.getenv("TASKLEDGER_SESSION_ID"),
+        working_directory=os.getcwd(),
+    )
+
+
+def append_task_event(
+    workspace_root: Path,
+    task_id: str,
+    event_name: str,
+    data: dict[str, object],
+) -> str | None:
+    from taskledger.services.event_logging import event_logging_enabled
+
+    if not event_logging_enabled(workspace_root):
+        return None
+
+    paths = resolve_v2_paths(workspace_root)
+    timestamp = utc_now_iso()
+    event_id = next_event_id(paths.events_dir, timestamp)
+    append_event(
+        paths.events_dir,
+        TaskEvent(
+            ts=timestamp,
+            event=event_name,
+            task_id=task_id,
+            actor=default_actor(),
+            harness=default_harness(),
+            event_id=event_id,
+            data=data,
+        ),
+    )
+    return event_id
+
+
+def write_broken_lock_audit(paths: V2Paths, task_id: str, lock: TaskLock) -> Path:
+    timestamp = lock.broken_at or utc_now_iso()
+    filename = timestamp.replace(":", "").replace("-", "").replace("+00:00", "Z")
+    path = task_audit_dir(paths, task_id) / f"broken-lock-{filename}.yaml"
+    atomic_write_text(
+        path,
+        yaml.safe_dump(lock.to_dict(), sort_keys=False, allow_unicode=True),
+    )
+    return path

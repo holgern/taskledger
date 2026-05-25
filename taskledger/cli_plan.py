@@ -35,12 +35,12 @@ from taskledger.cli_common import (
     read_text_input,
     reject_workflow_positional_task_ref,
     render_json,
+    resolve_cli_actor_harness,
     resolve_cli_task,
     write_text_output,
 )
 from taskledger.domain.states import EXIT_CODE_VALIDATION_FAILED
 from taskledger.errors import LaunchError
-from taskledger.services.actors import resolve_actor, resolve_harness
 from taskledger.services.plan_editing import ensure_plan_input_path_allowed
 from taskledger.services.plan_lint import PlanLintPayload
 from taskledger.services.workflow_guidance import (
@@ -79,13 +79,13 @@ def start_command(
         if task_arg:
             reject_workflow_positional_task_ref("plan start", task_arg)
         task = resolve_cli_task(state.cwd, task_ref)
-        resolved_actor = resolve_actor(
-            actor_type=actor,
+        resolved_actor, resolved_harness = resolve_cli_actor_harness(
+            actor=actor,
             actor_name=actor_name,
-            role=actor_role,
+            actor_role=actor_role,
+            harness=harness,
             session_id=session_id,
         )
-        resolved_harness = resolve_harness(name=harness, session_id=session_id)
         payload = start_planning(
             state.cwd,
             task.id,

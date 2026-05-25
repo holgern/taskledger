@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,6 +11,18 @@ from typing import cast
 from taskledger.errors import LaunchError
 from taskledger.ids import slugify_project_ref
 from taskledger.services.doctor import inspect_v2_project
+from taskledger.services.git_utils import (
+    git_root as _git_root,
+)
+from taskledger.services.git_utils import (
+    render_relative_or_absolute as _render_taskledger_dir_value,
+)
+from taskledger.services.git_utils import (
+    run_git as _run_git,
+)
+from taskledger.services.git_utils import (
+    status_path_token as _status_path_token,
+)
 from taskledger.storage.paths import load_project_locator
 from taskledger.storage.project_config import (
     load_project_config_document,
@@ -795,13 +806,6 @@ def _write_sync_layout(repo_path: Path) -> None:
         )
 
 
-def _render_taskledger_dir_value(workspace_root: Path, target: Path) -> str:
-    try:
-        return target.relative_to(workspace_root).as_posix()
-    except ValueError:
-        return target.as_posix()
-
-
 def _active_lock_count(workspace_root: Path) -> int:
     try:
         return len(load_active_locks(workspace_root))
@@ -824,13 +828,6 @@ def _git_status_lines(repo_path: Path) -> list[str]:
     if result.returncode != 0:
         return []
     return [line for line in result.stdout.splitlines() if line.strip()]
-
-
-def _status_path_token(line: str) -> str:
-    token = line[3:].strip()
-    if "->" in token:
-        token = token.split("->", 1)[1].strip()
-    return token.strip('"')
 
 
 def _split_status_by_project(
@@ -898,39 +895,6 @@ def _ahead_behind(repo_path: Path) -> tuple[int | None, int | None]:
     behind = int(parts[0])
     ahead = int(parts[1])
     return (ahead, behind)
-
-
-def _git_root(path: Path) -> Path | None:
-    candidate = path if path.exists() else path.parent
-    result = subprocess.run(
-        ["git", "-C", candidate.as_posix(), "rev-parse", "--show-toplevel"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if result.returncode != 0:
-        return None
-    return Path(result.stdout.strip()).resolve()
-
-
-def _run_git(
-    root: Path,
-    *args: str,
-    check: bool = True,
-) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(
-        ["git", "-C", root.as_posix(), *args],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if check and result.returncode != 0:
-        stderr = result.stderr.strip() or result.stdout.strip()
-        raise LaunchError(
-            f"git {' '.join(args)} failed in {root.as_posix()}: "
-            f"{stderr or f'exit {result.returncode}'}"
-        )
-    return result
 
 
 def _sync_export_paths(repo_path: Path, project_path: str) -> tuple[str, ...]:

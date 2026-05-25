@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Literal
 
 from taskledger.errors import LaunchError
+from taskledger.storage.toml_edit import is_toml_key_line as _is_toml_key_line
 
 try:
     tomllib = importlib.import_module("tomllib")
@@ -264,15 +265,3 @@ def _apply_ledger_patch(
     if result and not result.endswith("\n"):
         result += "\n"
     return result
-
-
-def _is_toml_key_line(stripped: str, key: str) -> bool:
-    """Check if a stripped line is 'key = ...' (not inside a table or array)."""
-    if not stripped.startswith(key):
-        return False
-    rest = stripped[len(key) :]
-    # Must be followed by optional whitespace then '='
-    if not rest:
-        return False
-    rest = rest.lstrip()
-    return rest.startswith("=")

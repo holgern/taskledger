@@ -18,6 +18,12 @@ from pathlib import Path
 from taskledger.errors import LaunchError
 from taskledger.ids import slugify_project_ref
 from taskledger.storage.atomic import atomic_write_text
+from taskledger.storage.toml_edit import (
+    is_toml_key_line as _is_toml_key_line,
+)
+from taskledger.storage.toml_edit import (
+    join_toml_lines as _join_lines,
+)
 
 try:
     tomllib = importlib.import_module("tomllib")
@@ -196,21 +202,4 @@ def _load_toml(path: Path) -> dict[object, object]:
     result = tomllib.loads(text)
     if not isinstance(result, dict):
         raise LaunchError(f"Invalid project config {path}: expected a TOML table.")
-    return result
-
-
-def _is_toml_key_line(stripped: str, key: str) -> bool:
-    if not stripped.startswith(key):
-        return False
-    rest = stripped[len(key) :]
-    if not rest:
-        return False
-    rest = rest.lstrip()
-    return rest.startswith("=")
-
-
-def _join_lines(lines: list[str]) -> str:
-    result = "\n".join(lines)
-    if result and not result.endswith("\n"):
-        result += "\n"
     return result

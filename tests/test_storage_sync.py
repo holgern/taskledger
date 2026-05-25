@@ -317,3 +317,44 @@ def test_sync_export_alias_writes_archive(tmp_path: Path) -> None:
     )
     assert root_archive.exists()
     assert sync_archive.exists()
+
+
+def test_export_conflicting_output_args_include_command_specific_hint(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+    assert runner.invoke(app, ["--root", str(workspace), "init"]).exit_code == 0
+
+    root_result = runner.invoke(
+        app,
+        [
+            "--root",
+            str(workspace),
+            "--json",
+            "export",
+            "first.tar.gz",
+            "-o",
+            "second.tar.gz",
+        ],
+    )
+    sync_result = runner.invoke(
+        app,
+        [
+            "--root",
+            str(workspace),
+            "--json",
+            "sync",
+            "export",
+            "first.tar.gz",
+            "-o",
+            "second.tar.gz",
+        ],
+    )
+
+    assert root_result.exit_code == 2, root_result.stdout
+    assert sync_result.exit_code == 2, sync_result.stdout
+    root_payload = json.loads(root_result.stdout)
+    sync_payload = json.loads(sync_result.stdout)
+    assert "taskledger export -o OUT.tar.gz" in root_payload["error"]["message"]
+    assert "taskledger sync export -o OUT.tar.gz" in sync_payload["error"]["message"]

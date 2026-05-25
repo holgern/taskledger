@@ -15,9 +15,6 @@ from taskledger._version import __version__
 from taskledger.api.handoff import render_handoff
 from taskledger.api.project import (
     init_project,
-    project_export_archive,
-    project_import,
-    project_import_archive,
     project_snapshot,
     project_status,
     project_status_summary,
@@ -31,6 +28,13 @@ from taskledger.api.search import (
 )
 from taskledger.cli_actor import app as actors_app
 from taskledger.cli_actor import harness_app
+from taskledger.cli_archive import (
+    ArchiveExportRequest,
+    ArchiveImportRequest,
+    render_archive_export_human,
+    run_archive_export,
+    run_archive_import,
+)
 from taskledger.cli_common import (
     CLIState,
     TaskOption,
@@ -1161,25 +1165,6 @@ def repair_task_dirs_command(ctx: typer.Context) -> None:
     )
 
 
-def _looks_like_archive_output_target(value: str) -> bool:
-    candidate = value.strip()
-    lowered = candidate.lower()
-    if (
-        lowered.endswith(".tar.gz")
-        or lowered.endswith(".tgz")
-        or lowered.endswith(".json")
-    ):
-        return True
-    path = Path(candidate)
-    if path.is_absolute():
-        return True
-    if "/" in candidate or "\\" in candidate:
-        return True
-    if path.parent != Path("."):
-        return True
-    return False
-
-
 @app.command("export")
 def export_command(
     ctx: typer.Context,
@@ -1218,81 +1203,23 @@ def export_command(
 ) -> None:
     state = ctx.obj
     assert isinstance(state, CLIState)
-    resolved_output = output
-    task_refs: list[str] = []
-    if task_ref is not None:
-        task_refs = [resolve_cli_task(state.cwd, task_ref).id]
-        if target_or_output is not None:
-            if output is not None:
-                emit_error(
-                    ctx,
-                    LaunchError(
-                        "export received both positional output and --output. Use one."
-                    ),
-                )
-                raise typer.Exit(code=2)
-            resolved_output = Path(target_or_output)
-    elif target_or_output is not None:
-        if _looks_like_archive_output_target(target_or_output):
-            if output is not None:
-                emit_error(
-                    ctx,
-                    LaunchError(
-                        "export received both positional output and --output. Use one."
-                    ),
-                )
-                raise typer.Exit(code=2)
-            resolved_output = Path(target_or_output)
-        else:
-            try:
-                task_refs = [resolve_cli_task(state.cwd, target_or_output).id]
-            except LaunchError as exc:
-                emit_error(
-                    ctx,
-                    LaunchError(
-                        f"No task found for '{target_or_output}'. To write an archive "
-                        "to that filename, use: taskledger export -o "
-                        f"{target_or_output}.tar.gz"
-                    ),
-                )
-                raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-    if resolved_output is not None and resolved_output.exists() and not overwrite:
-        emit_error(
-            ctx,
-            LaunchError(
-                "Output file already exists: "
-                f"{resolved_output}. Use --overwrite to replace."
-            ),
-        )
-        raise typer.Exit(code=1)
     try:
-        payload = project_export_archive(
-            state.cwd,
-            output_path=resolved_output,
-            include_bodies=include_bodies,
-            include_run_artifacts=include_run_artifacts,
-            task_refs=task_refs,
-            overwrite=overwrite,
+        payload = run_archive_export(
+            state,
+            ArchiveExportRequest(
+                target_or_output=target_or_output,
+                task_ref=task_ref,
+                output=output,
+                include_bodies=include_bodies,
+                include_run_artifacts=include_run_artifacts,
+                overwrite=overwrite,
+                command_prefix="taskledger export",
+            ),
         )
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-    counts = cast(dict[str, object], payload.get("counts", {}))
-    project_name = cast(str | None, payload.get("project_name"))
-    project_uuid = payload["project_uuid"]
-    project_label = (
-        f"{project_name} ({project_uuid})"
-        if isinstance(project_name, str) and project_name.strip()
-        else str(project_uuid)
-    )
-    human = (
-        f"exported taskledger archive: {payload['path']}\n"
-        f"project: {project_label}\n"
-        f"ledger: {payload['ledger_ref']}\n"
-        f"scope: {payload.get('archive_scope', 'ledger')}\n"
-        f"tasks: {counts.get('tasks', 0)}"
-    )
-    emit_payload(ctx, payload, human=human)
+    emit_payload(ctx, payload, human=render_archive_export_human(payload))
 
 
 @app.command("import")
@@ -1327,20 +1254,22 @@ def import_command(
 ) -> None:
     state = ctx.obj
     assert isinstance(state, CLIState)
-    # Detect .tar.gz vs legacy JSON
-    if source.suffix == ".json" or _is_json_content(source):
-        text = source.read_text(encoding="utf-8")
-        try:
-            payload = project_import(
-                state.cwd,
-                text=text,
+    try:
+        payload, import_kind = run_archive_import(
+            state,
+            ArchiveImportRequest(
+                source=source,
                 replace=replace,
                 dry_run=dry_run,
                 lock_policy=lock_policy,
-            )
-        except LaunchError as exc:
-            emit_error(ctx, exc)
-            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+                id_policy=id_policy,
+            ),
+            is_json_content=_is_json_content,
+        )
+    except LaunchError as exc:
+        emit_error(ctx, exc)
+        raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+    if import_kind == "json":
         if dry_run:
             json_project = payload.get("project_name") or payload.get(
                 "project_uuid", "(unknown)"
@@ -1355,18 +1284,6 @@ def import_command(
             human = "imported taskledger state"
         emit_payload(ctx, payload, human=human)
         return
-    try:
-        payload = project_import_archive(
-            state.cwd,
-            source_path=source,
-            replace=replace,
-            dry_run=dry_run,
-            lock_policy=lock_policy,
-            id_policy=id_policy,
-        )
-    except LaunchError as exc:
-        emit_error(ctx, exc)
-        raise typer.Exit(code=launch_error_exit_code(exc)) from exc
     project_name = cast(str | None, payload.get("project_name"))
     project_uuid = payload["project_uuid"]
     project_label = (

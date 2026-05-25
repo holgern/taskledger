@@ -8,6 +8,12 @@ from typing import TYPE_CHECKING, Literal, cast
 
 from taskledger.errors import LaunchError
 from taskledger.storage.project_identity import normalize_project_name
+from taskledger.storage.toml_edit import (
+    is_toml_key_line as _is_toml_key_line,
+)
+from taskledger.storage.toml_edit import (
+    join_toml_lines as _join_lines,
+)
 from taskledger.storage.worker_pipeline_config import (
     WorkerPipelineConfig,
     parse_worker_pipeline,
@@ -404,23 +410,6 @@ def _apply_taskledger_dir_patch(text: str, taskledger_dir: str) -> str:
             break
     new_lines.insert(insert_at, f"taskledger_dir = {rendered}")
     return _join_lines(new_lines)
-
-
-def _is_toml_key_line(stripped: str, key: str) -> bool:
-    if not stripped.startswith(key):
-        return False
-    rest = stripped[len(key) :]
-    if not rest:
-        return False
-    rest = rest.lstrip()
-    return rest.startswith("=")
-
-
-def _join_lines(lines: list[str]) -> str:
-    result = "\n".join(lines)
-    if result and not result.endswith("\n"):
-        result += "\n"
-    return result
 
 
 def load_project_config_document(path: Path) -> dict[str, object]:

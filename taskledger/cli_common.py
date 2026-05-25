@@ -7,6 +7,7 @@ from typing import Annotated, Any
 
 import typer
 
+from taskledger.domain.models import ActorRef, HarnessRef
 from taskledger.errors import LaunchError, TaskledgerError
 from taskledger.storage.paths import discover_workspace_root
 from taskledger.storage.task_store import TaskRecord, resolve_task_or_active
@@ -65,6 +66,26 @@ def resolve_cli_task(
 
     note_task(task.id)
     return task
+
+
+def resolve_cli_actor_harness(
+    *,
+    actor: str | None,
+    actor_name: str | None,
+    actor_role: str | None,
+    harness: str | None,
+    session_id: str | None,
+) -> tuple[ActorRef, HarnessRef]:
+    from taskledger.services.actors import resolve_actor, resolve_harness
+
+    resolved_actor = resolve_actor(
+        actor_type=actor,
+        actor_name=actor_name,
+        role=actor_role,
+        session_id=session_id,
+    )
+    resolved_harness = resolve_harness(name=harness, session_id=session_id)
+    return resolved_actor, resolved_harness
 
 
 def resolve_task_target(

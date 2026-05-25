@@ -1,13 +1,24 @@
 from __future__ import annotations
 
 import shutil
-import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
 from taskledger.errors import LaunchError
 from taskledger.services.doctor import inspect_v2_project
+from taskledger.services.git_utils import (
+    git_root as _git_root,
+)
+from taskledger.services.git_utils import (
+    relative_to_git_root as _relative_to,
+)
+from taskledger.services.git_utils import (
+    render_relative_or_absolute as _render_taskledger_dir_value,
+)
+from taskledger.services.git_utils import (
+    run_git as _run_git,
+)
 from taskledger.storage.ledger_config import load_ledger_config
 from taskledger.storage.paths import DEFAULT_TASKLEDGER_DIR_NAME, load_project_locator
 from taskledger.storage.project_config import update_taskledger_dir
@@ -388,13 +399,6 @@ def _resolve_target(workspace_root: Path, target: Path) -> Path:
     return (workspace_root / expanded).resolve()
 
 
-def _render_taskledger_dir_value(workspace_root: Path, target: Path) -> str:
-    try:
-        return target.relative_to(workspace_root).as_posix()
-    except ValueError:
-        return target.as_posix()
-
-
 def _verify_adoptable_target(target: Path) -> None:
     if not target.exists():
         raise LaunchError("Cannot adopt a missing target directory.")
@@ -407,22 +411,6 @@ def _verify_adoptable_target(target: Path) -> None:
 def _backup_path_for(source: Path) -> Path:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     return source.with_name(f"{source.name}.moved-{timestamp}")
-
-
-def _git_root(path: Path) -> Path | None:
-    if not path.exists():
-        candidate = path.parent
-    else:
-        candidate = path
-    result = subprocess.run(
-        ["git", "-C", candidate.as_posix(), "rev-parse", "--show-toplevel"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if result.returncode != 0:
-        return None
-    return Path(result.stdout.strip()).resolve()
 
 
 def _tracked_in_workspace_git(workspace_root: Path, taskledger_dir: Path) -> bool:
@@ -445,38 +433,9 @@ def _git_status_lines(path: Path) -> list[str]:
     return [line for line in result.stdout.splitlines() if line.strip()]
 
 
-def _relative_to(path: Path, root: Path) -> str:
-    try:
-        return path.resolve().relative_to(root.resolve()).as_posix() or "."
-    except ValueError as exc:
-        raise LaunchError(
-            f"{path.as_posix()} is not inside Git root {root.as_posix()}."
-        ) from exc
-
-
 def _is_within(path: Path, root: Path) -> bool:
     try:
         path.resolve().relative_to(root.resolve())
         return True
     except ValueError:
         return False
-
-
-def _run_git(
-    root: Path,
-    *args: str,
-    check: bool = True,
-) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(
-        ["git", "-C", root.as_posix(), *args],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if check and result.returncode != 0:
-        stderr = result.stderr.strip() or result.stdout.strip()
-        raise LaunchError(
-            f"git {' '.join(args)} failed in {root.as_posix()}: "
-            f"{stderr or f'exit {result.returncode}'}"
-        )
-    return result

@@ -20,10 +20,10 @@ from taskledger.cli_common import (
     emit_payload,
     launch_error_exit_code,
     reject_workflow_positional_task_ref,
+    resolve_cli_actor_harness,
     resolve_cli_task,
 )
 from taskledger.errors import LaunchError
-from taskledger.services.actors import resolve_actor, resolve_harness
 
 
 def _render_validation_status(payload: dict[str, Any]) -> str:
@@ -135,13 +135,13 @@ def register_validate_v2_commands(app: typer.Typer) -> None:
             if task_arg:
                 reject_workflow_positional_task_ref("validate start", task_arg)
             task = resolve_cli_task(state.cwd, task_ref)
-            resolved_actor = resolve_actor(
-                actor_type=actor,
+            resolved_actor, resolved_harness = resolve_cli_actor_harness(
+                actor=actor,
                 actor_name=actor_name,
-                role=actor_role,
+                actor_role=actor_role,
+                harness=harness,
                 session_id=session_id,
             )
-            resolved_harness = resolve_harness(name=harness, session_id=session_id)
             payload = start_validation(
                 state.cwd,
                 task.id,
