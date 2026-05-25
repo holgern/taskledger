@@ -266,6 +266,29 @@ Test plan.
         assert isinstance(skipped, list)
         assert any(s["path"] == "src/.git/config" for s in skipped)
 
+    def test_task_export_total_source_budget_does_not_charge_skipped_file(
+        self, tmp_path: Path
+    ) -> None:
+        ws = init_workspace(tmp_path)
+        task_id = create_done_task(ws, allow_lint_errors=True)
+        (ws / "a.txt").write_text("a" * 90)
+        (ws / "b.txt").write_text("b" * 20)
+        (ws / "c.txt").write_text("c" * 5)
+
+        payload = export_task_markdown(
+            ws,
+            task_id,
+            options=TaskMarkdownExportOptions(
+                extra_source_files=("a.txt", "b.txt", "c.txt"),
+                max_source_file_bytes=1000,
+                max_total_source_bytes=100,
+            ),
+        )
+
+        assert "a.txt" in payload["included_source_files"]
+        assert "b.txt" not in payload["included_source_files"]
+        assert "c.txt" in payload["included_source_files"]
+
 
 # ---------------------------------------------------------------------------
 # CLI tests

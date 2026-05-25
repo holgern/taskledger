@@ -241,8 +241,7 @@ def _collect_source_snapshots(
                 }
             )
             continue
-        total_bytes += size
-        if total_bytes > options.max_total_source_bytes:
+        if total_bytes + size > options.max_total_source_bytes:
             skipped.append(
                 {
                     "path": raw_candidate,
@@ -250,6 +249,7 @@ def _collect_source_snapshots(
                 }
             )
             continue
+        total_bytes += size
         try:
             text = resolved.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
