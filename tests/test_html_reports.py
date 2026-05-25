@@ -9,7 +9,11 @@ from taskledger.services.html_reports import (
     write_html_site,
 )
 from taskledger.services.tasks import create_task
-from tests.support.builders import create_done_task, init_workspace
+from tests.support.builders import (
+    create_approved_task,
+    create_done_task,
+    init_workspace,
+)
 
 
 def test_render_task_report_html_contains_semantic_sections(tmp_path: Path) -> None:
@@ -93,3 +97,86 @@ def test_write_html_site_does_not_write_css_or_js_assets(tmp_path: Path) -> None
     write_html_site(ws, output_dir, options=HtmlSiteOptions())
     file_names = [str(path) for path in output_dir.rglob("*") if path.is_file()]
     assert not any(name.endswith(".js") or name.endswith(".css") for name in file_names)
+
+
+def test_render_task_report_html_renders_task_markdown_and_escapes_html(
+    tmp_path: Path,
+) -> None:
+    ws = init_workspace(tmp_path)
+    task = create_task(
+        ws,
+        title="Markdown task",
+        slug="markdown-task",
+        description=(
+            "## User-facing details\n\n"
+            "This has **bold text** and `inline code`.\n\n"
+            "- item one\n"
+            "- item two\n\n"
+            "<script>alert('x')</script>"
+        ),
+    )
+
+    payload = render_task_report_html(ws, task.id)
+    html = str(payload["content"])
+
+    assert "<h2>User-facing details</h2>" in html
+    assert "<strong>bold text</strong>" in html
+    assert "<code>inline code</code>" in html
+    assert "<li>item one</li>" in html
+    assert "<script" not in html.lower()
+    assert "&lt;script&gt;alert" in html
+
+
+def test_render_task_report_html_renders_accepted_plan_markdown(
+    tmp_path: Path,
+) -> None:
+    ws = init_workspace(tmp_path)
+    task_id = create_approved_task(
+        ws,
+        allow_lint_errors=True,
+        plan_text="""---
+goal: Render plan markdown.
+acceptance_criteria:
+  - id: ac-0001
+    text: Plan markdown renders in HTML.
+todos:
+  - id: todo-0001
+    text: Implement rendering.
+    validation_hint: pytest tests/test_html_reports.py
+---
+
+## Goal
+
+Render **plan Markdown** and `inline code`.
+
+## Implementation notes
+
+- Use the canonical Markdown report renderer.
+""",
+    )
+
+    payload = render_task_report_html(ws, task_id)
+    html = str(payload["content"])
+
+    # Plan body headings rendered as HTML
+    assert "<h2>Goal</h2>" in html
+    assert "<strong>plan Markdown</strong>" in html
+    assert "<code>inline code</code>" in html
+    assert "<li>Use the canonical Markdown report renderer.</li>" in html
+
+
+def test_render_task_report_html_does_not_show_raw_relationship_or_validation_dicts(
+    tmp_path: Path,
+) -> None:
+    ws = init_workspace(tmp_path)
+    task_id = create_done_task(ws, allow_lint_errors=True)
+
+    payload = render_task_report_html(ws, task_id)
+    html = str(payload["content"])
+
+    # Raw Python dict reprs should not appear
+    assert "{'kind':" not in html
+    assert "'parent_task':" not in html
+    # Structured sections should have proper headings
+    assert '<h2 id="relationships">Relationships</h2>' in html
+    assert '<h2 id="validation">Validation</h2>' in html

@@ -186,3 +186,19 @@ def test_serve_html_updates_after_storage_change_on_next_request(
         second = _load_html(handle, "/")
     assert "Old Title" in first
     assert "New Title" in second
+
+
+def test_serve_task_page_renders_markdown_content(tmp_path: Path) -> None:
+    ws = init_workspace(tmp_path)
+    task = create_task(
+        ws,
+        title="Served Markdown",
+        slug="served-markdown",
+        description="## Served Heading\n\n**served bold** and `served code`.",
+    )
+    with _running_server(ws) as handle:
+        html = _load_html(handle, f"/task/{task.id}")
+
+    assert "<h2>Served Heading</h2>" in html
+    assert "<strong>served bold</strong>" in html
+    assert "<code>served code</code>" in html

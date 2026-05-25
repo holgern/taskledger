@@ -8,6 +8,7 @@ from typing import Literal
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 from taskledger.errors import LaunchError
+from taskledger.services.markdown_html import render_markdown_html
 from taskledger.services.serve_read_model import (
     serve_project_summary,
     serve_task_summaries,
@@ -15,6 +16,7 @@ from taskledger.services.serve_read_model import (
 from taskledger.services.task_reports import (
     TaskReportOptions,
     build_task_report_payload,
+    render_task_report_markdown,
 )
 from taskledger.storage.task_store import (
     list_tasks_by_visibility,
@@ -136,42 +138,23 @@ def render_task_report_html(
     loader = payload["_load"]
     assert callable(loader)
 
+    # Render the canonical Markdown report and convert to safe HTML.
+    markdown_report = render_task_report_markdown(payload)
+    report_html = render_markdown_html(markdown_report)
+
+    # Collect summary card values for page chrome.
     todos = _normalize_records(loader("todos"))
     questions = _normalize_records(loader("questions"))
-    runs = _normalize_records(loader("runs"))
-    implementation_runs = [
-        run for run in runs if run.get("run_type") == "implementation"
-    ]
-    links = _normalize_records(loader("links"))
-    requirements = _normalize_records(loader("requirements"))
-    changes = _normalize_records(loader("changes"))
-    checks = _normalize_records(loader("checks"))
-    command_logs = _normalize_records(loader("command_logs"))
     validation_report = _normalize_record(loader("validation_report"))
-    relationships = _normalize_record(loader("relationships"))
     lock = loader("lock")
     lock_record = _normalize_record(lock) if lock is not None else {}
-    accepted_plan = payload.get("accepted_plan")
-    accepted_plan_record = (
-        _normalize_record(accepted_plan) if accepted_plan is not None else None
+
+    todos_total = len(todos)
+    todos_done = sum(1 for todo in todos if bool(todo.get("done")))
+    questions_total = len(questions)
+    questions_open = sum(
+        1 for question in questions if str(question.get("status")) == "open"
     )
-
-    acceptance_criteria = (
-        _normalize_records(accepted_plan_record.get("criteria"))
-        if isinstance(accepted_plan_record, dict)
-        else []
-    )
-
-    events: list[dict[str, object]] = []
-    if "events" in sections:
-        all_events = _normalize_records(loader("events"))
-        if options.events_limit > 0:
-            events = all_events[-options.events_limit :]
-        else:
-            events = all_events
-
-    next_action_obj = loader("next_action")
-    next_action = _normalize_record(next_action_obj) if next_action_obj else None
     validation_status = str(validation_report.get("status", "unknown"))
 
     generated_at = str(task.get("updated_at") or "")
@@ -186,27 +169,13 @@ def render_task_report_html(
             "task": task,
             "active_stage": lock_record.get("stage"),
             "sections": sections,
-            "next_action": next_action,
-            "relationships": relationships,
-            "requirements": requirements,
-            "links": links,
-            "accepted_plan": accepted_plan_record,
-            "acceptance_criteria": acceptance_criteria,
-            "todos": todos,
-            "todos_total": len(todos),
-            "todos_done": sum(1 for todo in todos if bool(todo.get("done"))),
-            "questions_total": len(questions),
-            "questions_open": sum(
-                1 for question in questions if str(question.get("status")) == "open"
-            ),
-            "implementation_runs": implementation_runs,
-            "changes": changes,
-            "checks": checks,
-            "command_logs": command_logs,
-            "validation_report": validation_report,
+            "report_html": report_html,
+            "todos_total": todos_total,
+            "todos_done": todos_done,
+            "questions_total": questions_total,
+            "questions_open": questions_open,
             "validation_status": validation_status,
             "lock_stage": lock_record.get("stage") or "none",
-            "events": events,
         },
     )
 
