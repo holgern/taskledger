@@ -10,12 +10,31 @@ Public surface
 Supported CLI groups
 --------------------
 
+The following table lists all 41 registered command groups, grouped by their
+primary surface classification as defined in ``COMMAND_METADATA``.
+
+**Primary groups** — core task-first lifecycle:
+
 - ``task``, ``plan``, ``question``, ``implement``, ``validate``, ``review``, ``todo``
-- ``intro``, ``file``, ``link``, ``require``, ``release``, ``lock``, ``handoff``
-- ``storage``, ``sync``
-- ``doctor``, ``repair``, ``next-action``, ``can``, ``reindex``
-- ``init``, ``status``, ``export``, ``import``, ``snapshot``
-- ``context``, ``view``, ``serve``, ``search``, ``grep``, ``symbols``, ``deps``
+- ``context``, ``next-action``, ``init``, ``handoff``
+
+**Support groups** — auxiliary operations:
+
+- ``intro``, ``file``, ``link``, ``require``, ``release``, ``lock``, ``actor``, ``harness``
+- ``export``, ``import``, ``snapshot``, ``pipeline``, ``can``, ``report``
+- ``storage``, ``sync``, ``commands``
+
+**Advanced groups** — power-user and automation:
+
+- ``ledger``, ``require``, ``handoff``
+
+**Human-oriented groups** — interactive and reporting:
+
+- ``status``, ``view``, ``serve``, ``tree``, ``search``, ``grep``, ``symbols``, ``deps``
+
+**Repair and migration groups** — exceptional recovery:
+
+- ``doctor``, ``repair``, ``reindex``, ``migrate``
 
 ``serve`` is a human-oriented, read-only localhost dashboard. Agents should
 keep using the CLI and JSON command surface for automation.
@@ -75,6 +94,7 @@ Supported Python API modules
 - ``taskledger.api.handoff``
 - ``taskledger.api.releases``
 - ``taskledger.api.storage``
+- ``taskledger.api.sync``
 - ``taskledger.api.search``
 
 ``taskledger.api.task_runs`` includes the public lifecycle helpers

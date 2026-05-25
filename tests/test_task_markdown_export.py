@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 from typer.testing import CliRunner
 
 from taskledger.services.task_export import (
@@ -100,9 +99,7 @@ class TestServiceExport:
         assert "# Test Project" not in content
         assert payload["included_source_files"] == []
 
-    def test_task_export_skips_outside_workspace_file(
-        self, tmp_path: Path
-    ) -> None:
+    def test_task_export_skips_outside_workspace_file(self, tmp_path: Path) -> None:
         ws = init_workspace(tmp_path)
         task_id = create_done_task(ws, allow_lint_errors=True)
 
@@ -120,9 +117,7 @@ class TestServiceExport:
         paths = [s["path"] for s in skipped]
         assert "/etc/passwd" in paths
 
-    def test_task_export_skips_oversized_source_file(
-        self, tmp_path: Path
-    ) -> None:
+    def test_task_export_skips_oversized_source_file(self, tmp_path: Path) -> None:
         ws = init_workspace(tmp_path)
         # Create a large file that's referenced as a change
         large_file = ws / "bigfile.txt"
@@ -146,9 +141,7 @@ class TestServiceExport:
         assert "bigfile.txt" in reasons_by_path
         assert "bytes" in reasons_by_path["bigfile.txt"]
 
-    def test_task_export_does_not_mutate_taskledger_state(
-        self, tmp_path: Path
-    ) -> None:
+    def test_task_export_does_not_mutate_taskledger_state(self, tmp_path: Path) -> None:
         ws = init_workspace(tmp_path)
         task_id = create_done_task(ws, allow_lint_errors=True)
 
@@ -172,9 +165,7 @@ class TestServiceExport:
         after = _snapshot()
         assert before == after
 
-    def test_task_export_front_matter_contains_metadata(
-        self, tmp_path: Path
-    ) -> None:
+    def test_task_export_front_matter_contains_metadata(self, tmp_path: Path) -> None:
         ws = init_workspace(tmp_path)
         task_id = create_done_task(ws, allow_lint_errors=True)
 
@@ -188,9 +179,7 @@ class TestServiceExport:
         assert "taskledger_version:" in content
         assert "include_source_files: True" in content
 
-    def test_task_export_deterministic_body(
-        self, tmp_path: Path
-    ) -> None:
+    def test_task_export_deterministic_body(self, tmp_path: Path) -> None:
         ws = init_workspace(tmp_path)
         task_id = create_done_task(ws, allow_lint_errors=True)
 
@@ -207,9 +196,7 @@ class TestServiceExport:
         body2 = content2.split("## How to use this file", 1)[1]
         assert body1 == body2
 
-    def test_task_export_summary_table(
-        self, tmp_path: Path
-    ) -> None:
+    def test_task_export_summary_table(self, tmp_path: Path) -> None:
         ws = init_workspace(tmp_path)
         task_id = create_done_task(ws, allow_lint_errors=True)
 
@@ -258,9 +245,7 @@ class TestCliExport:
         assert "# Compiled Task Export:" in stdout
         assert "## Raw Taskledger Record Files" in stdout
 
-    def test_task_export_json_output_writes_file(
-        self, tmp_path: Path
-    ) -> None:
+    def test_task_export_json_output_writes_file(self, tmp_path: Path) -> None:
         ws = init_workspace(tmp_path)
         task_id = create_done_task(ws, allow_lint_errors=True)
         output_path = tmp_path / "task-0001.llm.md"
@@ -290,9 +275,7 @@ class TestCliExport:
         file_content = output_path.read_text()
         assert "# Compiled Task Export:" in file_content
 
-    def test_task_export_uses_active_task_default(
-        self, tmp_path: Path
-    ) -> None:
+    def test_task_export_uses_active_task_default(self, tmp_path: Path) -> None:
         ws = init_workspace(tmp_path)
         task_id = create_done_task(ws, allow_lint_errors=True)
 

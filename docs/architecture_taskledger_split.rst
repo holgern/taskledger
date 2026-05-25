@@ -32,10 +32,10 @@ Command surface
 ---------------
 
 The supported command groups are ``task``, ``plan``, ``question``,
-``implement``, ``validate``, ``todo``, ``intro``, ``file``, ``link``,
+``implement``, ``validate``, ``review``, ``todo``, ``intro``, ``file``, ``link``,
 ``require``, ``release``, ``lock``, ``handoff``, ``context``, ``actor``,
 ``harness``, ``view``, ``tree``, ``next-action``, ``can``, ``search``,
 ``grep``, ``symbols``, ``deps``, ``doctor``, ``repair``, ``reindex``,
 ``migrate``, ``init``, ``status``, ``export``, ``import``, ``snapshot``,
 ``storage``, ``sync``, ``ledger``, ``report``, ``serve``, ``pipeline``,
-and ``commands``.
+``commands``, and ``review`` (code-review records).

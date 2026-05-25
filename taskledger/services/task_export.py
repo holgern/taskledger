@@ -11,9 +11,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-_TEXT_EXTENSIONS = frozenset(
-    {".md", ".yaml", ".yml", ".json", ".txt", ".log"}
-)
+_TEXT_EXTENSIONS = frozenset({".md", ".yaml", ".yml", ".json", ".txt", ".log"})
 
 _LANGUAGE_BY_SUFFIX: dict[str, str] = {
     ".py": "python",
@@ -167,21 +165,15 @@ def _collect_raw_bundle_files(
         try:
             size = fp.stat().st_size
         except OSError:
-            skipped.append(
-                {"path": rel_path, "reason": "cannot stat file"}
-            )
+            skipped.append({"path": rel_path, "reason": "cannot stat file"})
             continue
         if size > max_bytes:
-            skipped.append(
-                {"path": rel_path, "reason": f"exceeds {max_bytes} bytes"}
-            )
+            skipped.append({"path": rel_path, "reason": f"exceeds {max_bytes} bytes"})
             continue
         try:
             text = fp.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
-            skipped.append(
-                {"path": rel_path, "reason": "cannot read as UTF-8 text"}
-            )
+            skipped.append({"path": rel_path, "reason": "cannot read as UTF-8 text"})
             continue
         included.append(rel_path)
         lang = _language_for(fp)
@@ -209,11 +201,7 @@ def _collect_source_snapshots(
     sections: list[str] = []
     changes = list_changes(workspace_root, task_id)
     link_collection = load_links(workspace_root, task_id)
-    links = (
-        link_collection.links
-        if hasattr(link_collection, "links")
-        else []
-    )
+    links = link_collection.links if hasattr(link_collection, "links") else []
     plans = list_plans(workspace_root, task_id)
     candidates = _collect_source_candidates(
         changes, links, plans, options.extra_source_files
@@ -223,40 +211,27 @@ def _collect_source_snapshots(
     for raw_candidate in candidates:
         resolved = _resolve_workspace_file(workspace_root, raw_candidate)
         if resolved is None:
-            skipped.append(
-                {"path": raw_candidate, "reason": "outside workspace"}
-            )
+            skipped.append({"path": raw_candidate, "reason": "outside workspace"})
             continue
         if not resolved.is_file():
-            skipped.append(
-                {"path": raw_candidate, "reason": "not a file or missing"}
-            )
+            skipped.append({"path": raw_candidate, "reason": "not a file or missing"})
             continue
         if _should_skip_source(resolved, workspace_root):
-            skipped.append(
-                {"path": raw_candidate, "reason": "skipped directory"}
-            )
+            skipped.append({"path": raw_candidate, "reason": "skipped directory"})
             continue
         if _is_binary(resolved):
-            skipped.append(
-                {"path": raw_candidate, "reason": "binary file"}
-            )
+            skipped.append({"path": raw_candidate, "reason": "binary file"})
             continue
         try:
             size = resolved.stat().st_size
         except OSError:
-            skipped.append(
-                {"path": raw_candidate, "reason": "cannot stat"}
-            )
+            skipped.append({"path": raw_candidate, "reason": "cannot stat"})
             continue
         if size > options.max_source_file_bytes:
             skipped.append(
                 {
                     "path": raw_candidate,
-                    "reason": (
-                        f"exceeds {options.max_source_file_bytes}"
-                        " bytes"
-                    ),
+                    "reason": (f"exceeds {options.max_source_file_bytes} bytes"),
                 }
             )
             continue
@@ -272,9 +247,7 @@ def _collect_source_snapshots(
         try:
             text = resolved.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
-            skipped.append(
-                {"path": raw_candidate, "reason": "cannot read as UTF-8"}
-            )
+            skipped.append({"path": raw_candidate, "reason": "cannot read as UTF-8"})
             continue
         try:
             rel = resolved.relative_to(workspace_root)
@@ -336,18 +309,14 @@ def build_task_markdown_export_payload(
         included_record_files,
         raw_sections,
         skipped_files,
-    ) = _collect_raw_bundle_files(
-        bundle_dir, options.max_record_file_bytes
-    )
+    ) = _collect_raw_bundle_files(bundle_dir, options.max_record_file_bytes)
 
     # 3. Source-file snapshots
     included_source_files: list[str] = []
     source_sections: list[str] = []
     if options.include_source_files:
-        (included_source_files, source_sections) = (
-            _collect_source_snapshots(
-                workspace_root, task.id, options, skipped_files
-            )
+        (included_source_files, source_sections) = _collect_source_snapshots(
+            workspace_root, task.id, options, skipped_files
         )
 
     return {
@@ -400,9 +369,7 @@ def render_task_markdown_export(payload: dict[str, object]) -> str:
     lines.append(f"ledger_ref: {ledger_ref}")
     lines.append(f"taskledger_version: {__version__}")
     lines.append(f"include_source_files: {options.include_source_files}")
-    lines.append(
-        f"include_command_output: {options.include_command_output}"
-    )
+    lines.append(f"include_command_output: {options.include_command_output}")
     lines.append("---")
     lines.append("")
 

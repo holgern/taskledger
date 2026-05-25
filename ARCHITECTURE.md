@@ -1,7 +1,7 @@
 ---
 title: "Architecture Documentation"
-date: "2026-05-23"
-generator: "archledger 0.1.1.dev1+g15fa163cd"
+date: "2026-05-25"
+generator: "archledger 0.1.1.dev9+gd859d2276"
 arc42_template_version: "9.0-EN"
 ---
 
@@ -42,7 +42,10 @@ This workflow is the product contract, not decoration. Deviations from this flow
 
 ## Stakeholders
 
-<!-- archledger: no accepted records for this section yet -->
+| Title            | Contact | Expectations |
+| ---------------- | ------- | ------------ |
+| Coding agents    |         |              |
+| Human developers |         |              |
 
 # Architecture Constraints
 
@@ -215,7 +218,7 @@ The top-level building block is the **taskledger system**, decomposed into five 
 
 Data flows strictly downward: CLI → Services → Domain + Storage. The API layer calls Services directly. The Domain layer has no dependencies on Storage or Services.
 
-Each task is stored as a **task bundle directory** under `.taskledger/` containing the task record (Markdown) and sidecar collections for plans, runs, locks, todos, questions, events, changes, checks, handoffs, and links.
+Each task is stored as a **task bundle directory** under `.taskledger/ledgers/<ledger_ref>/` containing the task record (Markdown) and sidecar collections for plans, runs, locks, todos, questions, changes, checks, handoffs, and links. When `[event_logging] enabled = true` in `taskledger.toml`, mutations append immutable `TaskEvent` records to the ledger-level `events/` directory. Event logging is disabled by default.
 
 ## Whitebox taskledger system
 
@@ -246,7 +249,7 @@ taskledger decomposes into five layers with strict downward dependency flow. Thi
 **Interfaces:**
 **Location:**
 
-Handles command parsing via Typer, task reference resolution (`--task` option, active task default), and output rendering (human text or JSON envelope via `cli_common.py`). Registers 40 command groups from `COMMAND_METADATA`: `actor`, `can`, `commands`, `context`, `deps`, `doctor`, `export`, `file`, `grep`, `handoff`, `harness`, `implement`, `import`, `init`, `intro`, `ledger`, `link`, `lock`, `migrate`, `next-action`, `pipeline`, `plan`, `question`, `reindex`, `release`, `repair`, `report`, `require`, `search`, `serve`, `snapshot`, `status`, `storage`, `sync`, `symbols`, `task`, `todo`, `tree`, `validate`, `view`.
+Handles command parsing via Typer, task reference resolution (`--task` option, active task default), and output rendering (human text or JSON envelope via `cli_common.py`). Registers 41 command groups from `COMMAND_METADATA`: `actor`, `can`, `commands`, `context`, `deps`, `doctor`, `export`, `file`, `grep`, `handoff`, `harness`, `implement`, `import`, `init`, `intro`, `ledger`, `link`, `lock`, `migrate`, `next-action`, `pipeline`, `plan`, `question`, `reindex`, `release`, `repair`, `report`, `require`, `review`, `search`, `serve`, `snapshot`, `status`, `storage`, `sync`, `symbols`, `task`, `todo`, `tree`, `validate`, `view`. The `review` group provides code-review record support (`review record`, `review list`, `review show`).
 
 Source refs: `taskledger/cli.py`, `taskledger/cli_common.py`, `taskledger/cli_task.py`, `taskledger/cli_plan.py`, `taskledger/cli_implement.py`, `taskledger/cli_validate.py`, `taskledger/cli_misc.py`.
 
@@ -280,7 +283,7 @@ Pure data models, state enums, normalization, and policy decisions with zero I/O
 **Interfaces:**
 **Location:**
 
-File system persistence for all canonical records. Implements the v2 task bundle layout where each task is a directory with sidecar collections for plans, runs, locks, todos, questions, events, changes, checks, handoffs, and links. Key modules: `task_store.py` (CRUD, layout resolution), `frontmatter.py` (YAML/Markdown serialization), `atomic.py` (atomic writes), `locks.py` (lock file operations), `indexes.py` (index rebuilds), `events.py` (append-only event log), `paths.py` (project discovery), `project_config.py` (taskledger.toml parsing), `migrations.py` (storage version upgrades).
+File system persistence for all canonical records. Implements the v2 task bundle layout where each task is a directory under `.taskledger/ledgers/<ledger_ref>/` with sidecar collections for plans, runs, locks, todos, questions, changes, checks, handoffs, and links. Event logging is opt-in (disabled by default) via `[event_logging] enabled = true`; when enabled, append-only `TaskEvent` records are stored in the ledger-level `events/` directory, not per-task sidecars. Key modules: `task_store.py` (CRUD, layout resolution), `frontmatter.py` (YAML/Markdown serialization), `atomic.py` (atomic writes), `locks.py` (lock file operations), `indexes.py` (index rebuilds), `events.py` (append-only event log), `paths.py` (project discovery), `project_config.py` (taskledger.toml parsing), `migrations.py` (storage version upgrades).
 
 # Runtime View
 
@@ -297,7 +300,7 @@ The runtime view traces the main operational scenarios through the system:
 
 **Flow**:
 
-1. `task create` → TaskRecord persisted in `draft` stage (event recorded when `[event_logging] enabled = true`)
+1. `task create` → TaskRecord persisted in `draft` stage with `task.created` event
 2. `plan start` → Lock acquired, planning run started, stage → `planning`
 3. `plan propose` → PlanRecord persisted, todos materialized, stage → `plan_review`
 4. `plan approve` (user-only) → Stage → `approved`, lock released, run finished
@@ -485,7 +488,7 @@ Cross-cutting concerns that span multiple layers:
 - **JSON output envelope**: All CLI commands emit a consistent JSON envelope with `ok`, `command`, `result_type`, `result`, `events`, and `warnings` fields when `--json` is passed.
 - **YAML front matter serialization**: All canonical records use YAML front matter (`---` delimited) for metadata and Markdown for body. Serialization/deserialization is in `taskledger/storage/frontmatter.py`.
 - **Atomic file writes**: All file writes go through `atomic_write_text` (temp file → `os.replace` → directory fsync) to prevent corruption.
-- **Append-only event log**: When `[event_logging] enabled = true`, mutations append immutable `TaskEvent` records to the ledger-level events directory. Event logging is disabled by default and intended for debugging agent usage patterns and lifecycle behavior. Existing event files remain readable through `task events`, reports, and import/export.
+- **Opt-in event logging**: When `[event_logging] enabled = true`, mutations append immutable `TaskEvent` records to the ledger-level `events/` directory under `.taskledger/ledgers/<ledger_ref>/`. When disabled (default), no new event records are written; existing records remain readable. Events track who did what, when, and why. Source: `taskledger/storage/events.py`, `taskledger/services/task_events.py`.
 - **Exit code taxonomy**: Errors map to stable exit codes (0=success, 1=generic, 2=bad input, 3=workflow rejection, 4=lock conflict, 5=missing, 6=storage, 7=validation failed).
 
 ## Actor metadata and role semantics
@@ -508,7 +511,7 @@ All file writes go through `atomic_write_text` (temp file → flush/fsync → `o
 
 ## Append-only event log
 
-Every mutation appends an immutable `TaskEvent` record to the task's events directory. Events are never modified or deleted. Each event has a deterministic ID, name (e.g., `task.created`, `plan.approved`, `lock.acquired`), timestamp, and actor metadata. Events support audit trails, handoff context, and `task transcript` output. Duplicate event detection prevents re-appending on retry. Source: `taskledger/storage/events.py`, `taskledger/domain/event.py`.
+When `[event_logging] enabled = true` in `taskledger.toml`, mutations append an immutable `TaskEvent` record to the ledger-level `events/` directory under `.taskledger/ledgers/<ledger_ref>/`. Event logging is disabled by default; when disabled, no new event records are written but existing records remain readable. Events are never modified or deleted. Each event has a deterministic ID, name (e.g., `task.created`, `plan.approved`, `lock.acquired`, `code_review.recorded`), timestamp, and actor metadata. Events support audit trails, handoff context, and `task transcript` output. Duplicate event detection prevents re-appending on retry. Source: `taskledger/storage/events.py`, `taskledger/services/task_events.py`, `taskledger/domain/event.py`.
 
 ## Exit code taxonomy
 
@@ -649,11 +652,11 @@ Use Typer (built on Click) for the CLI. Typer provides type-annotated parameters
 
 ## Context
 
-Need a storage layout that scales to many sidecar collections per task (plans, runs, locks, todos, questions, events, changes, checks, handoffs, links) while keeping each record individually addressable.
+Need a storage layout that scales to many sidecar collections per task (plans, runs, locks, todos, questions, changes, checks, handoffs, links) while keeping each record individually addressable. Events are stored at ledger level, not per-task, and are opt-in.
 
 ## Decision
 
-Use a directory-per-task layout (v2 bundle) under `.taskledger/`. Each task gets a directory containing the task record (Markdown) and subdirectories for sidecar collections. JSON indexes are derived caches at the top level.
+Use a directory-per-task layout (v2 bundle) under `.taskledger/ledgers/<ledger_ref>/`. Each task gets a directory containing the task record (Markdown) and subdirectories for sidecar collections. JSON indexes are derived caches at the ledger level. Event records are stored in the ledger-level `events/` directory (not per-task) and are only written when `[event_logging] enabled = true`.
 
 ## Consequences
 

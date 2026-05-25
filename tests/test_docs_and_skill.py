@@ -328,3 +328,22 @@ def test_service_boundary_whitelist_doc_matches_test_constants() -> None:
         # import_ref is like "taskledger/cli.py:taskledger.services.dashboard"
         module_ref = import_ref.split(":", 1)[1]
         assert module_ref in doc, f"CLI services import missing from doc: {module_ref}"
+
+
+def test_service_boundary_whitelist_doc_matches_cli_import_whitelist_exactly() -> None:
+    """Verify CLI services import refs in doc match test whitelist as exact sets."""
+    from tests.test_service_boundaries import CLI_SERVICES_IMPORT_WHITELIST
+
+    doc = (ROOT / "docs" / "service_boundary_whitelist.rst").read_text(encoding="utf-8")
+    doc_refs = set(
+        re.findall(
+            r"``(taskledger/cli[^`]+:taskledger\.services\.[^`]+)``",
+            doc,
+        )
+    )
+
+    assert doc_refs == set(CLI_SERVICES_IMPORT_WHITELIST), (
+        f"Doc refs != test whitelist. "
+        f"Extra in doc: {doc_refs - set(CLI_SERVICES_IMPORT_WHITELIST)}. "
+        f"Missing from doc: {set(CLI_SERVICES_IMPORT_WHITELIST) - doc_refs}."
+    )

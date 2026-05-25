@@ -22,4 +22,4 @@ The top-level building block is the **taskledger system**, decomposed into five 
 
 Data flows strictly downward: CLI → Services → Domain + Storage. The API layer calls Services directly. The Domain layer has no dependencies on Storage or Services.
 
-Each task is stored as a **task bundle directory** under `.taskledger/` containing the task record (Markdown) and sidecar collections for plans, runs, locks, todos, questions, events, changes, checks, handoffs, and links.
+Each task is stored as a **task bundle directory** under `.taskledger/ledgers/<ledger_ref>/` containing the task record (Markdown) and sidecar collections for plans, runs, locks, todos, questions, changes, checks, handoffs, and links. When `[event_logging] enabled = true` in `taskledger.toml`, mutations append immutable `TaskEvent` records to the ledger-level `events/` directory. Event logging is disabled by default.

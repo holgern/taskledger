@@ -69,6 +69,8 @@ Current sanctioned imports:
   resolution currently lives in services/actors.py.
 * ``taskledger/cli_common.py:taskledger.services.agent_logging`` — CLI common
   emits recorder task/payload/error notes.
+* ``taskledger/cli_common.py:taskledger.services.actors`` — CLI common
+  resolves actor/harness context for event metadata.
 * ``taskledger/cli_implement.py:taskledger.services.actors`` — Implementation
   commands resolve actor/harness context.
 * ``taskledger/cli_implement.py:taskledger.services.agent_logging`` —
@@ -79,8 +81,8 @@ Current sanctioned imports:
   context rendering currently reuses the handoff service payloads.
 * ``taskledger/cli_pipeline.py:taskledger.services.worker_pipeline`` —
   Pipeline CLI commands read the worker pipeline service overlay directly.
-* ``taskledger/cli_plan.py:taskledger.services.actors`` — Plan commands
-  resolve actor/harness context.
+* ``taskledger/cli_review.py:taskledger.services.actors`` — Review commands
+  resolve reviewer/harness context.
 * ``taskledger/cli_plan.py:taskledger.services.plan_editing`` — Plan input
   path validation currently lives in services/plan_editing.py.
 * ``taskledger/cli_plan.py:taskledger.services.plan_lint`` — Plan lint
@@ -102,8 +104,7 @@ Current sanctioned imports:
 * ``taskledger/cli_task.py:taskledger.services.task_export`` — Task export
   service for compiled LLM-ready Markdown.
 * ``taskledger/cli_task.py:taskledger.services.tasks`` — Task events read
-* ``taskledger/cli_validate.py:taskledger.services.actors`` — Validation
-  commands resolve actor/harness context.
+
 
 Catch-all exception whitelist (``except Exception``)
 ----------------------------------------------------
