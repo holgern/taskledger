@@ -39,6 +39,12 @@ from taskledger.services.actors import resolve_actor
 from taskledger.services.agent_transcripts import (
     render_task_transcript as _render_task_transcript,
 )
+from taskledger.services.task_export import (
+    TaskMarkdownExportOptions,
+)
+from taskledger.services.task_export import (
+    export_task_markdown as _export_task_markdown,
+)
 from taskledger.services.task_reports import (
     ReportPreset,
     TaskReportOptions,
@@ -865,6 +871,75 @@ def report_command(
     emit_payload(ctx, payload, human=human)
 
 
+def export_command(
+    ctx: typer.Context,
+    task_arg: TaskRefArgument = None,
+    task_ref: TaskOption = None,
+    output: Annotated[Path | None, typer.Option("-o", "--output")] = None,
+    include_source_files: Annotated[
+        bool,
+        typer.Option("--include-source-files/--no-source-files"),
+    ] = True,
+    source_file: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--source-file",
+            help="Extra workspace source file to include. Repeatable.",
+        ),
+    ] = None,
+    include_command_output: Annotated[
+        bool,
+        typer.Option("--include-command-output/--no-command-output"),
+    ] = False,
+    command_log_limit: Annotated[int, typer.Option("--command-log-limit")] = 200,
+    events_limit: Annotated[int, typer.Option("--events-limit")] = 200,
+    max_source_file_bytes: Annotated[
+        int, typer.Option("--max-source-file-bytes")
+    ] = 128_000,
+    max_total_source_bytes: Annotated[
+        int, typer.Option("--max-total-source-bytes")
+    ] = 1_000_000,
+) -> None:
+    state = cli_state_from_context(ctx)
+    try:
+        target = resolve_task_target(
+            state.cwd,
+            arg_ref=task_arg,
+            option_ref=task_ref,
+            command="task export",
+        )
+        payload = _export_task_markdown(
+            state.cwd,
+            target.task.id,
+            options=TaskMarkdownExportOptions(
+                include_source_files=include_source_files,
+                extra_source_files=tuple(source_file or ()),
+                include_command_output=include_command_output,
+                command_log_limit=command_log_limit,
+                events_limit=events_limit,
+                max_source_file_bytes=max_source_file_bytes,
+                max_total_source_bytes=max_total_source_bytes,
+            ),
+        )
+        content = payload.get("content")
+        if not isinstance(content, str):
+            raise LaunchError("Task export content was not rendered as text.")
+        if output is not None:
+            from taskledger.cli_common import write_text_output
+
+            written = write_text_output(output, content)
+            payload = dict(payload)
+            payload.pop("content", None)
+            payload["output_path"] = str(written)
+            human = f"wrote task export {target.task.id} to {written}"
+        else:
+            human = content
+    except LaunchError as exc:
+        emit_error(ctx, exc)
+        raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+    emit_payload(ctx, payload, human=human)
+
+
 def register_task_v2_commands(app: typer.Typer) -> None:
     app.command("create")(create_command)
     app.command("record")(record_command)
@@ -884,3 +959,4 @@ def register_task_v2_commands(app: typer.Typer) -> None:
     app.command("dossier")(dossier_command)
     app.command("transcript")(transcript_command)
     app.command("report")(report_command)
+    app.command("export")(export_command)

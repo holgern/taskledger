@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from taskledger.services.task_export import (
+    TaskMarkdownExportOptions,
+    export_task_markdown,
+)
 from taskledger.services.task_reports import (
     TaskReportOptions,
     render_task_report,
@@ -79,5 +83,8 @@ __all__ = [
     "repair_orphaned_planning_run",
     "repair_planning_command_changes",
     "TaskReportOptions",
+    "TaskReportOptions",
     "render_task_report",
+    "TaskMarkdownExportOptions",
+    "export_task_markdown",
 ]

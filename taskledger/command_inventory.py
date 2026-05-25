@@ -868,6 +868,17 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         PHASE_REPORTING,
         agent_safe=True,
         ledger_effect=EFFECT_READ,
+        external_effect=EXTERNAL_FILE_WRITE,
+        targeting=TARGETING_POSITIONAL_OR_ACTIVE,
+    ),
+    "task export": CommandSpec(
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        HUMAN,
+        PHASE_REPORTING,
+        agent_safe=True,
+        ledger_effect=EFFECT_READ,
+        external_effect=EXTERNAL_FILE_WRITE,
         targeting=TARGETING_POSITIONAL_OR_ACTIVE,
     ),
     "task transcript": CommandSpec(

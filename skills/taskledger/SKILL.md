@@ -201,19 +201,20 @@ Rules for agents:
 
 ## Which read command to use
 
-| Need                     | Command                                             |
-| ------------------------ | --------------------------------------------------- |
-| Next step                | `next-action`                                       |
-| Next implementation item | `todo next`                                         |
-| Active task summary      | `task show`                                         |
-| Specific task summary    | `task show TASK_REF` or `task show --task TASK_REF` |
-| Project/ledger overview  | `status`, `tree`                                    |
-| Storage location         | `storage where`                                     |
-| Sync safety check        | `sync preflight`                                    |
-| Human dashboard          | `serve`                                             |
-| Reviewable report        | `task report` or `report html`                      |
-| Fresh worker context     | `context` or durable `handoff show`                 |
-| Command audit            | `task transcript`                                   |
+| Need                      | Command                                             |
+| ------------------------- | --------------------------------------------------- |
+| Next step                 | `next-action`                                       |
+| Next implementation item  | `todo next`                                         |
+| Active task summary       | `task show`                                         |
+| Specific task summary     | `task show TASK_REF` or `task show --task TASK_REF` |
+| Project/ledger overview   | `status`, `tree`                                    |
+| Storage location          | `storage where`                                     |
+| Sync safety check         | `sync preflight`                                    |
+| Human dashboard           | `serve`                                             |
+| Reviewable report         | `task report` or `report html`                      |
+| LLM/agent compiled export | `task export`                                       |
+| Fresh worker context      | `context` or durable `handoff show`                 |
+| Command audit             | `task transcript`                                   |
 
 ## Validation protocol
 
@@ -376,4 +377,5 @@ taskledger validate check --criterion ac-0001 --status pass --evidence "uv run p
 taskledger handoff create --mode implementation --todo todo-0003 --intended-actor agent --intended-harness codex --summary "Ready for focused implementation."
 taskledger handoff create --mode validation --intended-actor agent --intended-harness codex --summary "Ready for validation."
 taskledger task dossier --format markdown
+taskledger task export task-0030 -o task-0030.llm.md
 ```

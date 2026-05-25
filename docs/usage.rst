@@ -420,6 +420,25 @@ agent log store:
    taskledger task transcript --task task-0030 --failures
    taskledger --json task transcript --task task-0030
 
+``task export`` writes a single Markdown file containing a curated archive report, raw
+record files from the taskledger bundle, and optional source-file snapshots.
+Use it when handing a
+
+.. code-block:: bash
+
+   taskledger task export task-0030 -o task-0030.llm.md
+   taskledger task export task-0030 --no-source-files -o task-0030.records.md
+   taskledger task export task-0030 --source-file README.md -o task-0030.llm.md
+   taskledger --json task export task-0030 -o task-0030.llm.md
+
+Distinction:
+
+- ``task report``: human-readable review/archive report.
+- ``task dossier``: fresh continuation context for an active agent.
+- ``task transcript``: command audit trail.
+- ``task export``: single-file LLM handoff/archive of one complete task bundle.
+
+
 .. code-block:: text
 
    todo-work: Implementation is in progress; 1 todos remain.

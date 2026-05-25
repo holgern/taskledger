@@ -392,6 +392,17 @@ flags late lifecycle commands. Raw per-record audit table is available with
 without collapsing. ``--failures`` renders only failed command rows and retry
 detection. ``--raw``, ``--review``, and ``--failures`` are mutually exclusive.
 
+
+``task export`` writes a single deterministic Markdown file combining a curated
+archive report, raw task-bundle record files, and optional source-file snapshots.
+It is the recommended command for handing a task to an LLM/coding agent::
+
+.. code-block:: bash
+
+   taskledger task export TASK_REF -o task.llm.md
+   taskledger task export --task TASK_REF --no-source-files -o task.records.md
+   taskledger --json task export TASK_REF -o task.llm.md
+
 ``taskledger doctor`` and ``taskledger doctor locks`` report running runs without
 matching active locks. Orphaned running planning runs can be finished only
 through an explicit repair command with a reason:

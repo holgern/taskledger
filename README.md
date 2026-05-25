@@ -50,6 +50,7 @@ The supported command surface is organized as:
 | Project/ledger overview    | `status`, `tree`                                    |
 | Human dashboard            | `serve`                                             |
 | Reviewable markdown report | `task report`                                       |
+| LLM/agent compiled export  | `task export`                                       |
 | Fresh worker context       | `context` or durable `handoff show`                 |
 | Command audit              | `task transcript`                                   |
 
@@ -554,6 +555,7 @@ taskledger context --for implementation --format markdown
 taskledger context --for validation --format json
 taskledger task dossier --format markdown
 taskledger task report --task task-0030 -o task30.md
+taskledger task export task-0030 -o task-0030.llm.md
 taskledger report html task-0030 --output task30.html
 taskledger handoff create --mode implementation --intended-actor agent --intended-harness codex
 taskledger handoff claim handoff-0001

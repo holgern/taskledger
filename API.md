@@ -94,6 +94,8 @@ from taskledger.errors import (
 - `task_dossier`
 - `render_task_report`
 - `TaskReportOptions`
+- `export_task_markdown`
+- `TaskMarkdownExportOptions`
 - `next_action`
 - `can_perform`
 - `reindex`

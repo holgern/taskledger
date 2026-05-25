@@ -99,8 +99,9 @@ Current sanctioned imports:
   transcript rendering currently lives in services.
 * ``taskledger/cli_task.py:taskledger.services.task_reports`` — Task report
   rendering and options are service-owned.
+* ``taskledger/cli_task.py:taskledger.services.task_export`` — Task export
+  service for compiled LLM-ready Markdown.
 * ``taskledger/cli_task.py:taskledger.services.tasks`` — Task events read
-  path still uses services.tasks list_events helper.
 * ``taskledger/cli_validate.py:taskledger.services.actors`` — Validation
   commands resolve actor/harness context.
 
