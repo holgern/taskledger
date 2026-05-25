@@ -422,7 +422,8 @@ agent log store:
 
 ``task export`` writes a single Markdown file containing a curated archive report, raw
 record files from the taskledger bundle, and optional source-file snapshots.
-Use it when handing a
+Use it when handing a completed task to an LLM or coding agent for review,
+documentation updates, or follow-up implementation work.
 
 .. code-block:: bash
 

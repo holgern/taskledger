@@ -380,7 +380,7 @@ Transcript review modes
 ``task transcript`` defaults to review mode, which groups wrapper +
 managed-shell pairs, highlights failures and wrapper/managed mismatches, and
 flags late lifecycle commands. Raw per-record audit table is available with
-``--raw``::
+``--raw``.
 
 .. code-block:: bash
 
@@ -393,9 +393,9 @@ without collapsing. ``--failures`` renders only failed command rows and retry
 detection. ``--raw``, ``--review``, and ``--failures`` are mutually exclusive.
 
 
-``task export`` writes a single deterministic Markdown file combining a curated
+``task export`` writes a Markdown file with a deterministic body combining a curated
 archive report, raw task-bundle record files, and optional source-file snapshots.
-It is the recommended command for handing a task to an LLM/coding agent::
+It is the recommended command for handing a task to an LLM/coding agent.
 
 .. code-block:: bash
 

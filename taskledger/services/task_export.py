@@ -1,7 +1,9 @@
 """Compiled task Markdown export service.
 
-Generates a single deterministic Markdown file combining a curated archive
-report, raw task-bundle record files, and optional source-file snapshots.
+Generates a Markdown file with a deterministic body combining a curated
+archive report, raw task-bundle record files, and optional source-file
+snapshots. The body is deterministic across renders; the front matter
+contains generated_at metadata that varies per render.
 Read-only: does not mutate storage or append events.
 """
 
@@ -135,9 +137,9 @@ def _should_skip_source(path: Path, workspace_root: Path) -> bool:
     parts = rel.parts
     if not parts:
         return True
-    for prefix in _SKIP_PREFIXES:
-        if parts[0] == prefix or parts[0].startswith(prefix + "/"):
-            return True
+    skipped_parts = set(_SKIP_PREFIXES)
+    if any(part in skipped_parts for part in parts):
+        return True
     return False
 
 
@@ -208,11 +210,15 @@ def _collect_source_snapshots(
     )
 
     total_bytes = 0
+    seen_resolved: set[Path] = set()
     for raw_candidate in candidates:
         resolved = _resolve_workspace_file(workspace_root, raw_candidate)
         if resolved is None:
             skipped.append({"path": raw_candidate, "reason": "outside workspace"})
             continue
+        if resolved in seen_resolved:
+            continue
+        seen_resolved.add(resolved)
         if not resolved.is_file():
             skipped.append({"path": raw_candidate, "reason": "not a file or missing"})
             continue

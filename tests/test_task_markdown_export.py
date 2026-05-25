@@ -209,6 +209,63 @@ class TestServiceExport:
         assert "| Record files included |" in content
         assert "| Source files included |" in content
 
+    def test_task_export_dedupes_change_and_plan_source_paths(
+        self, tmp_path: Path
+    ) -> None:
+        ws = init_workspace(tmp_path)
+        (ws / "README.md").write_text("# Test Project\n")
+        plan_text = """---
+goal: Test goal.
+acceptance_criteria:
+  - id: ac-0001
+    text: Criterion passes.
+todos:
+  - id: todo-0001
+    text: Implement it.
+    validation_hint: pytest tests
+files:
+  - "@README.md"
+---
+
+# Plan
+
+Test plan.
+"""
+        task_id = create_done_task(
+            ws,
+            allow_lint_errors=True,
+            change_path="README.md",
+            change_summary="Updated readme.",
+            plan_text=plan_text,
+        )
+
+        payload = export_task_markdown(ws, task_id)
+        content = payload["content"]
+        assert isinstance(content, str)
+        assert content.count("### `README.md`") == 1
+        assert payload["included_source_files"] == ["README.md"]
+
+    def test_task_export_skips_nested_git_directory(self, tmp_path: Path) -> None:
+        ws = init_workspace(tmp_path)
+        task_id = create_done_task(ws, allow_lint_errors=True)
+        secret = ws / "src" / ".git" / "config"
+        secret.parent.mkdir(parents=True)
+        secret.write_text("should not be exported\n")
+
+        payload = export_task_markdown(
+            ws,
+            task_id,
+            options=TaskMarkdownExportOptions(
+                extra_source_files=("src/.git/config",),
+            ),
+        )
+        content = payload["content"]
+        assert isinstance(content, str)
+        assert "should not be exported" not in content
+        skipped = payload["skipped_files"]
+        assert isinstance(skipped, list)
+        assert any(s["path"] == "src/.git/config" for s in skipped)
+
 
 # ---------------------------------------------------------------------------
 # CLI tests
