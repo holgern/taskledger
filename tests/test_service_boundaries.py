@@ -47,6 +47,9 @@ CLI_SERVICES_IMPORT_WHITELIST: dict[str, str] = {
     "taskledger/cli_actor.py:taskledger.services.actors": (
         "Actor and harness resolution currently lives in services/actors.py."
     ),
+    "taskledger/cli_common.py:taskledger.services.actors": (
+        "CLI common resolves actor/harness context for event metadata."
+    ),
     "taskledger/cli_common.py:taskledger.services.agent_logging": (
         "CLI common emits recorder task/payload/error notes."
     ),
@@ -64,9 +67,6 @@ CLI_SERVICES_IMPORT_WHITELIST: dict[str, str] = {
     ),
     "taskledger/cli_pipeline.py:taskledger.services.worker_pipeline": (
         "Pipeline CLI commands read the worker pipeline service overlay directly."
-    ),
-    "taskledger/cli_plan.py:taskledger.services.actors": (
-        "Plan commands resolve actor/harness context."
     ),
     "taskledger/cli_review.py:taskledger.services.actors": (
         "Review commands resolve reviewer/harness context."
@@ -101,16 +101,13 @@ CLI_SERVICES_IMPORT_WHITELIST: dict[str, str] = {
     "taskledger/cli_task.py:taskledger.services.tasks": (
         "Task events read path still uses services.tasks list_events helper."
     ),
-    "taskledger/cli_validate.py:taskledger.services.actors": (
-        "Validation commands resolve actor/harness context."
-    ),
 }
 
 EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
-    "taskledger/cli.py:241": (
+    "taskledger/cli.py:245": (
         "Optional command group import fallback reports missing modules gracefully."
     ),
-    "taskledger/cli.py:897": (
+    "taskledger/cli.py:901": (
         "Serve command optional import fallback reports missing dashboard gracefully."
     ),
     "taskledger/cli_ledger.py:111": (
@@ -155,7 +152,7 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
     "taskledger/services/tree.py:258": (
         "Tree command handles task ref resolution errors by returning empty."
     ),
-    "taskledger/storage/ledger_config.py:85": (
+    "taskledger/storage/ledger_config.py:86": (
         "Ledger config loader reports parse/runtime differences consistently "
         "across Python versions."
     ),
@@ -172,7 +169,7 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
         "Path probe falls back when environment inspection raises platform-"
         "specific errors."
     ),
-    "taskledger/storage/project_config.py:438": (
+    "taskledger/storage/project_config.py:426": (
         "TOML parser error handling catches runtime-specific exceptions "
         "during project config loading."
     ),
