@@ -266,6 +266,79 @@ Test plan.
         assert isinstance(skipped, list)
         assert any(s["path"] == "src/.git/config" for s in skipped)
 
+
+    def test_task_export_does_not_report_missing_plan_only_source_file(
+        self, tmp_path: Path
+    ) -> None:
+        ws = init_workspace(tmp_path)
+        (ws / "README.md").write_text("# Test Project\n")
+        plan_text = """---
+goal: Test goal.
+files:
+  - "@temporary_review_input.md"
+  - "@README.md"
+acceptance_criteria:
+  - id: ac-0001
+    text: Criterion passes.
+todos:
+  - id: todo-0001
+    text: Implement it.
+    validation_hint: pytest tests
+---
+
+# Plan
+
+Use the temporary review input to plan the change.
+"""
+        task_id = create_done_task(
+            ws,
+            allow_lint_errors=True,
+            change_path="README.md",
+            change_summary="Updated readme.",
+            plan_text=plan_text,
+        )
+
+        payload = export_task_markdown(ws, task_id)
+
+        skipped = payload["skipped_files"]
+        assert isinstance(skipped, list)
+        assert all(s["path"] != "@temporary_review_input.md" for s in skipped)
+        assert "README.md" in payload["included_source_files"]
+
+    def test_task_export_does_not_report_git_scan_dot_as_source_file(
+        self, tmp_path: Path
+    ) -> None:
+        ws = init_workspace(tmp_path)
+        (ws / "README.md").write_text("# Test Project\n")
+        task_id = create_done_task(
+            ws,
+            allow_lint_errors=True,
+            change_path="README.md",
+            change_summary="Updated readme.",
+        )
+
+        from taskledger.domain.change import CodeChangeRecord
+        from taskledger.storage.task_store import save_change
+        from taskledger.timeutils import utc_now_iso
+
+        save_change(
+            ws,
+            CodeChangeRecord(
+                change_id="change-9999",
+                task_id=task_id,
+                implementation_run="run-9999",
+                timestamp=utc_now_iso(),
+                kind="scan",
+                path=".",
+                summary="Captured git status.",
+            ),
+        )
+
+        payload = export_task_markdown(ws, task_id)
+
+        skipped = payload["skipped_files"]
+        assert isinstance(skipped, list)
+        assert all(s["path"] != "." for s in skipped)
     def test_task_export_total_source_budget_does_not_charge_skipped_file(
         self, tmp_path: Path
     ) -> None:

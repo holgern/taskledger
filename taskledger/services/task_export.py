@@ -81,14 +81,26 @@ def _is_binary(path: Path) -> bool:
         return True
 
 
-def _dedupe_preserve_order(values: list[str]) -> list[str]:
-    seen: set[str] = set()
-    result: list[str] = []
-    for v in values:
-        if v not in seen:
-            seen.add(v)
-            result.append(v)
-    return result
+@dataclass(frozen=True)
+class _SourceCandidate:
+    path: str
+    report_skip: bool
+
+
+def _dedupe_source_candidates(values: list[_SourceCandidate]) -> list[_SourceCandidate]:
+    by_path: dict[str, _SourceCandidate] = {}
+    order: list[str] = []
+    for candidate in values:
+        if candidate.path not in by_path:
+            by_path[candidate.path] = candidate
+            order.append(candidate.path)
+            continue
+        if candidate.report_skip and not by_path[candidate.path].report_skip:
+            by_path[candidate.path] = _SourceCandidate(
+                candidate.path,
+                report_skip=True,
+            )
+    return [by_path[path] for path in order]
 
 
 def _collect_source_candidates(
@@ -96,22 +108,26 @@ def _collect_source_candidates(
     links: Sequence[object],
     plans: Sequence[object],
     extra: tuple[str, ...],
-) -> list[str]:
-    values: list[str] = []
+) -> list[_SourceCandidate]:
+    values: list[_SourceCandidate] = []
     from taskledger.domain.change import CodeChangeRecord
 
     for change in changes:
         if isinstance(change, CodeChangeRecord):
-            if change.kind != "command" and change.path:
-                values.append(change.path)
+            raw_path = change.path.strip()
+            if change.kind in {"command", "scan"} or not raw_path or raw_path == ".":
+                continue
+            values.append(_SourceCandidate(raw_path, report_skip=True))
     for link in links:
         if hasattr(link, "path"):
-            values.append(link.path)
+            values.append(_SourceCandidate(link.path, report_skip=True))
     for plan in plans:
         if hasattr(plan, "files"):
-            values.extend(plan.files)
-    values.extend(extra)
-    return _dedupe_preserve_order(values)
+            values.extend(
+                _SourceCandidate(path, report_skip=False) for path in plan.files
+            )
+    values.extend(_SourceCandidate(path, report_skip=True) for path in extra)
+    return _dedupe_source_candidates(values)
 
 
 def _resolve_workspace_file(workspace_root: Path, raw: str) -> Path | None:
@@ -212,49 +228,62 @@ def _collect_source_snapshots(
 
     total_bytes = 0
     seen_resolved: set[Path] = set()
-    for raw_candidate in candidates:
+    for candidate in candidates:
+        raw_candidate = candidate.path
         resolved = _resolve_workspace_file(workspace_root, raw_candidate)
         if resolved is None:
-            skipped.append({"path": raw_candidate, "reason": "outside workspace"})
+            if candidate.report_skip:
+                skipped.append({"path": raw_candidate, "reason": "outside workspace"})
             continue
         if resolved in seen_resolved:
             continue
         seen_resolved.add(resolved)
         if not resolved.is_file():
-            skipped.append({"path": raw_candidate, "reason": "not a file or missing"})
+            if candidate.report_skip:
+                skipped.append(
+                    {"path": raw_candidate, "reason": "not a file or missing"}
+                )
             continue
         if _should_skip_source(resolved, workspace_root):
-            skipped.append({"path": raw_candidate, "reason": "skipped directory"})
+            if candidate.report_skip:
+                skipped.append({"path": raw_candidate, "reason": "skipped directory"})
             continue
         if _is_binary(resolved):
-            skipped.append({"path": raw_candidate, "reason": "binary file"})
+            if candidate.report_skip:
+                skipped.append({"path": raw_candidate, "reason": "binary file"})
             continue
         try:
             size = resolved.stat().st_size
         except OSError:
-            skipped.append({"path": raw_candidate, "reason": "cannot stat"})
+            if candidate.report_skip:
+                skipped.append({"path": raw_candidate, "reason": "cannot stat"})
             continue
         if size > options.max_source_file_bytes:
-            skipped.append(
-                {
-                    "path": raw_candidate,
-                    "reason": (f"exceeds {options.max_source_file_bytes} bytes"),
-                }
-            )
+            if candidate.report_skip:
+                skipped.append(
+                    {
+                        "path": raw_candidate,
+                        "reason": (f"exceeds {options.max_source_file_bytes} bytes"),
+                    }
+                )
             continue
         if total_bytes + size > options.max_total_source_bytes:
-            skipped.append(
-                {
-                    "path": raw_candidate,
-                    "reason": "exceeds total source budget",
-                }
-            )
+            if candidate.report_skip:
+                skipped.append(
+                    {
+                        "path": raw_candidate,
+                        "reason": "exceeds total source budget",
+                    }
+                )
             continue
         total_bytes += size
         try:
             text = resolved.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
-            skipped.append({"path": raw_candidate, "reason": "cannot read as UTF-8"})
+            if candidate.report_skip:
+                skipped.append(
+                    {"path": raw_candidate, "reason": "cannot read as UTF-8"}
+                )
             continue
         try:
             rel = resolved.relative_to(workspace_root)
