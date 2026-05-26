@@ -122,12 +122,8 @@ def test_skill_contains_strict_agent_protocol() -> None:
 
 def test_docs_define_agent_golden_path_and_advanced_surfaces() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    public_surface = (ROOT / "docs" / "public_surface.rst").read_text(
-        encoding="utf-8"
-    )
-    skill = (ROOT / "skills" / "taskledger" / "SKILL.md").read_text(
-        encoding="utf-8"
-    )
+    public_surface = (ROOT / "docs" / "public_surface.rst").read_text(encoding="utf-8")
+    skill = (ROOT / "skills" / "taskledger" / "SKILL.md").read_text(encoding="utf-8")
 
     normal_plan_path = (
         "plan start -> plan template -> plan upsert -> plan lint -> plan accept"
@@ -153,12 +149,8 @@ def test_skill_has_single_repair_warning() -> None:
 def test_read_report_export_terminology_is_consolidated() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     usage = (ROOT / "docs" / "usage.rst").read_text(encoding="utf-8")
-    public_surface = (ROOT / "docs" / "public_surface.rst").read_text(
-        encoding="utf-8"
-    )
-    skill = (ROOT / "skills" / "taskledger" / "SKILL.md").read_text(
-        encoding="utf-8"
-    )
+    public_surface = (ROOT / "docs" / "public_surface.rst").read_text(encoding="utf-8")
+    skill = (ROOT / "skills" / "taskledger" / "SKILL.md").read_text(encoding="utf-8")
 
     for text in (readme, usage, public_surface, skill):
         assert "task dossier" in text
