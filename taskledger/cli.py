@@ -11,6 +11,10 @@ from typing import Annotated, Any, cast
 import click
 import typer
 
+try:
+    from typer._click.exceptions import ClickException as _TyperClickException
+except ImportError:  # pragma: no cover - older Typer
+    _TyperClickException: type | None = None
 from taskledger._version import __version__
 from taskledger.api.handoff import render_handoff
 from taskledger.api.project import (
@@ -1469,12 +1473,18 @@ def _is_json_content(path: Path) -> bool:
         return False
 
 
+_CLICK_EXCEPTION_TYPES: tuple[type[Exception], ...] = (
+    click.ClickException,
+    *([_TyperClickException] if _TyperClickException else []),
+)
+
+
 def cli_main() -> None:
     argv = tuple(sys.argv[1:])
     json_requested = "--json" in argv
     try:
         app(prog_name="taskledger", args=list(argv), standalone_mode=False)
-    except click.ClickException as exc:
+    except _CLICK_EXCEPTION_TYPES as exc:
         if json_requested:
             command = _usage_error_command(argv, exc)
             error_payload = {

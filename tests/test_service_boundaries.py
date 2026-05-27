@@ -107,11 +107,17 @@ CLI_SERVICES_IMPORT_WHITELIST: dict[str, str] = {
 }
 
 EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
-    "taskledger/cli.py:245": (
+    "taskledger/cli.py:256": (
         "Optional command group import fallback reports missing modules gracefully."
     ),
-    "taskledger/cli.py:901": (
+    "taskledger/cli.py:912": (
         "Serve command optional import fallback reports missing dashboard gracefully."
+    ),
+    "taskledger/api/config.py:70": (
+        "Config value text parsing falls back to raw string when TOML parse fails."
+    ),
+    "taskledger/storage/project_config.py:709": (
+        "Project config TOML parsing wraps all parse failures as LaunchError."
     ),
     "taskledger/cli_ledger.py:111": (
         "Ledger root fallback degrades gracefully when legacy storage probes fail."
@@ -171,10 +177,6 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
     "taskledger/storage/paths.py:138": (
         "Path probe falls back when environment inspection raises platform-"
         "specific errors."
-    ),
-    "taskledger/storage/project_config.py:426": (
-        "TOML parser error handling catches runtime-specific exceptions "
-        "during project config loading."
     ),
     "taskledger/storage/task_store.py:415": (
         "rewrite_task_refs falls back to plain string replacement when "
