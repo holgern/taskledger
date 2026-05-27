@@ -54,6 +54,75 @@ def test_config_list_and_get_json(tmp_path: Path) -> None:
     assert gotten_payload["result"]["value"] == 2
 
 
+def test_config_keys_lists_known_paths(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+
+    result = runner.invoke(app, ["--cwd", str(tmp_path), "--json", "config", "keys"])
+    assert result.exit_code == 0, result.stdout
+    payload = _json(result)
+    assert payload["ok"] is True
+    assert payload["result_type"] == "project_config_keys"
+
+    keys = payload["result"]["keys"]
+    assert isinstance(keys, list)
+    key_names = {item["key"] for item in keys if isinstance(item, dict)}
+    assert "prompt_profiles.<profile>.plan_body_detail" in key_names
+    assert "prompt_profiles.<profile>.question_policy" in key_names
+    assert "default_memory_update_mode" in key_names
+
+
+def test_config_describe_shows_allowed_values_and_current_value(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+
+    set_result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "config",
+            "set",
+            "prompt_profiles.planning.plan_body_detail",
+            "normal",
+        ],
+    )
+    assert set_result.exit_code == 0, set_result.stdout
+
+    describe_result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "config",
+            "describe",
+            "prompt_profiles.planning.plan_body_detail",
+        ],
+    )
+    assert describe_result.exit_code == 0, describe_result.stdout
+    payload = _json(describe_result)
+    assert payload["ok"] is True
+    assert payload["result_type"] == "project_config_key_help"
+    result = payload["result"]
+    assert result["schema_key"] == "prompt_profiles.<profile>.plan_body_detail"
+    assert set(result["allowed_values"]) == {"terse", "normal", "detailed"}
+    assert result["value"] == "normal"
+    assert result["has_explicit_value"] is True
+
+
+def test_config_describe_unknown_key_returns_error(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+
+    result = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "--json", "config", "describe", "does.not.exist"],
+    )
+    assert result.exit_code == 1
+    payload = _json(result)
+    assert payload["ok"] is False
+    assert "Config key help not found" in payload["error"]["message"]
+
+
 def test_config_set_updates_prompt_profile_numbers(tmp_path: Path) -> None:
     _init_project(tmp_path)
 

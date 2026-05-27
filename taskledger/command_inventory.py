@@ -202,6 +202,22 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         ledger_effect=EFFECT_NONE,
         workspace_effect=EFFECT_READ,
     ),
+    "config keys": CommandSpec(
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_SETUP,
+        ledger_effect=EFFECT_NONE,
+        workspace_effect=EFFECT_READ,
+    ),
+    "config describe": CommandSpec(
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_SETUP,
+        ledger_effect=EFFECT_NONE,
+        workspace_effect=EFFECT_READ,
+    ),
     "config set": CommandSpec(
         STABLE_FOR_AGENTS,
         "workspace_mutation",

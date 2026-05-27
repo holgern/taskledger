@@ -113,9 +113,6 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
     "taskledger/cli.py:912": (
         "Serve command optional import fallback reports missing dashboard gracefully."
     ),
-    "taskledger/api/config.py:70": (
-        "Config value text parsing falls back to raw string when TOML parse fails."
-    ),
     "taskledger/storage/project_config.py:709": (
         "Project config TOML parsing wraps all parse failures as LaunchError."
     ),

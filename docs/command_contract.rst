@@ -273,7 +273,9 @@ Project config inspection and edits are available under ``config``:
 
    taskledger config list
    taskledger config show
+   taskledger config keys
    taskledger config get prompt_profiles.planning.max_required_questions
+   taskledger config describe prompt_profiles.planning.plan_body_detail
    taskledger config set prompt_profiles.planning.max_required_questions 3
    taskledger config set prompt_profiles.planning.question_policy always_before_plan
 
@@ -281,6 +283,9 @@ Rules:
 
 * dotted keys target nested TOML tables (for example
   ``prompt_profiles.planning.max_required_questions``);
+* ``config keys`` lists available key names and path patterns;
+* ``config describe`` provides key semantics, allowed values, defaults, and
+  whether a key is explicitly set;
 * ``config set`` accepts TOML literals (numbers, booleans, arrays, inline
   tables); when TOML parsing fails, the value is treated as a plain string;
 * invalid values are rejected using standard LaunchError JSON/human envelopes.

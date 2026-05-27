@@ -4,7 +4,13 @@ from typing import Annotated
 
 import typer
 
-from taskledger.api.config import config_get, config_list, config_set
+from taskledger.api.config import (
+    config_describe,
+    config_get,
+    config_keys,
+    config_list,
+    config_set,
+)
 from taskledger.cli_common import (
     cli_state_from_context,
     emit_error,
@@ -64,6 +70,39 @@ def register_config_commands(app: typer.Typer) -> None:
             human=_render_config_get(payload),
         )
 
+    @app.command("keys")
+    def keys_command(ctx: typer.Context) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = config_keys(state.cwd)
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(
+            ctx,
+            payload,
+            result_type="project_config_keys",
+            human=_render_config_keys(payload),
+        )
+
+    @app.command("describe")
+    def describe_command(
+        ctx: typer.Context,
+        key: Annotated[str, typer.Argument(help="Dotted config key path.")],
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            payload = config_describe(state.cwd, key=key)
+        except LaunchError as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(
+            ctx,
+            payload,
+            result_type="project_config_key_help",
+            human=_render_config_describe(payload),
+        )
+
     @app.command("set")
     def set_command(
         ctx: typer.Context,
@@ -106,3 +145,51 @@ def _render_config_set(payload: dict[str, object]) -> str:
     previous = render_json(payload.get("previous_value")).rstrip()
     value = render_json(payload.get("value")).rstrip()
     return f"Updated {key}\nPrevious: {previous}\nCurrent: {value}"
+
+
+def _render_config_keys(payload: dict[str, object]) -> str:
+    keys = payload.get("keys")
+    if not isinstance(keys, list):
+        return "No config key help available."
+    lines = ["Available config keys:"]
+    for item in keys:
+        if not isinstance(item, dict):
+            continue
+        key = str(item.get("key", "?"))
+        value_type = str(item.get("value_type", "unknown"))
+        lines.append(f"- {key} ({value_type})")
+    lines.append("")
+    lines.append(
+        "Use `taskledger config describe <key>` for details and allowed values."
+    )
+    return "\n".join(lines)
+
+
+def _render_config_describe(payload: dict[str, object]) -> str:
+    key = str(payload.get("key", "?"))
+    schema_key = str(payload.get("schema_key", key))
+    value_type = str(payload.get("value_type", "unknown"))
+    description = str(payload.get("description", ""))
+    allowed_values = payload.get("allowed_values")
+    default_value = payload.get("default_value")
+    has_value = bool(payload.get("has_explicit_value"))
+    value = payload.get("value")
+
+    lines = [
+        f"Key: {key}",
+        f"Schema key: {schema_key}",
+        f"Type: {value_type}",
+        f"Description: {description}",
+    ]
+    if isinstance(allowed_values, list) and allowed_values:
+        values = ", ".join(str(item) for item in allowed_values)
+        lines.append(f"Allowed values: {values}")
+    else:
+        lines.append("Allowed values: any valid value for this type")
+    if default_value is not None:
+        lines.append(f"Default: {render_json(default_value).rstrip()}")
+    if has_value:
+        lines.append(f"Current: {render_json(value).rstrip()}")
+    else:
+        lines.append("Current: not set explicitly")
+    return "\n".join(lines)
