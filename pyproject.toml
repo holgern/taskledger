@@ -36,6 +36,7 @@ license = "Apache-2.0"
 keywords = ["cli", "durable-state", "project-state", "developer-tools", "workflows"]
 dependencies = [
     "typer",
+    "click",
     "PyYAML",
     "Jinja2>=3.1",
     "markdown-it-py>=3.0",
