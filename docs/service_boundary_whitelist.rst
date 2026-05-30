@@ -104,6 +104,9 @@ Current sanctioned imports:
 * ``taskledger/cli_task.py:taskledger.services.task_export`` — Task export
   service for compiled LLM-ready Markdown.
 * ``taskledger/cli_task.py:taskledger.services.tasks`` — Task events read
+  model and lifecycle mutations.
+* ``taskledger/cli_release.py:taskledger.services.releases`` — Release
+  commands delegate to the releases service.
 
 
 Catch-all exception whitelist (``except Exception``)
