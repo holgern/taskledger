@@ -1,6 +1,38 @@
 # Changelog
 
-## v0.4.1 - 2026-05-22
+## v0.4.2 - 2026-05-30
+
+### Added
+
+- Added optional code review records: `review record`, `review list`, `review show` commands with git metadata capture, worker pipeline review-step completion integration, task report and export/import support, and post-completion (`done` stage) recording.
+- Added `task export` command for compiled LLM-ready Markdown output with curated report, raw records, and source snapshots with deduplication and budget accounting.
+- Added `config list`, `config get`, and `config set` commands for inspecting and editing project configuration with validation-backed TOML writes and stable JSON/human output.
+- Added Markdown-to-HTML rendering in `taskledger serve` task reports using markdown-it-py with XSS-safe escaping.
+- Added release changelog workflow improvements: project-aware context, `--from-task` inclusive ranges, `--include-status`/`--fail-on-omitted` controls, `--target-changelog`/`--release-date` metadata, and formalized skill release changelog protocol.
+
+### Changed
+
+- Runtime event logging is now gated behind `[event_logging] enabled = true` project config and disabled by default. Storage reads, import/export, and JSON envelopes remain unchanged.
+- Promoted `sync git pull`/`push` to first-class commands with repo-wide push commit mode and improved UX.
+- Refined agent golden path documentation: consolidated context, handoff, read/report/export, and plan command tier guidance across README, skill, and public surface docs.
+- Narrowed markdown-it exception handling to `ValueError`; reframed dependency documentation around the actual optional rule set.
+
+### Fixed
+
+- Fixed architecture documentation drift: updated service boundary whitelist to exact match, added all 41 command groups, corrected event logging descriptions to opt-in/ledger-level, and regenerated ARCHITECTURE.md from source records.
+- Fixed task export source budget accounting so skipped files are not charged against the total budget; fixed stale plan-file references via source-candidate provenance gating.
+- Fixed pytest runs leaving generated `.pytest_cache`, `__pycache__`, and default export archives in the repository checkout.
+
+### Documentation
+
+- Updated ARCHITECTURE.md and all underlying archledger records: softened layering wording, added 5 runtime scenarios, accepted 6 ADRs, and added a maintenance path section.
+- Documented optional code review, task export, config commands, promoted sync commands, and golden-path agent command path across README, docs, skill, API, command contract, and public surface docs.
+
+### Internal
+
+- Added duplicate code refactoring: extracted shared `task_events`, `git_utils`, `toml_edit`, and `next_action_payload` helper modules, centralized CLI archive extraction, actor/harness resolution, and model waiver serialization.
+- Added `scripts/find_code_clones.py` for AST-based exact-duplicate and normalized-window clone detection.
+- Expanded pytest suite with markers (`unit`, `cli`, `integration`, `slow`, `subprocess`, `git`), session-scoped workspace fixtures, service builders, fake command runner helpers, and tox `fast`/`integration`/`full` profiles (966 tests passing, 1 pre-existing failure).
 
 ### Added
 
