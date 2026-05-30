@@ -390,12 +390,16 @@ The runtime view traces the main operational scenarios through the system:
 1. `sync git init` → Moves or copies `.taskledger/` content into a dedicated Git repository, updates `taskledger.toml` with `external_dir`
 2. `sync preflight` → Checks that no active locks would conflict with a sync operation
 3. `sync git commit --message "..."` → Commits current state to the sync repo
-4. `sync git export-local` / `sync git import-local` → Exchanges state between the sync repo and the project
-5. `sync git status` → Shows working tree status of the sync repo
-6. `sync git paths` → Shows resolved paths for the sync repo and project
-7. `cd "$(taskledger sync git cd)"` → Opens a shell in the sync repo directory for manual Git operations
+4. `sync git pull` / `sync git push` → Convenience wrappers for repository pull/push from the source workspace
+5. `sync git export-local` / `sync git import-local` → Exchanges state between the sync repo and the project
+6. `sync git status` → Shows working tree status of the sync repo
+7. `sync git path` → Shows resolved paths for the sync repo and project
+8. `cd "$(taskledger sync git cd)"` → Opens a shell in the sync repo directory for advanced manual operations
 
-**Result**: Taskledger state is stored in a separate Git repository that can be versioned and shared manually. The design intentionally avoids automated push/pull to prevent merge conflicts — users run `git push`/`git pull` directly in the sync repo.
+**Result**: Taskledger state is stored in a separate Git repository. `sync git pull` and
+`sync git push` provide convenience wrappers for the configured sync repository.
+`sync git cd` remains available for advanced manual inspection and conflict
+resolution.
 
 **Key source**: `taskledger/services/git_sync.py`, `taskledger/cli_sync.py`, `taskledger/api/sync.py`.
 

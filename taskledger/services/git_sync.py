@@ -342,6 +342,7 @@ def git_sync_commit(
     message: str | None = None,
     allow_active_locks: bool = False,
     require_clean_repo: bool = False,
+    include_outside_project: bool = False,
 ) -> dict[str, object]:
     config = build_git_sync_config(
         workspace_root,
@@ -372,7 +373,7 @@ def git_sync_commit(
     _ensure_git_repo(config.repo_path, remote_url=None, branch=config.branch)
     warnings: list[str] = []
     outside_dirty = _dirty_paths_outside_project(config.repo_path, config.project_path)
-    if outside_dirty:
+    if outside_dirty and not include_outside_project:
         if require_clean_repo:
             raise LaunchError(
                 "Sync repo has dirty paths outside project_path. "
@@ -381,29 +382,43 @@ def git_sync_commit(
         warnings.append(
             f"{len(outside_dirty)} dirty path(s) outside project_path were ignored."
         )
-    export_paths = _sync_export_paths(config.repo_path, config.project_path)
-    _run_git(config.repo_path, "add", "--all", "--", *export_paths)
-    staged = _run_git(
-        config.repo_path,
-        "diff",
-        "--cached",
-        "--quiet",
-        "--exit-code",
-        "--",
-        *export_paths,
-        check=False,
-    )
-    committed = staged.returncode != 0
-    commit_hash: str | None = None
-    if committed:
-        _run_git(
+    export_paths: tuple[str, ...] = ()
+    if include_outside_project:
+        _run_git(config.repo_path, "add", "--all")
+        staged = _run_git(
             config.repo_path,
-            "commit",
-            "-m",
-            message or "Sync taskledger state",
+            "diff",
+            "--cached",
+            "--quiet",
+            "--exit-code",
+            check=False,
+        )
+        if outside_dirty:
+            warnings.append(
+                f"{len(outside_dirty)} dirty path(s) outside project_path "
+                "were included."
+            )
+    else:
+        export_paths = _sync_export_paths(config.repo_path, config.project_path)
+        _run_git(config.repo_path, "add", "--all", "--", *export_paths)
+        staged = _run_git(
+            config.repo_path,
+            "diff",
+            "--cached",
+            "--quiet",
+            "--exit-code",
             "--",
             *export_paths,
+            check=False,
         )
+    committed = staged.returncode != 0
+    commit_hash: str | None = None
+    commit_message = message or f"Sync taskledger state for {config.project_path}"
+    if committed:
+        commit_args = ["commit", "-m", commit_message]
+        if not include_outside_project:
+            commit_args.extend(["--", *export_paths])
+        _run_git(config.repo_path, *commit_args)
         commit_hash = _run_git(config.repo_path, "rev-parse", "HEAD").stdout.strip()
     if active_lock_count and allow_active:
         warnings.append(
@@ -417,6 +432,7 @@ def git_sync_commit(
         "committed": committed,
         "commit_hash": commit_hash,
         "active_lock_count": active_lock_count,
+        "include_outside_project": include_outside_project,
         "outside_dirty_count": len(outside_dirty),
         "outside_status_lines": outside_dirty,
         "warnings": warnings,
@@ -469,9 +485,8 @@ def git_sync_pull(
     if all_dirty and not allow_dirty:
         raise LaunchError(
             "sync git pull updates the whole sync repository and requires a clean "
-            "working tree. Commit or stash unrelated project state first, or run:\n"
-            '  cd "$(taskledger sync git cd)"\n'
-            "  git pull --ff-only"
+            "working tree. Commit or stash unrelated project state first, "
+            "or rerun with --allow-dirty."
         )
     _run_git(config.repo_path, "pull", "--ff-only", config.remote, config.branch)
     imported = git_sync_import_local(
@@ -488,7 +503,7 @@ def git_sync_pull(
         "pulled": True,
         "import_local": imported,
         "doctor_healthy": imported["doctor_healthy"],
-        "warnings": [_network_wrapper_warning("pull")],
+        "warnings": [],
     }
 
 
@@ -518,6 +533,7 @@ def git_sync_push(
         branch=config.branch,
         message=message,
         allow_active_locks=allow_active_locks,
+        include_outside_project=True,
     )
     _run_git(config.repo_path, "push", config.remote, config.branch)
     return {
@@ -526,9 +542,11 @@ def git_sync_push(
         "project_path": config.project_path,
         "committed": exported["committed"],
         "commit_hash": exported["commit_hash"],
+        "include_outside_project": exported["include_outside_project"],
+        "outside_dirty_count": exported["outside_dirty_count"],
+        "outside_status_lines": exported["outside_status_lines"],
         "pushed": True,
-        "warnings": list(cast(list[object], exported["warnings"]))
-        + [_network_wrapper_warning("push")],
+        "warnings": list(cast(list[object], exported["warnings"])),
     }
 
 
@@ -932,15 +950,6 @@ def _dirty_paths_outside_project(repo_path: Path, project_path: str) -> list[str
         project_path,
     )
     return [_status_path_token(line) for line in outside_lines]
-
-
-def _network_wrapper_warning(command: str) -> str:
-    git_command = "git pull --ff-only" if command == "pull" else f"git {command}"
-    return (
-        f"sync git {command} operates on the whole sync Git repository. Prefer:\n"
-        '  cd "$(taskledger sync git cd)"\n'
-        f"  {git_command}"
-    )
 
 
 def _hook_targets_differ(

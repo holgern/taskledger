@@ -69,15 +69,21 @@ Taskledger provides a Git sync command group that supports this workflow:
 
    taskledger sync git init --repo ../taskledger-state --project-path project-a
    taskledger sync git status
-   taskledger sync git commit --message "Sync project-a taskledger state"
-   cd "$(taskledger sync git cd)"
-   git pull --ff-only
-   git push
+   taskledger sync git pull
+   taskledger sync git push
+   taskledger sync git push --message "Sync project-a taskledger state"
 
 In a shared ``taskledger-state`` repository, Taskledger can safely inspect and
-commit only the configured project path. Network pull/push remains a
-whole-repository Git operation, so use ``taskledger sync git cd`` and run Git
-directly when multiple projects share the same state repository.
+report project-local vs outside-project dirty paths. ``sync git push`` commits
+repository-wide changes by design to match the standard Git workflow. Use
+``sync git cd`` for advanced manual inspection or conflict resolution.
+
+For manual conflict resolution or debugging:
+
+.. code-block:: bash
+
+   cd "$(taskledger sync git cd)"
+   git status --short
 
 Before starting work on a PC:
 
@@ -85,11 +91,7 @@ Before starting work on a PC:
 
    cd ~/src/project-a
    taskledger sync git status
-   cd "$(taskledger sync git cd)"
-   git status --short
-   git pull --ff-only
-
-   cd ~/src/project-a
+   taskledger sync git pull
    taskledger sync git import-local
    taskledger doctor
    taskledger next-action
@@ -101,11 +103,7 @@ After finishing a task cycle or stopping at a safe boundary:
    cd ~/src/project-a
    taskledger doctor
    taskledger sync git status
-   taskledger sync git commit --message "Sync project-a taskledger state"
-
-   cd "$(taskledger sync git cd)"
-   git status --short
-   git push
+   taskledger sync git push
 
 Active lock rule
 ----------------

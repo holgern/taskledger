@@ -170,6 +170,10 @@ def _render_git_sync_network(payload: dict[str, object], *, label: str) -> str:
         lines.append(
             f"  doctor: {'healthy' if payload['doctor_healthy'] else 'issues'}"
         )
+    if payload.get("include_outside_project"):
+        outside_dirty_count = payload.get("outside_dirty_count", 0)
+        if isinstance(outside_dirty_count, int):
+            lines.append(f"  outside dirty included: {outside_dirty_count} path(s)")
     return "\n".join(_extend_warnings(lines, payload))
 
 
@@ -651,7 +655,10 @@ def register_sync_commands(app: typer.Typer) -> None:  # noqa: C901
             ),
         )
 
-    @sync_git_app.command("pull", hidden=True)
+    @sync_git_app.command(
+        "pull",
+        help="Pull the configured sync Git repository and import pulled state.",
+    )
     def git_pull_command(
         ctx: typer.Context,
         repo: Annotated[Path | None, typer.Option("--repo")] = None,
@@ -680,7 +687,10 @@ def register_sync_commands(app: typer.Typer) -> None:  # noqa: C901
             human=_render_git_sync_network(payload, label="Git sync pull"),
         )
 
-    @sync_git_app.command("push", hidden=True)
+    @sync_git_app.command(
+        "push",
+        help="Commit sync repository changes and push them.",
+    )
     def git_push_command(
         ctx: typer.Context,
         repo: Annotated[Path | None, typer.Option("--repo")] = None,

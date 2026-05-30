@@ -93,7 +93,7 @@ def _init_sync_workspace(
     return workspace, sync_repo
 
 
-def test_sync_git_help_promotes_project_commands_and_hides_network_wrappers(
+def test_sync_git_help_promotes_pull_and_push(
     tmp_path: Path,
 ) -> None:
     workspace = tmp_path / "repo"
@@ -114,8 +114,8 @@ def test_sync_git_help_promotes_project_commands_and_hides_network_wrappers(
     assert "commit" in git_help.stdout
     assert "import-local" in git_help.stdout
     assert "export-local" in git_help.stdout
-    assert "pull" not in git_help.stdout
-    assert "push" not in git_help.stdout
+    assert "pull" in git_help.stdout
+    assert "push" in git_help.stdout
     assert "hooks" in git_help.stdout
 
     assert hooks_help.exit_code == 0, _output(hooks_help)
@@ -330,7 +330,105 @@ def test_sync_git_pull_fails_fast_for_dirty_shared_repo(tmp_path: Path) -> None:
     assert result.exit_code != 0
     output = _output(result)
     assert "whole sync repository" in output
-    assert "taskledger sync git cd" in output
+    assert "--allow-dirty" in output
+
+
+def test_sync_git_push_commits_all_sync_repo_changes_and_pushes(tmp_path: Path) -> None:
+    remote = tmp_path / "remote.git"
+    _git(tmp_path, "init", "--bare", str(remote))
+
+    workspace, sync_repo = _init_sync_workspace(tmp_path)
+    _git(sync_repo, "remote", "add", "origin", str(remote))
+    _git(sync_repo, "push", "-u", "origin", "main")
+
+    (sync_repo / "project-a" / "local-note.txt").write_text(
+        "project\n",
+        encoding="utf-8",
+    )
+    (sync_repo / "project-b").mkdir()
+    (sync_repo / "project-b" / "other.txt").write_text("outside\n", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        [
+            "--root",
+            str(workspace),
+            "--json",
+            "sync",
+            "git",
+            "push",
+            "--repo",
+            str(sync_repo),
+            "--project-path",
+            "project-a",
+        ],
+    )
+
+    assert result.exit_code == 0, _output(result)
+    payload = json.loads(result.stdout)["result"]
+    assert payload["kind"] == "taskledger_sync_git_push"
+    assert payload["committed"] is True
+    assert payload["pushed"] is True
+    assert payload["commit_hash"]
+    assert payload["include_outside_project"] is True
+    assert payload["outside_dirty_count"] == 1
+    assert any("included" in warning for warning in payload["warnings"])
+
+    pushed_files = _git(
+        sync_repo,
+        "show",
+        "--name-only",
+        "--format=",
+        "HEAD",
+    ).stdout.splitlines()
+    assert "project-a/local-note.txt" in pushed_files
+    assert "project-b/other.txt" in pushed_files
+    assert (
+        _git(sync_repo, "log", "-1", "--pretty=%s").stdout.strip()
+        == "Sync taskledger state for project-a"
+    )
+
+
+def test_sync_git_pull_runs_git_pull_without_manual_cd(tmp_path: Path) -> None:
+    remote = tmp_path / "remote.git"
+    _git(tmp_path, "init", "--bare", str(remote))
+
+    workspace, sync_repo = _init_sync_workspace(tmp_path)
+    _git(sync_repo, "remote", "add", "origin", str(remote))
+    _git(sync_repo, "push", "-u", "origin", "main")
+
+    other = tmp_path / "other-clone"
+    _git(tmp_path, "clone", str(remote), str(other))
+    _git(other, "config", "user.email", "test@example.com")
+    _git(other, "config", "user.name", "Taskledger Test")
+    (other / "project-a" / "pulled-note.txt").write_text("remote\n", encoding="utf-8")
+    _git(other, "add", "--all")
+    _git(other, "commit", "-m", "Remote state update")
+    _git(other, "push", "origin", "main")
+
+    result = runner.invoke(
+        app,
+        [
+            "--root",
+            str(workspace),
+            "--json",
+            "sync",
+            "git",
+            "pull",
+            "--repo",
+            str(sync_repo),
+            "--project-path",
+            "project-a",
+        ],
+    )
+
+    assert result.exit_code == 0, _output(result)
+    payload = json.loads(result.stdout)["result"]
+    assert payload["kind"] == "taskledger_sync_git_pull"
+    assert payload["pulled"] is True
+    assert payload["doctor_healthy"] is True
+    assert payload["warnings"] == []
+    assert (sync_repo / "project-a" / "pulled-note.txt").exists()
 
 
 def test_sync_git_hooks_install_rejects_cross_project_managed_hook(

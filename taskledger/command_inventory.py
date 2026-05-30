@@ -1291,10 +1291,8 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
     "sync git pull": CommandSpec(
         HUMAN_ORIENTED,
         "workspace_mutation",
-        ADVANCED,
+        HUMAN,
         PHASE_TRANSFER,
-        deprecated=True,
-        replaced_by="sync git cd",
         ledger_effect=EFFECT_READ,
         workspace_effect=EFFECT_WRITE,
         external_effect=EXTERNAL_PROCESS_EXEC,
@@ -1302,10 +1300,8 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
     "sync git push": CommandSpec(
         HUMAN_ORIENTED,
         "workspace_mutation",
-        ADVANCED,
+        HUMAN,
         PHASE_TRANSFER,
-        deprecated=True,
-        replaced_by="sync git cd",
         ledger_effect=EFFECT_READ,
         workspace_effect=EFFECT_WRITE,
         external_effect=EXTERNAL_PROCESS_EXEC,

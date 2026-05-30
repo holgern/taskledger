@@ -391,8 +391,9 @@ taskledger sync status
 taskledger sync export --output ./taskledger-transfer.tar.gz
 taskledger sync import ./taskledger-transfer.tar.gz --dry-run
 taskledger sync git status
-taskledger sync git commit --message "Checkpoint task state."
-cd "$(taskledger sync git cd)"
+taskledger sync git pull
+taskledger sync git push
+taskledger sync git push --message "Checkpoint task state."
 taskledger implement resume --reason "Reacquire implementation lock for existing running run."
 taskledger implement resume --repair-expired-lock --reason "Continue after expired lock."
 taskledger implement restart --summary "Fix failed validation findings."
