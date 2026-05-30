@@ -104,8 +104,10 @@ CLI_SERVICES_IMPORT_WHITELIST: dict[str, str] = {
     "taskledger/cli_task.py:taskledger.services.tasks": (
         "Task events read path still uses services.tasks list_events helper."
     ),
+    "taskledger/cli_release.py:taskledger.services.releases": (
+        "Release commands delegate to the releases service."
+    ),
 }
-
 EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
     "taskledger/cli.py:256": (
         "Optional command group import fallback reports missing modules gracefully."

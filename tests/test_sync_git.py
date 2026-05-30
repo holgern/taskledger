@@ -401,6 +401,7 @@ def test_sync_git_pull_runs_git_pull_without_manual_cd(tmp_path: Path) -> None:
     _git(tmp_path, "clone", str(remote), str(other))
     _git(other, "config", "user.email", "test@example.com")
     _git(other, "config", "user.name", "Taskledger Test")
+    (other / "project-a").mkdir(exist_ok=True)
     (other / "project-a" / "pulled-note.txt").write_text("remote\n", encoding="utf-8")
     _git(other, "add", "--all")
     _git(other, "commit", "-m", "Remote state update")
