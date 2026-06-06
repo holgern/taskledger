@@ -82,6 +82,9 @@ dev = [
 rich = [
     "rich",
 ]
+tui = [
+    "textual>=0.47",
+]
 
 [tool.setuptools_scm]
 write_to = "taskledger/_version.py"

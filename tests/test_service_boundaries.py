@@ -112,7 +112,7 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
     "taskledger/cli.py:256": (
         "Optional command group import fallback reports missing modules gracefully."
     ),
-    "taskledger/cli.py:912": (
+    "taskledger/cli.py:984": (
         "Serve command optional import fallback reports missing dashboard gracefully."
     ),
     "taskledger/storage/project_config.py:709": (

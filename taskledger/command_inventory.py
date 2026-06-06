@@ -905,6 +905,15 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         agent_safe=True,
         ledger_effect=EFFECT_READ,
     ),
+    "tui": CommandSpec(
+        HUMAN_ORIENTED,
+        "safe_read_only",
+        HUMAN,
+        PHASE_REPORTING,
+        agent_safe=False,
+        ledger_effect=EFFECT_READ,
+        targeting=TARGETING_POSITIONAL_OR_ACTIVE,
+    ),
     "tree": CommandSpec(
         STABLE_FOR_AGENTS,
         "safe_read_only",

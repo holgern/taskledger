@@ -76,6 +76,7 @@ project explicitly opts in.
 | Specific task summary      | `task show TASK_REF` or `task show --task TASK_REF` |
 | Project/ledger overview    | `status`, `tree`                                    |
 | Human dashboard            | `serve`                                             |
+| Terminal navigator         | `tui` (optional, `pip install -e '.[tui]'`)         |
 | Reviewable markdown report | `task report`                                       |
 | LLM/agent compiled export  | `task export`                                       |
 | Fresh worker context       | `context` or durable `handoff show`                 |
@@ -195,6 +196,12 @@ taskledger plan template --with-worker-pipeline --file ./plan.md
 ```bash
 python -m pip install -e .
 python -m pip install -e ".[dev]"
+```
+
+For the optional terminal navigator:
+
+```bash
+python -m pip install -e ".[tui]"
 ```
 
 ### Shell completion
@@ -418,6 +425,24 @@ taskledger serve --refresh-seconds 2
 taskledger serve --open
 taskledger serve --task task-0040 --refresh-seconds 2
 ```
+
+Install the optional Textual dependency to use the terminal navigator:
+
+```bash
+python -m pip install -e '.[tui]'
+taskledger tui
+taskledger tui task-0040
+taskledger tui --refresh-seconds 5
+```
+
+The TUI is a read-only navigator over the same read models as `view` and
+`serve`: task list, summary, plan review, todos, implementation, code
+reviews, validation, files, events, and a raw Markdown report. Press `?`
+inside the TUI for key bindings, `r` to refresh, `/` to filter, `c` to copy
+the next-command hint, and `o` to write a static HTML report for the
+selected task. Agents should keep using `next-action`, `todo next`, and
+`--json` for routine work; the TUI is a human-oriented presentation layer.
+
 
 Agents should keep using `taskledger next-action`, `taskledger todo next`, and
 `--json` commands as the canonical automation interface for routine same-session

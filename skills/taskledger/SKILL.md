@@ -44,7 +44,8 @@ handoff create | handoff show | handoff claim | handoff close
 ```
 
 Treat release, storage movement, branch-ledger changes, repair/migration,
-network sync wrappers, sync hooks, and source search helpers as advanced,
+network sync wrappers, sync hooks, `tui` (interactive terminal navigator),
+and source search helpers as advanced,
 human-oriented, repair, or beta support commands rather than normal lifecycle
 steps.
 
@@ -271,6 +272,7 @@ Rules for agents:
 | Storage location          | `storage where`                                     |
 | Sync safety check         | `sync preflight`                                    |
 | Human dashboard           | `serve`                                             |
+| Terminal navigator        | `tui` (optional, requires `pip install -e '.[tui]'`) |
 | Reviewable report         | `task report` or `report html`                      |
 | LLM/agent compiled export | `task export`                                       |
 | Fresh worker context      | `context` or durable `handoff show`                 |

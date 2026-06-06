@@ -420,6 +420,43 @@ the canonical machine interface for routine same-session work. Reach for
 ``context`` or handoffs when the task actually needs broader fresh-context
 transfer.
 
+Terminal TUI
+~~~~~~~~~~~~
+
+``taskledger tui`` is an optional read-only Textual navigator for humans who
+want to browse tasks inside the terminal. It depends on the optional
+``[tui]`` extra:
+
+.. code-block:: bash
+
+   python -m pip install -e ".[tui]"
+   taskledger tui
+   taskledger tui task-0040
+   taskledger tui --refresh-seconds 5
+   taskledger tui --include-archived
+
+The TUI shows the same read models as ``view`` and ``serve``: task list,
+summary, plan review, todos, implementation, code reviews, validation,
+files, events, and a raw Markdown report. Key bindings:
+
+.. code-block:: text
+
+   q          quit
+   r / F5     refresh snapshot
+   /          focus search/filter input
+   Enter      open selected task
+   Tab        cycle focus / tabs
+   1..9       jump to a tab
+   c          show command copy palette
+   o          write a static HTML report for the selected task
+   a n p i m v f d c   stage filters
+   t          toggle archived tasks
+   ?          this help
+
+The TUI is read-only. Mutating actions still require the CLI. When textual
+is missing, ``taskledger tui`` fails fast with an
+``OPTIONAL_DEPENDENCY_MISSING`` error and an install hint.
+
 ``task report`` generates a human-readable Markdown report for a single task.
 It is for humans who want to review, archive, or share a task outside the terminal.
 

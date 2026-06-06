@@ -466,6 +466,23 @@ Rules:
 * agents should continue to use ``next-action``, ``context``, ``view``, and
   ``--json`` commands as the canonical automation interface.
 
+``taskledger tui`` is an optional top-level human-oriented terminal navigator.
+It requires the optional textual dependency:
+
+.. code-block:: bash
+
+   taskledger tui [TASK_REF] [--task TASK_REF] [--refresh-seconds N] [--no-refresh] [--include-archived]
+
+Rules:
+
+* the TUI is read-only and never mutates ``.taskledger/`` state;
+* ``taskledger --help`` and ``taskledger tui --help`` must work without textual
+  installed (the import is deferred to ``run_tui``);
+* when textual is missing, the command fails fast with
+  ``OPTIONAL_DEPENDENCY_MISSING`` (exit code 2) and an install remediation;
+* the command rejects conflicting ``TASK_REF`` and ``--task`` values;
+* agents should keep using JSON commands for automation.
+
 Focused context and handoff options
 -----------------------------------
 

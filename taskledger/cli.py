@@ -566,6 +566,7 @@ def main(
         "status",
         "symbols",
         "tree",
+        "tui",
         "view",
         "task",
         "plan",
@@ -742,6 +743,77 @@ def view_command(
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
     human = render_dashboard_text(payload)
     emit_payload(ctx, payload, human=human)
+
+
+@app.command("tui")
+def tui_command(
+    ctx: typer.Context,
+    task_arg: TaskRefArgument = None,
+    task_ref: Annotated[
+        str | None,
+        typer.Option("--task", hidden=True),
+    ] = None,
+    refresh_seconds: Annotated[
+        int | None,
+        typer.Option(
+            "--refresh-seconds",
+            help="Auto-refresh the snapshot every N seconds. "
+            "Defaults to no auto-refresh.",
+        ),
+    ] = None,
+    no_refresh: Annotated[
+        bool,
+        typer.Option(
+            "--no-refresh",
+            help="Disable auto-refresh explicitly (default behavior).",
+        ),
+    ] = False,
+    include_archived: Annotated[
+        bool,
+        typer.Option(
+            "--include-archived",
+            help="Show archived tasks alongside visible ones.",
+        ),
+    ] = False,
+) -> None:
+    """Launch the optional Textual TUI navigator (read-only)."""
+    state = ctx.obj
+    assert isinstance(state, CLIState)
+    if task_arg and task_ref and task_arg != task_ref:
+        error = LaunchError(
+            "taskledger tui received both TASK_REF and --task. Use only one.",
+            code="USAGE_ERROR",
+            exit_code=2,
+        )
+        emit_error(ctx, error)
+        raise typer.Exit(code=launch_error_exit_code(error))
+    if no_refresh:
+        refresh_seconds = None
+    selected_task_ref = task_arg or task_ref
+    try:
+        from taskledger.tui.app import run_tui
+    except ImportError as exc:
+        error = LaunchError(
+            "taskledger tui requires the optional Textual dependency. "
+            "Install with: python -m pip install -e '.[tui]'",
+            code="OPTIONAL_DEPENDENCY_MISSING",
+            exit_code=2,
+            remediation=[
+                "Run: python -m pip install -e '.[tui]'",
+            ],
+            details={
+                "command_group": "tui",
+                "exception_type": type(exc).__name__,
+            },
+        )
+        emit_error(ctx, error)
+        raise typer.Exit(code=launch_error_exit_code(error)) from exc
+    run_tui(
+        workspace_root=state.cwd,
+        task_ref=selected_task_ref,
+        refresh_seconds=refresh_seconds,
+        include_archived=include_archived,
+    )
 
 
 @app.command("commands")

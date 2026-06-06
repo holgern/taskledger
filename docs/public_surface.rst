@@ -52,7 +52,7 @@ Top-level entry categories
 
 **Human-oriented entries** — interactive inspection and reporting:
 
-- ``status``, ``view``, ``serve``, ``tree``, ``search``, ``grep``, ``symbols``, ``deps``
+- ``status``, ``view``, ``serve``, ``tree``, ``tui``, ``search``, ``grep``, ``symbols``, ``deps``
 
 **Repair and migration groups** — exceptional recovery:
 
@@ -60,6 +60,11 @@ Top-level entry categories
 
 ``serve`` is a human-oriented, read-only localhost dashboard. Agents should
 keep using the CLI and JSON command surface for automation.
+
+``tui`` is an optional, read-only Textual navigator for terminal users
+(``pip install -e '.[tui]'``). It is human-oriented and not agent-facing:
+the command fails with ``OPTIONAL_DEPENDENCY_MISSING`` when textual is not
+installed.
 
 The supported implementation lifecycle includes ``implement restart --summary
 "..."`` when a task is in ``failed_validation`` and ``implement resume --reason
