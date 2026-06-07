@@ -298,7 +298,7 @@ def register_validate_v2_commands(app: typer.Typer) -> None:
         task_ref: TaskOption = None,
     ) -> None:
         """Import BDD report results into validation checks."""
-        from taskledger.services.bdd_reports import import_bdd_report
+        from taskledger.api.bdd import import_bdd_report
 
         state = cli_state_from_context(ctx)
         try:

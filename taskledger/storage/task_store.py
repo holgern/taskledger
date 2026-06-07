@@ -17,6 +17,12 @@ from typing import Literal, TypeVar
 
 import yaml
 
+from taskledger.domain.bdd import (
+    BddExampleRecord,
+    BddFeatureRecord,
+    BddReportRecord,
+    BddRuleRecord,
+)
 from taskledger.domain.models import (
     ActiveActorState,
     ActiveHarnessState,
@@ -38,12 +44,6 @@ from taskledger.domain.models import (
     TaskRunRecord,
     TaskTodo,
     TodoCollection,
-)
-from taskledger.domain.bdd import (
-    BddExampleRecord,
-    BddFeatureRecord,
-    BddReportRecord,
-    BddRuleRecord,
 )
 from taskledger.domain.states import (
     TASKLEDGER_SCHEMA_VERSION,

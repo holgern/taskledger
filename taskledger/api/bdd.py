@@ -7,6 +7,7 @@ from typing import Any
 
 from taskledger.domain.bdd import (
     BddExampleRecord,
+    BddExampleStatus,
     BddFeatureRecord,
     BddRuleRecord,
 )
@@ -148,7 +149,7 @@ def bdd_example_add(
     example_id = _next_id(examples, "bdd")
 
     # Determine initial status
-    status = "discovered"
+    status: BddExampleStatus = "discovered"
     if given or when or then:
         status = "formulated"
     if acceptance_criteria:
@@ -312,42 +313,56 @@ def bdd_archledger_candidate(
     ):
         suggested_type = "runtime_scenario"
 
-    # Build candidate content
+    # Build candidate content with YAML front matter
     lines = [
-        f"# Archledger Candidate: {example.title}",
-        "",
-        f"suggested_record_type: {suggested_type}",
-        "task_refs:",
-        f"  - {task_id}",
-        "bdd_refs:",
-        f"  - {example.id}",
+        "---",
+        f"type: {suggested_type}",
+        "status: proposed",
+        f"title: {example.title}",
     ]
-    if example.acceptance_criteria:
-        lines.append("acceptance_criteria:")
-        for ac in example.acceptance_criteria:
-            lines.append(f"  - {ac}")
-
-    # Find feature file if automation linked
     if example.automation.feature_file:
-        lines.append(f"feature_file: {example.automation.feature_file}")
-
-    lines.append("")
-    lines.append("## Body")
-    lines.append("")
+        lines.append("source_refs:")
+        lines.append(f"  - path: {example.automation.feature_file}")
+        lines.append("    role: documents")
+        lines.append("test_refs:")
+        lines.append(f"  - path: {example.automation.feature_file}")
+        lines.append("    kind: bdd")
+    lines.append("bdd:")
+    feature_rec = load_bdd_feature(workspace_root, task_id)
+    lines.append(f"  feature: {feature_rec.title if feature_rec else ''}")
+    rule = None
+    if example.rule_id:
+        rule = resolve_bdd_rule(workspace_root, task_id, example.rule_id)
+    if rule:
+        lines.append(f"  rule: {rule.title}")
+    lines.append(f"  scenario: {example.title}")
+    lines.append("  tags:")
+    lines.append(f"    - {task_id}")
+    lines.append(f"    - {example.id}")
+    lines.append("  task_refs:")
+    lines.append(f"    - {task_id}")
+    if example.acceptance_criteria:
+        lines.append("  acceptance_criteria:")
+        for ac in example.acceptance_criteria:
+            lines.append(f"    - {ac}")
     if example.given:
-        lines.append("**Given:**")
+        lines.append("  given:")
         for step in example.given:
-            lines.append(f"- {step}")
+            lines.append(f"    - {step}")
     if example.when:
-        lines.append("")
-        lines.append("**When:**")
+        lines.append("  when:")
         for step in example.when:
-            lines.append(f"- {step}")
+            lines.append(f"    - {step}")
     if example.then:
-        lines.append("")
-        lines.append("**Then:**")
+        lines.append("  then:")
         for step in example.then:
-            lines.append(f"- {step}")
+            lines.append(f"    - {step}")
+    if example.automation.feature_file:
+        lines.append("  automation:")
+        lines.append(f"    status: {example.automation.status}")
+        lines.append(f"    feature_file: {example.automation.feature_file}")
+        lines.append(f"    scenario: {example.title}")
+    lines.append("---")
 
     content = "\n".join(lines)
 
@@ -382,3 +397,94 @@ def bdd_archledger_candidate(
         "out": out,
         "candidate": candidate,
     }
+
+
+def import_bdd_report(
+    workspace_root: Path,
+    task_id: str,
+    source_path: str,
+    format: str,
+    command: str = "",
+) -> dict[str, Any]:
+    """Import a BDD report and persist validation checks.
+
+    Requires an active validation run. For each matched scenario
+    with linked acceptance criteria, persists a validation check
+    through the normal validation flow.
+    """
+    from taskledger.api.task_runs import add_validation_check
+    from taskledger.services.bdd_reports import import_bdd_report as _import_bdd_report
+
+    # Run the core import (parsing, matching, example updates, report save)
+    result = _import_bdd_report(
+        workspace_root, task_id, source_path, format, command
+    )
+
+    # Persist validation checks for matched scenarios with linked criteria
+    persisted_check_ids: list[str] = []
+    for check_info in result.get("validation_checks", []):
+        criterion_id = check_info.get("criterion_id")
+        status = check_info.get("status", "pass")
+        if not criterion_id:
+            continue
+        try:
+            run = add_validation_check(
+                workspace_root,
+                task_id,
+                name=check_info.get("check_id") or f"BDD: {source_path}",
+                criterion_id=criterion_id,
+                status=status,
+                evidence=(
+                    f"report: {source_path}",
+                ),
+            )
+            # Find the last check in the run (the one we just added)
+            if run.checks:
+                last_check = run.checks[-1]
+                if last_check.id:
+                    persisted_check_ids.append(last_check.id)
+        except LaunchError:
+            # If validation run is not active, skip persistence
+            # but continue with the import result
+            pass
+
+    # Update the saved BDD report record with persisted check IDs
+    if persisted_check_ids:
+        from taskledger.storage.task_store import load_bdd_reports, save_bdd_report
+
+        reports = load_bdd_reports(workspace_root, task_id)
+        for report in reports:
+            if report.id == result.get("report_id"):
+                updated_report = report.__class__(
+                    id=report.id,
+                    task_id=report.task_id,
+                    source_path=report.source_path,
+                    format=report.format,
+                    command=report.command,
+                    imported_at=report.imported_at,
+                    result=report.result,
+                    example_results=report.example_results,
+                    validation_check_refs=tuple(persisted_check_ids),
+                    file_version=report.file_version,
+                    schema_version=report.schema_version,
+                    object_type=report.object_type,
+                    created_at=report.created_at,
+                )
+                save_bdd_report(workspace_root, updated_report)
+                break
+
+    # Update result with persisted check IDs
+    persisted_checks = [
+        {
+            "check_id": cid,
+            "criterion_id": cinfo.get("criterion_id"),
+            "status": cinfo.get("status"),
+            "example_id": cinfo.get("example_id"),
+        }
+        for cid, cinfo in zip(
+            persisted_check_ids, result.get("validation_checks", []),
+            strict=False,
+        )
+    ]
+    result["validation_checks"] = persisted_checks
+    return result

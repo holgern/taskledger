@@ -6,6 +6,13 @@ from taskledger.domain.active_state import (
     ActiveTaskState,
 )
 from taskledger.domain.actor import ActorRef, HarnessRef
+from taskledger.domain.bdd import (
+    BddAutomationRef,
+    BddExampleRecord,
+    BddFeatureRecord,
+    BddReportRecord,
+    BddRuleRecord,
+)
 from taskledger.domain.change import AgentCommandLogRecord, CodeChangeRecord
 from taskledger.domain.check import ImplementationCheckRecord
 from taskledger.domain.event import TaskEvent
@@ -27,13 +34,6 @@ from taskledger.domain.sidecars import (
     TaskTodo,
     TodoCollection,
     ValidationCheck,
-)
-from taskledger.domain.bdd import (
-    BddAutomationRef,
-    BddExampleRecord,
-    BddFeatureRecord,
-    BddReportRecord,
-    BddRuleRecord,
 )
 
 # Compatibility facade: re-export domain record types and selected state symbols.

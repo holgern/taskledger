@@ -39,6 +39,7 @@ from taskledger.cli_archive import (
     run_archive_export,
     run_archive_import,
 )
+from taskledger.cli_bdd import register_bdd_commands
 from taskledger.cli_common import (
     CLIState,
     TaskOption,
@@ -79,7 +80,6 @@ from taskledger.cli_storage import register_storage_commands
 from taskledger.cli_sync import register_sync_commands
 from taskledger.cli_task import register_task_v2_commands
 from taskledger.cli_validate import register_validate_v2_commands
-from taskledger.cli_bdd import register_bdd_commands
 from taskledger.command_inventory import COMMAND_METADATA
 from taskledger.errors import LaunchError, OptionalCommandGroupUnavailable
 from taskledger.services.dashboard import dashboard, render_dashboard_text

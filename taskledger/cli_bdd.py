@@ -30,8 +30,17 @@ from taskledger.cli_common import (
 from taskledger.errors import LaunchError
 
 
-def register_bdd_commands(app: typer.Typer) -> None:  # noqa: C901
+def register_bdd_commands(app: typer.Typer) -> None:
     """Register BDD commands on the given Typer app."""
+    _register_bdd_root_commands(app)
+    _register_bdd_rule_commands(app)
+    _register_bdd_example_commands(app)
+    _register_bdd_export_commands(app)
+    _register_bdd_archledger_commands(app)
+
+
+def _register_bdd_root_commands(app: typer.Typer) -> None:
+    """Register bdd root commands: init, status."""
 
     @app.command("init")
     def bdd_init_cmd(
@@ -67,8 +76,9 @@ def register_bdd_commands(app: typer.Typer) -> None:  # noqa: C901
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, payload, human=_render_bdd_status(payload))
 
-    # ── rule commands ────────────────────────────────────────────
 
+def _register_bdd_rule_commands(app: typer.Typer) -> None:
+    """Register bdd rule sub-commands."""
     rule_app = typer.Typer(add_completion=False, help="Manage BDD rules.")
     app.add_typer(rule_app, name="rule")
 
@@ -127,8 +137,9 @@ def register_bdd_commands(app: typer.Typer) -> None:  # noqa: C901
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, payload, human=_render_bdd_rule(payload))
 
-    # ── example commands ─────────────────────────────────────────
 
+def _register_bdd_example_commands(app: typer.Typer) -> None:
+    """Register bdd example sub-commands."""
     example_app = typer.Typer(add_completion=False, help="Manage BDD examples.")
     app.add_typer(example_app, name="example")
 
@@ -246,7 +257,9 @@ def register_bdd_commands(app: typer.Typer) -> None:  # noqa: C901
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, payload, human=_render_bdd_example(payload))
 
-    # ── gherkin export ───────────────────────────────────────────
+
+def _register_bdd_export_commands(app: typer.Typer) -> None:
+    """Register bdd export commands: gherkin-export."""
 
     @app.command("gherkin-export")
     def bdd_gherkin_export_cmd(
@@ -268,7 +281,9 @@ def register_bdd_commands(app: typer.Typer) -> None:  # noqa: C901
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, payload, human=_render_gherkin_export(payload))
 
-    # ── archledger bridge ────────────────────────────────────────
+
+def _register_bdd_archledger_commands(app: typer.Typer) -> None:
+    """Register bdd archledger bridge commands."""
 
     @app.command("archledger-candidate")
     def bdd_archledger_candidate_cmd(

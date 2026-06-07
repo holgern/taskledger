@@ -35,7 +35,8 @@ def import_bdd_report(
         command: The test command that produced the report.
 
     Returns:
-        Import result payload.
+        Import result payload with matched/unmatched scenarios
+        and validation check data (checks not persisted here).
     """
     report_file = Path(source_path)
     if not report_file.is_absolute():
@@ -45,9 +46,14 @@ def import_bdd_report(
 
     # Load task examples for matching
     examples = load_bdd_examples(workspace_root, task_id)
-    examples_by_title = {e.title: e for e in examples}
-    examples_by_scenario = {}
+
+    # Build lookup indices
+    examples_by_id: dict[str, BddExampleRecord] = {}
+    examples_by_title: dict[str, BddExampleRecord] = {}
+    examples_by_scenario: dict[str, BddExampleRecord] = {}
     for e in examples:
+        examples_by_id[e.id] = e
+        examples_by_title[e.title] = e
         if e.automation.scenario:
             examples_by_scenario[e.automation.scenario] = e
 
@@ -69,11 +75,18 @@ def import_bdd_report(
         scenario_name = scenario.get("name", "")
         status = scenario.get("status", "unknown")
         error_message = scenario.get("error_message", "")
+        tags = scenario.get("tags", [])
 
-        # Try to match by automation.scenario or title
-        example = examples_by_scenario.get(scenario_name) or examples_by_title.get(
-            scenario_name
-        )
+        # Try to match by @bdd-* tag first
+        example = _match_by_bdd_tag(tags, examples_by_id)
+
+        # Fall back to automation.scenario
+        if example is None:
+            example = examples_by_scenario.get(scenario_name)
+
+        # Fall back to title
+        if example is None:
+            example = examples_by_title.get(scenario_name)
 
         if example is None:
             unmatched.append(scenario)
@@ -118,14 +131,14 @@ def import_bdd_report(
         save_bdd_example(workspace_root, updated)
         updated_examples.append(updated)
 
-        # Create validation checks for linked criteria
-        check_status = "pass" if status == "passed" else "fail"
+        # Create validation check metadata (not persisted here)
+        check_status: str = "pass" if status == "passed" else "fail"
         for criterion_id in example.acceptance_criteria:
             check = ValidationCheck(
                 id=None,
                 name=f"BDD: {scenario_name}",
                 criterion_id=criterion_id,
-                status=check_status,
+                status=check_status,  # type: ignore[arg-type]
                 details=(
                     f"Cucumber scenario {'passed' if status == 'passed' else 'failed'}."
                     + (f" Error: {error_message}" if error_message else "")
@@ -144,6 +157,7 @@ def import_bdd_report(
                 "scenario": scenario_name,
                 "status": status,
                 "criterion_ids": list(example.acceptance_criteria),
+                "tags": tags,
             }
         )
 
@@ -178,7 +192,7 @@ def import_bdd_report(
         imported_at=utc_now_iso(),
         result=_overall_result(matched),
         example_results=tuple(example_results),
-        validation_check_refs=tuple(c.id for c in validation_checks if c.id),
+        validation_check_refs=(),
     )
     save_bdd_report(workspace_root, report)
 
@@ -191,7 +205,7 @@ def import_bdd_report(
         "unmatched_scenarios": [u.get("name", "") for u in unmatched],
         "validation_checks": [
             {
-                "check_id": c.id,
+                "check_id": None,
                 "criterion_id": c.criterion_id,
                 "status": c.status,
                 "example_id": _find_example_for_check(c, matched),
@@ -203,8 +217,22 @@ def import_bdd_report(
     }
 
 
+def _match_by_bdd_tag(
+    tags: list[str],
+    examples_by_id: dict[str, BddExampleRecord],
+) -> BddExampleRecord | None:
+    """Match a scenario to a BDD example by @bdd-* tag."""
+    for tag in tags:
+        if tag.startswith("bdd-") or tag.startswith("bdd_"):
+            # Strip any leading @ if present
+            clean = tag.lstrip("@")
+            if clean in examples_by_id:
+                return examples_by_id[clean]
+    return None
+
+
 def _parse_cucumber_json(path: Path) -> list[dict[str, Any]]:
-    """Parse a Cucumber JSON report file."""
+    """Parse a Cucumber JSON report file, extracting tags."""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
@@ -230,6 +258,18 @@ def _parse_cucumber_json(path: Path) -> list[dict[str, Any]]:
             name = element.get("name", "")
             steps = element.get("steps", [])
 
+            # Extract tags from element-level tags
+            tags: list[str] = []
+            raw_tags = element.get("tags", [])
+            if isinstance(raw_tags, list):
+                for t in raw_tags:
+                    if isinstance(t, dict):
+                        tag_name = t.get("name", "")
+                        if isinstance(tag_name, str):
+                            tags.append(tag_name.lstrip("@"))
+                    elif isinstance(t, str):
+                        tags.append(t.lstrip("@"))
+
             # Determine status from steps
             status = "passed"
             error_message = ""
@@ -244,7 +284,6 @@ def _parse_cucumber_json(path: Path) -> list[dict[str, Any]]:
                         error_message = result.get("error_message", "")
                         break
                     elif step_status == "skipped":
-                        # A skipped step means a prior step failed
                         pass
 
             scenarios.append(
@@ -253,6 +292,7 @@ def _parse_cucumber_json(path: Path) -> list[dict[str, Any]]:
                     "status": status,
                     "error_message": error_message,
                     "feature_name": feature.get("name", ""),
+                    "tags": tags,
                 }
             )
 
@@ -308,6 +348,7 @@ def _parse_junit_xml(path: Path) -> list[dict[str, Any]]:
                     "error_message": error_message,
                     "feature_name": suite_name,
                     "classname": classname,
+                    "tags": [],
                 }
             )
 

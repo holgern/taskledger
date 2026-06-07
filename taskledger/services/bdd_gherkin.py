@@ -140,15 +140,22 @@ def _append_scenario(
     example: BddExampleRecord,
     indent: int = 2,
 ) -> None:
-    """Append a scenario block to the Gherkin lines."""
+    """Append a scenario block to the Gherkin lines with traceability tags."""
     prefix = " " * indent
 
-    # Tags
+    # Tags with traceability info
     scenario_tags = [f"@{example.id}"]
+    scenario_tags.append(f"@{example.task_id}")
     if example.rule_id:
         scenario_tags.append(f"@{example.rule_id}")
     if example.tags:
         scenario_tags.extend(f"@{t}" for t in example.tags)
+    # Add acceptance criterion tags
+    for ac in example.acceptance_criteria:
+        scenario_tags.append(f"@{ac}")
+    # Add archledger ref tags
+    for al_ref in example.archledger_refs:
+        scenario_tags.append(f"@{al_ref}")
     lines.append(f"{prefix}{' '.join(scenario_tags)}")
 
     # Scenario line

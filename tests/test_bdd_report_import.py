@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import json
-import xml.etree.ElementTree as ET
 
 import pytest
 
-from taskledger.api.bdd import bdd_init, bdd_rule_add, bdd_example_add
-from taskledger.services.bdd_reports import import_bdd_report
+from taskledger.api.bdd import bdd_example_add, bdd_init
 from taskledger.errors import LaunchError
+from taskledger.services.bdd_reports import import_bdd_report
 
 
 class TestCucumberJsonImport:

@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from taskledger.api.bdd import bdd_init, bdd_rule_add, bdd_example_add
-from taskledger.services.bdd_gherkin import export_gherkin
-from taskledger.storage.task_store import save_bdd_example
+from taskledger.api.bdd import bdd_example_add, bdd_init, bdd_rule_add
 from taskledger.domain.bdd import BddExampleRecord
 from taskledger.errors import LaunchError
+from taskledger.services.bdd_gherkin import export_gherkin
+from taskledger.storage.task_store import save_bdd_example
 
 
 class TestGherkinExport:

@@ -306,6 +306,34 @@ advanced/compatibility read surfaces. Prefer `context --for ...` and
 - Each waiver must include a reason and is permanently recorded in the validation history.
 - Waived criteria are marked as satisfied for gate checking but remain visible in status reports.
 
+## Optional BDD / Cucumber overlay
+
+Use BDD only when the task benefits from executable behavior examples or when the
+user asks for BDD/Cucumber. Do not add BDD to every task.
+
+Taskledger owns task-local BDD records during active work:
+
+- `taskledger bdd init --feature "..."`
+- `taskledger bdd rule add "..."`
+- `taskledger bdd example add --title "..." --given "..." --when "..." --then "..." --acceptance-criterion ac-0001`
+- `taskledger bdd gherkin-export --out tests/bdd/features/<feature>.feature`
+- run the project's external Cucumber/pytest-bdd test command
+- `taskledger validate import-bdd-report <report> --format cucumber-json --command "..."`
+- `taskledger bdd example link-archledger bdd-0001 al_runtime_0123` after an
+  Archledger behavior record exists
+
+Rules:
+
+- BDD is optional and sidecar-based.
+- Keep Taskledger BDD examples linked to plan acceptance criteria.
+- Treat generated `.feature` files as derived from Taskledger unless ownership
+  is explicitly changed.
+- Do not run Cucumber from Archledger.
+- Use Archledger only for durable architecture/specification behavior records
+  and SDD traceability.
+- Prefer stable ids and tags (`@task-0001`, `@bdd-0001`, `@ac-0001`) over
+  scenario-title matching.
+
 ## Required logging
 
 - Every implementation run must have a todo checklist unless the user explicitly says the task is too small.

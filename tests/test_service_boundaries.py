@@ -23,6 +23,7 @@ FUNCTION_LINE_WHITELIST: dict[str, str] = {
         "Sync command registration currently co-locates legacy sync, archive alias,"
         " git sync, and hook command wiring."
     ),
+
 }
 
 CLI_SERVICES_IMPORT_WHITELIST: dict[str, str] = {
@@ -109,10 +110,10 @@ CLI_SERVICES_IMPORT_WHITELIST: dict[str, str] = {
     ),
 }
 EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
-    "taskledger/cli.py:256": (
+    "taskledger/cli.py:263": (
         "Optional command group import fallback reports missing modules gracefully."
     ),
-    "taskledger/cli.py:984": (
+    "taskledger/cli.py:1011": (
         "Serve command optional import fallback reports missing dashboard gracefully."
     ),
     "taskledger/storage/project_config.py:709": (
@@ -177,13 +178,16 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
         "Path probe falls back when environment inspection raises platform-"
         "specific errors."
     ),
-    "taskledger/storage/task_store.py:415": (
+    "taskledger/storage/task_store.py:421": (
         "rewrite_task_refs falls back to plain string replacement when "
         "front matter parsing fails."
     ),
-    "taskledger/storage/task_store.py:1018": (
+    "taskledger/storage/task_store.py:1068": (
         "list_handoffs_with_errors tolerates malformed handoff records "
         "and continues scanning."
+    ),
+    "taskledger/tui/app.py:373": (
+        "TUI app fallback wraps unexpected render errors gracefully."
     ),
 }
 
