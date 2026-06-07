@@ -375,9 +375,7 @@ def bdd_archledger_candidate(
         try:
             out_path.resolve().relative_to(workspace_root.resolve())
         except ValueError:
-            raise LaunchError(
-                f"Output path must be within workspace: {out}"
-            ) from None
+            raise LaunchError(f"Output path must be within workspace: {out}") from None
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(content + "\n", encoding="utf-8")
 
@@ -416,9 +414,7 @@ def import_bdd_report(
     from taskledger.services.bdd_reports import import_bdd_report as _import_bdd_report
 
     # Run the core import (parsing, matching, example updates, report save)
-    result = _import_bdd_report(
-        workspace_root, task_id, source_path, format, command
-    )
+    result = _import_bdd_report(workspace_root, task_id, source_path, format, command)
 
     # Persist validation checks for matched scenarios with linked criteria
     persisted_check_ids: list[str] = []
@@ -434,9 +430,7 @@ def import_bdd_report(
                 name=check_info.get("check_id") or f"BDD: {source_path}",
                 criterion_id=criterion_id,
                 status=status,
-                evidence=(
-                    f"report: {source_path}",
-                ),
+                evidence=(f"report: {source_path}",),
             )
             # Find the last check in the run (the one we just added)
             if run.checks:
@@ -482,7 +476,8 @@ def import_bdd_report(
             "example_id": cinfo.get("example_id"),
         }
         for cid, cinfo in zip(
-            persisted_check_ids, result.get("validation_checks", []),
+            persisted_check_ids,
+            result.get("validation_checks", []),
             strict=False,
         )
     ]

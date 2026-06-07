@@ -109,7 +109,9 @@ class TestCucumberJsonImport:
             tmp_path,
             "task-0001",
             title="Known scenario",
-            given=("x",), when=("y",), then=("z",),
+            given=("x",),
+            when=("y",),
+            then=("z",),
         )
 
         report = [
@@ -149,18 +151,14 @@ class TestCucumberJsonImport:
         report_path = tmp_path / "test.json"
         report_path.write_text("[]")
         with pytest.raises(LaunchError, match="Unsupported report format"):
-            import_bdd_report(
-                tmp_path, "task-0001", str(report_path), "unknown-format"
-            )
+            import_bdd_report(tmp_path, "task-0001", str(report_path), "unknown-format")
 
     def test_import_invalid_json(self, tmp_path) -> None:
         """Test importing invalid JSON."""
         report_path = tmp_path / "bad.json"
         report_path.write_text("not json {{{")
         with pytest.raises(LaunchError, match="Invalid Cucumber JSON"):
-            import_bdd_report(
-                tmp_path, "task-0001", str(report_path), "cucumber-json"
-            )
+            import_bdd_report(tmp_path, "task-0001", str(report_path), "cucumber-json")
 
 
 class TestJunitXmlImport:
@@ -203,7 +201,9 @@ class TestJunitXmlImport:
             tmp_path,
             "task-0001",
             title="JUnit test fails",
-            given=("x",), when=("y",), then=("z",),
+            given=("x",),
+            when=("y",),
+            then=("z",),
             acceptance_criteria=("ac-0001",),
         )
 
@@ -218,9 +218,7 @@ class TestJunitXmlImport:
         report_path = tmp_path / "junit.xml"
         report_path.write_text(xml_content)
 
-        result = import_bdd_report(
-            tmp_path, "task-0001", str(report_path), "junit-xml"
-        )
+        result = import_bdd_report(tmp_path, "task-0001", str(report_path), "junit-xml")
 
         assert result["result"] == "failed"
         assert result["validation_checks"][0]["status"] == "fail"
@@ -232,7 +230,9 @@ class TestJunitXmlImport:
             tmp_path,
             "task-0001",
             title="Direct suite test",
-            given=("x",), when=("y",), then=("z",),
+            given=("x",),
+            when=("y",),
+            then=("z",),
         )
 
         xml_content = """<?xml version="1.0" encoding="UTF-8"?>
@@ -243,9 +243,7 @@ class TestJunitXmlImport:
         report_path = tmp_path / "junit.xml"
         report_path.write_text(xml_content)
 
-        result = import_bdd_report(
-            tmp_path, "task-0001", str(report_path), "junit-xml"
-        )
+        result = import_bdd_report(tmp_path, "task-0001", str(report_path), "junit-xml")
 
         assert result["result"] == "passed"
 
@@ -254,6 +252,4 @@ class TestJunitXmlImport:
         report_path = tmp_path / "bad.xml"
         report_path.write_text("not xml <><><>")
         with pytest.raises(LaunchError, match="Invalid JUnit XML"):
-            import_bdd_report(
-                tmp_path, "task-0001", str(report_path), "junit-xml"
-            )
+            import_bdd_report(tmp_path, "task-0001", str(report_path), "junit-xml")

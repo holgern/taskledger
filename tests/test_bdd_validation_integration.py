@@ -12,7 +12,9 @@ runner = CliRunner()
 
 
 class TestBddValidationIntegration:
-    def test_import_bdd_report_creates_validation_checks(self, tmp_path, monkeypatch) -> None:
+    def test_import_bdd_report_creates_validation_checks(
+        self, tmp_path, monkeypatch
+    ) -> None:
         """Import BDD report should create validation checks for linked criteria."""
         monkeypatch.chdir(tmp_path)
         _init_project(tmp_path)
@@ -21,13 +23,26 @@ class TestBddValidationIntegration:
         runner.invoke(app, ["bdd", "init", "--feature", "Test feature"])
         runner.invoke(
             app,
-            ["bdd", "example", "add", "--title", "Test passes",
-             "--given", "a", "--when", "b", "--then", "c",
-             "--acceptance-criterion", "ac-0001"],
+            [
+                "bdd",
+                "example",
+                "add",
+                "--title",
+                "Test passes",
+                "--given",
+                "a",
+                "--when",
+                "b",
+                "--then",
+                "c",
+                "--acceptance-criterion",
+                "ac-0001",
+            ],
         )
 
         # Create Cucumber JSON report
         import json as json_mod
+
         report = [
             {
                 "name": "Test feature",
@@ -56,10 +71,14 @@ class TestBddValidationIntegration:
         result = runner.invoke(
             app,
             [
-                "--json", "validate", "import-bdd-report",
+                "--json",
+                "validate",
+                "import-bdd-report",
                 str(report_path),
-                "--format", "cucumber-json",
-                "--command", "pytest -q",
+                "--format",
+                "cucumber-json",
+                "--command",
+                "pytest -q",
             ],
         )
         assert result.exit_code == 0
@@ -68,7 +87,9 @@ class TestBddValidationIntegration:
         assert "bdd-0001" in payload["result"]["matched_examples"]
         assert payload["result"]["result"] == "passed"
 
-    def test_failing_bdd_report_blocks_validation_finish(self, tmp_path, monkeypatch) -> None:
+    def test_failing_bdd_report_blocks_validation_finish(
+        self, tmp_path, monkeypatch
+    ) -> None:
         """Failing BDD report should block validate finish --result passed."""
         monkeypatch.chdir(tmp_path)
         _init_project(tmp_path)
@@ -77,9 +98,21 @@ class TestBddValidationIntegration:
         runner.invoke(app, ["bdd", "init", "--feature", "Test feature"])
         runner.invoke(
             app,
-            ["bdd", "example", "add", "--title", "Test fails",
-             "--given", "a", "--when", "b", "--then", "c",
-             "--acceptance-criterion", "ac-0001"],
+            [
+                "bdd",
+                "example",
+                "add",
+                "--title",
+                "Test fails",
+                "--given",
+                "a",
+                "--when",
+                "b",
+                "--then",
+                "c",
+                "--acceptance-criterion",
+                "ac-0001",
+            ],
         )
 
         # Create failing Cucumber JSON report
@@ -116,9 +149,12 @@ class TestBddValidationIntegration:
         runner.invoke(
             app,
             [
-                "--json", "validate", "import-bdd-report",
+                "--json",
+                "validate",
+                "import-bdd-report",
                 str(report_path),
-                "--format", "cucumber-json",
+                "--format",
+                "cucumber-json",
             ],
         )
 

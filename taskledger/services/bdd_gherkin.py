@@ -35,9 +35,7 @@ def export_gherkin(
     try:
         out_path.resolve().relative_to(workspace_root.resolve())
     except ValueError:
-        raise LaunchError(
-            f"Output path must be within workspace: {out}"
-        ) from None
+        raise LaunchError(f"Output path must be within workspace: {out}") from None
 
     # Load data
     feature = load_bdd_feature(workspace_root, task_id)

@@ -118,14 +118,18 @@ class TestGherkinExport:
             "task-0001",
             title="Example under rule 2",
             rule_id="rule-0002",
-            given=("x",), when=("y",), then=("z",),
+            given=("x",),
+            when=("y",),
+            then=("z",),
         )
         bdd_example_add(
             tmp_path,
             "task-0001",
             title="Example under rule 1",
             rule_id="rule-0001",
-            given=("a",), when=("b",), then=("c",),
+            given=("a",),
+            when=("b",),
+            then=("c",),
         )
 
         out1 = tmp_path / "out1.feature"
@@ -158,7 +162,9 @@ class TestGherkinExport:
             tmp_path,
             "task-0001",
             title="Tagged example",
-            given=("x",), when=("y",), then=("z",),
+            given=("x",),
+            when=("y",),
+            then=("z",),
         )
 
         out = tmp_path / "test.feature"

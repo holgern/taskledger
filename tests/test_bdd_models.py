@@ -141,9 +141,15 @@ class TestBddExampleRecord:
         d = rec.to_dict()
         restored = BddExampleRecord.from_dict(d)
         assert restored == rec
-        assert restored.given == ("a task has a proposed plan", "the plan has not been approved")
+        assert restored.given == (
+            "a task has a proposed plan",
+            "the plan has not been approved",
+        )
         assert restored.when == ("the agent starts implementation",)
-        assert restored.then == ("implementation is blocked", "the task remains before implementing")
+        assert restored.then == (
+            "implementation is blocked",
+            "the task remains before implementing",
+        )
         assert restored.acceptance_criteria == ("ac-0001",)
 
     def test_from_dict_invalid_type(self) -> None:

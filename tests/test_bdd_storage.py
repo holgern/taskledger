@@ -71,17 +71,13 @@ class TestBddRuleStorage:
         assert load_bdd_rules(tmp_path, "task-9999") == []
 
     def test_resolve_rule(self, tmp_path) -> None:
-        rule = BddRuleRecord(
-            id="rule-0001", task_id="task-0001", title="Test rule"
-        )
+        rule = BddRuleRecord(id="rule-0001", task_id="task-0001", title="Test rule")
         save_bdd_rule(tmp_path, rule)
         resolved = resolve_bdd_rule(tmp_path, "task-0001", "rule-0001")
         assert resolved.id == "rule-0001"
 
     def test_resolve_rule_normalized(self, tmp_path) -> None:
-        rule = BddRuleRecord(
-            id="rule-0001", task_id="task-0001", title="Test rule"
-        )
+        rule = BddRuleRecord(id="rule-0001", task_id="task-0001", title="Test rule")
         save_bdd_rule(tmp_path, rule)
         resolved = resolve_bdd_rule(tmp_path, "task-0001", "rule-1")
         assert resolved.id == "rule-0001"
@@ -120,17 +116,13 @@ class TestBddExampleStorage:
         assert load_bdd_examples(tmp_path, "task-9999") == []
 
     def test_resolve_example(self, tmp_path) -> None:
-        example = BddExampleRecord(
-            id="bdd-0001", task_id="task-0001", title="Test"
-        )
+        example = BddExampleRecord(id="bdd-0001", task_id="task-0001", title="Test")
         save_bdd_example(tmp_path, example)
         resolved = resolve_bdd_example(tmp_path, "task-0001", "bdd-0001")
         assert resolved.id == "bdd-0001"
 
     def test_resolve_example_normalized(self, tmp_path) -> None:
-        example = BddExampleRecord(
-            id="bdd-0001", task_id="task-0001", title="Test"
-        )
+        example = BddExampleRecord(id="bdd-0001", task_id="task-0001", title="Test")
         save_bdd_example(tmp_path, example)
         resolved = resolve_bdd_example(tmp_path, "task-0001", "bdd-1")
         assert resolved.id == "bdd-0001"

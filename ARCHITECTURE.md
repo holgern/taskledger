@@ -1,7 +1,7 @@
 ---
 title: "Architecture Documentation"
-date: "1980-01-01"
-generator: "archledger 0.1.1.dev13+g9edca5498"
+date: "2026-05-25"
+generator: "archledger 0.2.1.dev3+gaf0af85a8.d20260606"
 arc42_template_version: "9.0-EN"
 ---
 

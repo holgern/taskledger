@@ -832,7 +832,6 @@ def handoff_markdown_path(paths: V2Paths, task_id: str, handoff_id: str) -> Path
     return task_handoffs_dir(paths, task_id) / f"{handoff_id}.md"
 
 
-
 def task_bdd_dir(paths: V2Paths, task_id: str) -> Path:
     """Return the BDD root directory for a task."""
     return task_dir(paths, task_id) / "bdd"
@@ -871,6 +870,7 @@ def bdd_example_markdown_path(paths: V2Paths, task_id: str, example_id: str) -> 
 def bdd_report_markdown_path(paths: V2Paths, task_id: str, report_id: str) -> Path:
     """Return the markdown path for a BDD report."""
     return bdd_reports_dir(paths, task_id) / f"{report_id}.md"
+
 
 def release_filename(version: str) -> str:
     normalized = version.strip()
@@ -1133,7 +1133,9 @@ def load_bdd_feature(workspace_root: Path, task_id: str) -> BddFeatureRecord | N
     return _load_record(path, BddFeatureRecord.from_dict)
 
 
-def save_bdd_feature(workspace_root: Path, feature: BddFeatureRecord) -> BddFeatureRecord:
+def save_bdd_feature(
+    workspace_root: Path, feature: BddFeatureRecord
+) -> BddFeatureRecord:
     """Save a BDD feature record."""
     paths = ensure_v2_layout(workspace_root)
     _ensure_task_bundle(paths, feature.task_id)
@@ -1181,12 +1183,17 @@ def load_bdd_examples(workspace_root: Path, task_id: str) -> list[BddExampleReco
     if not directory.exists():
         return []
     return sorted(
-        [_load_record(p, BddExampleRecord.from_dict) for p in directory.glob("bdd-*.md")],
+        [
+            _load_record(p, BddExampleRecord.from_dict)
+            for p in directory.glob("bdd-*.md")
+        ],
         key=lambda e: e.id,
     )
 
 
-def save_bdd_example(workspace_root: Path, example: BddExampleRecord) -> BddExampleRecord:
+def save_bdd_example(
+    workspace_root: Path, example: BddExampleRecord
+) -> BddExampleRecord:
     """Save a BDD example record."""
     paths = ensure_v2_layout(workspace_root)
     _ensure_task_bundle(paths, example.task_id)
@@ -1227,7 +1234,10 @@ def load_bdd_reports(workspace_root: Path, task_id: str) -> list[BddReportRecord
     if not directory.exists():
         return []
     return sorted(
-        [_load_record(p, BddReportRecord.from_dict) for p in directory.glob("bdd-report-*.md")],
+        [
+            _load_record(p, BddReportRecord.from_dict)
+            for p in directory.glob("bdd-report-*.md")
+        ],
         key=lambda r: r.id,
     )
 

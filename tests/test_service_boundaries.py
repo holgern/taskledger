@@ -23,7 +23,6 @@ FUNCTION_LINE_WHITELIST: dict[str, str] = {
         "Sync command registration currently co-locates legacy sync, archive alias,"
         " git sync, and hook command wiring."
     ),
-
 }
 
 CLI_SERVICES_IMPORT_WHITELIST: dict[str, str] = {

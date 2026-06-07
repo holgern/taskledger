@@ -29,9 +29,7 @@ class TestBddInit:
         monkeypatch.chdir(tmp_path)
         _init_project(tmp_path)
 
-        result = runner.invoke(
-            app, ["bdd", "init", "--feature", "Test feature"]
-        )
+        result = runner.invoke(app, ["bdd", "init", "--feature", "Test feature"])
         assert result.exit_code == 0
         assert "BDD initialized" in result.stdout
 
@@ -106,12 +104,20 @@ class TestBddExampleCommands:
         result = runner.invoke(
             app,
             [
-                "--json", "bdd", "example", "add",
-                "--title", "Test scenario",
-                "--given", "something",
-                "--when", "action",
-                "--then", "result",
-                "--acceptance-criterion", "ac-0001",
+                "--json",
+                "bdd",
+                "example",
+                "add",
+                "--title",
+                "Test scenario",
+                "--given",
+                "something",
+                "--when",
+                "action",
+                "--then",
+                "result",
+                "--acceptance-criterion",
+                "ac-0001",
             ],
         )
         assert result.exit_code == 0
@@ -128,8 +134,19 @@ class TestBddExampleCommands:
         runner.invoke(app, ["bdd", "init", "--feature", "Test"])
         runner.invoke(
             app,
-            ["bdd", "example", "add", "--title", "Ex1",
-             "--given", "a", "--when", "b", "--then", "c"],
+            [
+                "bdd",
+                "example",
+                "add",
+                "--title",
+                "Ex1",
+                "--given",
+                "a",
+                "--when",
+                "b",
+                "--then",
+                "c",
+            ],
         )
 
         result = runner.invoke(app, ["--json", "bdd", "example", "list"])
@@ -143,8 +160,19 @@ class TestBddExampleCommands:
         runner.invoke(app, ["bdd", "init", "--feature", "Test"])
         runner.invoke(
             app,
-            ["bdd", "example", "add", "--title", "Ex1",
-             "--given", "a", "--when", "b", "--then", "c"],
+            [
+                "bdd",
+                "example",
+                "add",
+                "--title",
+                "Ex1",
+                "--given",
+                "a",
+                "--when",
+                "b",
+                "--then",
+                "c",
+            ],
         )
 
         result = runner.invoke(app, ["--json", "bdd", "example", "show", "bdd-0001"])
@@ -158,8 +186,19 @@ class TestBddExampleCommands:
         runner.invoke(app, ["bdd", "init", "--feature", "Test"])
         runner.invoke(
             app,
-            ["bdd", "example", "add", "--title", "Ex1",
-             "--given", "a", "--when", "b", "--then", "c"],
+            [
+                "bdd",
+                "example",
+                "add",
+                "--title",
+                "Ex1",
+                "--given",
+                "a",
+                "--when",
+                "b",
+                "--then",
+                "c",
+            ],
         )
 
         result = runner.invoke(
@@ -178,14 +217,23 @@ class TestBddGherkinExport:
         runner.invoke(app, ["bdd", "init", "--feature", "Test feature"])
         runner.invoke(
             app,
-            ["bdd", "example", "add", "--title", "Test scenario",
-             "--given", "a", "--when", "b", "--then", "c"],
+            [
+                "bdd",
+                "example",
+                "add",
+                "--title",
+                "Test scenario",
+                "--given",
+                "a",
+                "--when",
+                "b",
+                "--then",
+                "c",
+            ],
         )
 
         out = str(tmp_path / "test.feature")
-        result = runner.invoke(
-            app, ["--json", "bdd", "gherkin-export", "--out", out]
-        )
+        result = runner.invoke(app, ["--json", "bdd", "gherkin-export", "--out", out])
         assert result.exit_code == 0
         payload = json.loads(result.stdout)
         assert payload["ok"] is True
@@ -199,9 +247,21 @@ class TestBddArchledgerBridge:
         runner.invoke(app, ["bdd", "init", "--feature", "Test feature"])
         runner.invoke(
             app,
-            ["bdd", "example", "add", "--title", "Lifecycle gate test",
-             "--given", "a task", "--when", "action", "--then", "result",
-             "--acceptance-criterion", "ac-0001"],
+            [
+                "bdd",
+                "example",
+                "add",
+                "--title",
+                "Lifecycle gate test",
+                "--given",
+                "a task",
+                "--when",
+                "action",
+                "--then",
+                "result",
+                "--acceptance-criterion",
+                "ac-0001",
+            ],
         )
 
         out = str(tmp_path / "candidate.md")
@@ -219,14 +279,31 @@ class TestBddArchledgerBridge:
         runner.invoke(app, ["bdd", "init", "--feature", "Test feature"])
         runner.invoke(
             app,
-            ["bdd", "example", "add", "--title", "Test",
-             "--given", "a", "--when", "b", "--then", "c"],
+            [
+                "bdd",
+                "example",
+                "add",
+                "--title",
+                "Test",
+                "--given",
+                "a",
+                "--when",
+                "b",
+                "--then",
+                "c",
+            ],
         )
 
         result = runner.invoke(
             app,
-            ["--json", "bdd", "example", "link-archledger",
-             "bdd-0001", "al_runtime_0123"],
+            [
+                "--json",
+                "bdd",
+                "example",
+                "link-archledger",
+                "bdd-0001",
+                "al_runtime_0123",
+            ],
         )
         assert result.exit_code == 0
         payload = json.loads(result.stdout)

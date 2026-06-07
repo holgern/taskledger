@@ -63,6 +63,7 @@ def dashboard(
         load_bdd_reports,
         load_bdd_rules,
     )
+
     bdd_feature = load_bdd_feature(workspace_root, task.id)
     bdd_rules = load_bdd_rules(workspace_root, task.id)
     bdd_examples = load_bdd_examples(workspace_root, task.id)
@@ -326,6 +327,7 @@ def render_dashboard_text(payload: dict[str, object]) -> str:  # noqa: C901
 
     # bdd
     from typing import cast
+
     bdd_raw = payload.get("bdd")
     if isinstance(bdd_raw, dict):
         bdd_dict = cast(dict[str, object], bdd_raw)
@@ -352,7 +354,7 @@ def render_dashboard_text(payload: dict[str, object]) -> str:  # noqa: C901
             item = cast(dict[str, object], item_raw)
             archledger_refs = item.get("archledger_refs", [])
             if isinstance(archledger_refs, list) and archledger_refs:
-                ref_parts = ', '.join(str(r) for r in archledger_refs)
+                ref_parts = ", ".join(str(r) for r in archledger_refs)
                 archledger = f" [Archledger: {ref_parts}]"
             else:
                 archledger = ""
@@ -365,7 +367,7 @@ def render_dashboard_text(payload: dict[str, object]) -> str:  # noqa: C901
                 f"  {item.get('id', '?')} [{item.get('status', '?')}]"
                 f" {item.get('title', '?')}{ac_str}{archledger}"
             )
-        report_count_raw = bdd_dict.get('reports', 0)
+        report_count_raw = bdd_dict.get("reports", 0)
         report_count = report_count_raw if isinstance(report_count_raw, int) else 0
         if report_count:
             lines.append(f"  Reports: {report_count}")

@@ -293,8 +293,18 @@ def register_validate_v2_commands(app: typer.Typer) -> None:
     def import_bdd_report_command(
         ctx: typer.Context,
         source_path: Annotated[str, typer.Argument(help="Path to report file.")],
-        format: Annotated[str, typer.Option("--format", "-f", help="Report format: cucumber-json, junit-xml.")],
-        command: Annotated[str, typer.Option("--command", "-c", help="Test command that produced the report.")] = "",
+        format: Annotated[
+            str,
+            typer.Option(
+                "--format", "-f", help="Report format: cucumber-json, junit-xml."
+            ),
+        ],
+        command: Annotated[
+            str,
+            typer.Option(
+                "--command", "-c", help="Test command that produced the report."
+            ),
+        ] = "",
         task_ref: TaskOption = None,
     ) -> None:
         """Import BDD report results into validation checks."""
