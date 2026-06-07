@@ -2,18 +2,25 @@
 schema_version: 2
 id: al_adr_0051
 type: adr
-title: "External skill packaging"
+title: External skill packaging
 status: accepted
 section: architecture_decisions
 order: 60
 date: "2026-05-23"
-deciders: []
+deciders:
+  - taskledger maintainers
 supersedes: []
 related: []
 tags: []
 body_format: markdown
 created_at: "2026-05-23T12:31:04Z"
-updated_at: "2026-05-23T12:31:04Z"
+updated_at: "2026-06-07T11:50:18Z"
+source_refs:
+  - path: pyproject.toml
+    role: implements
+    reason: Package-data boundary excludes skills
+test_refs:
+  - tests/test_docs_and_skill.py
 ---
 
 ## Context

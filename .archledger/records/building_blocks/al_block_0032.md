@@ -19,4 +19,4 @@ created_at: "2026-05-23T12:30:29Z"
 updated_at: "2026-05-23T12:30:29Z"
 ---
 
-Orchestrates lifecycle flows by coordinating between Domain (policies, models) and Storage (persistence). Key modules: `tasks.py` (core lifecycle operations), `planning_flow.py`, `implementation_flow.py`, `validation_flow.py`, `handoff.py` + `handoff_lifecycle.py`, `doctor.py`, `navigation.py`, `worker_pipeline.py`, `dashboard.py`. Services gather context from storage, call domain policies, and persist results.
+Orchestrates lifecycle flows by coordinating Domain policies and records with Storage. Focused services own planning, implementation, validation, handoffs, doctor checks, navigation, worker pipelines, archival, code-review evidence, BDD/Gherkin exchange and report import, event logging, exports, dashboard assembly, and TUI read models. `tasks.py` remains the compatibility-oriented lifecycle facade while ownership is progressively extracted into focused modules.

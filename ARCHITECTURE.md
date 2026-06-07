@@ -1,6 +1,6 @@
 ---
 title: "Architecture Documentation"
-date: "2026-05-25"
+date: "2026-06-07"
 generator: "archledger 0.2.1.dev3+gaf0af85a8.d20260606"
 arc42_template_version: "9.0-EN"
 ---
@@ -107,6 +107,7 @@ taskledger uses a layered architecture with clear dependency direction: upper la
 3. **Services Layer** (`taskledger/services/*.py`) — Orchestration logic: lifecycle flows (planning, implementation, validation), handoff rendering, doctor checks, dashboard assembly.
 4. **Domain Layer** (`taskledger/domain/*.py`) — Pure data models, state enums, normalization, and policy decisions. No I/O, no file system access.
 5. **Storage Layer** (`taskledger/storage/*.py`) — File system operations: front matter read/write, atomic writes, lock files, index rebuilds, migrations.
+6. **Human Presentation Layer** (`taskledger/tui/`, dashboard/report services) — Optional read-only views assembled from service read models; mutations still go through CLI/API lifecycle gates.
 
 Key architectural choices:
 
@@ -114,6 +115,7 @@ Key architectural choices:
 - **JSON indexes as derived caches** — Index files under `.taskledger/indexes/` are rebuilt from canonical records by `taskledger reindex`. They are never the source of truth.
 - **Policy-based gate decisions** — All lifecycle transitions go through functions in `taskledger/domain/policies.py` that return `Decision` objects with `allowed`, `code`, `message`, and `exit_code`. This keeps gate logic testable and separate from I/O.
 - **Atomic file writes** — All writes use `atomic_write_text` (write to temp, `os.replace`) to prevent partial writes on crash.
+- **Evidence as sidecars** — BDD examples/reports and code-review records extend traceability without introducing new lifecycle stages or weakening validation gates.
 
 ## Maintenance
 
@@ -224,7 +226,7 @@ Each task is stored as a **task bundle directory** under `.taskledger/ledgers/<l
 
 ## Motivation
 
-taskledger decomposes into five layers with strict downward dependency flow. This decomposition isolates I/O (storage), business rules (domain), orchestration (services), and presentation (CLI/API).
+taskledger decomposes into core layers with downward dependency flow plus human-facing read-only presentations. This isolates persistence, business rules, orchestration, public interfaces, and optional terminal/HTML views.
 
 ## Contained building blocks
 
@@ -233,6 +235,7 @@ taskledger decomposes into five layers with strict downward dependency flow. Thi
 3. **Services Layer** (`al_block_0032`) — Lifecycle orchestration, handoffs, inspection
 4. **Domain Layer** (`al_block_0033`) — Models, state machines, policies (no I/O)
 5. **Storage Layer** (`al_block_0034`) — File system persistence, atomic writes, layout
+6. **Human Presentation Layer** (`al_block_0083`) — Read-only TUI, dashboard, and reports assembled from service read models
 
 ## Important interfaces
 
@@ -249,9 +252,9 @@ taskledger decomposes into five layers with strict downward dependency flow. Thi
 **Interfaces:**
 **Location:**
 
-Handles command parsing via Typer, task reference resolution (`--task` option, active task default), and output rendering (human text or JSON envelope via `cli_common.py`). Registers 41 command groups from `COMMAND_METADATA`: `actor`, `can`, `commands`, `context`, `deps`, `doctor`, `export`, `file`, `grep`, `handoff`, `harness`, `implement`, `import`, `init`, `intro`, `ledger`, `link`, `lock`, `migrate`, `next-action`, `pipeline`, `plan`, `question`, `reindex`, `release`, `repair`, `report`, `require`, `review`, `search`, `serve`, `snapshot`, `status`, `storage`, `sync`, `symbols`, `task`, `todo`, `tree`, `validate`, `view`. The `review` group provides code-review record support (`review record`, `review list`, `review show`).
+Handles command parsing via Typer, task reference resolution (`--task` option, active task default), and output rendering (human text or JSON envelope via `cli_common.py`). Command families include the canonical lifecycle plus `bdd`, `review`, `config`, task archive operations, reporting, transfer/sync, diagnostics, and the optional read-only `tui`.
 
-Source refs: `taskledger/cli.py`, `taskledger/cli_common.py`, `taskledger/cli_task.py`, `taskledger/cli_plan.py`, `taskledger/cli_implement.py`, `taskledger/cli_validate.py`, `taskledger/cli_misc.py`.
+Source refs: `taskledger/cli.py`, `taskledger/cli_common.py`, `taskledger/command_inventory.py`, and the focused `taskledger/cli_*.py` registration modules.
 
 #### API Layer
 
@@ -267,7 +270,7 @@ Stable Python function wrappers under `taskledger/api/` that mirror the CLI surf
 **Interfaces:**
 **Location:**
 
-Orchestrates lifecycle flows by coordinating between Domain (policies, models) and Storage (persistence). Key modules: `tasks.py` (core lifecycle operations), `planning_flow.py`, `implementation_flow.py`, `validation_flow.py`, `handoff.py` + `handoff_lifecycle.py`, `doctor.py`, `navigation.py`, `worker_pipeline.py`, `dashboard.py`. Services gather context from storage, call domain policies, and persist results.
+Orchestrates lifecycle flows by coordinating Domain policies and records with Storage. Focused services own planning, implementation, validation, handoffs, doctor checks, navigation, worker pipelines, archival, code-review evidence, BDD/Gherkin exchange and report import, event logging, exports, dashboard assembly, and TUI read models. `tasks.py` remains the compatibility-oriented lifecycle facade while ownership is progressively extracted into focused modules.
 
 #### Domain Layer
 
@@ -275,7 +278,7 @@ Orchestrates lifecycle flows by coordinating between Domain (policies, models) a
 **Interfaces:**
 **Location:**
 
-Pure data models, state enums, normalization, and policy decisions with zero I/O dependencies. Defines `TaskRecord`, `PlanRecord`, `TaskRunRecord`, `TaskLock`, `TaskHandoffRecord`, `TaskEvent`, `ActorRef`, `HarnessRef`, and sidecar types (`TaskTodo`, `FileLink`, `AcceptanceCriterion`, `ValidationCheck`). State machine transitions in `states.py`. Policy decisions in `policies.py` return `Decision` objects. All models have `to_dict()` / `from_dict()` for serialization.
+Data models, state enums, normalization, and policy decisions without storage I/O. Besides lifecycle and sidecar records, the domain now defines BDD feature/rule/example/report records and append-only code-review records. State transitions remain in `states.py`; policy decisions in `policies.py` return structured `Decision` objects.
 
 #### Storage Layer
 
@@ -283,7 +286,17 @@ Pure data models, state enums, normalization, and policy decisions with zero I/O
 **Interfaces:**
 **Location:**
 
-File system persistence for all canonical records. Implements the v2 task bundle layout where each task is a directory under `.taskledger/ledgers/<ledger_ref>/` with sidecar collections for plans, runs, locks, todos, questions, changes, checks, handoffs, and links. Event logging is opt-in (disabled by default) via `[event_logging] enabled = true`; when enabled, append-only `TaskEvent` records are stored in the ledger-level `events/` directory, not per-task sidecars. Key modules: `task_store.py` (CRUD, layout resolution), `frontmatter.py` (YAML/Markdown serialization), `atomic.py` (atomic writes), `locks.py` (lock file operations), `indexes.py` (index rebuilds), `events.py` (append-only event log), `paths.py` (project discovery), `project_config.py` (taskledger.toml parsing), `migrations.py` (storage version upgrades).
+File system persistence for canonical records. Storage layout version 3 keeps each task in `.taskledger/ledgers/<ledger_ref>/tasks/<task-id>/`, with independently addressable sidecars including plans, runs, locks, todos, questions, changes, checks, handoffs, links, BDD records, and code reviews. Ledger-level collections hold events, introductions, releases, and rebuildable indexes. Event logging remains opt-in. Project config edits use structured TOML handling rather than ad hoc text replacement.
+
+#### Human Presentation Layer
+
+**Parent:** al_block_0029
+**Interfaces:** Service read models -> terminal TUI, Dashboard/report payloads -> HTML or Markdown
+**Location:** taskledger/tui/, taskledger/services/tui_read_model.py, taskledger/services/dashboard.py, taskledger/services/task_reports.py
+
+Optional human-facing views over the same durable task records used by CLI and API operations. The Textual TUI presents task lists, plan review, todos, implementation, code reviews, validation, files, events, and raw reports. HTML dashboard and Markdown report services provide related inspection and sharing views.
+
+This layer is read-only with respect to lifecycle state. Users invoke explicit CLI commands for mutations, preserving approval, lock, todo, and validation gates.
 
 # Runtime View
 
@@ -293,6 +306,8 @@ The runtime view traces the main operational scenarios through the system:
 2. **Lock lifecycle** — Starting a stage (planning/implementation/validation) acquires a lock and creates a run. Locks have lease timers and heartbeats. Stale locks require explicit break flow with audit trail.
 3. **Handoff flow** — A worker creates a handoff with generated context (task state, plan, todos, questions, lock info). Another worker claims it, optionally transferring the lock. The handoff is closed when the receiving worker completes.
 4. **Doctor checks** — Inspects lock/run consistency, front matter integrity, index staleness, and storage layout version. Reports diagnostics with severity, code, and repair hints.
+5. **BDD evidence flow** — BDD examples link to acceptance criteria and optional Archledger records, export tagged Gherkin, and import Cucumber/JUnit results into durable reports and validation evidence.
+6. **Code-review evidence** — A reviewer records append-only review evidence against an implementation run, handoff, worker step, working tree, or commit. This is evidence attached to the task, not a new lifecycle stage.
 
 ## Task lifecycle: create through done
 
@@ -450,6 +465,15 @@ The runtime view traces the main operational scenarios through the system:
 
 **Key source**: `taskledger/services/worker_pipeline.py`, `taskledger/cli_pipeline.py`, `taskledger/services/handoff.py`.
 
+## BDD example to validation evidence
+
+1. An actor initializes a BDD feature for a managed task and adds rules and Given/When/Then examples.
+2. Each example links to acceptance-criterion IDs and may link to Archledger records.
+3. `bdd gherkin-export` emits a `.feature` artifact with stable traceability tags.
+4. An external BDD runner executes the artifact; taskledger does not run that tool.
+5. `bdd report import` reads Cucumber JSON or JUnit XML, matches scenarios by stable tags, and stores a durable report.
+6. Matched results become validation evidence; normal latest-check-wins and mandatory-criterion gates still decide completion.
+
 # Deployment View
 
 taskledger is a single-node, file-system-based tool. Deployment consists of:
@@ -490,6 +514,8 @@ Cross-cutting concerns that span multiple layers:
 - **Atomic file writes**: All file writes go through `atomic_write_text` (temp file → `os.replace` → directory fsync) to prevent corruption.
 - **Opt-in event logging**: When `[event_logging] enabled = true`, mutations append immutable `TaskEvent` records to the ledger-level `events/` directory under `.taskledger/ledgers/<ledger_ref>/`. When disabled (default), no new event records are written; existing records remain readable. Events track who did what, when, and why. Source: `taskledger/storage/events.py`, `taskledger/services/task_events.py`.
 - **Exit code taxonomy**: Errors map to stable exit codes (0=success, 1=generic, 2=bad input, 3=workflow rejection, 4=lock conflict, 5=missing, 6=storage, 7=validation failed).
+- **Traceability metadata**: BDD examples may bind acceptance-criterion IDs and Archledger IDs. Gherkin export preserves stable task, BDD, criterion, and architecture tags so imported automation results can be matched without parsing prose.
+- **Read-model reuse**: `view`, HTML reports/dashboard, and the optional TUI consume service-level read models. These presentations are read-only and do not bypass lifecycle services.
 
 ## Actor metadata and role semantics
 
@@ -517,6 +543,18 @@ When `[event_logging] enabled = true` in `taskledger.toml`, mutations append an 
 
 Stable exit codes for CLI and error classification: 0 (success), 1 (generic failure), 2 (bad input), 3 (workflow rejection — invalid transition, approval required, dependency blocked), 4 (lock conflict — stale lock requires break), 5 (not found / no active task), 6 (storage error / data integrity), 7 (validation failed). Defined in `taskledger/domain/states.py` and `taskledger/errors.py`. Agents and CI pipelines rely on specific codes for automation.
 
+## BDD traceability and report evidence
+
+BDD is an optional traceability overlay on a managed task. Features contain rules and Given/When/Then examples. Examples can reference canonical acceptance-criterion IDs and Archledger record IDs.
+
+Gherkin export is an exchange artifact, not canonical state. Stable tags preserve task, example, criterion, and architecture identities. Imported Cucumber JSON or JUnit XML is matched back to examples and persisted as report evidence that can contribute validation checks. Normal lifecycle and validation gates remain authoritative.
+
+## Durable code-review evidence
+
+Code review is durable evidence attached to a task. A record captures result, summary/body, reviewer and harness, implementation run, worker step, handoff, and optional Git working-tree or commit metadata.
+
+Review records are append-only and may be recorded after a task reaches `done`. They do not create a lifecycle stage, reopen completed work, replace acceptance criteria, or weaken validation completion rules.
+
 # Architecture Decisions
 
 Key architecture decisions documented as ADR records:
@@ -532,7 +570,7 @@ Key architecture decisions documented as ADR records:
 
 **Status:** accepted
 **Date:** 2026-05-23
-**Deciders:**
+**Deciders:** taskledger maintainers
 **Supersedes:**
 **Related:**
 
@@ -561,7 +599,7 @@ Store all records as Markdown files with YAML front matter (`---` delimited). Me
 
 **Status:** accepted
 **Date:** 2026-05-23
-**Deciders:**
+**Deciders:** taskledger maintainers
 **Supersedes:**
 **Related:**
 
@@ -590,7 +628,7 @@ Maintain JSON index files under `.taskledger/indexes/` as derived caches. They a
 
 **Status:** accepted
 **Date:** 2026-05-23
-**Deciders:**
+**Deciders:** taskledger maintainers
 **Supersedes:**
 **Related:**
 
@@ -618,7 +656,7 @@ Implement lifecycle gates as pure policy functions in `taskledger/domain/policie
 
 **Status:** accepted
 **Date:** 2026-05-23
-**Deciders:**
+**Deciders:** taskledger maintainers
 **Supersedes:**
 **Related:**
 
@@ -646,7 +684,7 @@ Use Typer (built on Click) for the CLI. Typer provides type-annotated parameters
 
 **Status:** accepted
 **Date:** 2026-05-23
-**Deciders:**
+**Deciders:** taskledger maintainers
 **Supersedes:**
 **Related:**
 
@@ -673,7 +711,7 @@ Use a directory-per-task layout (v2 bundle) under `.taskledger/ledgers/<ledger_r
 
 **Status:** accepted
 **Date:** 2026-05-23
-**Deciders:**
+**Deciders:** taskledger maintainers
 **Supersedes:**
 **Related:**
 

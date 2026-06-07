@@ -2,18 +2,25 @@
 schema_version: 2
 id: al_adr_0048
 type: adr
-title: "Explicit lifecycle gates with policy decisions"
+title: Explicit lifecycle gates with policy decisions
 status: accepted
 section: architecture_decisions
 order: 30
 date: "2026-05-23"
-deciders: []
+deciders:
+  - taskledger maintainers
 supersedes: []
 related: []
 tags: []
 body_format: markdown
 created_at: "2026-05-23T12:31:02Z"
-updated_at: "2026-05-23T12:31:02Z"
+updated_at: "2026-06-07T11:50:16Z"
+source_refs:
+  - path: taskledger/domain/policies.py
+    role: implements
+    reason: Lifecycle gate decisions
+test_refs:
+  - tests/test_domain_policies.py
 ---
 
 ## Context

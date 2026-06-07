@@ -19,4 +19,4 @@ created_at: "2026-05-23T12:30:29Z"
 updated_at: "2026-05-23T12:30:29Z"
 ---
 
-Pure data models, state enums, normalization, and policy decisions with zero I/O dependencies. Defines `TaskRecord`, `PlanRecord`, `TaskRunRecord`, `TaskLock`, `TaskHandoffRecord`, `TaskEvent`, `ActorRef`, `HarnessRef`, and sidecar types (`TaskTodo`, `FileLink`, `AcceptanceCriterion`, `ValidationCheck`). State machine transitions in `states.py`. Policy decisions in `policies.py` return `Decision` objects. All models have `to_dict()` / `from_dict()` for serialization.
+Data models, state enums, normalization, and policy decisions without storage I/O. Besides lifecycle and sidecar records, the domain now defines BDD feature/rule/example/report records and append-only code-review records. State transitions remain in `states.py`; policy decisions in `policies.py` return structured `Decision` objects.

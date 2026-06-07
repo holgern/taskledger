@@ -19,7 +19,7 @@ updated_at: "2026-05-23T12:30:16Z"
 
 ## Motivation
 
-taskledger decomposes into five layers with strict downward dependency flow. This decomposition isolates I/O (storage), business rules (domain), orchestration (services), and presentation (CLI/API).
+taskledger decomposes into core layers with downward dependency flow plus human-facing read-only presentations. This isolates persistence, business rules, orchestration, public interfaces, and optional terminal/HTML views.
 
 ## Contained building blocks
 
@@ -28,6 +28,7 @@ taskledger decomposes into five layers with strict downward dependency flow. Thi
 3. **Services Layer** (`al_block_0032`) — Lifecycle orchestration, handoffs, inspection
 4. **Domain Layer** (`al_block_0033`) — Models, state machines, policies (no I/O)
 5. **Storage Layer** (`al_block_0034`) — File system persistence, atomic writes, layout
+6. **Human Presentation Layer** (`al_block_0083`) — Read-only TUI, dashboard, and reports assembled from service read models
 
 ## Important interfaces
 

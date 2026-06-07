@@ -18,3 +18,5 @@ The runtime view traces the main operational scenarios through the system:
 2. **Lock lifecycle** — Starting a stage (planning/implementation/validation) acquires a lock and creates a run. Locks have lease timers and heartbeats. Stale locks require explicit break flow with audit trail.
 3. **Handoff flow** — A worker creates a handoff with generated context (task state, plan, todos, questions, lock info). Another worker claims it, optionally transferring the lock. The handoff is closed when the receiving worker completes.
 4. **Doctor checks** — Inspects lock/run consistency, front matter integrity, index staleness, and storage layout version. Reports diagnostics with severity, code, and repair hints.
+5. **BDD evidence flow** — BDD examples link to acceptance criteria and optional Archledger records, export tagged Gherkin, and import Cucumber/JUnit results into durable reports and validation evidence.
+6. **Code-review evidence** — A reviewer records append-only review evidence against an implementation run, handoff, worker step, working tree, or commit. This is evidence attached to the task, not a new lifecycle stage.

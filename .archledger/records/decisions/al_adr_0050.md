@@ -2,18 +2,25 @@
 schema_version: 2
 id: al_adr_0050
 type: adr
-title: "Task bundle directory layout"
+title: Task bundle directory layout
 status: accepted
 section: architecture_decisions
 order: 50
 date: "2026-05-23"
-deciders: []
+deciders:
+  - taskledger maintainers
 supersedes: []
 related: []
 tags: []
 body_format: markdown
 created_at: "2026-05-23T12:31:03Z"
-updated_at: "2026-05-23T12:31:03Z"
+updated_at: "2026-06-07T11:50:17Z"
+source_refs:
+  - path: taskledger/storage/task_store.py
+    role: implements
+    reason: Task bundle layout v3
+test_refs:
+  - tests/test_storage_bundle_layout.py
 ---
 
 ## Context

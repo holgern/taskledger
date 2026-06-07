@@ -2,18 +2,25 @@
 schema_version: 2
 id: al_adr_0049
 type: adr
-title: "Typer CLI framework"
+title: Typer CLI framework
 status: accepted
 section: architecture_decisions
 order: 40
 date: "2026-05-23"
-deciders: []
+deciders:
+  - taskledger maintainers
 supersedes: []
 related: []
 tags: []
 body_format: markdown
 created_at: "2026-05-23T12:31:03Z"
-updated_at: "2026-05-23T12:31:03Z"
+updated_at: "2026-06-07T11:50:17Z"
+source_refs:
+  - path: taskledger/cli.py
+    role: implements
+    reason: Root Typer application and command registration
+test_refs:
+  - tests/test_help_subprocess.py
 ---
 
 ## Context
