@@ -350,6 +350,8 @@ def _build_check_evidence(
         f"status: {status}",
         f"task: {task_id}",
         f"imported_at: {imported_at}",
+        f"bdd_example: {example.id}",
+        f"acceptance_criteria: {','.join(example.acceptance_criteria)}",
     ]
     if command:
         evidence_items.append(f"command: {command}")

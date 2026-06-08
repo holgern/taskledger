@@ -550,3 +550,14 @@ taskledger handoff create --mode validation --intended-actor agent --intended-ha
 taskledger task dossier --format markdown
 taskledger task export task-0030 -o task-0030.llm.md
 ```
+
+## Task-centered traceability
+
+Taskledger owns temporal work truth. SpecWeave owns executable behavior truth.
+Archledger owns durable architecture/specification truth. Use explicit file or
+ID links between ledgers.
+
+Use `taskledger trace TASK --format json` for a read-only `combi.trace.v1`
+bundle that exposes task IDs, accepted AC IDs, task-local BDD IDs, imported
+evidence refs, source/test refs, implementation/review refs, and Archledger
+provenance. Missing BDD mappings or evidence must remain visible gaps.

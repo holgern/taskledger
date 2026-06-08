@@ -798,3 +798,15 @@ Full release-readiness sweep:
 ```bash
 make release-check
 ```
+
+## Task-centered traceability
+
+Taskledger owns temporal work truth: tasks, plans, acceptance criteria,
+implementation changes, validation checks, reviews, locks, and handoffs.
+SpecWeave owns executable behavior truth. Archledger owns durable architecture
+and specification truth. Cross-ledger links are explicit file or ID references.
+
+Run `taskledger trace TASK --format json` for a read-only `combi.trace.v1`
+bundle that links task history, accepted AC IDs, task-local BDD mappings,
+imported evidence, source/test refs, reviews, and Archledger provenance. Missing
+BDD mappings or missing evidence are trace gaps, not passing validation.

@@ -61,6 +61,7 @@ AGENT_GOLDEN_PATH_COMMANDS: tuple[str, ...] = (
     "task follow-up",
     "next-action",
     "context",
+    "trace",
     "can",
     "plan start",
     "plan template",
@@ -176,6 +177,13 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         PRIMARY,
         PHASE_REPORTING,
         tier=TIER_CRITICAL,
+        ledger_effect=EFFECT_READ,
+    ),
+    "trace": CommandSpec(
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        PRIMARY,
+        PHASE_REPORTING,
         ledger_effect=EFFECT_READ,
     ),
     "config list": CommandSpec(

@@ -67,6 +67,17 @@ def _render_validation_status(payload: dict[str, Any]) -> str:
             lines.append(f"      evidence: {', '.join(evidence)}")
     lines.append("")
 
+    behavior_evidence = payload.get("behavior_evidence", {})
+    if behavior_evidence:
+        lines.append("Behavior evidence:")
+        states = behavior_evidence.get("states", {})
+        if isinstance(states, dict) and states:
+            for example_id, state in states.items():
+                lines.append(f"  - {example_id}: {state}")
+        else:
+            lines.append("  none linked")
+        lines.append("")
+
     todos = payload.get("todos", {})
     open_todos = todos.get("open_mandatory", [])
     if open_todos:

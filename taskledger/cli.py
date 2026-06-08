@@ -79,6 +79,7 @@ from taskledger.cli_review import register_review_commands
 from taskledger.cli_storage import register_storage_commands
 from taskledger.cli_sync import register_sync_commands
 from taskledger.cli_task import register_task_v2_commands
+from taskledger.cli_trace import register_trace_command
 from taskledger.cli_validate import register_validate_v2_commands
 from taskledger.command_inventory import COMMAND_METADATA
 from taskledger.errors import LaunchError, OptionalCommandGroupUnavailable
@@ -186,6 +187,7 @@ register_pipeline_commands(pipeline_app)
 register_review_commands(review_app)
 register_config_commands(config_app)
 register_bdd_commands(bdd_app)
+register_trace_command(app)
 
 
 def _optional_group_failure(

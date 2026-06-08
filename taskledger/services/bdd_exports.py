@@ -38,6 +38,15 @@ def build_bdd_export_payload(workspace_root: Path, task_id: str) -> dict[str, An
                 "when": list(example.when),
                 "then": list(example.then),
                 "acceptance_criteria": list(example.acceptance_criteria),
+                "traceability_tags": [
+                    f"@{tag}"
+                    for tag in (
+                        example.task_id,
+                        example.id,
+                        *example.acceptance_criteria,
+                    )
+                    if tag
+                ],
             }
         )
         automation = example.automation
@@ -77,6 +86,13 @@ def build_bdd_export_payload(workspace_root: Path, task_id: str) -> dict[str, An
         "producer": "taskledger",
         "kind": "task_bdd_spec",
         "task_id": task_id,
+        "ownership": {
+            "canonical_behavior_specs": (
+                "specs/behavior/features/<area>/<feature>.feature"
+            ),
+            "canonical_behavior_owner": "SpecWeave",
+            "taskledger_role": "task-local planning and evidence overlay",
+        },
         "feature": feature.title if feature else "",
         "rules": rules_payload,
         "examples": examples_payload,
