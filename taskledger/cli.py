@@ -12,9 +12,11 @@ import click
 import typer
 
 try:
-    from typer._click.exceptions import ClickException as _TyperClickException
+    from typer._click import exceptions as _typer_click_exceptions
 except ImportError:  # pragma: no cover - older Typer
-    _TyperClickException: type | None = None
+    TyperClickException: Any = None
+else:
+    TyperClickException = _typer_click_exceptions.ClickException
 from taskledger._version import __version__
 from taskledger.api.handoff import render_handoff
 from taskledger.api.project import (
@@ -1576,7 +1578,7 @@ def _is_json_content(path: Path) -> bool:
 
 _CLICK_EXCEPTION_TYPES: tuple[type[Exception], ...] = (
     click.ClickException,
-    *([_TyperClickException] if _TyperClickException else []),
+    *([TyperClickException] if TyperClickException is not None else []),
 )
 
 
@@ -1586,25 +1588,26 @@ def cli_main() -> None:
     try:
         app(prog_name="taskledger", args=list(argv), standalone_mode=False)
     except _CLICK_EXCEPTION_TYPES as exc:
+        click_exc = cast(click.ClickException, exc)
         if json_requested:
-            command = _usage_error_command(argv, exc)
+            command = _usage_error_command(argv, click_exc)
             error_payload = {
                 "ok": False,
                 "command": command,
                 "error": {
                     "code": "USAGE_ERROR",
-                    "message": str(exc),
+                    "message": str(click_exc),
                     "remediation": _usage_error_remediation(
                         argv,
                         command=command,
-                        message=str(exc),
+                        message=str(click_exc),
                     ),
-                    "exit_code": exc.exit_code,
+                    "exit_code": click_exc.exit_code,
                 },
             }
             typer.echo(render_json(error_payload))
         else:
-            exc.show()
-        raise SystemExit(exc.exit_code) from exc
+            click_exc.show()
+        raise SystemExit(click_exc.exit_code) from click_exc
     except typer.Exit as exc:
         raise SystemExit(exc.exit_code) from exc
