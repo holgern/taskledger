@@ -305,6 +305,8 @@ class BddReportRecord:
     result: str = "unknown"  # passed | failed | unknown
     example_results: tuple[dict[str, object], ...] = ()
     validation_check_refs: tuple[str, ...] = ()
+    unmatched_count: int = 0
+    has_unmatched_failures: bool = False
     file_version: str = TASKLEDGER_V2_FILE_VERSION
     schema_version: int = TASKLEDGER_SCHEMA_VERSION
     object_type: str = "bdd_report"
@@ -321,6 +323,8 @@ class BddReportRecord:
             "result": self.result,
             "example_results": list(self.example_results),
             "validation_check_refs": list(self.validation_check_refs),
+            "unmatched_count": self.unmatched_count,
+            "has_unmatched_failures": self.has_unmatched_failures,
             "file_version": self.file_version,
             "schema_version": self.schema_version,
             "object_type": self.object_type,
@@ -355,6 +359,8 @@ class BddReportRecord:
             result=_optional_string(data.get("result")) or "unknown",
             example_results=tuple(example_results),
             validation_check_refs=_string_tuple(data.get("validation_check_refs")),
+            unmatched_count=_int_or_default(data.get("unmatched_count"), 0),
+            has_unmatched_failures=bool(data.get("has_unmatched_failures", False)),
             file_version=_optional_string(data.get("file_version"))
             or TASKLEDGER_V2_FILE_VERSION,
             schema_version=_int_or_default(

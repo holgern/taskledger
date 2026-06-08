@@ -180,6 +180,11 @@ def import_bdd_report(
             }
         )
 
+    unmatched_count = len(unmatched)
+    has_unmatched_failures = any(
+        u.get("status", "unknown") != "passed" for u in unmatched
+    )
+
     reports_existing = _count_reports(workspace_root, task_id)
     report_id = f"bdd-report-{reports_existing + 1:04d}"
 
@@ -193,6 +198,8 @@ def import_bdd_report(
         result=_overall_result(matched),
         example_results=tuple(example_results),
         validation_check_refs=(),
+        unmatched_count=unmatched_count,
+        has_unmatched_failures=has_unmatched_failures,
     )
     save_bdd_report(workspace_root, report)
 
@@ -206,14 +213,19 @@ def import_bdd_report(
         "validation_checks": [
             {
                 "check_id": None,
+                "name": c.name,
                 "criterion_id": c.criterion_id,
                 "status": c.status,
+                "details": c.details,
+                "evidence": list(c.evidence),
                 "example_id": _find_example_for_check(c, matched),
             }
             for c in validation_checks
         ],
         "result": report.result,
         "warnings": [f"Unmatched scenario: {u.get('name', '?')}" for u in unmatched],
+        "unmatched_count": unmatched_count,
+        "has_unmatched_failures": has_unmatched_failures,
     }
 
 
@@ -270,21 +282,24 @@ def _parse_cucumber_json(path: Path) -> list[dict[str, Any]]:
                     elif isinstance(t, str):
                         tags.append(t.lstrip("@"))
 
-            # Determine status from steps
+            # Determine status from steps. Any non-`passed` step fails the
+            # scenario: failed/ambiguous/error are hard failures, while
+            # skipped/pending/undefined/unknown are treated as non-passing so
+            # they can never satisfy an acceptance criterion (Finding 1).
             status = "passed"
             error_message = ""
             for step in steps:
                 if not isinstance(step, dict):
                     continue
                 result = step.get("result", {})
-                if isinstance(result, dict):
-                    step_status = result.get("status", "passed")
-                    if step_status == "failed":
-                        status = "failed"
-                        error_message = result.get("error_message", "")
-                        break
-                    elif step_status == "skipped":
-                        pass
+                if not isinstance(result, dict):
+                    continue
+                step_status = str(result.get("status", "passed")).strip().lower()
+                if step_status == "passed":
+                    continue
+                status = step_status or "unknown"
+                error_message = str(result.get("error_message", ""))
+                break
 
             scenarios.append(
                 {

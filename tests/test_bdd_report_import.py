@@ -100,7 +100,58 @@ class TestCucumberJsonImport:
         )
 
         assert result["result"] == "failed"
+        assert result["result"] == "failed"
         assert result["validation_checks"][0]["status"] == "fail"
+
+    @pytest.mark.parametrize(
+        "step_status",
+        ["skipped", "pending", "undefined", "ambiguous", "error", "unknown"],
+    )
+    def test_import_non_passed_cucumber_report_does_not_pass(
+        self, tmp_path, step_status
+    ) -> None:
+        """Any non-`passed` Cucumber step must fail the scenario (Finding 1)."""
+        bdd_init(tmp_path, "task-0001", "Test feature")
+        bdd_example_add(
+            tmp_path,
+            "task-0001",
+            title="Flaky scenario",
+            given=("something",),
+            when=("action",),
+            then=("result",),
+            acceptance_criteria=("ac-0001",),
+        )
+
+        report = [
+            {
+                "name": "Test feature",
+                "elements": [
+                    {
+                        "type": "scenario",
+                        "name": "Flaky scenario",
+                        "steps": [
+                            {
+                                "name": "action",
+                                "result": {
+                                    "status": step_status,
+                                    "error_message": f"step was {step_status}",
+                                },
+                            },
+                        ],
+                    }
+                ],
+            }
+        ]
+        report_path = tmp_path / "cucumber.json"
+        report_path.write_text(json.dumps(report))
+
+        result = import_bdd_report(
+            tmp_path, "task-0001", str(report_path), "cucumber-json"
+        )
+
+        assert result["result"] == "failed"
+        assert result["validation_checks"][0]["status"] == "fail"
+        assert result["validation_checks"][0]["criterion_id"] == "ac-0001"
 
     def test_import_unmatched_scenarios(self, tmp_path) -> None:
         """Test importing report with unmatched scenarios."""
@@ -138,6 +189,76 @@ class TestCucumberJsonImport:
         assert len(result["matched_examples"]) == 0
         assert "Unknown scenario" in result["unmatched_scenarios"]
         assert len(result["warnings"]) == 1
+        # Finding 8 (additive): unmatched reporting is surfaced but does not
+        # change overall result semantics.
+        assert result["unmatched_count"] == 1
+        assert result["has_unmatched_failures"] is False
+        assert result["result"] == "unknown"  # no matched scenarios
+
+        from taskledger.storage.task_store import load_bdd_reports
+
+        reports = load_bdd_reports(tmp_path, "task-0001")
+        assert reports[0].unmatched_count == 1
+        assert reports[0].has_unmatched_failures is False
+
+    def test_import_unmatched_failing_scenario_surfaces_flag(self, tmp_path) -> None:
+        """An unmatched failing scenario sets has_unmatched_failures (Finding 8)."""
+        bdd_init(tmp_path, "task-0001", "Test feature")
+        bdd_example_add(
+            tmp_path,
+            "task-0001",
+            title="Known scenario",
+            given=("x",),
+            when=("y",),
+            then=("z",),
+            acceptance_criteria=("ac-0001",),
+        )
+
+        report = [
+            {
+                "name": "Test feature",
+                "elements": [
+                    {
+                        "type": "scenario",
+                        "name": "Known scenario",
+                        "steps": [
+                            {
+                                "name": "step",
+                                "result": {"status": "passed"},
+                            },
+                        ],
+                    },
+                    {
+                        "type": "scenario",
+                        "name": "Unknown failing scenario",
+                        "steps": [
+                            {
+                                "name": "step",
+                                "result": {
+                                    "status": "failed",
+                                    "error_message": "boom",
+                                },
+                            },
+                        ],
+                    },
+                ],
+            }
+        ]
+        report_path = tmp_path / "cucumber.json"
+        report_path.write_text(json.dumps(report))
+
+        result = import_bdd_report(
+            tmp_path, "task-0001", str(report_path), "cucumber-json"
+        )
+
+        assert "Known scenario" in result["matched_examples"] or (
+            "bdd-0001" in result["matched_examples"]
+        )
+        assert result["matched_examples"] == ["bdd-0001"]
+        assert result["unmatched_count"] == 1
+        assert result["has_unmatched_failures"] is True
+        # Overall result stays scoped to matched scenarios (additive only).
+        assert result["result"] == "passed"
 
     def test_import_missing_file(self, tmp_path) -> None:
         """Test importing a missing report file."""

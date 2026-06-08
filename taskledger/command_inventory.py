@@ -1659,6 +1659,13 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         PHASE_PLANNING,
         ledger_effect=EFFECT_WRITE,
     ),
+    "bdd example link-automation": CommandSpec(
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        SUPPORT,
+        PHASE_PLANNING,
+        ledger_effect=EFFECT_WRITE,
+    ),
     "bdd gherkin-export": CommandSpec(
         STABLE_FOR_AGENTS,
         EXTERNAL_FILE_WRITE,

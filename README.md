@@ -431,7 +431,7 @@ Install the optional Textual dependency to use the terminal navigator:
 ```bash
 python -m pip install -e '.[tui]'
 taskledger tui
-taskledger tui task-0040
+taskledger tui --task task-0040
 taskledger tui --refresh-seconds 5
 taskledger tui --layout compact
 ```

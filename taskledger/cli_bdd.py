@@ -11,6 +11,7 @@ from taskledger.api.bdd import (
     bdd_example_add,
     bdd_example_link_ac,
     bdd_example_link_archledger,
+    bdd_example_link_automation,
     bdd_example_list,
     bdd_example_show,
     bdd_init,
@@ -251,6 +252,36 @@ def _register_bdd_example_commands(app: typer.Typer) -> None:
             task_rec = resolve_cli_task(state.cwd, task)
             payload = bdd_example_link_archledger(
                 state.cwd, task_rec.id, example_id, archledger_ref
+            )
+        except (LaunchError, Exception) as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, payload, human=_render_bdd_example(payload))
+
+    @example_app.command("link-automation")
+    def bdd_example_link_automation_cmd(
+        ctx: typer.Context,
+        example_id: Annotated[str, typer.Argument(help="Example ID (e.g. bdd-0001).")],
+        feature_file: Annotated[
+            str,
+            typer.Option(
+                "--feature-file",
+                "-f",
+                help="Path to the .feature file that automates this example.",
+            ),
+        ],
+        scenario: Annotated[
+            str,
+            typer.Option("--scenario", help="Scenario name in the feature file."),
+        ] = "",
+        task: TaskOption = None,
+    ) -> None:
+        """Record the automation feature file for a BDD example."""
+        state = cli_state_from_context(ctx)
+        try:
+            task_rec = resolve_cli_task(state.cwd, task)
+            payload = bdd_example_link_automation(
+                state.cwd, task_rec.id, example_id, feature_file, scenario
             )
         except (LaunchError, Exception) as exc:
             emit_error(ctx, exc)

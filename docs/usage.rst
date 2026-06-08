@@ -431,7 +431,7 @@ want to browse tasks inside the terminal. It depends on the optional
 
    python -m pip install -e ".[tui]"
    taskledger tui
-   taskledger tui task-0040
+   taskledger tui --task task-0040
    taskledger tui --refresh-seconds 5
    taskledger tui --include-archived
    taskledger tui --layout compact

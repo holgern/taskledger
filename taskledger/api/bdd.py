@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from taskledger.domain.bdd import (
+    BddAutomationRef,
     BddExampleRecord,
     BddExampleStatus,
     BddFeatureRecord,
@@ -19,6 +20,8 @@ from taskledger.storage.task_store import (
     load_bdd_rules,
     resolve_bdd_example,
     resolve_bdd_rule,
+    resolve_plan,
+    resolve_task,
     save_bdd_example,
     save_bdd_feature,
     save_bdd_rule,
@@ -38,6 +41,85 @@ def _next_id(items: list[Any], prefix: str) -> str:
             except ValueError:
                 pass
     return f"{prefix}-{max_num + 1:04d}"
+
+
+def _resolve_criterion_in_plan(
+    criterion_ref: str, plan_criteria: dict[str, str]
+) -> str | None:
+    """Match a criterion ref against accepted-plan criterion ids.
+
+    ``plan_criteria`` maps lowercased criterion id to its canonical id.
+    Matches exact id (case-insensitive) and ``<prefix>-<int>`` forms so
+    ``ac-1`` resolves to ``ac-0001``.
+    """
+    ref = criterion_ref.strip().lower()
+    if ref in plan_criteria:
+        return plan_criteria[ref]
+    ref_parts = ref.split("-", 1)
+    if len(ref_parts) != 2:
+        return None
+    for c_id_lower, canonical in plan_criteria.items():
+        parts = c_id_lower.split("-", 1)
+        if len(parts) != 2 or parts[0] != ref_parts[0]:
+            continue
+        try:
+            if int(parts[1]) == int(ref_parts[1]):
+                return canonical
+        except ValueError:
+            continue
+    return None
+
+
+def _validate_acceptance_criteria(
+    workspace_root: Path,
+    task_id: str,
+    criteria: tuple[str, ...],
+) -> list[str]:
+    """Validate acceptance-criterion refs (Finding 7).
+
+    Returns warning strings for criteria that could not be verified because
+    no plan is accepted yet (early discovery stays allowed). Raises
+    LaunchError when a criterion is not present in the accepted plan, so
+    typos cannot pollute automation evidence.
+    """
+    warnings: list[str] = []
+    if not criteria:
+        return warnings
+    # A resolvable task with an accepted plan enables strict validation;
+    # anything else (no task record, no accepted plan, no plan file) keeps
+    # early BDD discovery allowed with a warning.
+    try:
+        task = resolve_task(workspace_root, task_id)
+    except LaunchError:
+        task = None
+    accepted_plan_version = task.accepted_plan_version if task else None
+    if accepted_plan_version is None:
+        for criterion_id in criteria:
+            warnings.append(
+                f"Acceptance criterion {criterion_id} could not be verified: "
+                "no accepted plan yet."
+            )
+        return warnings
+    try:
+        plan = resolve_plan(workspace_root, task_id, version=accepted_plan_version)
+    except LaunchError:
+        for criterion_id in criteria:
+            warnings.append(
+                f"Acceptance criterion {criterion_id} could not be verified: "
+                "accepted plan not found."
+            )
+        return warnings
+    plan_criteria = {c.id.lower(): c.id for c in plan.criteria}
+    if not plan_criteria:
+        warnings.append("Accepted plan has no acceptance criteria defined.")
+        return warnings
+    for criterion_id in criteria:
+        if _resolve_criterion_in_plan(criterion_id, plan_criteria) is None:
+            raise LaunchError(
+                f"Acceptance criterion {criterion_id} is not in the accepted "
+                f"plan v{accepted_plan_version}."
+            )
+    return warnings
 
 
 def bdd_init(
@@ -145,6 +227,15 @@ def bdd_example_add(
     acceptance_criteria: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     """Add a BDD example."""
+    # Finding 7: validate rule and acceptance-criterion refs early so typos
+    # cannot pollute automation evidence. Early discovery (no accepted plan)
+    # stays allowed with a payload warning.
+    if rule_id:
+        resolve_bdd_rule(workspace_root, task_id, rule_id)
+    warnings = _validate_acceptance_criteria(
+        workspace_root, task_id, acceptance_criteria
+    )
+
     examples = load_bdd_examples(workspace_root, task_id)
     example_id = _next_id(examples, "bdd")
 
@@ -171,6 +262,7 @@ def bdd_example_add(
         "kind": "bdd_example",
         "task_id": task_id,
         "example": example.to_dict(),
+        "warnings": warnings,
     }
 
 
@@ -203,6 +295,8 @@ def bdd_example_link_ac(
     criterion_id: str,
 ) -> dict[str, Any]:
     """Link a BDD example to an acceptance criterion."""
+    # Finding 7: validate the criterion ref against the accepted plan.
+    warnings = _validate_acceptance_criteria(workspace_root, task_id, (criterion_id,))
     example = resolve_bdd_example(workspace_root, task_id, example_id)
     current_ac = list(example.acceptance_criteria)
     if criterion_id not in current_ac:
@@ -240,6 +334,7 @@ def bdd_example_link_ac(
         "kind": "bdd_example",
         "task_id": task_id,
         "example": updated.to_dict(),
+        "warnings": warnings,
     }
 
 
@@ -271,6 +366,62 @@ def bdd_example_link_archledger(
         file_refs=example.file_refs,
         archledger_refs=tuple(current_refs),
         automation=example.automation,
+        file_version=example.file_version,
+        schema_version=example.schema_version,
+        object_type=example.object_type,
+        created_at=example.created_at,
+        updated_at=utc_now_iso(),
+    )
+    save_bdd_example(workspace_root, updated)
+    return {
+        "kind": "bdd_example",
+        "task_id": task_id,
+        "example": updated.to_dict(),
+    }
+
+
+def bdd_example_link_automation(
+    workspace_root: Path,
+    task_id: str,
+    example_id: str,
+    feature_file: str,
+    scenario: str = "",
+) -> dict[str, Any]:
+    """Record the automation feature file for a BDD example (Finding 5, Option A).
+
+    Keeps ``gherkin-export`` pure/derived while letting the Archledger
+    candidate carry ``source_refs``/``test_refs`` for the recorded feature
+    file. Automation status is preserved; it is advanced to ``automated`` by
+    report import, not by recording a path.
+    """
+    feature_file_clean = feature_file.strip()
+    if not feature_file_clean:
+        raise LaunchError("Feature file path is required.")
+    example = resolve_bdd_example(workspace_root, task_id, example_id)
+    scenario_clean = scenario.strip() or example.automation.scenario
+    new_automation = BddAutomationRef(
+        status=example.automation.status,
+        feature_file=feature_file_clean,
+        scenario=scenario_clean,
+        command=example.automation.command,
+        report_path=example.automation.report_path,
+    )
+    updated = BddExampleRecord(
+        id=example.id,
+        task_id=example.task_id,
+        title=example.title,
+        rule_id=example.rule_id,
+        status=example.status,
+        given=example.given,
+        when=example.when,
+        then=example.then,
+        tags=example.tags,
+        acceptance_criteria=example.acceptance_criteria,
+        question_refs=example.question_refs,
+        todo_refs=example.todo_refs,
+        file_refs=example.file_refs,
+        archledger_refs=example.archledger_refs,
+        automation=new_automation,
         file_version=example.file_version,
         schema_version=example.schema_version,
         object_type=example.object_type,
@@ -416,33 +567,48 @@ def import_bdd_report(
     # Run the core import (parsing, matching, example updates, report save)
     result = _import_bdd_report(workspace_root, task_id, source_path, format, command)
 
-    # Persist validation checks for matched scenarios with linked criteria
+    # Persist validation checks for matched scenarios with linked criteria.
+    # Finding 2: persistence failures for linked criteria must surface, not be
+    # silently swallowed into an empty validation_checks list. Finding 4:
+    # preserve rich check metadata (name/details/evidence/command/report path).
+    linked_checks: list[dict[str, Any]] = list(result.get("validation_checks", []))
     persisted_check_ids: list[str] = []
-    for check_info in result.get("validation_checks", []):
+    persisted_checks: list[dict[str, Any]] = []
+    for check_info in linked_checks:
         criterion_id = check_info.get("criterion_id")
-        status = check_info.get("status", "pass")
         if not criterion_id:
             continue
         try:
             run = add_validation_check(
                 workspace_root,
                 task_id,
-                name=check_info.get("check_id") or f"BDD: {source_path}",
-                criterion_id=criterion_id,
-                status=status,
-                evidence=(f"report: {source_path}",),
+                name=str(check_info.get("name") or f"BDD: {source_path}"),
+                criterion_id=str(criterion_id),
+                status=str(check_info.get("status") or "fail"),
+                details=check_info.get("details"),
+                evidence=tuple(
+                    check_info.get("evidence") or (f"report: {source_path}",)
+                ),
             )
-            # Find the last check in the run (the one we just added)
-            if run.checks:
-                last_check = run.checks[-1]
-                if last_check.id:
-                    persisted_check_ids.append(last_check.id)
-        except LaunchError:
-            # If validation run is not active, skip persistence
-            # but continue with the import result
-            pass
+        except LaunchError as exc:
+            raise LaunchError(
+                "BDD report matched linked acceptance criteria, but validation "
+                f"check persistence failed: {exc}"
+            ) from exc
+        # The last check in the run is the one we just added.
+        check_id = run.checks[-1].id if run.checks else None
+        if check_id:
+            persisted_check_ids.append(check_id)
+        persisted_checks.append(
+            {
+                "check_id": check_id,
+                "criterion_id": check_info.get("criterion_id"),
+                "status": check_info.get("status"),
+                "example_id": check_info.get("example_id"),
+            }
+        )
 
-    # Update the saved BDD report record with persisted check IDs
+    # Update the saved BDD report record with persisted check IDs.
     if persisted_check_ids:
         from taskledger.storage.task_store import load_bdd_reports, save_bdd_report
 
@@ -459,6 +625,8 @@ def import_bdd_report(
                     result=report.result,
                     example_results=report.example_results,
                     validation_check_refs=tuple(persisted_check_ids),
+                    unmatched_count=report.unmatched_count,
+                    has_unmatched_failures=report.has_unmatched_failures,
                     file_version=report.file_version,
                     schema_version=report.schema_version,
                     object_type=report.object_type,
@@ -467,19 +635,5 @@ def import_bdd_report(
                 save_bdd_report(workspace_root, updated_report)
                 break
 
-    # Update result with persisted check IDs
-    persisted_checks = [
-        {
-            "check_id": cid,
-            "criterion_id": cinfo.get("criterion_id"),
-            "status": cinfo.get("status"),
-            "example_id": cinfo.get("example_id"),
-        }
-        for cid, cinfo in zip(
-            persisted_check_ids,
-            result.get("validation_checks", []),
-            strict=False,
-        )
-    ]
     result["validation_checks"] = persisted_checks
     return result

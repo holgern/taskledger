@@ -317,6 +317,7 @@ Taskledger owns task-local BDD records during active work:
 - `taskledger bdd rule add "..."`
 - `taskledger bdd example add --title "..." --given "..." --when "..." --then "..." --acceptance-criterion ac-0001`
 - `taskledger bdd gherkin-export --out tests/bdd/features/<feature>.feature`
+- `taskledger bdd example link-automation bdd-0001 --feature-file tests/bdd/features/<feature>.feature [--scenario "..."]` to record where the example is automated
 - run the project's external Cucumber/pytest-bdd test command
 - `taskledger validate import-bdd-report <report> --format cucumber-json --command "..."`
 - `taskledger bdd example link-archledger bdd-0001 al_runtime_0123` after an
@@ -333,6 +334,10 @@ Rules:
   and SDD traceability.
 - Prefer stable ids and tags (`@task-0001`, `@bdd-0001`, `@ac-0001`) over
   scenario-title matching.
+- Run `taskledger validate import-bdd-report` only during an active validation run for a task with an accepted plan when examples are linked to acceptance criteria.
+- After importing a BDD report, inspect the JSON payload or `taskledger validate status`; linked examples must produce non-empty `validation_checks`.
+- Treat a BDD report import with matched linked examples but zero persisted validation checks as a failure to investigate, not as successful validation evidence.
+- Skipped/pending/undefined BDD scenarios must not satisfy acceptance criteria.
 
 ## Required logging
 

@@ -20,7 +20,6 @@ test_refs:
   - tests/test_code_reviews.py
 ---
 
-
 Code review is durable evidence attached to a task. A record captures result, summary/body, reviewer and harness, implementation run, worker step, handoff, and optional Git working-tree or commit metadata.
 
 Review records are append-only and may be recorded after a task reaches `done`. They do not create a lifecycle stage, reopen completed work, replace acceptance criteria, or weaken validation completion rules.

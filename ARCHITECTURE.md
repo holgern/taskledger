@@ -471,7 +471,7 @@ The runtime view traces the main operational scenarios through the system:
 2. Each example links to acceptance-criterion IDs and may link to Archledger records.
 3. `bdd gherkin-export` emits a `.feature` artifact with stable traceability tags.
 4. An external BDD runner executes the artifact; taskledger does not run that tool.
-5. `bdd report import` reads Cucumber JSON or JUnit XML, matches scenarios by stable tags, and stores a durable report.
+5. `validate import-bdd-report` reads Cucumber JSON or JUnit XML, matches scenarios by stable tags, and stores a durable report.
 6. Matched results become validation evidence; normal latest-check-wins and mandatory-criterion gates still decide completion.
 
 # Deployment View

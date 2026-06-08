@@ -24,7 +24,6 @@ test_refs:
   - tests/test_bdd_validation_integration.py
 ---
 
-
 BDD is an optional traceability overlay on a managed task. Features contain rules and Given/When/Then examples. Examples can reference canonical acceptance-criterion IDs and Archledger record IDs.
 
 Gherkin export is an exchange artifact, not canonical state. Stable tags preserve task, example, criterion, and architecture identities. Imported Cucumber JSON or JUnit XML is matched back to examples and persisted as report evidence that can contribute validation checks. Normal lifecycle and validation gates remain authoritative.
