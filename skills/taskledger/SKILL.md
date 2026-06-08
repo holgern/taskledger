@@ -306,38 +306,64 @@ advanced/compatibility read surfaces. Prefer `context --for ...` and
 - Each waiver must include a reason and is permanently recorded in the validation history.
 - Waived criteria are marked as satisfied for gate checking but remain visible in status reports.
 
-## Optional BDD / Cucumber overlay
+## Optional behavior-spec overlay
 
-Use BDD only when the task benefits from executable behavior examples or when the
-user asks for BDD/Cucumber. Do not add BDD to every task.
+Use behavior specs only when the task benefits from executable behavior examples
+or when the user asks for BDD, Gherkin, SpecWeave, or executable acceptance
+examples. Do not add behavior specs to every task.
 
-Taskledger owns task-local BDD records during active work:
+Taskledger owns task-local BDD/example records during active work:
 
 - `taskledger bdd init --feature "..."`
 - `taskledger bdd rule add "..."`
 - `taskledger bdd example add --title "..." --given "..." --when "..." --then "..." --acceptance-criterion ac-0001`
-- `taskledger bdd gherkin-export --out tests/bdd/features/<feature>.feature`
-- `taskledger bdd example link-automation bdd-0001 --feature-file tests/bdd/features/<feature>.feature [--scenario "..."]` to record where the example is automated
-- run the project's external Cucumber/pytest-bdd test command
-- `taskledger validate import-bdd-report <report> --format cucumber-json --command "..."`
+- optional export of task-local BDD data:
+  `taskledger bdd export-json --out .specweave/mappings/taskledger/<task-id>.bdd.json`
+- `taskledger bdd example link-automation bdd-0001 --feature-file specs/behavior/features/<area>/<feature>.feature --scenario @bdd-example-tag --pytest tests/test_<area>_<feature>.py::test_name`
+- `taskledger validate import-bdd-report <report> --format junit-xml --command "pytest tests/test_<area>_<feature>.py --junitxml=reports/behavior/<area>-<feature>-junit.xml"`
 - `taskledger bdd example link-archledger bdd-0001 al_runtime_0123` after an
   Archledger behavior record exists
 
+Canonical behavior specs belong under:
+
+- `specs/behavior/features/<area>/<feature>.feature`
+
+Executable enforcement belongs to plain pytest files directly under:
+
+- `tests/test_<area>_<feature>.py`
+
+Generated validation reports belong under:
+
+- `reports/behavior/`
+
 Rules:
 
-- BDD is optional and sidecar-based.
-- Keep Taskledger BDD examples linked to plan acceptance criteria.
-- Treat generated `.feature` files as derived from Taskledger unless ownership
-  is explicitly changed.
+- BDD/behavior examples are optional and sidecar-based.
+- Keep Taskledger examples linked to plan acceptance criteria.
+- Treat `taskledger bdd gherkin-export` output as derived unless
+  SpecWeave/project ownership is explicitly established.
+- Do not put `task-0123` or other task IDs into canonical `.feature` paths.
+- Do not recommend tests/bdd/features.
+- Do not recommend specs/bdd/features.
+- Do not recommend pytest-bdd, behave, Cucumber runtime, or step modules.
+- Prefer `specs/behavior/features` for specs and plain `tests/test_*.py` for
+  enforcement.
 - Do not run Cucumber from Archledger.
 - Use Archledger only for durable architecture/specification behavior records
   and SDD traceability.
 - Prefer stable ids and tags (`@task-0001`, `@bdd-0001`, `@ac-0001`) over
   scenario-title matching.
-- Run `taskledger validate import-bdd-report` only during an active validation run for a task with an accepted plan when examples are linked to acceptance criteria.
-- After importing a BDD report, inspect the JSON payload or `taskledger validate status`; linked examples must produce non-empty `validation_checks`.
-- Treat a BDD report import with matched linked examples but zero persisted validation checks as a failure to investigate, not as successful validation evidence.
-- Skipped/pending/undefined BDD scenarios must not satisfy acceptance criteria.
+- Run `taskledger validate import-bdd-report` only during an active validation
+  run for a task with an accepted plan when examples are linked to acceptance
+  criteria.
+- After importing a BDD report, inspect the JSON payload or
+  `taskledger validate status`; linked examples must produce non-empty
+  `validation_checks`.
+- Treat a BDD report import with matched linked examples but zero persisted
+  validation checks as a failure to investigate, not as successful validation
+  evidence.
+- Skipped, xfailed, failed, errored, or missing pytest tests must not satisfy
+  acceptance criteria.
 
 ## Required logging
 

@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from taskledger.api.bdd import bdd_example_add, bdd_init
+from taskledger.api.bdd import bdd_example_add, bdd_example_link_automation, bdd_init
 from taskledger.errors import LaunchError
 from taskledger.services.bdd_reports import import_bdd_report
 
@@ -295,25 +295,52 @@ class TestJunitXmlImport:
             then=("result",),
             acceptance_criteria=("ac-0001",),
         )
+        feature_file, pytest_ref = _write_behavior_assets(tmp_path)
+        bdd_example_link_automation(
+            tmp_path,
+            "task-0001",
+            "bdd-0001",
+            feature_file,
+            "@bdd-junit-test-passes",
+            pytest_ref=pytest_ref,
+        )
 
         xml_content = """<?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
   <testsuite name="BDD Tests" tests="1" failures="0">
-    <testcase name="JUnit test passes" classname="test_bdd">
+    <testcase
+      classname="tests.test_task_management_plan_gates"
+      file="tests/test_task_management_plan_gates.py"
+      name="test_agent_cannot_start_implementation_before_plan_approval">
     </testcase>
   </testsuite>
 </testsuites>"""
         report_path = tmp_path / "junit.xml"
         report_path.write_text(xml_content)
 
+        command = (
+            "pytest tests/test_task_management_plan_gates.py "
+            "--junitxml=reports/behavior/task-management-plan-gates-junit.xml"
+        )
         result = import_bdd_report(
-            tmp_path, "task-0001", str(report_path), "junit-xml", "pytest -q"
+            tmp_path,
+            "task-0001",
+            str(report_path),
+            "junit-xml",
+            command,
         )
 
         assert result["format"] == "junit-xml"
         assert result["result"] == "passed"
         assert "bdd-0001" in result["matched_examples"]
         assert result["validation_checks"][0]["status"] == "pass"
+        evidence = result["validation_checks"][0]["evidence"]
+        assert "pytest_file: tests/test_task_management_plan_gates.py" in evidence
+        assert f"pytest_nodeid: {pytest_ref}" in evidence
+        assert (
+            "feature_file: specs/behavior/features/task-management/plan-gates.feature"
+            in evidence
+        )
 
     def test_import_failing_junit_report(self, tmp_path) -> None:
         """Test importing a failing JUnit XML report."""
@@ -327,11 +354,23 @@ class TestJunitXmlImport:
             then=("z",),
             acceptance_criteria=("ac-0001",),
         )
+        feature_file, pytest_ref = _write_behavior_assets(tmp_path)
+        bdd_example_link_automation(
+            tmp_path,
+            "task-0001",
+            "bdd-0001",
+            feature_file,
+            "JUnit test fails",
+            pytest_ref=pytest_ref,
+        )
 
         xml_content = """<?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
   <testsuite name="BDD Tests" tests="1" failures="1">
-    <testcase name="JUnit test fails" classname="test_bdd">
+    <testcase
+      classname="tests.test_task_management_plan_gates"
+      file="tests/test_task_management_plan_gates.py"
+      name="test_agent_cannot_start_implementation_before_plan_approval">
       <failure message="AssertionError">Expected X but got Y</failure>
     </testcase>
   </testsuite>
@@ -343,6 +382,7 @@ class TestJunitXmlImport:
 
         assert result["result"] == "failed"
         assert result["validation_checks"][0]["status"] == "fail"
+        assert result["validation_checks"][0]["example_id"] == "bdd-0001"
 
     def test_import_junit_with_testsuite_root(self, tmp_path) -> None:
         """Test importing JUnit XML with testsuite as root element."""
@@ -374,3 +414,23 @@ class TestJunitXmlImport:
         report_path.write_text("not xml <><><>")
         with pytest.raises(LaunchError, match="Invalid JUnit XML"):
             import_bdd_report(tmp_path, "task-0001", str(report_path), "junit-xml")
+
+
+def _write_behavior_assets(tmp_path) -> tuple[str, str]:
+    feature_rel = "specs/behavior/features/task-management/plan-gates.feature"
+    feature_path = tmp_path / feature_rel
+    feature_path.parent.mkdir(parents=True, exist_ok=True)
+    feature_path.write_text("Feature: Plan gates\n", encoding="utf-8")
+    pytest_rel = "tests/test_task_management_plan_gates.py"
+    pytest_path = tmp_path / pytest_rel
+    pytest_path.parent.mkdir(parents=True, exist_ok=True)
+    pytest_path.write_text(
+        "def test_agent_cannot_start_implementation_before_plan_approval():\n"
+        "    assert True\n",
+        encoding="utf-8",
+    )
+    pytest_ref = (
+        "tests/test_task_management_plan_gates.py::"
+        "test_agent_cannot_start_implementation_before_plan_approval"
+    )
+    return feature_rel, pytest_ref

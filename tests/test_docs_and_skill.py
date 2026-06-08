@@ -280,6 +280,34 @@ def test_docs_do_not_reference_removed_commands() -> None:
             assert needle not in text, f"{path}: {needle}"
 
 
+def test_bdd_docs_and_skill_prefer_specweave_and_plain_pytest() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    usage = (ROOT / "docs" / "usage.rst").read_text(encoding="utf-8")
+    command_contract = (ROOT / "docs" / "command_contract.rst").read_text(
+        encoding="utf-8"
+    )
+    agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    skill = (ROOT / "skills" / "taskledger" / "SKILL.md").read_text(encoding="utf-8")
+
+    for text in (readme, usage, command_contract, agents, skill):
+        assert "specs/behavior/features/<area>/<feature>.feature" in text
+        assert "tests/test_<area>_<feature>.py" in text
+
+    for text in (readme, usage, command_contract, agents):
+        assert "tests/bdd/features/<feature>.feature" not in text
+        assert "specs/bdd/features/<area>/<feature>.feature" not in text
+        assert "tests/behavior/steps/<area>_<feature>_steps.py" not in text
+        assert "tests/behavior/test_<area>_<feature>_bdd.py" not in text
+
+    assert "reports/behavior/" in readme
+    assert "reports/behavior/" in skill
+    assert "plain pytest" in readme
+    assert "plain pytest" in skill
+    assert "Do not recommend pytest-bdd" in skill
+    assert "Do not recommend tests/bdd/features" in skill
+    assert "Do not recommend specs/bdd/features" in skill
+
+
 def test_readme_links_exist() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     for target in re.findall(r"\[[^\]]+\]\(([^)]+)\)", readme):

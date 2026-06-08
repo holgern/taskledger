@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +29,10 @@ from taskledger.storage.task_store import (
     save_bdd_rule,
 )
 from taskledger.timeutils import utc_now_iso
+
+_FEATURE_SPEC_PATH_RE = re.compile(r"^specs/behavior/features/.+/.+\.feature$")
+_PYTEST_PATH_RE = re.compile(r"^tests/test_[^/]+\.py$")
+_TASK_PREFIX_RE = re.compile(r"^task-\d+")
 
 
 def _next_id(items: list[Any], prefix: str) -> str:
@@ -120,6 +126,86 @@ def _validate_acceptance_criteria(
                 f"plan v{accepted_plan_version}."
             )
     return warnings
+
+
+def _normalize_workspace_relative_path(
+    workspace_root: Path,
+    raw_path: str,
+    *,
+    label: str,
+    must_exist: bool,
+) -> str:
+    cleaned = raw_path.strip()
+    if not cleaned:
+        raise LaunchError(f"{label} is required.")
+    path = Path(cleaned)
+    if not path.is_absolute():
+        path = workspace_root / path
+    resolved = path.resolve()
+    try:
+        rel = resolved.relative_to(workspace_root.resolve()).as_posix()
+    except ValueError:
+        raise LaunchError(f"{label} must be within workspace: {cleaned}") from None
+    if must_exist and not resolved.exists():
+        raise LaunchError(f"{label} not found: {cleaned}")
+    return rel
+
+
+def _validate_feature_spec_path(
+    workspace_root: Path, feature_file: str, *, allow_missing: bool
+) -> str:
+    rel = _normalize_workspace_relative_path(
+        workspace_root,
+        feature_file,
+        label="Feature file path",
+        must_exist=False,
+    )
+    if not _FEATURE_SPEC_PATH_RE.fullmatch(rel):
+        raise LaunchError(
+            "Feature file path must match "
+            "specs/behavior/features/<area>/<feature>.feature."
+        )
+    if rel.startswith("tests/") or "/tests/" in rel:
+        raise LaunchError("Feature file path must not live under tests/.")
+    if _TASK_PREFIX_RE.match(Path(rel).name):
+        raise LaunchError("Feature filename must not start with task-<digits>.")
+    if not allow_missing and not (workspace_root / rel).exists():
+        raise LaunchError(f"Feature file path not found: {feature_file.strip()}")
+    return rel
+
+
+def _normalize_pytest_ref(
+    workspace_root: Path,
+    pytest_ref: str,
+) -> tuple[str, str]:
+    cleaned = pytest_ref.strip()
+    if not cleaned:
+        return "", ""
+    path_part, sep, remainder = cleaned.partition("::")
+    pytest_path = _normalize_workspace_relative_path(
+        workspace_root,
+        path_part,
+        label="Pytest path",
+        must_exist=False,
+    )
+    if not _PYTEST_PATH_RE.fullmatch(pytest_path):
+        raise LaunchError(
+            "Pytest path must match tests/test_<name>.py and must not use subfolders."
+        )
+    pytest_nodeid = f"{pytest_path}::{remainder}" if sep else ""
+    return pytest_path, pytest_nodeid
+
+
+def _resolve_output_path(workspace_root: Path, out: str) -> Path:
+    out_path = Path(out)
+    if not out_path.is_absolute():
+        out_path = workspace_root / out_path
+    resolved = out_path.resolve()
+    try:
+        resolved.relative_to(workspace_root.resolve())
+    except ValueError:
+        raise LaunchError(f"Output path must be within workspace: {out}") from None
+    return resolved
 
 
 def bdd_init(
@@ -386,37 +472,52 @@ def bdd_example_link_automation(
     example_id: str,
     feature_file: str,
     scenario: str = "",
+    pytest_ref: str = "",
+    acceptance_criteria: tuple[str, ...] = (),
+    allow_missing: bool = False,
 ) -> dict[str, Any]:
-    """Record the automation feature file for a BDD example (Finding 5, Option A).
-
-    Keeps ``gherkin-export`` pure/derived while letting the Archledger
-    candidate carry ``source_refs``/``test_refs`` for the recorded feature
-    file. Automation status is preserved; it is advanced to ``automated`` by
-    report import, not by recording a path.
-    """
-    feature_file_clean = feature_file.strip()
-    if not feature_file_clean:
-        raise LaunchError("Feature file path is required.")
+    """Record external behavior-spec and plain-pytest metadata for a BDD example."""
+    feature_file_clean = _validate_feature_spec_path(
+        workspace_root,
+        feature_file,
+        allow_missing=allow_missing,
+    )
+    pytest_path, pytest_nodeid = _normalize_pytest_ref(workspace_root, pytest_ref)
+    warnings = _validate_acceptance_criteria(
+        workspace_root, task_id, acceptance_criteria
+    )
     example = resolve_bdd_example(workspace_root, task_id, example_id)
     scenario_clean = scenario.strip() or example.automation.scenario
+    current_ac = list(example.acceptance_criteria)
+    for criterion_id in acceptance_criteria:
+        if criterion_id not in current_ac:
+            current_ac.append(criterion_id)
+    automation_status = example.automation.status
+    if automation_status == "pending":
+        automation_status = "linked"
     new_automation = BddAutomationRef(
-        status=example.automation.status,
+        status=automation_status,
         feature_file=feature_file_clean,
         scenario=scenario_clean,
+        pytest_path=pytest_path or example.automation.pytest_path,
+        pytest_nodeid=pytest_nodeid or example.automation.pytest_nodeid,
         command=example.automation.command,
         report_path=example.automation.report_path,
     )
+    new_status = example.status
+    if current_ac and example.status in ("discovered", "formulated"):
+        new_status = "linked"
     updated = BddExampleRecord(
         id=example.id,
         task_id=example.task_id,
         title=example.title,
         rule_id=example.rule_id,
-        status=example.status,
+        status=new_status,
         given=example.given,
         when=example.when,
         then=example.then,
         tags=example.tags,
-        acceptance_criteria=example.acceptance_criteria,
+        acceptance_criteria=tuple(current_ac),
         question_refs=example.question_refs,
         todo_refs=example.todo_refs,
         file_refs=example.file_refs,
@@ -433,6 +534,7 @@ def bdd_example_link_automation(
         "kind": "bdd_example",
         "task_id": task_id,
         "example": updated.to_dict(),
+        "warnings": warnings,
     }
 
 
@@ -441,10 +543,33 @@ def bdd_gherkin_export(
     task_id: str,
     out: str,
 ) -> dict[str, Any]:
-    """Export BDD examples as Gherkin .feature file."""
+    """Export BDD examples as a derived Gherkin .feature file."""
     from taskledger.services.bdd_gherkin import export_gherkin
 
     return export_gherkin(workspace_root, task_id, out)
+
+
+def bdd_export_json(
+    workspace_root: Path,
+    task_id: str,
+    out: str,
+) -> dict[str, Any]:
+    """Export task-local BDD data as derived JSON exchange data."""
+    from taskledger.services.bdd_exports import build_bdd_export_payload
+
+    payload = build_bdd_export_payload(workspace_root, task_id)
+    out_path = _resolve_output_path(workspace_root, out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return {
+        "kind": "bdd_export_json",
+        "task_id": task_id,
+        "out": str(out_path),
+        "export": payload,
+    }
 
 
 def bdd_archledger_candidate(
@@ -475,9 +600,12 @@ def bdd_archledger_candidate(
         lines.append("source_refs:")
         lines.append(f"  - path: {example.automation.feature_file}")
         lines.append("    role: documents")
+    if example.automation.pytest_path:
         lines.append("test_refs:")
-        lines.append(f"  - path: {example.automation.feature_file}")
-        lines.append("    kind: bdd")
+        lines.append(f"  - path: {example.automation.pytest_path}")
+        lines.append("    kind: pytest")
+        if example.automation.pytest_nodeid:
+            lines.append(f"    nodeid: {example.automation.pytest_nodeid}")
     lines.append("bdd:")
     feature_rec = load_bdd_feature(workspace_root, task_id)
     lines.append(f"  feature: {feature_rec.title if feature_rec else ''}")
@@ -512,21 +640,18 @@ def bdd_archledger_candidate(
         lines.append("  automation:")
         lines.append(f"    status: {example.automation.status}")
         lines.append(f"    feature_file: {example.automation.feature_file}")
-        lines.append(f"    scenario: {example.title}")
+        lines.append(f"    scenario: {example.automation.scenario or example.title}")
+        if example.automation.pytest_path:
+            lines.append(f"    pytest_path: {example.automation.pytest_path}")
+        if example.automation.pytest_nodeid:
+            lines.append(f"    pytest_nodeid: {example.automation.pytest_nodeid}")
     lines.append("---")
 
     content = "\n".join(lines)
 
     # Write to file if out is specified
     if out:
-        out_path = Path(out)
-        if not out_path.is_absolute():
-            out_path = workspace_root / out_path
-        # Security: refuse paths outside workspace
-        try:
-            out_path.resolve().relative_to(workspace_root.resolve())
-        except ValueError:
-            raise LaunchError(f"Output path must be within workspace: {out}") from None
+        out_path = _resolve_output_path(workspace_root, out)
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(content + "\n", encoding="utf-8")
 
@@ -536,6 +661,8 @@ def bdd_archledger_candidate(
         "task_refs": [task_id],
         "acceptance_criteria": list(example.acceptance_criteria),
         "feature_file": example.automation.feature_file,
+        "pytest_path": example.automation.pytest_path,
+        "pytest_nodeid": example.automation.pytest_nodeid,
         "content": content,
     }
 

@@ -296,7 +296,9 @@ def register_validate_v2_commands(app: typer.Typer) -> None:
         format: Annotated[
             str,
             typer.Option(
-                "--format", "-f", help="Report format: cucumber-json, junit-xml."
+                "--format",
+                "-f",
+                help="Report format: junit-xml or cucumber-json.",
             ),
         ],
         command: Annotated[
@@ -307,7 +309,7 @@ def register_validate_v2_commands(app: typer.Typer) -> None:
         ] = "",
         task_ref: TaskOption = None,
     ) -> None:
-        """Import BDD report results into validation checks."""
+        """Import pytest/JUnit or Cucumber-style behavior evidence into validation."""
         from taskledger.api.bdd import import_bdd_report
 
         state = cli_state_from_context(ctx)

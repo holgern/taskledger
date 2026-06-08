@@ -73,6 +73,49 @@ def _write_cucumber_report(
     return str(report_path)
 
 
+def _write_junit_report(tmp_path, status: str = "passed") -> str:
+    failure_block = (
+        '      <failure message="AssertionError">Expected X but got Y</failure>\n'
+        if status == "failed"
+        else ""
+    )
+    report_path = tmp_path / "junit.xml"
+    report_path.write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        "<testsuites>\n"
+        '  <testsuite name="BDD Tests" tests="1" failures="0">\n'
+        '    <testcase classname="tests.test_task_management_plan_gates" '
+        'file="tests/test_task_management_plan_gates.py" '
+        'name="test_agent_cannot_start_implementation_before_plan_approval">\n'
+        f"{failure_block}"
+        "    </testcase>\n"
+        "  </testsuite>\n"
+        "</testsuites>\n",
+        encoding="utf-8",
+    )
+    return str(report_path)
+
+
+def _write_behavior_assets(tmp_path) -> tuple[str, str]:
+    feature_rel = "specs/behavior/features/task-management/plan-gates.feature"
+    feature_path = tmp_path / feature_rel
+    feature_path.parent.mkdir(parents=True, exist_ok=True)
+    feature_path.write_text("Feature: Plan gates\n", encoding="utf-8")
+    pytest_rel = "tests/test_task_management_plan_gates.py"
+    pytest_path = tmp_path / pytest_rel
+    pytest_path.parent.mkdir(parents=True, exist_ok=True)
+    pytest_path.write_text(
+        "def test_agent_cannot_start_implementation_before_plan_approval():\n"
+        "    assert True\n",
+        encoding="utf-8",
+    )
+    pytest_ref = (
+        "tests/test_task_management_plan_gates.py::"
+        "test_agent_cannot_start_implementation_before_plan_approval"
+    )
+    return feature_rel, pytest_ref
+
+
 class TestBddValidationIntegration:
     def test_import_bdd_report_creates_validation_checks(
         self, tmp_path, monkeypatch
@@ -101,8 +144,24 @@ class TestBddValidationIntegration:
                 "ac-0001",
             ],
         )
+        feature_file, pytest_ref = _write_behavior_assets(tmp_path)
+        runner.invoke(
+            app,
+            [
+                "bdd",
+                "example",
+                "link-automation",
+                "bdd-0001",
+                "--feature-file",
+                feature_file,
+                "--scenario",
+                "@bdd-implementation-blocked-before-plan-acceptance",
+                "--pytest",
+                pytest_ref,
+            ],
+        )
 
-        report_path = _write_cucumber_report(tmp_path, "Test passes", "passed")
+        report_path = _write_junit_report(tmp_path, "passed")
 
         # Import report.
         result = runner.invoke(
@@ -113,9 +172,12 @@ class TestBddValidationIntegration:
                 "import-bdd-report",
                 report_path,
                 "--format",
-                "cucumber-json",
+                "junit-xml",
                 "--command",
-                "pytest -q",
+                (
+                    "pytest tests/test_task_management_plan_gates.py "
+                    "--junitxml=reports/behavior/task-management-plan-gates-junit.xml"
+                ),
             ],
         )
         assert result.exit_code == 0
@@ -145,8 +207,15 @@ class TestBddValidationIntegration:
         assert bdd_check.status == "pass"
         # Finding 4: rich evidence (scenario/command/report path) is preserved.
         evidence_blob = " ".join(bdd_check.evidence)
-        assert "scenario: Test passes" in evidence_blob
-        assert "command: pytest -q" in evidence_blob
+        assert (
+            "scenario: @bdd-implementation-blocked-before-plan-acceptance"
+            in evidence_blob
+        )
+        assert (
+            "command: pytest tests/test_task_management_plan_gates.py" in evidence_blob
+        )
+        assert "pytest_file: tests/test_task_management_plan_gates.py" in evidence_blob
+        assert f"pytest_nodeid: {pytest_ref}" in evidence_blob
         assert "report:" in evidence_blob
 
     def test_failing_bdd_report_blocks_validation_finish(

@@ -45,7 +45,7 @@ class TestGherkinExport:
         assert "Then implementation is blocked" in content
 
     def test_export_ownership_header(self, tmp_path) -> None:
-        """Test that exported .feature files have ownership headers."""
+        """Test that exported .feature files have derived-output headers."""
         bdd_init(tmp_path, "task-0001", "Test feature")
         bdd_example_add(
             tmp_path,
@@ -60,8 +60,9 @@ class TestGherkinExport:
         export_gherkin(tmp_path, "task-0001", str(out))
 
         content = out.read_text()
-        assert "# Generated from Taskledger task task-0001." in content
-        assert "# Edit Taskledger BDD records as canonical source" in content
+        assert "# Generated derived output from Taskledger task task-0001." in content
+        assert "# Prefer SpecWeave-owned specs/behavior/features/" in content
+        assert "# Plain pytest files under tests/" in content
 
     def test_export_refuses_no_formulated_examples(self, tmp_path) -> None:
         """Export should refuse if no formulated examples exist."""
@@ -92,6 +93,28 @@ class TestGherkinExport:
 
         assert len(result["warnings"]) == 1
         assert "no acceptance-criterion link" in result["warnings"][0]
+        assert result["warning_details"] == []
+
+    def test_export_warns_for_deprecated_output_paths(self, tmp_path) -> None:
+        bdd_init(tmp_path, "task-0001", "Test feature")
+        bdd_example_add(
+            tmp_path,
+            "task-0001",
+            title="Warned path",
+            given=("something",),
+            when=("action",),
+            then=("result",),
+        )
+
+        out = tmp_path / "tests" / "bdd" / "features" / "task-0123-warned.feature"
+        result = export_gherkin(tmp_path, "task-0001", str(out))
+
+        assert out.exists()
+        assert (
+            result["warning_details"][0]["code"] == "TLBDD_PATH_DERIVED_NOT_CANONICAL"
+        )
+        assert any("tests/bdd/features/" in item for item in result["warnings"])
+        assert any("task-<digits>" in item for item in result["warnings"])
 
     def test_export_refuses_outside_workspace(self, tmp_path) -> None:
         """Export should refuse paths outside workspace."""

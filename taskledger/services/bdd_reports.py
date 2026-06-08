@@ -47,15 +47,13 @@ def import_bdd_report(
     # Load task examples for matching
     examples = load_bdd_examples(workspace_root, task_id)
 
-    # Build lookup indices
-    examples_by_id: dict[str, BddExampleRecord] = {}
-    examples_by_title: dict[str, BddExampleRecord] = {}
-    examples_by_scenario: dict[str, BddExampleRecord] = {}
-    for e in examples:
-        examples_by_id[e.id] = e
-        examples_by_title[e.title] = e
-        if e.automation.scenario:
-            examples_by_scenario[e.automation.scenario] = e
+    (
+        examples_by_id,
+        examples_by_title,
+        examples_by_scenario,
+        examples_by_pytest_nodeid,
+        examples_by_pytest_path,
+    ) = _build_example_indices(examples)
 
     # Parse report based on format
     if format == "cucumber-json":
@@ -69,24 +67,22 @@ def import_bdd_report(
     matched: list[dict[str, Any]] = []
     unmatched: list[dict[str, Any]] = []
     validation_checks: list[ValidationCheck] = []
-    updated_examples: list[BddExampleRecord] = []
+    imported_at = utc_now_iso()
 
     for scenario in scenarios:
         scenario_name = scenario.get("name", "")
         status = scenario.get("status", "unknown")
         error_message = scenario.get("error_message", "")
-        tags = scenario.get("tags", [])
-
-        # Try to match by @bdd-* tag first
-        example = _match_by_bdd_tag(tags, examples_by_id)
-
-        # Fall back to automation.scenario
-        if example is None:
-            example = examples_by_scenario.get(scenario_name)
-
-        # Fall back to title
-        if example is None:
-            example = examples_by_title.get(scenario_name)
+        pytest_path = str(scenario.get("pytest_path", "") or "")
+        pytest_nodeid = str(scenario.get("pytest_nodeid", "") or "")
+        example = _resolve_example_for_scenario(
+            scenario,
+            examples_by_id=examples_by_id,
+            examples_by_title=examples_by_title,
+            examples_by_scenario=examples_by_scenario,
+            examples_by_pytest_nodeid=examples_by_pytest_nodeid,
+            examples_by_pytest_path=examples_by_pytest_path,
+        )
 
         if example is None:
             unmatched.append(scenario)
@@ -96,7 +92,9 @@ def import_bdd_report(
         new_automation = BddAutomationRef(
             status="automated",
             feature_file=example.automation.feature_file,
-            scenario=scenario_name,
+            scenario=example.automation.scenario or scenario_name,
+            pytest_path=example.automation.pytest_path or pytest_path,
+            pytest_nodeid=example.automation.pytest_nodeid or pytest_nodeid,
             command=command,
             report_path=source_path,
         )
@@ -129,56 +127,29 @@ def import_bdd_report(
             updated_at=utc_now_iso(),
         )
         save_bdd_example(workspace_root, updated)
-        updated_examples.append(updated)
 
         # Create validation check metadata (not persisted here)
-        check_status: str = "pass" if status == "passed" else "fail"
-        for criterion_id in example.acceptance_criteria:
-            check = ValidationCheck(
-                id=None,
-                name=f"BDD: {scenario_name}",
-                criterion_id=criterion_id,
-                status=check_status,  # type: ignore[arg-type]
-                details=(
-                    f"Cucumber scenario {'passed' if status == 'passed' else 'failed'}."
-                    + (f" Error: {error_message}" if error_message else "")
-                ),
-                evidence=(
-                    f"report: {source_path}",
-                    f"scenario: {scenario_name}",
-                    f"command: {command}" if command else "",
-                ),
+        scenario_ref = example.automation.scenario or scenario_name
+        validation_checks.extend(
+            _build_validation_checks(
+                example=example,
+                automation=new_automation,
+                source_path=source_path,
+                task_id=task_id,
+                imported_at=imported_at,
+                command=command,
+                status=status,
+                error_message=error_message,
+                scenario_ref=scenario_ref,
             )
-            validation_checks.append(check)
-
-        matched.append(
-            {
-                "example_id": example.id,
-                "scenario": scenario_name,
-                "status": status,
-                "criterion_ids": list(example.acceptance_criteria),
-                "tags": tags,
-            }
         )
+        matched.append(_matched_result(example, new_automation, scenario_ref, status))
 
     # Save report record
-    example_results = []
-    for m in matched:
-        example_results.append(
-            {
-                "example_id": m["example_id"],
-                "scenario": m["scenario"],
-                "status": m["status"],
-            }
-        )
-    for u in unmatched:
-        example_results.append(
-            {
-                "scenario": u.get("name", ""),
-                "status": u.get("status", "unknown"),
-                "matched": False,
-            }
-        )
+    example_results = [_matched_example_result(item, imported_at) for item in matched]
+    example_results.extend(
+        _unmatched_example_result(item, imported_at) for item in unmatched
+    )
 
     unmatched_count = len(unmatched)
     has_unmatched_failures = any(
@@ -194,7 +165,7 @@ def import_bdd_report(
         source_path=source_path,
         format=format,
         command=command,
-        imported_at=utc_now_iso(),
+        imported_at=imported_at,
         result=_overall_result(matched),
         example_results=tuple(example_results),
         validation_check_refs=(),
@@ -241,6 +212,200 @@ def _match_by_bdd_tag(
             if clean in examples_by_id:
                 return examples_by_id[clean]
     return None
+
+
+def _match_by_pytest_path(
+    pytest_path: str,
+    scenario_name: str,
+    examples_by_pytest_path: dict[str, list[BddExampleRecord]],
+) -> BddExampleRecord | None:
+    candidates = examples_by_pytest_path.get(pytest_path, [])
+    if not candidates:
+        return None
+    if len(candidates) == 1:
+        return candidates[0]
+    for candidate in candidates:
+        if scenario_name and candidate.automation.scenario == scenario_name:
+            return candidate
+        if scenario_name and candidate.title == scenario_name:
+            return candidate
+    return None
+
+
+def _build_example_indices(
+    examples: list[BddExampleRecord],
+) -> tuple[
+    dict[str, BddExampleRecord],
+    dict[str, BddExampleRecord],
+    dict[str, BddExampleRecord],
+    dict[str, BddExampleRecord],
+    dict[str, list[BddExampleRecord]],
+]:
+    examples_by_id: dict[str, BddExampleRecord] = {}
+    examples_by_title: dict[str, BddExampleRecord] = {}
+    examples_by_scenario: dict[str, BddExampleRecord] = {}
+    examples_by_pytest_nodeid: dict[str, BddExampleRecord] = {}
+    examples_by_pytest_path: dict[str, list[BddExampleRecord]] = {}
+    for example in examples:
+        examples_by_id[example.id] = example
+        examples_by_title[example.title] = example
+        if example.automation.scenario:
+            examples_by_scenario[example.automation.scenario] = example
+        if example.automation.pytest_nodeid:
+            examples_by_pytest_nodeid[example.automation.pytest_nodeid] = example
+        if example.automation.pytest_path:
+            examples_by_pytest_path.setdefault(
+                example.automation.pytest_path, []
+            ).append(example)
+    return (
+        examples_by_id,
+        examples_by_title,
+        examples_by_scenario,
+        examples_by_pytest_nodeid,
+        examples_by_pytest_path,
+    )
+
+
+def _resolve_example_for_scenario(
+    scenario: dict[str, Any],
+    *,
+    examples_by_id: dict[str, BddExampleRecord],
+    examples_by_title: dict[str, BddExampleRecord],
+    examples_by_scenario: dict[str, BddExampleRecord],
+    examples_by_pytest_nodeid: dict[str, BddExampleRecord],
+    examples_by_pytest_path: dict[str, list[BddExampleRecord]],
+) -> BddExampleRecord | None:
+    scenario_name = str(scenario.get("name", "") or "")
+    tags = list(scenario.get("tags", []))
+    pytest_path = str(scenario.get("pytest_path", "") or "")
+    pytest_nodeid = str(scenario.get("pytest_nodeid", "") or "")
+    example = _match_by_bdd_tag(tags, examples_by_id)
+    if example is None and pytest_nodeid:
+        example = examples_by_pytest_nodeid.get(pytest_nodeid)
+    if example is None and pytest_path:
+        example = _match_by_pytest_path(
+            pytest_path, scenario_name, examples_by_pytest_path
+        )
+    if example is None:
+        example = examples_by_scenario.get(scenario_name)
+    if example is None:
+        example = examples_by_title.get(scenario_name)
+    return example
+
+
+def _build_validation_checks(
+    *,
+    example: BddExampleRecord,
+    automation: BddAutomationRef,
+    source_path: str,
+    task_id: str,
+    imported_at: str,
+    command: str,
+    status: str,
+    error_message: str,
+    scenario_ref: str,
+) -> list[ValidationCheck]:
+    check_status: str = "pass" if status == "passed" else "fail"
+    checks: list[ValidationCheck] = []
+    for criterion_id in example.acceptance_criteria:
+        checks.append(
+            ValidationCheck(
+                id=None,
+                name=f"BDD: {scenario_ref}",
+                criterion_id=criterion_id,
+                status=check_status,  # type: ignore[arg-type]
+                details=(
+                    f"Behavior evidence reported {status}."
+                    + (f" Error: {error_message}" if error_message else "")
+                ),
+                evidence=_build_check_evidence(
+                    example=example,
+                    automation=automation,
+                    source_path=source_path,
+                    task_id=task_id,
+                    imported_at=imported_at,
+                    command=command,
+                    status=status,
+                    scenario_ref=scenario_ref,
+                ),
+            )
+        )
+    return checks
+
+
+def _build_check_evidence(
+    *,
+    example: BddExampleRecord,
+    automation: BddAutomationRef,
+    source_path: str,
+    task_id: str,
+    imported_at: str,
+    command: str,
+    status: str,
+    scenario_ref: str,
+) -> tuple[str, ...]:
+    evidence_items = [
+        f"report: {source_path}",
+        f"scenario: {scenario_ref}",
+        f"status: {status}",
+        f"task: {task_id}",
+        f"imported_at: {imported_at}",
+    ]
+    if command:
+        evidence_items.append(f"command: {command}")
+    if example.automation.feature_file:
+        evidence_items.append(f"feature_file: {example.automation.feature_file}")
+    if automation.pytest_path:
+        evidence_items.append(f"pytest_file: {automation.pytest_path}")
+    if automation.pytest_nodeid:
+        evidence_items.append(f"pytest_nodeid: {automation.pytest_nodeid}")
+    return tuple(evidence_items)
+
+
+def _matched_result(
+    example: BddExampleRecord,
+    automation: BddAutomationRef,
+    scenario_ref: str,
+    status: str,
+) -> dict[str, Any]:
+    return {
+        "example_id": example.id,
+        "scenario": scenario_ref,
+        "status": status,
+        "criterion_ids": list(example.acceptance_criteria),
+        "feature_file": example.automation.feature_file,
+        "pytest_path": automation.pytest_path,
+        "pytest_nodeid": automation.pytest_nodeid,
+    }
+
+
+def _matched_example_result(
+    matched: dict[str, Any], imported_at: str
+) -> dict[str, Any]:
+    return {
+        "example_id": matched["example_id"],
+        "scenario": matched["scenario"],
+        "status": matched["status"],
+        "feature_file": matched.get("feature_file", ""),
+        "pytest_path": matched.get("pytest_path", ""),
+        "pytest_nodeid": matched.get("pytest_nodeid", ""),
+        "acceptance_criteria": matched.get("criterion_ids", []),
+        "matched": True,
+        "imported_at": imported_at,
+    }
+
+
+def _unmatched_example_result(
+    unmatched: dict[str, Any], imported_at: str
+) -> dict[str, Any]:
+    return {
+        "scenario": unmatched.get("name", ""),
+        "status": unmatched.get("status", "unknown"),
+        "pytest_path": unmatched.get("pytest_path", ""),
+        "pytest_nodeid": unmatched.get("pytest_nodeid", ""),
+        "matched": False,
+        "imported_at": imported_at,
+    }
 
 
 def _parse_cucumber_json(path: Path) -> list[dict[str, Any]]:
@@ -338,6 +503,10 @@ def _parse_junit_xml(path: Path) -> list[dict[str, Any]]:
         for testcase in suite.findall("testcase"):
             name = testcase.get("name", "")
             classname = testcase.get("classname", "")
+            pytest_path = testcase.get("file", "") or _pytest_path_from_classname(
+                classname
+            )
+            pytest_nodeid = _pytest_nodeid_from_case(pytest_path, classname, name)
 
             failure = testcase.find("failure")
             error = testcase.find("error")
@@ -347,11 +516,12 @@ def _parse_junit_xml(path: Path) -> list[dict[str, Any]]:
                 status = "failed"
                 error_message = failure.get("message", "")
             elif error is not None:
-                status = "failed"
+                status = "error"
                 error_message = error.get("message", "")
             elif skipped is not None:
-                status = "skipped"
-                error_message = ""
+                message = (skipped.get("message", "") or "").lower()
+                status = "xfailed" if "xfail" in message else "skipped"
+                error_message = skipped.get("message", "")
             else:
                 status = "passed"
                 error_message = ""
@@ -363,6 +533,8 @@ def _parse_junit_xml(path: Path) -> list[dict[str, Any]]:
                     "error_message": error_message,
                     "feature_name": suite_name,
                     "classname": classname,
+                    "pytest_path": pytest_path,
+                    "pytest_nodeid": pytest_nodeid,
                     "tags": [],
                 }
             )
@@ -395,3 +567,27 @@ def _count_reports(workspace_root: Path, task_id: str) -> int:
     from taskledger.storage.task_store import load_bdd_reports
 
     return len(load_bdd_reports(workspace_root, task_id))
+
+
+def _pytest_path_from_classname(classname: str) -> str:
+    if not classname:
+        return ""
+    parts = classname.split(".")
+    if len(parts) > 1 and parts[-1].startswith("Test"):
+        parts = parts[:-1]
+    if not parts or not parts[-1].startswith("test_"):
+        return ""
+    return "/".join(parts) + ".py"
+
+
+def _pytest_nodeid_from_case(pytest_path: str, classname: str, name: str) -> str:
+    if not pytest_path or not name:
+        return ""
+    class_name = ""
+    if classname:
+        parts = classname.split(".")
+        if len(parts) > 1 and parts[-1].startswith("Test"):
+            class_name = parts[-1]
+    if class_name:
+        return f"{pytest_path}::{class_name}::{name}"
+    return f"{pytest_path}::{name}"

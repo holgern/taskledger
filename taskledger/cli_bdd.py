@@ -14,6 +14,7 @@ from taskledger.api.bdd import (
     bdd_example_link_automation,
     bdd_example_list,
     bdd_example_show,
+    bdd_export_json,
     bdd_init,
     bdd_rule_add,
     bdd_rule_list,
@@ -267,21 +268,53 @@ def _register_bdd_example_commands(app: typer.Typer) -> None:
             typer.Option(
                 "--feature-file",
                 "-f",
-                help="Path to the .feature file that automates this example.",
+                help="Path to the external behavior spec (.feature file).",
             ),
         ],
         scenario: Annotated[
             str,
-            typer.Option("--scenario", help="Scenario name in the feature file."),
+            typer.Option(
+                "--scenario",
+                help="Scenario tag or title in the feature file.",
+            ),
         ] = "",
+        pytest: Annotated[
+            str,
+            typer.Option(
+                "--pytest",
+                help="Plain pytest file or nodeid, e.g. tests/test_x.py::test_y.",
+            ),
+        ] = "",
+        acceptance_criterion: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--acceptance-criterion",
+                "-ac",
+                help="Acceptance criterion ID to link while recording automation.",
+            ),
+        ] = None,
+        allow_missing: Annotated[
+            bool,
+            typer.Option(
+                "--allow-missing",
+                help="Allow a missing external behavior spec path.",
+            ),
+        ] = False,
         task: TaskOption = None,
     ) -> None:
-        """Record the automation feature file for a BDD example."""
+        """Link an external behavior spec and plain pytest metadata to a BDD example."""
         state = cli_state_from_context(ctx)
         try:
             task_rec = resolve_cli_task(state.cwd, task)
             payload = bdd_example_link_automation(
-                state.cwd, task_rec.id, example_id, feature_file, scenario
+                state.cwd,
+                task_rec.id,
+                example_id,
+                feature_file,
+                scenario,
+                pytest_ref=pytest,
+                acceptance_criteria=tuple(acceptance_criterion or ()),
+                allow_missing=allow_missing,
             )
         except (LaunchError, Exception) as exc:
             emit_error(ctx, exc)
@@ -290,7 +323,7 @@ def _register_bdd_example_commands(app: typer.Typer) -> None:
 
 
 def _register_bdd_export_commands(app: typer.Typer) -> None:
-    """Register bdd export commands: gherkin-export."""
+    """Register bdd export commands."""
 
     @app.command("gherkin-export")
     def bdd_gherkin_export_cmd(
@@ -300,7 +333,7 @@ def _register_bdd_export_commands(app: typer.Typer) -> None:
         ],
         task: TaskOption = None,
     ) -> None:
-        """Export BDD examples as a Gherkin .feature file."""
+        """Export a derived .feature file from Taskledger BDD sidecars."""
         from taskledger.api.bdd import bdd_gherkin_export
 
         state = cli_state_from_context(ctx)
@@ -311,6 +344,22 @@ def _register_bdd_export_commands(app: typer.Typer) -> None:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         emit_payload(ctx, payload, human=_render_gherkin_export(payload))
+
+    @app.command("export-json")
+    def bdd_export_json_cmd(
+        ctx: typer.Context,
+        out: Annotated[str, typer.Option("--out", "-o", help="Output JSON file path.")],
+        task: TaskOption = None,
+    ) -> None:
+        """Export derived JSON exchange data from Taskledger BDD sidecars."""
+        state = cli_state_from_context(ctx)
+        try:
+            task_rec = resolve_cli_task(state.cwd, task)
+            payload = bdd_export_json(state.cwd, task_rec.id, out)
+        except (LaunchError, Exception) as exc:
+            emit_error(ctx, exc)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(ctx, payload, human=_render_export_json(payload))
 
 
 def _register_bdd_archledger_commands(app: typer.Typer) -> None:
@@ -393,6 +442,15 @@ def _render_bdd_example(payload: dict[str, Any]) -> str:
     automation = example.get("automation", {})
     if automation.get("status") != "pending":
         lines.append(f"  Automation: {automation.get('status', '?')}")
+    if automation.get("feature_file"):
+        lines.append(f"  Behavior spec: {automation.get('feature_file')}")
+    if automation.get("scenario"):
+        lines.append(f"  Scenario ref: {automation.get('scenario')}")
+    pytest_ref = automation.get("pytest_nodeid") or automation.get("pytest_path")
+    if pytest_ref:
+        lines.append(f"  Pytest: {pytest_ref}")
+    for warning in payload.get("warnings", []):
+        lines.append(f"  Warning: {warning}")
     return "\n".join(lines)
 
 
@@ -413,10 +471,23 @@ def _render_bdd_example_list(payload: dict[str, Any]) -> str:
 
 
 def _render_gherkin_export(payload: dict[str, Any]) -> str:
+    lines = [
+        f"Derived Gherkin exported to {payload.get('out', '?')}",
+        f"Feature: {payload.get('feature', '?')}",
+        f"Exported examples: {len(payload.get('exported_examples', []))}",
+    ]
+    for warning in payload.get("warnings", []):
+        lines.append(f"Warning: {warning}")
+    return "\n".join(lines)
+
+
+def _render_export_json(payload: dict[str, Any]) -> str:
+    export = payload.get("export", {})
     return (
-        f"Gherkin exported to {payload.get('out', '?')}\n"
-        f"Feature: {payload.get('feature', '?')}\n"
-        f"Exported examples: {len(payload.get('exported_examples', []))}"
+        f"BDD export JSON written to {payload.get('out', '?')}\n"
+        f"Rules: {len(export.get('rules', []))}\n"
+        f"Examples: {len(export.get('examples', []))}\n"
+        f"External behavior specs: {len(export.get('external_behavior_specs', []))}"
     )
 
 

@@ -63,6 +63,8 @@ class BddAutomationRef:
     status: BddAutomationStatus = "pending"
     feature_file: str = ""
     scenario: str = ""
+    pytest_path: str = ""
+    pytest_nodeid: str = ""
     command: str = ""
     report_path: str = ""
 
@@ -71,6 +73,8 @@ class BddAutomationRef:
             "status": self.status,
             "feature_file": self.feature_file,
             "scenario": self.scenario,
+            "pytest_path": self.pytest_path,
+            "pytest_nodeid": self.pytest_nodeid,
             "command": self.command,
             "report_path": self.report_path,
         }
@@ -87,6 +91,8 @@ class BddAutomationRef:
             ),
             feature_file=_optional_string(data.get("feature_file")) or "",
             scenario=_optional_string(data.get("scenario")) or "",
+            pytest_path=_optional_string(data.get("pytest_path")) or "",
+            pytest_nodeid=_optional_string(data.get("pytest_nodeid")) or "",
             command=_optional_string(data.get("command")) or "",
             report_path=_optional_string(data.get("report_path")) or "",
         )

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -19,13 +20,14 @@ def export_gherkin(
     task_id: str,
     out: str,
 ) -> dict[str, Any]:
-    """Export BDD examples as a Gherkin .feature file.
+    """Export BDD examples as derived Gherkin .feature output.
 
     Rules:
     - Refuse export if no formulated/linked/automated/validated examples exist.
     - Warn if examples lack acceptance-criterion links.
+    - Warn if the output path suggests deprecated pytest-bdd/Cucumber ownership.
     - Write only under workspace root.
-    - Include ownership header.
+    - Include a derived-output header.
     - Deterministic ordering by rule then example ID.
     """
     # Validate output path
@@ -36,6 +38,7 @@ def export_gherkin(
         out_path.resolve().relative_to(workspace_root.resolve())
     except ValueError:
         raise LaunchError(f"Output path must be within workspace: {out}") from None
+    rel_out = out_path.resolve().relative_to(workspace_root.resolve()).as_posix()
 
     # Load data
     feature = load_bdd_feature(workspace_root, task_id)
@@ -57,9 +60,16 @@ def export_gherkin(
 
     # Collect warnings
     warnings: list[str] = []
+    warning_details: list[dict[str, object]] = []
     for ex in exportable:
         if not ex.acceptance_criteria:
             warnings.append(f"Example {ex.id} has no acceptance-criterion link.")
+    derived_output_warning = _derived_output_warning(rel_out)
+    if derived_output_warning is not None:
+        details_reasons = derived_output_warning.get("reasons", [])
+        if isinstance(details_reasons, list):
+            warnings.extend(str(item) for item in details_reasons)
+        warning_details.append(derived_output_warning)
 
     # Group examples by rule
     examples_by_rule: dict[str, list[BddExampleRecord]] = {}
@@ -74,12 +84,13 @@ def export_gherkin(
     lines: list[str] = []
 
     # Ownership header
-    lines.append(f"# Generated from Taskledger task {task_id}.")
+    lines.append(f"# Generated derived output from Taskledger task {task_id}.")
     lines.append(f"# Source: .taskledger/tasks/{task_id}/bdd/examples/")
     lines.append(
-        "# Edit Taskledger BDD records as canonical source "
-        "unless ownership is explicitly changed."
+        "# Prefer SpecWeave-owned specs/behavior/features/... "
+        "as canonical behavior specs."
     )
+    lines.append("# Plain pytest files under tests/ should enforce the behavior.")
     lines.append("")
 
     # Feature tags
@@ -130,6 +141,53 @@ def export_gherkin(
         "feature": feature.title,
         "exported_examples": [e.id for e in exportable],
         "warnings": warnings,
+        "warning_details": warning_details,
+    }
+
+
+def _derived_output_warning(rel_out: str) -> dict[str, object] | None:
+    reasons: list[str] = []
+    normalized = rel_out.replace("\\", "/")
+    filename = Path(normalized).name
+    if normalized.startswith("tests/bdd/features/"):
+        reasons.append(
+            "Deprecated derived-output path: tests/bdd/features/ "
+            "suggests pytest-bdd ownership."
+        )
+    if normalized.startswith("tests/behavior/features/"):
+        reasons.append(
+            "Deprecated derived-output path: tests/behavior/features/ "
+            "suggests test-owned .feature files."
+        )
+    if normalized.startswith("specs/bdd/features/"):
+        reasons.append(
+            "Deprecated derived-output path: specs/bdd/features/ "
+            "is not the canonical behavior-spec location."
+        )
+    if re.match(r"^task-\d+", filename):
+        reasons.append(
+            "Canonical .feature filenames should not start with task-<digits>."
+        )
+    lower = normalized.lower()
+    if any(token in lower for token in ("pytest-bdd", "cucumber", "behave")):
+        reasons.append(
+            "Derived output path should not imply pytest-bdd, "
+            "Cucumber, or Behave ownership."
+        )
+    if not reasons:
+        return None
+    return {
+        "code": "TLBDD_PATH_DERIVED_NOT_CANONICAL",
+        "message": (
+            "Taskledger gherkin-export creates derived output. Canonical behavior "
+            "specs should live under specs/behavior/features/<area>/<feature>.feature "
+            "and should be enforced by plain pytest tests under tests/."
+        ),
+        "recommended_feature_path_pattern": (
+            "specs/behavior/features/<area>/<feature>.feature"
+        ),
+        "recommended_pytest_path_pattern": "tests/test_<area>_<feature>.py",
+        "reasons": reasons,
     }
 
 

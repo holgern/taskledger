@@ -1674,6 +1674,14 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         ledger_effect=EFFECT_NONE,
         workspace_effect=EFFECT_WRITE,
     ),
+    "bdd export-json": CommandSpec(
+        STABLE_FOR_AGENTS,
+        EXTERNAL_FILE_WRITE,
+        PRIMARY,
+        PHASE_IMPLEMENTATION,
+        ledger_effect=EFFECT_NONE,
+        workspace_effect=EFFECT_WRITE,
+    ),
     "bdd archledger-candidate": CommandSpec(
         STABLE_FOR_AGENTS,
         EXTERNAL_FILE_WRITE,

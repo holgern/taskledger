@@ -24,16 +24,26 @@ class TestBddAutomationRef:
         assert ref.status == "pending"
         assert ref.feature_file == ""
         assert ref.scenario == ""
+        assert ref.pytest_path == ""
+        assert ref.pytest_nodeid == ""
         assert ref.command == ""
         assert ref.report_path == ""
 
     def test_round_trip(self) -> None:
         ref = BddAutomationRef(
             status="linked",
-            feature_file="tests/bdd/features/lifecycle.feature",
-            scenario="Agent tries to implement before approval",
-            command="pytest -q tests/bdd",
-            report_path="reports/cucumber.json",
+            feature_file="specs/behavior/features/lifecycle/plan-gates.feature",
+            scenario="@bdd-implementation-blocked-before-plan-acceptance",
+            pytest_path="tests/test_task_management_plan_gates.py",
+            pytest_nodeid=(
+                "tests/test_task_management_plan_gates.py::"
+                "test_agent_cannot_start_implementation_before_plan_approval"
+            ),
+            command=(
+                "pytest tests/test_task_management_plan_gates.py "
+                "--junitxml=reports/behavior/task-management-plan-gates-junit.xml"
+            ),
+            report_path="reports/behavior/task-management-plan-gates-junit.xml",
         )
         d = ref.to_dict()
         restored = BddAutomationRef.from_dict(d)
@@ -136,7 +146,16 @@ class TestBddExampleRecord:
             then=("implementation is blocked", "the task remains before implementing"),
             tags=("gate",),
             acceptance_criteria=("ac-0001",),
-            automation=BddAutomationRef(status="linked", scenario="Agent tries"),
+            automation=BddAutomationRef(
+                status="linked",
+                feature_file="specs/behavior/features/lifecycle/plan-gates.feature",
+                scenario="@bdd-implementation-blocked-before-plan-acceptance",
+                pytest_path="tests/test_task_management_plan_gates.py",
+                pytest_nodeid=(
+                    "tests/test_task_management_plan_gates.py::"
+                    "test_agent_cannot_start_implementation_before_plan_approval"
+                ),
+            ),
         )
         d = rec.to_dict()
         restored = BddExampleRecord.from_dict(d)

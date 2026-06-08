@@ -239,6 +239,91 @@ class TestBddGherkinExport:
         payload = json.loads(result.stdout)
         assert payload["ok"] is True
         assert "bdd-0001" in payload["result"]["exported_examples"]
+        assert payload["result"]["warning_details"] == []
+
+    def test_gherkin_export_warns_for_deprecated_paths(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        _init_project(tmp_path)
+        runner.invoke(app, ["bdd", "init", "--feature", "Test feature"])
+        runner.invoke(
+            app,
+            [
+                "bdd",
+                "example",
+                "add",
+                "--title",
+                "Test scenario",
+                "--given",
+                "a",
+                "--when",
+                "b",
+                "--then",
+                "c",
+            ],
+        )
+
+        out = "tests/bdd/features/task-0123-test.feature"
+        result = runner.invoke(app, ["--json", "bdd", "gherkin-export", "--out", out])
+        assert result.exit_code == 0
+        payload = json.loads(result.stdout)
+        warning = payload["result"]["warning_details"][0]
+        assert warning["code"] == "TLBDD_PATH_DERIVED_NOT_CANONICAL"
+        assert any("tests/bdd/features/" in item for item in warning["reasons"])
+        assert any("task-<digits>" in item for item in warning["reasons"])
+
+    def test_export_json_includes_external_behavior_spec_metadata(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        _init_project(tmp_path)
+        feature_file, pytest_ref = _write_behavior_assets(tmp_path)
+        runner.invoke(app, ["bdd", "init", "--feature", "Test feature"])
+        runner.invoke(
+            app,
+            [
+                "bdd",
+                "example",
+                "add",
+                "--title",
+                "Automated scenario",
+                "--given",
+                "a",
+                "--when",
+                "b",
+                "--then",
+                "c",
+                "--acceptance-criterion",
+                "ac-0001",
+            ],
+        )
+        runner.invoke(
+            app,
+            [
+                "bdd",
+                "example",
+                "link-automation",
+                "bdd-0001",
+                "--feature-file",
+                feature_file,
+                "--scenario",
+                "@bdd-implementation-blocked-before-plan-acceptance",
+                "--pytest",
+                pytest_ref,
+            ],
+        )
+
+        out = str(tmp_path / ".specweave" / "mappings" / "task-0001.bdd.json")
+        result = runner.invoke(app, ["--json", "bdd", "export-json", "--out", out])
+        assert result.exit_code == 0
+        payload = json.loads(result.stdout)
+        export = payload["result"]["export"]
+        assert export["kind"] == "task_bdd_spec"
+        assert export["external_behavior_specs"][0]["path"] == feature_file
+        pytest_tests = export["external_behavior_specs"][0]["pytest_tests"]
+        assert pytest_tests[0]["path"] == "tests/test_task_management_plan_gates.py"
+        assert pytest_tests[0]["nodeid"] == pytest_ref
 
 
 class TestBddArchledgerBridge:
@@ -313,9 +398,10 @@ class TestBddArchledgerBridge:
     def test_link_automation_then_candidate_includes_feature_file(
         self, tmp_path, monkeypatch
     ) -> None:
-        """Finding 5 (Option A): recorded feature file flows into the candidate."""
+        """Recorded spec/test metadata flows into the Archledger candidate."""
         monkeypatch.chdir(tmp_path)
         _init_project(tmp_path)
+        feature_file, pytest_ref = _write_behavior_assets(tmp_path)
         runner.invoke(app, ["bdd", "init", "--feature", "Test feature"])
         runner.invoke(
             app,
@@ -345,16 +431,21 @@ class TestBddArchledgerBridge:
                 "link-automation",
                 "bdd-0001",
                 "--feature-file",
-                "tests/bdd/features/test.feature",
+                feature_file,
                 "--scenario",
-                "Automated scenario",
+                "@bdd-implementation-blocked-before-plan-acceptance",
+                "--pytest",
+                pytest_ref,
             ],
         )
         assert link_result.exit_code == 0
         example = json.loads(link_result.stdout)["result"]["example"]
-        feature_file = "tests/bdd/features/test.feature"
         assert example["automation"]["feature_file"] == feature_file
-        assert example["automation"]["scenario"] == "Automated scenario"
+        assert (
+            example["automation"]["scenario"]
+            == "@bdd-implementation-blocked-before-plan-acceptance"
+        )
+        assert example["automation"]["pytest_nodeid"] == pytest_ref
 
         out = str(tmp_path / "candidate.md")
         result = runner.invoke(
@@ -363,11 +454,51 @@ class TestBddArchledgerBridge:
         assert result.exit_code == 0
         payload = json.loads(result.stdout)
         content = payload["result"]["candidate"]["content"]
-        # The recorded feature file now drives source_refs/test_refs/automation.
-        assert "tests/bdd/features/test.feature" in content
+        assert feature_file in content
+        assert "tests/test_task_management_plan_gates.py" in content
+        assert pytest_ref in content
         assert "source_refs:" in content
         assert "test_refs:" in content
         assert "automation:" in content
+
+    def test_link_automation_rejects_non_canonical_feature_path(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        _init_project(tmp_path)
+        runner.invoke(app, ["bdd", "init", "--feature", "Test feature"])
+        runner.invoke(
+            app,
+            [
+                "bdd",
+                "example",
+                "add",
+                "--title",
+                "Automated scenario",
+                "--given",
+                "a",
+                "--when",
+                "b",
+                "--then",
+                "c",
+            ],
+        )
+
+        result = runner.invoke(
+            app,
+            [
+                "--json",
+                "bdd",
+                "example",
+                "link-automation",
+                "bdd-0001",
+                "--feature-file",
+                "tests/bdd/features/test.feature",
+            ],
+        )
+        assert result.exit_code != 0
+        payload = json.loads(result.stdout)
+        assert "specs/behavior/features" in payload["error"]["message"]
 
 
 AC_PLAN = """---
@@ -527,3 +658,24 @@ def _init_project(tmp_path) -> None:
     # Activate a task for testing
     runner.invoke(app, ["task", "create", "Test task"])
     runner.invoke(app, ["task", "activate", "task-0001"])
+
+
+def _write_behavior_assets(tmp_path) -> tuple[str, str]:
+    feature_rel = "specs/behavior/features/task-management/plan-gates.feature"
+    feature_path = tmp_path / feature_rel
+    feature_path.parent.mkdir(parents=True, exist_ok=True)
+    feature_path.write_text("Feature: Plan gates\n", encoding="utf-8")
+
+    pytest_rel = "tests/test_task_management_plan_gates.py"
+    pytest_path = tmp_path / pytest_rel
+    pytest_path.parent.mkdir(parents=True, exist_ok=True)
+    pytest_path.write_text(
+        "def test_agent_cannot_start_implementation_before_plan_approval():\n"
+        "    assert True\n",
+        encoding="utf-8",
+    )
+    pytest_ref = (
+        "tests/test_task_management_plan_gates.py::"
+        "test_agent_cannot_start_implementation_before_plan_approval"
+    )
+    return feature_rel, pytest_ref

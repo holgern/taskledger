@@ -66,6 +66,30 @@ ledger for staged coding work. Optional reporting, sync, search, and worker
 pipeline features must not change the default task-first lifecycle unless a
 project explicitly opts in.
 
+## Optional behavior-spec overlay
+
+Taskledger can track task-local BDD/example records, but canonical behavior
+specs and executable enforcement live outside Taskledger:
+
+```text
+specs/behavior/features/<area>/<feature>.feature
+tests/test_<area>_<feature>.py
+reports/behavior/<area>-<feature>-junit.xml
+```
+
+Treat `taskledger bdd gherkin-export` output as derived text, not as the
+canonical source of truth. Prefer plain pytest for enforcement and JUnit XML for
+imported validation evidence.
+
+```bash
+taskledger bdd example link-automation bdd-0001 --feature-file specs/behavior/features/task-management/plan-gates.feature --scenario @bdd-implementation-blocked-before-plan-acceptance --pytest tests/test_task_management_plan_gates.py::test_agent_cannot_start_implementation_before_plan_approval
+taskledger bdd export-json --out .specweave/mappings/taskledger/task-0001.bdd.json
+taskledger validate import-bdd-report reports/behavior/task-management-plan-gates-junit.xml --format junit-xml --command "pytest tests/test_task_management_plan_gates.py --junitxml=reports/behavior/task-management-plan-gates-junit.xml"
+```
+
+Taskledger should not promote `tests/bdd/features`, `specs/bdd/features`,
+`tests/behavior/`, or pytest-bdd-style step-module layouts.
+
 ### Which read command to use
 
 | Need                       | Command                                             |

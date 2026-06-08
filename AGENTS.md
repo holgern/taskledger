@@ -87,6 +87,16 @@ Examples:
 - doctor/repair commands for integrity checks and exceptional recovery
 - search/context/dossier commands for agent-friendly work continuation
 
+Optional behavior-spec overlays belong outside Taskledger's canonical storage:
+
+- `specs/behavior/features/<area>/<feature>.feature` for product behavior specs
+- `tests/test_<area>_<feature>.py` for plain pytest enforcement
+- `reports/behavior/<area>-<feature>-junit.xml` for imported evidence
+
+Treat `bdd gherkin-export` output as derived and `bdd export-json` output as
+exchange metadata. Do not steer docs or examples toward `tests/bdd/features`,
+`specs/bdd/features`, `tests/behavior/`, or pytest-bdd step-module layouts.
+
 Canonical workflow:
 
 ```text

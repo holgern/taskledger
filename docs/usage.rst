@@ -77,6 +77,32 @@ Task-first workflow
    taskledger plan lint --version 1
    taskledger plan accept --version 1 --note "Ready."
 
+Optional behavior-spec overlay
+------------------------------
+
+Use behavior specs only when the task benefits from executable examples. Keep
+canonical specs and plain pytest enforcement outside Taskledger:
+
+.. code-block:: text
+
+   specs/behavior/features/<area>/<feature>.feature
+   tests/test_<area>_<feature>.py
+   reports/behavior/<area>-<feature>-junit.xml
+
+Taskledger may store task-local BDD/example records, link them to external
+specs and pytest node ids, and export derived JSON exchange data:
+
+.. code-block:: bash
+
+   taskledger bdd example link-automation bdd-0001 --feature-file specs/behavior/features/task-management/plan-gates.feature --scenario @bdd-implementation-blocked-before-plan-acceptance --pytest tests/test_task_management_plan_gates.py::test_agent_cannot_start_implementation_before_plan_approval
+   taskledger bdd export-json --out .specweave/mappings/taskledger/task-0001.bdd.json
+   taskledger validate import-bdd-report reports/behavior/task-management-plan-gates-junit.xml --format junit-xml --command "pytest tests/test_task_management_plan_gates.py --junitxml=reports/behavior/task-management-plan-gates-junit.xml"
+
+``taskledger bdd gherkin-export`` remains available for derived `.feature`
+output, but taskledger should not promote ``tests/bdd/features``,
+``specs/bdd/features``, ``tests/behavior/``, or pytest-bdd step modules as the
+canonical layout.
+
 Planning guidance profiles
 --------------------------
 
