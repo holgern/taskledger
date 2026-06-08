@@ -76,6 +76,34 @@ Mark todo done after evidence exists: taskledger todo done todo-0001 --evidence 
 Progress: 0/1 todos done
 ```
 
+## User-requested review protocol
+
+When the user asks to review, audit, check, verify, or assess an implementation
+or completed task, treat the output as durable review evidence, not as
+chat-only commentary.
+
+1. Run the fresh context entry protocol and resolve the task explicitly.
+2. Inspect the relevant task context, todos, implementation run, changed files,
+   validation evidence, and user-provided review material.
+3. Write the final review summary to a markdown file outside `.taskledger/`,
+   for example `/tmp/taskledger-review-TASK_ID.md`.
+4. Record the review before answering:
+   `taskledger review record --task TASK_ID --result pass|fail|blocked --summary-file /tmp/taskledger-review-TASK_ID.md`
+5. Verify persistence with `taskledger review list --task TASK_ID` or
+   `taskledger review show REVIEW_ID --task TASK_ID`.
+6. Include the recorded review id in the final response.
+
+Use `pass` only when no blocking issues were found. Use `fail` when the
+review finds a blocking implementation or acceptance-criteria problem. Use
+`blocked` when evidence is insufficient, the review is incomplete, or a
+required test/evidence gap remains.
+
+Do not skip `review record` merely because the task is already `done`;
+post-completion review records are allowed. Skip recording only when the
+user explicitly requested read-only review, the task has no implementation
+run, the task is archived and must not be mutated, or taskledger cannot
+run. If skipped, state the reason explicitly.
+
 ## Actor and harness protocol
 
 1. Before mutating taskledger state, verify identity with `taskledger actor whoami`.
@@ -223,7 +251,7 @@ The plan file should use version ids like `plan-v1`, `plan-v2` in references. Do
 7. In Git workspaces, prefer `taskledger implement scan-changes --from-git --summary "..."` before `implement finish` so change evidence includes a git-backed reconciliation checkpoint.
 8. Do not run `implement finish` until `todo status` says all todos are complete.
 9. `taskledger implement finish --summary "Completed all implementation todos..."`
-10. Optional: record durable code review evidence after implementation with `taskledger review record ...`; this is allowed before validation starts or after the task is already `done`.
+10. For any user-requested review, record durable code review evidence after implementation with `taskledger review record ...` before answering; this is allowed before validation starts or after the task is already `done`.
 
 **Critical**: `implement finish` will block until all non-skipped todos are done. Use `todo status` to verify readiness.
 

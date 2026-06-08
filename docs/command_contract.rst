@@ -543,6 +543,11 @@ JSON mode returns a stable payload with ``kind = "code_review_recorded"`` for
 ``source``, ``implementation_run``, ``worker_step_id``, and compact git
 metadata fields when present.
 
+When a user explicitly asks an agent for a review, the agent should persist
+the final review with ``taskledger review record`` before answering. A
+chat-only review is not durable task evidence. Post-completion review
+records are append-only and do not reopen the task.
+
 Focused worker contexts keep lifecycle ``mode`` separate from worker-role
 ``--for``:
 

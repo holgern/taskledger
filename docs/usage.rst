@@ -635,6 +635,11 @@ Code review evidence can also be recorded after ``validate finish`` has moved th
 task to ``done``. This appends durable review evidence to the task and does not
 reopen or otherwise mutate the task lifecycle stage.
 
+When a user explicitly asks an agent for a review, the agent should persist
+the final review with ``taskledger review record`` before answering. A
+chat-only review is not durable task evidence. Post-completion review
+records are append-only and do not reopen the task.
+
 If validation finds an implementation bug and the accepted plan is still
 correct, restart implementation instead of replanning:
 

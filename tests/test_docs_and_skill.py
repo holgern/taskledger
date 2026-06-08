@@ -101,6 +101,7 @@ def test_skill_contains_strict_agent_protocol() -> None:
         "When to use this skill",
         "Never do these things",
         "Fresh context entry protocol",
+        "User-requested review protocol",
         "CLI failure protocol",
         "Planning protocol",
         "Implementation protocol",
@@ -421,3 +422,14 @@ def test_service_boundary_whitelist_doc_matches_cli_import_whitelist_exactly() -
         f"Extra in doc: {doc_refs - set(CLI_SERVICES_IMPORT_WHITELIST)}. "
         f"Missing from doc: {set(CLI_SERVICES_IMPORT_WHITELIST) - doc_refs}."
     )
+
+
+def test_skill_requires_user_requested_reviews_to_be_recorded() -> None:
+    skill = (ROOT / "skills" / "taskledger" / "SKILL.md").read_text(encoding="utf-8")
+    assert "## User-requested review protocol" in skill
+    assert "treat the output as durable review evidence" in skill
+    assert "taskledger review record --task TASK_ID" in skill
+    assert "taskledger review list --task TASK_ID" in skill
+    assert (
+        "Do not skip `review record` merely because the task is already `done`"
+    ) in skill

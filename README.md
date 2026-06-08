@@ -297,6 +297,11 @@ taskledger validate finish --result passed --summary "Validated the rewrite."
 Review evidence may also be recorded after validation has moved a task to
 `done`; this appends a review record without reopening the completed task.
 
+When a user explicitly asks an agent for a review, the agent should persist
+the final review with `taskledger review record` before answering. A
+chat-only review is not durable task evidence. Post-completion review
+records are append-only and do not reopen the task.
+
 To revise a proposed plan, re-enter planning and edit an exported workspace
 copy. Never edit `.taskledger/` files directly:
 
