@@ -18,9 +18,12 @@ from taskledger.cli import app
 
 def _make_runner() -> CliRunner:
     try:
-        return CliRunner(mix_stderr=False)
+        runner = CliRunner(mix_stderr=False)
     except TypeError:
-        return CliRunner()
+        runner = CliRunner()
+    if not hasattr(runner, "capture"):
+        runner.capture = "sys"
+    return runner
 
 
 runner = _make_runner()
