@@ -17,8 +17,16 @@ sys.dont_write_bytecode = True
 os.environ.setdefault("TASKLEDGER_TEST_FAST_IO", "1")
 
 import shutil  # noqa: E402
+import weakref  # noqa: E402
+from collections.abc import Mapping, Sequence  # noqa: E402
+from typing import IO, Any  # noqa: E402
 
+import click  # noqa: E402
+import click.testing  # noqa: E402
 import pytest  # noqa: E402
+from typer import Typer  # noqa: E402
+from typer.main import get_command as _typer_get_command  # noqa: E402
+from typer.testing import CliRunner as _TyperCliRunner  # noqa: E402
 
 from tests.support.builders import (  # noqa: E402
     create_approved_task,
@@ -27,6 +35,47 @@ from tests.support.builders import (  # noqa: E402
     create_implemented_task,
     init_workspace,
 )
+
+# Typer rebuilds the full Click command tree on every CliRunner.invoke call.
+# Taskledger's CLI is intentionally broad, so repeated rebuilds dominate the
+# CLI-heavy test suite, especially on Windows. Cache the immutable Click command
+# tree per Typer app for tests; each invocation still gets a fresh Click context.
+_CLICK_COMMAND_CACHE: weakref.WeakKeyDictionary[Typer, Any] = (
+    weakref.WeakKeyDictionary()
+)
+
+
+def _cached_click_command(app: Typer) -> Any:
+    cached = _CLICK_COMMAND_CACHE.get(app)
+    if cached is None:
+        cached = _typer_get_command(app)
+        _CLICK_COMMAND_CACHE[app] = cached
+    return cached
+
+
+def _invoke_with_cached_click_command(
+    self: _TyperCliRunner,
+    app: Typer,
+    args: str | Sequence[str] | None = None,
+    input: bytes | str | IO[Any] | None = None,
+    env: Mapping[str, str | None] | None = None,
+    catch_exceptions: bool = True,
+    color: bool = False,
+    **extra: Any,
+) -> click.testing.Result:
+    return click.testing.CliRunner.invoke(
+        self,  # type: ignore[arg-type]
+        _cached_click_command(app),
+        args=args,
+        input=input,
+        env=env,
+        catch_exceptions=catch_exceptions,
+        color=color,
+        **extra,
+    )
+
+
+_TyperCliRunner.invoke = _invoke_with_cached_click_command  # type: ignore[assignment]
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
