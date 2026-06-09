@@ -30,7 +30,9 @@ def run_command(argv: tuple[str, ...], *, cwd: Path) -> CommandResult:
         "check": False,
     }
     if sys.platform == "win32":
-        kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW  # type: ignore[attr-defined]
+        kwargs["creationflags"] = (
+            subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
+        )  # type: ignore[attr-defined]
     try:
         completed = subprocess.run(list(argv), **kwargs)  # type: ignore[arg-type]
     except FileNotFoundError:
