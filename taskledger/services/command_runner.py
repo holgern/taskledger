@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 from typing import NamedTuple
 
@@ -18,12 +19,19 @@ def run_command(argv: tuple[str, ...], *, cwd: Path) -> CommandResult:
     stdin so child processes cannot interact with Click/Typer's isolated test
     input streams or block waiting for terminal input.
     """
-    completed = subprocess.run(
-        list(argv),
-        cwd=cwd,
-        stdin=subprocess.DEVNULL,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    kwargs: dict[str, object] = {
+        "cwd": cwd,
+        "stdin": subprocess.DEVNULL,
+        "capture_output": True,
+        "text": True,
+        "check": False,
+    }
+    if sys.platform == "win32":
+        kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+    try:
+        completed = subprocess.run(list(argv), **kwargs)  # type: ignore[arg-type]
+    except FileNotFoundError:
+        return CommandResult(127, "", f"command not found: {argv[0]}" if argv else "")
+    except OSError as exc:
+        return CommandResult(1, "", str(exc))
     return CommandResult(completed.returncode, completed.stdout, completed.stderr)

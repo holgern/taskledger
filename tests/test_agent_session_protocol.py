@@ -399,8 +399,9 @@ def test_plan_command_records_exit_code(tmp_path: Path) -> None:
             "--task",
             "cmd-test",
             "--",
-            "echo",
-            "hello",
+            sys.executable,
+            "-c",
+            "pass",
         ],
     )
     payload = _json(result)
@@ -437,8 +438,9 @@ def test_plan_command_fails_without_active_planning(tmp_path: Path) -> None:
             "--task",
             "cmd-fail",
             "--",
-            "echo",
-            "hello",
+            sys.executable,
+            "-c",
+            "pass",
         ],
     )
     payload = _json(result)
@@ -482,8 +484,9 @@ def test_plan_command_no_change_records(tmp_path: Path) -> None:
             "--task",
             "no-change-cmd",
             "--",
-            "echo",
-            "test",
+            sys.executable,
+            "-c",
+            "pass",
         ],
     )
     payload = _json(result)
