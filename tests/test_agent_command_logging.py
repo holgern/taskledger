@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -218,7 +219,7 @@ def test_managed_shell_capture_and_transcript_report_rendering(tmp_path: Path) -
             "implement",
             "command",
             "--",
-            "python",
+            sys.executable,
             "-c",
             "print('hello');import sys;print('err', file=sys.stderr)",
         ],
@@ -395,7 +396,7 @@ def test_task_transcript_failures_mode_renders_failed_rows_only(tmp_path: Path) 
             "command",
             "--allow-failure",
             "--",
-            "python",
+            sys.executable,
             "-c",
             "raise SystemExit(3)",
         ],
