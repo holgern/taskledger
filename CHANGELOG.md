@@ -1,5 +1,47 @@
 # Changelog
 
+## v0.4.3 - 2026-06-09
+
+### Added
+
+- Added stale-lock diagnostics and recovery guidance: new `lock_diagnostics` service with 8 classifications, structured `lock show` renderer with storage path and remediation commands, `next-action` dead-PID routing to `repair lock`, and a lock recovery decision tree in docs and skill.
+- Added optional `taskledger tui` command (phases 1+2): Textual-based read-only TUI with task list, 9 detail tabs, stage filters, search, archived toggle, auto-refresh, and command copy modal.
+- Added TUI compact layout for small screens: `--layout auto|wide|compact` option, compact list/detail toggle, and responsive resize at 88-column threshold.
+- Added BDD/Cucumber workflow support as task-local sidecars: domain models, storage, CLI commands, Gherkin export, Cucumber/JUnit report import, and Archledger bridge. No external BDD runner dependency.
+- Added SpecWeave pytest-first behavior-spec overlay: reworked BDD as a SpecWeave/plain-pytest integration layer with derived export warnings and task-local exchange metadata.
+- Added `taskledger trace` command for deterministic `combi.trace.v1` bundles exposing task, AC, BDD, evidence, source, and architecture provenance.
+- Added mandatory user-requested review protocol in SKILL.md: `review record` is required when the user asks for review, audit, or verification, with explicit skip conditions.
+- Added `bdd example link-automation` command to record feature file and scenario references on BDD examples.
+
+### Changed
+
+- Hardened BDD report import: any non-passed Cucumber step now fails the scenario, validation persistence failures surface instead of being swallowed, rule and AC refs are validated against the accepted plan, and rich check evidence (name/details/evidence) is preserved end-to-end.
+- Added `unmatched_count` and `has_unmatched_failures` to BDD report records for import transparency.
+- Narrowed `cli_bdd` exception handling to `LaunchError` only.
+- Removed `generic-json` format and `not_applicable` status from BDD domain models.
+- Switched `bdd_archledger_candidate` to `yaml.safe_dump`.
+- Added `stdin=subprocess.DEVNULL` to `command_runner.run_command()` to prevent stdin inheritance.
+- Updated docs, skill, command inventory, and API surface for all new commands and workflow changes.
+
+### Fixed
+
+- Fixed TUI markup crashes caused by bracket-bearing dynamic content passed to Textual `Static` widgets with markup parsing enabled.
+- Fixed Windows CI crash caused by `CREATE_NEW_PROCESS_GROUP` flag in `command_runner`.
+- Fixed example-linter references from `tui task-0040` to `tui --task task-0040` in README and usage docs.
+
+### Documentation
+
+- Added lock recovery decision tree and `--repair-expired-lock` scope note to usage, command contract, and skill.
+- Added TUI section with key bindings and install instructions in usage and README.
+- Added BDD API module documentation in `API.md` and `docs/api.rst`.
+- Updated `ARCHITECTURE.md` and archledger records for BDD/SpecWeave workflow ownership.
+- Added behavior-spec docs regression test ensuring docs do not promote external BDD runners.
+
+### Quality
+
+- Added regression tests for lock diagnostics, TUI CLI and pilot, compact layout, markup crash, BDD models/storage/CLI/gherkin/report-import/validation-integration, trace command, and command runner.
+- Full suite: ruff and mypy clean (6 pre-existing typer-stub errors in `cli.py` unrelated).
+
 ## v0.4.2 - 2026-05-30
 
 ### Added
