@@ -63,6 +63,8 @@ def _invoke_with_cached_click_command(
     color: bool = False,
     **extra: Any,
 ) -> click.testing.Result:
+    if not hasattr(self, "capture"):
+        self.capture = "sys"
     return click.testing.CliRunner.invoke(
         self,  # type: ignore[arg-type]
         _cached_click_command(app),
