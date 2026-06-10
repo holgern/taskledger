@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -49,6 +50,8 @@ def _init_planning_task(tmp_path: Path, slug: str = "question-batch") -> None:
     assert runner.invoke(app, ["--cwd", str(tmp_path), "plan", "start"]).exit_code == 0
 
 
+# specweave: feature=specs/behavior/features/question_add_many/question-add-many.feature
+# specweave: scenario=@bdd-question-add-many-question-add-many-adds-required-questions-to-active-task
 def test_question_add_many_adds_required_questions_to_active_task(
     tmp_path: Path,
 ) -> None:
@@ -75,6 +78,8 @@ def test_question_add_many_adds_required_questions_to_active_task(
     assert [item["required_for_plan"] for item in added] == [True, True]
 
 
+# specweave: feature=specs/behavior/features/question_add_many/question-add-many.feature
+# specweave: scenario=@bdd-question-add-many-question-add-many-supports-yaml-file-and-explicit-task
 def test_question_add_many_supports_yaml_file_and_explicit_task(tmp_path: Path) -> None:
     _init_planning_task(tmp_path, slug="yaml-batch")
     questions_file = tmp_path / "questions.yaml"
@@ -106,6 +111,8 @@ def test_question_add_many_supports_yaml_file_and_explicit_task(tmp_path: Path) 
     assert [item["required_for_plan"] for item in added] == [True, False]
 
 
+# specweave: feature=specs/behavior/features/question_add_many/question-add-many.feature
+# specweave: scenario=@bdd-question-add-many-question-add-many-rejects-blank-lines-without-partial-write
 def test_question_add_many_rejects_blank_lines_without_partial_write(
     tmp_path: Path,
 ) -> None:
@@ -133,6 +140,8 @@ def test_question_add_many_rejects_blank_lines_without_partial_write(
     assert _json(listed)["result"] == []
 
 
+# specweave: feature=specs/behavior/features/question_add_many/question-add-many.feature
+# specweave: scenario=@bdd-question-add-many-question-add-many-rejects-duplicates-without-partial-write
 def test_question_add_many_rejects_duplicates_without_partial_write(
     tmp_path: Path,
 ) -> None:

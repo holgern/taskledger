@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -172,6 +173,8 @@ def test_implement_command_records_stdout_stderr_and_exit_code(
     assert command_payload["check"]["exit_code"] == 0
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-implement-command-mirrors-inner-exit-code-by-default
 def test_implement_command_mirrors_inner_exit_code_by_default(tmp_path: Path) -> None:
     _prepare_focused_context_task(tmp_path)
     result = runner.invoke(
@@ -192,6 +195,8 @@ def test_implement_command_mirrors_inner_exit_code_by_default(tmp_path: Path) ->
     assert result.exit_code == 7
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-implement-command-allow-failure-keeps-wrapper-exit-zero
 def test_implement_command_allow_failure_keeps_wrapper_exit_zero(
     tmp_path: Path,
 ) -> None:
@@ -218,6 +223,8 @@ def test_implement_command_allow_failure_keeps_wrapper_exit_zero(
     assert result["result"]["exit_code"] == 7
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-planning-guidance-is-recommended-then-not-repeated
 def test_planning_guidance_is_recommended_then_not_repeated(tmp_path: Path) -> None:
     _init_project(tmp_path)
     config = tmp_path / "taskledger.toml"
@@ -294,6 +301,8 @@ def _break_task_lock(tmp_path: Path, task_ref: str = "resume-task") -> None:
     assert result.exit_code == 0, result.stdout
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-v2-task-lifecycle-and-handoff
 def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
     _init_project(tmp_path)
 
@@ -844,6 +853,8 @@ Ship the initial implementation, fail validation, and restart implementation.
     assert task_show["result"]["task"]["latest_validation_run"] == validation_run_id
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-v2-lock-break-and-expired-lock-report
 def test_v2_lock_break_and_expired_lock_report(tmp_path: Path) -> None:
     _init_project(tmp_path)
     runner.invoke(
@@ -902,6 +913,8 @@ def test_v2_lock_break_and_expired_lock_report(tmp_path: Path) -> None:
     assert not lock_path.exists()
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-doctor-human-reports-non-looping-implementation-mismatch-hint
 def test_doctor_human_reports_non_looping_implementation_mismatch_hint(
     tmp_path: Path,
 ) -> None:
@@ -920,6 +933,8 @@ def test_doctor_human_reports_non_looping_implementation_mismatch_hint(
     assert "taskledger doctor" not in result.stdout
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-doctor-verbose-option-is-supported
 def test_doctor_verbose_option_is_supported(tmp_path: Path) -> None:
     _init_project(tmp_path)
 
@@ -967,6 +982,8 @@ def test_implement_resume_reacquires_lock_after_break(tmp_path: Path) -> None:
     assert task_show["result"]["task"]["active_stage"] == "implementation"
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-implement-resume-does-not-create-new-run
 def test_implement_resume_does_not_create_new_run(tmp_path: Path) -> None:
     task_id, run_id = _prepare_resumable_implementation_task(tmp_path)
     _break_task_lock(tmp_path)
@@ -994,6 +1011,8 @@ def test_implement_resume_does_not_create_new_run(tmp_path: Path) -> None:
     assert implementation_runs[0].run_id == run_id
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-implement-resume-requires-reason
 def test_implement_resume_requires_reason(tmp_path: Path) -> None:
     _prepare_resumable_implementation_task(tmp_path)
     _break_task_lock(tmp_path)
@@ -1016,6 +1035,8 @@ def test_implement_resume_requires_reason(tmp_path: Path) -> None:
     assert "Implementation resume requires --reason." in result.stdout
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-next-action-recommends-repair-for-orphaned-planning-run
 def test_next_action_recommends_repair_for_orphaned_planning_run(
     tmp_path: Path,
 ) -> None:
@@ -1035,6 +1056,8 @@ def test_next_action_recommends_repair_for_orphaned_planning_run(
     assert blocker["running_run"]["run_type"] == "planning"
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-can-implement-blocker-names-orphaned-planning-run
 def test_can_implement_blocker_names_orphaned_planning_run(tmp_path: Path) -> None:
     _, run_id = _prepare_approved_task_with_orphaned_planning_run(tmp_path)
 
@@ -1052,6 +1075,8 @@ def test_can_implement_blocker_names_orphaned_planning_run(tmp_path: Path) -> No
     assert blocker["running_run"]["has_matching_lock"] is False
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-implement-start-reports-running-run-details
 def test_implement_start_reports_running_run_details(tmp_path: Path) -> None:
     _, run_id = _prepare_approved_task_with_orphaned_planning_run(tmp_path)
 
@@ -1070,6 +1095,8 @@ def test_implement_start_reports_running_run_details(tmp_path: Path) -> None:
     assert details["suggested_command"] == "taskledger doctor"
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-repair-run-finishes-orphaned-planning-run
 def test_repair_run_finishes_orphaned_planning_run(tmp_path: Path) -> None:
     task_id, run_id = _prepare_approved_task_with_orphaned_planning_run(tmp_path)
 
@@ -1096,6 +1123,8 @@ def test_repair_run_finishes_orphaned_planning_run(tmp_path: Path) -> None:
     assert resolve_run(tmp_path, task_id, run_id).status == "finished"
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-implement-resume-rejects-missing-accepted-plan
 def test_implement_resume_rejects_missing_accepted_plan(tmp_path: Path) -> None:
     task_id, _ = _prepare_resumable_implementation_task(tmp_path)
     _break_task_lock(tmp_path)
@@ -1120,6 +1149,8 @@ def test_implement_resume_rejects_missing_accepted_plan(tmp_path: Path) -> None:
     assert "Implementation resume requires an accepted plan version." in result.stdout
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-implement-resume-rejects-non-running-implementation-run
 def test_implement_resume_rejects_non_running_implementation_run(
     tmp_path: Path,
 ) -> None:
@@ -1148,6 +1179,8 @@ def test_implement_resume_rejects_non_running_implementation_run(
     )
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-implement-resume-rejects-non-implementation-run
 def test_implement_resume_rejects_non_implementation_run(tmp_path: Path) -> None:
     task_id, run_id = _prepare_resumable_implementation_task(tmp_path)
     _break_task_lock(tmp_path)
@@ -1174,6 +1207,8 @@ def test_implement_resume_rejects_non_implementation_run(tmp_path: Path) -> None
     )
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-implement-resume-rejects-existing-lock
 def test_implement_resume_rejects_existing_lock(tmp_path: Path) -> None:
     _prepare_resumable_implementation_task(tmp_path)
 
@@ -1195,6 +1230,8 @@ def test_implement_resume_rejects_existing_lock(tmp_path: Path) -> None:
     assert "Implementation resume requires no active lock." in result.stdout
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-implement-resume-rejects-completed-task
 def test_implement_resume_rejects_completed_task(tmp_path: Path) -> None:
     task_id, _ = _prepare_resumable_implementation_task(tmp_path)
     _break_task_lock(tmp_path)
@@ -1222,6 +1259,8 @@ def test_implement_resume_rejects_completed_task(tmp_path: Path) -> None:
     )
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-implement-resume-rejects-cancelled-task
 def test_implement_resume_rejects_cancelled_task(tmp_path: Path) -> None:
     _prepare_resumable_implementation_task(tmp_path)
     cancel = runner.invoke(
@@ -1260,6 +1299,8 @@ def test_implement_resume_rejects_cancelled_task(tmp_path: Path) -> None:
     )
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-task-uncancel-restores-cancelled-task-to-approved
 def test_task_uncancel_restores_cancelled_task_to_approved(tmp_path: Path) -> None:
     task_id, _ = _prepare_resumable_implementation_task(tmp_path)
     cancel = runner.invoke(
@@ -1310,6 +1351,8 @@ def test_task_uncancel_restores_cancelled_task_to_approved(tmp_path: Path) -> No
     assert task_show["result"]["task"]["status_stage"] == "approved"
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-next-action-after-uncancel-running-implementation-recommends-resume
 def test_next_action_after_uncancel_running_implementation_recommends_resume(
     tmp_path: Path,
 ) -> None:
@@ -1361,6 +1404,8 @@ def test_next_action_after_uncancel_running_implementation_recommends_resume(
     )
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-can-implement-blocks-existing-running-run-after-uncancel
 def test_can_implement_blocks_existing_running_run_after_uncancel(
     tmp_path: Path,
 ) -> None:
@@ -1462,6 +1507,8 @@ def test_can_implement_resume_after_uncancel_running_implementation(
     assert payload["reason"] == "Implementation resume is ready."
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-uncancel-non-cancelled-orphan-hints-resume
 def test_uncancel_non_cancelled_orphan_hints_resume(tmp_path: Path) -> None:
     _prepare_resumable_implementation_task(tmp_path)
     _break_task_lock(tmp_path)
@@ -1493,6 +1540,8 @@ def test_uncancel_non_cancelled_orphan_hints_resume(tmp_path: Path) -> None:
     )
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-task-uncancel-rejects-active-stage-target
 def test_task_uncancel_rejects_active_stage_target(tmp_path: Path) -> None:
     _prepare_resumable_implementation_task(tmp_path)
     cancel = runner.invoke(
@@ -1533,6 +1582,8 @@ def test_task_uncancel_rejects_active_stage_target(tmp_path: Path) -> None:
     assert "Invalid uncancel target: implementing" in result.stdout
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-repair-task-human-output-records-inspection-and-recovery-hint
 def test_repair_task_human_output_records_inspection_and_recovery_hint(
     tmp_path: Path,
 ) -> None:
@@ -1577,6 +1628,8 @@ def test_repair_task_human_output_records_inspection_and_recovery_hint(
     )
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-task-first-support-commands-are-available
 def test_task_first_support_commands_are_available(tmp_path: Path) -> None:
     _init_project(tmp_path)
     assert (
@@ -1646,6 +1699,8 @@ def test_task_first_support_commands_are_available(tmp_path: Path) -> None:
     assert "@README.md [doc]" in file_list.stdout
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-root-alias-uses-stable-json-envelope
 def test_root_alias_uses_stable_json_envelope(tmp_path: Path) -> None:
     init_result = runner.invoke(app, ["--root", str(tmp_path), "init"])
     assert init_result.exit_code == 0
@@ -1668,6 +1723,8 @@ def test_root_alias_uses_stable_json_envelope(tmp_path: Path) -> None:
     assert payload["result"]["slug"] == "root-alias-task"
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-plan-approval-blocks-open-questions-with-json-error
 def test_plan_approval_blocks_open_questions_with_json_error(tmp_path: Path) -> None:
     _init_project(tmp_path)
     runner.invoke(
@@ -1733,6 +1790,8 @@ def test_plan_approval_blocks_open_questions_with_json_error(tmp_path: Path) -> 
     assert payload["error"]["code"] == "WORKFLOW_REJECTION"
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-expired-lock-requires-explicit-break-json-error
 def test_expired_lock_requires_explicit_break_json_error(tmp_path: Path) -> None:
     _init_project(tmp_path)
     runner.invoke(
@@ -1787,6 +1846,8 @@ def test_expired_lock_requires_explicit_break_json_error(tmp_path: Path) -> None
     assert payload["error"]["code"] == "STALE_LOCK_REQUIRES_BREAK"
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-context-for-implementer-todo-renders-focused-context
 def test_context_for_implementer_todo_renders_focused_context(tmp_path: Path) -> None:
     _prepare_focused_context_task(tmp_path)
 
@@ -1816,6 +1877,8 @@ def test_context_for_implementer_todo_renders_focused_context(tmp_path: Path) ->
     assert "[ ] todo-0001" not in result.stdout
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-context-for-spec-reviewer-run-renders-review-context
 def test_context_for_spec_reviewer_run_renders_review_context(tmp_path: Path) -> None:
     run_id = _prepare_focused_context_task(tmp_path)
 
@@ -1844,6 +1907,8 @@ def test_context_for_spec_reviewer_run_renders_review_context(tmp_path: Path) ->
     assert "deviations_from_plan" in result.stdout
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-context-for-code-reviewer-run-renders-review-context
 def test_context_for_code_reviewer_run_renders_review_context(tmp_path: Path) -> None:
     run_id = _prepare_focused_context_task(tmp_path)
 
@@ -1872,6 +1937,8 @@ def test_context_for_code_reviewer_run_renders_review_context(tmp_path: Path) ->
     assert "test_coverage_gaps" in result.stdout
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-handoff-create-and-show-focused-todo-snapshot
 def test_handoff_create_and_show_focused_todo_snapshot(tmp_path: Path) -> None:
     _prepare_focused_context_task(tmp_path)
 
@@ -1915,6 +1982,8 @@ def test_handoff_create_and_show_focused_todo_snapshot(tmp_path: Path) -> None:
     assert "todo-0001" in show_result.stdout
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-repair-planning-command-changes-dry-run
 def test_repair_planning_command_changes_dry_run(tmp_path: Path) -> None:
     """Test repair planning-command-changes with dry-run flag."""
     _init_project(tmp_path)
@@ -1960,6 +2029,8 @@ def test_repair_planning_command_changes_dry_run(tmp_path: Path) -> None:
     assert payload["result"]["task_id"] == task_id
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-repair-planning-command-changes-requires-reason
 def test_repair_planning_command_changes_requires_reason(tmp_path: Path) -> None:
     """Test repair planning-command-changes requires --reason."""
     _init_project(tmp_path)
@@ -1998,6 +2069,8 @@ def test_repair_planning_command_changes_requires_reason(tmp_path: Path) -> None
     assert "Missing option '--reason'" in result.stdout or result.exit_code == 2
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-status-command-with-check-flag
 def test_status_command_with_check_flag(tmp_path: Path) -> None:
     """Test status --check runs doctor health check."""
     _init_project(tmp_path)
@@ -2019,6 +2092,8 @@ def test_status_command_with_check_flag(tmp_path: Path) -> None:
     assert isinstance(payload["result"]["health"]["healthy"], bool)
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-status-command-without-check-flag-fast
 def test_status_command_without_check_flag_fast(tmp_path: Path) -> None:
     """Test status without --check flag uses fast counts."""
     _init_project(tmp_path)
@@ -2069,6 +2144,8 @@ def _overwrite_holder_pid(
     lock_path.write_text(yaml.safe_dump(data, sort_keys=False))
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-lock-show-human-reports-dead-holder-pid-and-next-commands
 def test_lock_show_human_reports_dead_holder_pid_and_next_commands(
     tmp_path: Path,
 ) -> None:
@@ -2097,6 +2174,8 @@ def test_lock_show_human_reports_dead_holder_pid_and_next_commands(
     assert "lock file:" in result.stdout
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-lock-show-json-payload-includes-diagnostics-and-storage-fields
 def test_lock_show_json_payload_includes_diagnostics_and_storage_fields(
     tmp_path: Path,
 ) -> None:
@@ -2119,6 +2198,8 @@ def test_lock_show_json_payload_includes_diagnostics_and_storage_fields(
     assert isinstance(result_data["lock_file"], str)
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-implement-resume-with-active-dead-pid-lock-explains-repair-not-expired-resume
 def test_implement_resume_with_active_dead_pid_lock_explains_repair_not_expired_resume(
     tmp_path: Path,
 ) -> None:
@@ -2159,6 +2240,8 @@ def test_implement_resume_with_active_dead_pid_lock_explains_repair_not_expired_
     )
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-next-action-dead-pid-lock-routes-to-repair-lock
 def test_next_action_dead_pid_lock_routes_to_repair_lock(
     tmp_path: Path,
 ) -> None:
@@ -2186,6 +2269,8 @@ def test_next_action_dead_pid_lock_routes_to_repair_lock(
     assert "is no longer running" in lock_blockers[0].get("message", "")
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature
+# specweave: scenario=@bdd-taskledger-v2-cli-next-action-live-lock-keeps-todo-work-with-warning
 def test_next_action_live_lock_keeps_todo_work_with_warning(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

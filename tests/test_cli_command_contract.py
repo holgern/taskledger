@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -52,10 +53,14 @@ def _registered_command_paths() -> set[str]:
     return paths
 
 
+# specweave: feature=specs/behavior/features/cli_command_contract/cli-command-contract.feature
+# specweave: scenario=@bdd-cli-command-contract-removed-aliases-are-not-registered
 def test_removed_aliases_are_not_registered() -> None:
     assert REMOVED_COMMANDS.isdisjoint(_registered_command_paths())
 
 
+# specweave: feature=specs/behavior/features/cli_command_contract/cli-command-contract.feature
+# specweave: scenario=@bdd-cli-command-contract-commands-do-not-register-local-json-options
 def test_commands_do_not_register_local_json_options() -> None:
     import inspect
 
@@ -78,6 +83,8 @@ def test_commands_do_not_register_local_json_options() -> None:
     assert not offenders
 
 
+# specweave: feature=specs/behavior/features/cli_command_contract/cli-command-contract.feature
+# specweave: scenario=@bdd-cli-command-contract-workflow-commands-reject-positional-task-refs-with-json-remediation
 def test_workflow_commands_reject_positional_task_refs_with_json_remediation(
     tmp_path: Path,
 ) -> None:
@@ -101,6 +108,8 @@ def test_workflow_commands_reject_positional_task_refs_with_json_remediation(
         )
 
 
+# specweave: feature=specs/behavior/features/cli_command_contract/cli-command-contract.feature
+# specweave: scenario=@bdd-cli-command-contract-task-show-accepts-positional-task-ref-and-task-option
 def test_task_show_accepts_positional_task_ref_and_task_option(tmp_path: Path) -> None:
     assert runner.invoke(app, ["--cwd", str(tmp_path), "init"]).exit_code == 0
     assert (
@@ -140,6 +149,8 @@ def test_task_show_accepts_positional_task_ref_and_task_option(tmp_path: Path) -
     assert explicit_payload["result"]["task"]["id"] == "task-0001"
 
 
+# specweave: feature=specs/behavior/features/cli_command_contract/cli-command-contract.feature
+# specweave: scenario=@bdd-cli-command-contract-task-cancel-requires-explicit-target-even-when-active-exists
 def test_task_cancel_requires_explicit_target_even_when_active_exists(
     tmp_path: Path,
 ) -> None:
@@ -186,6 +197,8 @@ def test_task_cancel_requires_explicit_target_even_when_active_exists(
     assert "requires an explicit target" in payload["error"]["message"]
 
 
+# specweave: feature=specs/behavior/features/cli_command_contract/cli-command-contract.feature
+# specweave: scenario=@bdd-cli-command-contract-task-cancel-accepts-positional-task-ref-and-active-flag
 def test_task_cancel_accepts_positional_task_ref_and_active_flag(
     tmp_path: Path,
 ) -> None:
@@ -273,6 +286,8 @@ def test_task_cancel_accepts_positional_task_ref_and_active_flag(
     assert active_payload["result"]["target"]["selection"] == "active_explicit"
 
 
+# specweave: feature=specs/behavior/features/cli_command_contract/cli-command-contract.feature
+# specweave: scenario=@bdd-cli-command-contract-global-json-only-for-task-show
 def test_global_json_only_for_task_show(tmp_path: Path) -> None:
     assert runner.invoke(app, ["--cwd", str(tmp_path), "init"]).exit_code == 0
     assert (
@@ -309,6 +324,8 @@ def test_global_json_only_for_task_show(tmp_path: Path) -> None:
     assert payload["ok"] is True
 
 
+# specweave: feature=specs/behavior/features/cli_command_contract/cli-command-contract.feature
+# specweave: scenario=@bdd-cli-command-contract-version-flag-displays-version
 def test_version_flag_displays_version() -> None:
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0

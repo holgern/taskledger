@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -70,6 +71,8 @@ def _invoke(cwd: Path, args: list[str]) -> object:
     return result
 
 
+# specweave: feature=specs/behavior/features/code_reviews/code-reviews.feature
+# specweave: scenario=@bdd-code-reviews-code-review-record-round-trip
 def test_code_review_record_round_trip() -> None:
     item = CodeReviewRecord(
         review_id="review-0001",
@@ -106,6 +109,8 @@ def test_code_review_record_rejects_invalid_result_and_source() -> None:
         CodeReviewRecord.from_dict(payload)
 
 
+# specweave: feature=specs/behavior/features/code_reviews/code-reviews.feature
+# specweave: scenario=@bdd-code-reviews-storage-save-list-resolve-code-reviews
 def test_storage_save_list_resolve_code_reviews(tmp_path: Path) -> None:
     ws = init_workspace(tmp_path)
     review = CodeReviewRecord(
@@ -124,6 +129,8 @@ def test_storage_save_list_resolve_code_reviews(tmp_path: Path) -> None:
     assert resolved.review_id == "review-0001"
 
 
+# specweave: feature=specs/behavior/features/code_reviews/code-reviews.feature
+# specweave: scenario=@bdd-code-reviews-service-records-and-lists-manual-review
 def test_service_records_and_lists_manual_review(tmp_path: Path) -> None:
     ws = init_workspace(tmp_path)
     task_id = create_implemented_task(ws, allow_lint_errors=True)
@@ -142,6 +149,8 @@ def test_service_records_and_lists_manual_review(tmp_path: Path) -> None:
     assert shown.body == "No blocking issues."
 
 
+# specweave: feature=specs/behavior/features/code_reviews/code-reviews.feature
+# specweave: scenario=@bdd-code-reviews-service-records-review-after-task-is-done
 def test_service_records_review_after_task_is_done(tmp_path: Path) -> None:
     ws = init_workspace(tmp_path)
     task_id = create_done_task(ws, allow_lint_errors=True)
@@ -179,6 +188,8 @@ def test_service_rejects_archived_task(tmp_path: Path) -> None:
         record_code_review(ws, task_id, result="pass", body="archived")
 
 
+# specweave: feature=specs/behavior/features/code_reviews/code-reviews.feature
+# specweave: scenario=@bdd-code-reviews-service-records-working-tree-git-metadata
 def test_service_records_working_tree_git_metadata(tmp_path: Path) -> None:
     _git_required()
     ws = init_workspace(tmp_path)
@@ -207,6 +218,8 @@ def test_service_records_working_tree_git_metadata(tmp_path: Path) -> None:
     assert "sample.txt" in review.git_changed_paths
 
 
+# specweave: feature=specs/behavior/features/code_reviews/code-reviews.feature
+# specweave: scenario=@bdd-code-reviews-service-records-commit-git-metadata
 def test_service_records_commit_git_metadata(tmp_path: Path) -> None:
     _git_required()
     ws = init_workspace(tmp_path)
@@ -232,6 +245,8 @@ def test_service_records_commit_git_metadata(tmp_path: Path) -> None:
     assert "sample.txt" in review.git_changed_paths
 
 
+# specweave: feature=specs/behavior/features/code_reviews/code-reviews.feature
+# specweave: scenario=@bdd-code-reviews-cli-review-record-list-show-and-json
 def test_cli_review_record_list_show_and_json(tmp_path: Path) -> None:
     ws = init_workspace(tmp_path)
     task_id = create_implemented_task(ws, allow_lint_errors=True)
@@ -274,6 +289,8 @@ def test_cli_review_record_list_show_and_json(tmp_path: Path) -> None:
     assert payload["result"]["review_id"] == "review-0002"
 
 
+# specweave: feature=specs/behavior/features/code_reviews/code-reviews.feature
+# specweave: scenario=@bdd-code-reviews-cli-review-record-summary-and-file-are-mutually-exclusive
 def test_cli_review_record_summary_and_file_are_mutually_exclusive(
     tmp_path: Path,
 ) -> None:

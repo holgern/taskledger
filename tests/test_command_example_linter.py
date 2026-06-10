@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Command-example linter: validates taskledger command lines found in docs and
 skill files against the actual CLI command inventory."""
 
@@ -114,6 +115,8 @@ def _extract_command_tokens(line: str) -> str | None:
     return first
 
 
+# specweave: feature=specs/behavior/features/command_example_linter/command-example-linter.feature
+# specweave: scenario=@bdd-command-example-linter-docs-do-not-reference-removed-commands
 def test_docs_do_not_reference_removed_commands() -> None:
     for path in ALL_PATHS:
         if not path.exists():
@@ -123,6 +126,8 @@ def test_docs_do_not_reference_removed_commands() -> None:
             assert needle not in text, f"{path}: found forbidden '{needle}'"
 
 
+# specweave: feature=specs/behavior/features/command_example_linter/command-example-linter.feature
+# specweave: scenario=@bdd-command-example-linter-command-examples-in-docs-use-valid-commands
 def test_command_examples_in_docs_use_valid_commands() -> None:
     failures: list[str] = []
     for path in ALL_PATHS:
@@ -163,6 +168,8 @@ def test_command_examples_in_docs_use_valid_commands() -> None:
     assert not failures, "\n".join(failures)
 
 
+# specweave: feature=specs/behavior/features/command_example_linter/command-example-linter.feature
+# specweave: scenario=@bdd-command-example-linter-readme-skill-path-matches-repository
 def test_readme_skill_path_matches_repository() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "skills/taskledger/SKILL.md" in readme

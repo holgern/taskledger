@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Tests for --no-log flag, TASKLEDGER_NO_LOG env var, and command filtering."""
 
 from __future__ import annotations
@@ -111,18 +112,26 @@ class TestEnvironmentVariable:
     def test_no_env_var(self) -> None:
         assert not _env_no_log()
 
+    # specweave: feature=specs/behavior/features/no_log_feature/no-log-feature.feature
+    # specweave: scenario=@bdd-no-log-feature-env-var-1
     def test_env_var_1(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("TASKLEDGER_NO_LOG", "1")
         assert _env_no_log()
 
+    # specweave: feature=specs/behavior/features/no_log_feature/no-log-feature.feature
+    # specweave: scenario=@bdd-no-log-feature-env-var-true
     def test_env_var_true(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("TASKLEDGER_NO_LOG", "true")
         assert _env_no_log()
 
+    # specweave: feature=specs/behavior/features/no_log_feature/no-log-feature.feature
+    # specweave: scenario=@bdd-no-log-feature-env-var-yes
     def test_env_var_yes(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("TASKLEDGER_NO_LOG", "yes")
         assert _env_no_log()
 
+    # specweave: feature=specs/behavior/features/no_log_feature/no-log-feature.feature
+    # specweave: scenario=@bdd-no-log-feature-env-var-on
     def test_env_var_on(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("TASKLEDGER_NO_LOG", "on")
         assert _env_no_log()
@@ -135,6 +144,8 @@ class TestEnvironmentVariable:
         monkeypatch.setenv("TASKLEDGER_NO_LOG", "false")
         assert not _env_no_log()
 
+    # specweave: feature=specs/behavior/features/no_log_feature/no-log-feature.feature
+    # specweave: scenario=@bdd-no-log-feature-env-var-case-insensitive
     def test_env_var_case_insensitive(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("TASKLEDGER_NO_LOG", "TRUE")
         assert _env_no_log()
@@ -143,23 +154,33 @@ class TestEnvironmentVariable:
 class TestShouldSkipRecording:
     """Test the recording skip decision logic."""
 
+    # specweave: feature=specs/behavior/features/no_log_feature/no-log-feature.feature
+    # specweave: scenario=@bdd-no-log-feature-skip-when-no-log-flag-set
     def test_skip_when_no_log_flag_set(self) -> None:
         config = AgentLoggingConfig(enabled=True, capture_taskledger_cli=True)
         assert _should_skip_cli_recording(argv=("view",), config=config, no_log=True)
 
+    # specweave: feature=specs/behavior/features/no_log_feature/no-log-feature.feature
+    # specweave: scenario=@bdd-no-log-feature-skip-when-env-var-set
     def test_skip_when_env_var_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("TASKLEDGER_NO_LOG", "1")
         config = AgentLoggingConfig(enabled=True, capture_taskledger_cli=True)
         assert _should_skip_cli_recording(argv=("view",), config=config, no_log=False)
 
+    # specweave: feature=specs/behavior/features/no_log_feature/no-log-feature.feature
+    # specweave: scenario=@bdd-no-log-feature-skip-when-disabled
     def test_skip_when_disabled(self) -> None:
         config = AgentLoggingConfig(enabled=False, capture_taskledger_cli=True)
         assert _should_skip_cli_recording(argv=("view",), config=config, no_log=False)
 
+    # specweave: feature=specs/behavior/features/no_log_feature/no-log-feature.feature
+    # specweave: scenario=@bdd-no-log-feature-skip-when-cli-capture-disabled
     def test_skip_when_cli_capture_disabled(self) -> None:
         config = AgentLoggingConfig(enabled=True, capture_taskledger_cli=False)
         assert _should_skip_cli_recording(argv=("view",), config=config, no_log=False)
 
+    # specweave: feature=specs/behavior/features/no_log_feature/no-log-feature.feature
+    # specweave: scenario=@bdd-no-log-feature-skip-human-oriented-when-capture-disabled
     def test_skip_human_oriented_when_capture_disabled(self) -> None:
         config = AgentLoggingConfig(
             enabled=True,
@@ -180,6 +201,8 @@ class TestShouldSkipRecording:
             argv=("task", "report"), config=config, no_log=False
         )
 
+    # specweave: feature=specs/behavior/features/no_log_feature/no-log-feature.feature
+    # specweave: scenario=@bdd-no-log-feature-skip-safe-read-only-when-capture-disabled
     def test_skip_safe_read_only_when_capture_disabled(self) -> None:
         config = AgentLoggingConfig(
             enabled=True,
@@ -210,6 +233,8 @@ class TestShouldSkipRecording:
             argv=("task", "create"), config=config, no_log=False
         )
 
+    # specweave: feature=specs/behavior/features/no_log_feature/no-log-feature.feature
+    # specweave: scenario=@bdd-no-log-feature-precedence-no-log-overrides-config
     def test_precedence_no_log_overrides_config(self) -> None:
         config = AgentLoggingConfig(
             enabled=True,
@@ -222,6 +247,8 @@ class TestShouldSkipRecording:
 class TestNoLogIntegration:
     """Integration tests for --no-log flag."""
 
+    # specweave: feature=specs/behavior/features/no_log_feature/no-log-feature.feature
+    # specweave: scenario=@bdd-no-log-feature-no-log-flag-suppresses-logging
     def test_no_log_flag_suppresses_logging(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         _enable_agent_logging(tmp_path)
@@ -234,6 +261,8 @@ class TestNoLogIntegration:
         log_count = _get_log_count(tmp_path)
         assert log_count == 0
 
+    # specweave: feature=specs/behavior/features/no_log_feature/no-log-feature.feature
+    # specweave: scenario=@bdd-no-log-feature-normal-command-still-logs
     def test_normal_command_still_logs(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         _enable_agent_logging(tmp_path)
@@ -246,6 +275,8 @@ class TestNoLogIntegration:
         log_count = _get_log_count(tmp_path)
         assert log_count == 1
 
+    # specweave: feature=specs/behavior/features/no_log_feature/no-log-feature.feature
+    # specweave: scenario=@bdd-no-log-feature-env-var-suppresses-logging
     def test_env_var_suppresses_logging(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -261,6 +292,8 @@ class TestNoLogIntegration:
         log_count = _get_log_count(tmp_path)
         assert log_count == 0
 
+    # specweave: feature=specs/behavior/features/no_log_feature/no-log-feature.feature
+    # specweave: scenario=@bdd-no-log-feature-no-log-mutation-still-executes
     def test_no_log_mutation_still_executes(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         _enable_agent_logging(tmp_path)
@@ -299,6 +332,8 @@ class TestNoLogIntegration:
 class TestConfigFiltering:
     """Test config-based command filtering."""
 
+    # specweave: feature=specs/behavior/features/no_log_feature/no-log-feature.feature
+    # specweave: scenario=@bdd-no-log-feature-capture-safe-read-only-false-skips-view
     def test_capture_safe_read_only_false_skips_view(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         config_path = tmp_path / "taskledger.toml"
@@ -322,6 +357,8 @@ class TestConfigFiltering:
         logs_after_status = _get_log_count(tmp_path)
         assert logs_after_status == initial_logs
 
+    # specweave: feature=specs/behavior/features/no_log_feature/no-log-feature.feature
+    # specweave: scenario=@bdd-no-log-feature-capture-safe-read-only-false-still-logs-mutations
     def test_capture_safe_read_only_false_still_logs_mutations(
         self, tmp_path: Path
     ) -> None:
@@ -350,6 +387,8 @@ class TestConfigFiltering:
         final_logs = _get_log_count(tmp_path)
         assert final_logs > initial_logs
 
+    # specweave: feature=specs/behavior/features/no_log_feature/no-log-feature.feature
+    # specweave: scenario=@bdd-no-log-feature-capture-human-oriented-false-skips-report
     def test_capture_human_oriented_false_skips_report(self, tmp_path: Path) -> None:
         # Note: This test uses 'commands' (root-level) instead of 'task report' (nested)
         # because filtering is only applied at the app level, not within command groups.
@@ -380,6 +419,8 @@ class TestConfigFiltering:
 class TestCommandsCommand:
     """Test the taskledger commands CLI."""
 
+    # specweave: feature=specs/behavior/features/no_log_feature/no-log-feature.feature
+    # specweave: scenario=@bdd-no-log-feature-commands-list-all
     def test_commands_list_all(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         result = runner.invoke(app, ["--cwd", str(tmp_path), "commands"])
@@ -389,6 +430,8 @@ class TestCommandsCommand:
         assert "stable_for_agents" in result.stdout
         assert "safe_read_only" in result.stdout
 
+    # specweave: feature=specs/behavior/features/no_log_feature/no-log-feature.feature
+    # specweave: scenario=@bdd-no-log-feature-commands-filter-by-audience
     def test_commands_filter_by_audience(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         result = runner.invoke(
@@ -398,6 +441,8 @@ class TestCommandsCommand:
         assert "task report" in result.stdout
         assert "view" not in result.stdout
 
+    # specweave: feature=specs/behavior/features/no_log_feature/no-log-feature.feature
+    # specweave: scenario=@bdd-no-log-feature-commands-filter-by-effect
     def test_commands_filter_by_effect(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         result = runner.invoke(
@@ -407,6 +452,8 @@ class TestCommandsCommand:
         assert "view" in result.stdout
         assert "task create" not in result.stdout
 
+    # specweave: feature=specs/behavior/features/no_log_feature/no-log-feature.feature
+    # specweave: scenario=@bdd-no-log-feature-commands-json-output
     def test_commands_json_output(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         result = runner.invoke(app, ["--cwd", str(tmp_path), "--json", "commands"])
@@ -422,6 +469,8 @@ class TestCommandsCommand:
         assert "audience" in result_data["commands"][0]
         assert "effect" in result_data["commands"][0]
 
+    # specweave: feature=specs/behavior/features/no_log_feature/no-log-feature.feature
+    # specweave: scenario=@bdd-no-log-feature-commands-json-with-filters
     def test_commands_json_with_filters(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         result = runner.invoke(

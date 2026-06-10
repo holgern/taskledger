@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -22,6 +23,8 @@ def _make_runner() -> CliRunner:
 runner = _make_runner()
 
 
+# specweave: feature=specs/behavior/features/file_link_snapshots/file-link-snapshots.feature
+# specweave: scenario=@bdd-file-link-snapshots-existing-links-load-without-baseline-fields
 def test_existing_links_load_without_baseline_fields() -> None:
     link = FileLink.from_dict(
         {
@@ -39,6 +42,8 @@ def test_existing_links_load_without_baseline_fields() -> None:
     assert link.baseline_exists is None
 
 
+# specweave: feature=specs/behavior/features/file_link_snapshots/file-link-snapshots.feature
+# specweave: scenario=@bdd-file-link-snapshots-new-links-record-baseline-fields
 def test_new_links_record_baseline_fields(tmp_path: Path) -> None:
     ws = init_workspace(tmp_path)
     task = create_task(ws, title="Link task", slug="link-task", description="x")
@@ -61,6 +66,8 @@ def test_new_links_record_baseline_fields(tmp_path: Path) -> None:
     assert link.target_type == "file"
 
 
+# specweave: feature=specs/behavior/features/file_link_snapshots/file-link-snapshots.feature
+# specweave: scenario=@bdd-file-link-snapshots-binary-files-hash-without-decoding-errors
 def test_binary_files_hash_without_decoding_errors(tmp_path: Path) -> None:
     ws = init_workspace(tmp_path)
     task = create_task(ws, title="Binary task", slug="binary-task", description="x")
@@ -88,6 +95,8 @@ def test_binary_files_hash_without_decoding_errors(tmp_path: Path) -> None:
     )
 
 
+# specweave: feature=specs/behavior/features/file_link_snapshots/file-link-snapshots.feature
+# specweave: scenario=@bdd-file-link-snapshots-modified-file-status
 def test_modified_file_status(tmp_path: Path) -> None:
     ws = init_workspace(tmp_path)
     task = create_task(ws, title="Modified task", slug="modified-task", description="x")
@@ -108,6 +117,8 @@ def test_modified_file_status(tmp_path: Path) -> None:
     assert payload["result"]["links"][0]["status"] == "modified"
 
 
+# specweave: feature=specs/behavior/features/file_link_snapshots/file-link-snapshots.feature
+# specweave: scenario=@bdd-file-link-snapshots-deleted-file-status
 def test_deleted_file_status(tmp_path: Path) -> None:
     ws = init_workspace(tmp_path)
     task = create_task(ws, title="Deleted task", slug="deleted-task", description="x")
@@ -125,6 +136,8 @@ def test_deleted_file_status(tmp_path: Path) -> None:
     assert payload["result"]["links"][0]["status"] == "deleted"
 
 
+# specweave: feature=specs/behavior/features/file_link_snapshots/file-link-snapshots.feature
+# specweave: scenario=@bdd-file-link-snapshots-new-file-status-from-missing-baseline
 def test_new_file_status_from_missing_baseline(tmp_path: Path) -> None:
     ws = init_workspace(tmp_path)
     task = create_task(ws, title="New file task", slug="new-file-task", description="x")
@@ -141,6 +154,8 @@ def test_new_file_status_from_missing_baseline(tmp_path: Path) -> None:
     assert payload["result"]["links"][0]["status"] == "new"
 
 
+# specweave: feature=specs/behavior/features/file_link_snapshots/file-link-snapshots.feature
+# specweave: scenario=@bdd-file-link-snapshots-directory-status-is-unchanged-without-recursive-hashing
 def test_directory_status_is_unchanged_without_recursive_hashing(
     tmp_path: Path,
 ) -> None:
@@ -164,6 +179,8 @@ def test_directory_status_is_unchanged_without_recursive_hashing(
     assert link["status"] == "unchanged"
 
 
+# specweave: feature=specs/behavior/features/file_link_snapshots/file-link-snapshots.feature
+# specweave: scenario=@bdd-file-link-snapshots-refresh-rebaselines-modified-file
 def test_refresh_rebaselines_modified_file(tmp_path: Path) -> None:
     ws = init_workspace(tmp_path)
     task = create_task(ws, title="Refresh task", slug="refresh-task", description="x")
@@ -197,6 +214,8 @@ def test_refresh_rebaselines_modified_file(tmp_path: Path) -> None:
     assert json.loads(after.stdout)["result"]["links"][0]["status"] == "unchanged"
 
 
+# specweave: feature=specs/behavior/features/file_link_snapshots/file-link-snapshots.feature
+# specweave: scenario=@bdd-file-link-snapshots-existing-link-baseline-is-preserved-without-explicit-snapshot
 def test_existing_link_baseline_is_preserved_without_explicit_snapshot(
     tmp_path: Path,
 ) -> None:

@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Tests for taskledger.storage.repos."""
 
 from __future__ import annotations
@@ -45,6 +46,8 @@ def test_save_and_load_repos(tmp_path: Path) -> None:
     assert loaded[0].name == "test-repo"
 
 
+# specweave: feature=specs/behavior/features/storage_repos/storage-repos.feature
+# specweave: scenario=@bdd-storage-repos-add-repo
 def test_add_repo(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
     repo_dir = tmp_path / "my-code"
@@ -108,6 +111,8 @@ def test_add_repo_rejects_nonexistent_path(tmp_path: Path) -> None:
         )
 
 
+# specweave: feature=specs/behavior/features/storage_repos/storage-repos.feature
+# specweave: scenario=@bdd-storage-repos-resolve-repo
 def test_resolve_repo(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
     repo_dir = tmp_path / "my-code"
@@ -117,6 +122,8 @@ def test_resolve_repo(tmp_path: Path) -> None:
     assert found.name == "my-code"
 
 
+# specweave: feature=specs/behavior/features/storage_repos/storage-repos.feature
+# specweave: scenario=@bdd-storage-repos-resolve-repo-by-slugified-ref
 def test_resolve_repo_by_slugified_ref(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
     repo_dir = tmp_path / "My Code"
@@ -141,6 +148,8 @@ def test_resolve_repo_root(tmp_path: Path) -> None:
     assert root == repo_dir.resolve()
 
 
+# specweave: feature=specs/behavior/features/storage_repos/storage-repos.feature
+# specweave: scenario=@bdd-storage-repos-remove-repo
 def test_remove_repo(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
     repo_dir = tmp_path / "my-code"
@@ -151,6 +160,8 @@ def test_remove_repo(tmp_path: Path) -> None:
     assert load_repos(paths) == []
 
 
+# specweave: feature=specs/behavior/features/storage_repos/storage-repos.feature
+# specweave: scenario=@bdd-storage-repos-set-repo-role
 def test_set_repo_role(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
     repo_dir = tmp_path / "code"
@@ -179,6 +190,8 @@ def test_set_repo_role_rejects_readonly_if_preferred(tmp_path: Path) -> None:
         set_repo_role(paths, "code", role="read")
 
 
+# specweave: feature=specs/behavior/features/storage_repos/storage-repos.feature
+# specweave: scenario=@bdd-storage-repos-set-default-execution-repo
 def test_set_default_execution_repo(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
     repo_dir = tmp_path / "code"
@@ -197,6 +210,8 @@ def test_set_default_execution_repo_rejects_readonly(tmp_path: Path) -> None:
         set_default_execution_repo(paths, "code")
 
 
+# specweave: feature=specs/behavior/features/storage_repos/storage-repos.feature
+# specweave: scenario=@bdd-storage-repos-clear-default-execution-repo
 def test_clear_default_execution_repo(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
     repo_dir = tmp_path / "code"

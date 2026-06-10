@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -45,6 +46,8 @@ def _git(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+# specweave: feature=specs/behavior/features/storage_sync/storage-sync.feature
+# specweave: scenario=@bdd-storage-sync-storage-where-reports-external-storage-details
 def test_storage_where_reports_external_storage_details(tmp_path: Path) -> None:
     workspace = tmp_path / "repo"
     storage = tmp_path / "state" / "repo"
@@ -70,6 +73,8 @@ def test_storage_where_reports_external_storage_details(tmp_path: Path) -> None:
     assert data["ledger_ref"] == "main"
 
 
+# specweave: feature=specs/behavior/features/storage_sync/storage-sync.feature
+# specweave: scenario=@bdd-storage-sync-storage-move-copy-updates-config-and-preserves-project-uuid
 def test_storage_move_copy_updates_config_and_preserves_project_uuid(
     tmp_path: Path,
 ) -> None:
@@ -111,6 +116,8 @@ def test_storage_move_copy_updates_config_and_preserves_project_uuid(
     ).read_text(encoding="utf-8")
 
 
+# specweave: feature=specs/behavior/features/storage_sync/storage-sync.feature
+# specweave: scenario=@bdd-storage-sync-storage-move-refuses-non-empty-target
 def test_storage_move_refuses_non_empty_target(tmp_path: Path) -> None:
     workspace = tmp_path / "repo"
     target = tmp_path / "state" / "repo"
@@ -141,6 +148,8 @@ def test_storage_move_refuses_non_empty_target(tmp_path: Path) -> None:
     assert "Target exists and is not empty" in payload["error"]["message"]
 
 
+# specweave: feature=specs/behavior/features/storage_sync/storage-sync.feature
+# specweave: scenario=@bdd-storage-sync-sync-preflight-is-read-only-and-warns-about-active-locks
 def test_sync_preflight_is_read_only_and_warns_about_active_locks(
     tmp_path: Path,
 ) -> None:
@@ -189,6 +198,8 @@ def test_sync_preflight_is_read_only_and_warns_about_active_locks(
     assert any("active lock" in item.lower() for item in data["warnings"])
 
 
+# specweave: feature=specs/behavior/features/storage_sync/storage-sync.feature
+# specweave: scenario=@bdd-storage-sync-sync-preflight-warns-when-in-repo-storage-is-tracked
 def test_sync_preflight_warns_when_in_repo_storage_is_tracked(tmp_path: Path) -> None:
     workspace = tmp_path / "repo"
     workspace.mkdir()
@@ -211,6 +222,8 @@ def test_sync_preflight_warns_when_in_repo_storage_is_tracked(tmp_path: Path) ->
     assert any("tracked by git" in item.lower() for item in data["warnings"])
 
 
+# specweave: feature=specs/behavior/features/storage_sync/storage-sync.feature
+# specweave: scenario=@bdd-storage-sync-sync-status-reports-git-changes-for-external-state-repo
 def test_sync_status_reports_git_changes_for_external_state_repo(
     tmp_path: Path,
 ) -> None:
@@ -237,6 +250,8 @@ def test_sync_status_reports_git_changes_for_external_state_repo(
     assert data["status_lines"]
 
 
+# specweave: feature=specs/behavior/features/storage_sync/storage-sync.feature
+# specweave: scenario=@bdd-storage-sync-sync-commit-commits-external-state-repo
 def test_sync_commit_commits_external_state_repo(tmp_path: Path) -> None:
     workspace = tmp_path / "repo"
     storage = tmp_path / "state" / "repo"
@@ -274,6 +289,8 @@ def test_sync_commit_commits_external_state_repo(tmp_path: Path) -> None:
     assert status.stdout.strip() == ""
 
 
+# specweave: feature=specs/behavior/features/storage_sync/storage-sync.feature
+# specweave: scenario=@bdd-storage-sync-sync-help-includes-aliases-and-git-group
 def test_sync_help_includes_aliases_and_git_group(tmp_path: Path) -> None:
     workspace = tmp_path / "repo"
     workspace.mkdir()
@@ -290,6 +307,8 @@ def test_sync_help_includes_aliases_and_git_group(tmp_path: Path) -> None:
     assert "git" in result.stdout
 
 
+# specweave: feature=specs/behavior/features/storage_sync/storage-sync.feature
+# specweave: scenario=@bdd-storage-sync-sync-export-alias-writes-archive
 def test_sync_export_alias_writes_archive(tmp_path: Path) -> None:
     workspace = tmp_path / "repo"
     workspace.mkdir()
@@ -319,6 +338,8 @@ def test_sync_export_alias_writes_archive(tmp_path: Path) -> None:
     assert sync_archive.exists()
 
 
+# specweave: feature=specs/behavior/features/storage_sync/storage-sync.feature
+# specweave: scenario=@bdd-storage-sync-export-conflicting-output-args-include-command-specific-hint
 def test_export_conflicting_output_args_include_command_specific_hint(
     tmp_path: Path,
 ) -> None:

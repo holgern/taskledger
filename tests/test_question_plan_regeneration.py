@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -40,6 +41,8 @@ def _init_task(tmp_path: Path) -> None:
     start_planning(tmp_path, task.id)
 
 
+# specweave: feature=specs/behavior/features/question_plan_regeneration/question-plan-regeneration.feature
+# specweave: scenario=@bdd-question-plan-regeneration-required-question-blocks-approval-until-answered-and-regenerated
 def test_required_question_blocks_approval_until_answered_and_regenerated(
     tmp_path: Path,
 ) -> None:
@@ -157,6 +160,8 @@ Use PostgreSQL only.
     assert status["result"]["plan_regeneration_needed"] is False
 
 
+# specweave: feature=specs/behavior/features/question_plan_regeneration/question-plan-regeneration.feature
+# specweave: scenario=@bdd-question-plan-regeneration-plan-regeneration-finishes-orphaned-latest-planning-run
 def test_plan_regeneration_finishes_orphaned_latest_planning_run(
     tmp_path: Path,
 ) -> None:
@@ -245,6 +250,8 @@ Recover the orphaned planning run.
     assert status["result"]["plan_regeneration_needed"] is False
 
 
+# specweave: feature=specs/behavior/features/question_plan_regeneration/question-plan-regeneration.feature
+# specweave: scenario=@bdd-question-plan-regeneration-answered-question-blocks-approval-of-stale-plan
 def test_answered_question_blocks_approval_of_stale_plan(tmp_path: Path) -> None:
     _init_task(tmp_path)
     assert (
@@ -456,6 +463,8 @@ def test_answer_many_records_user_chat_answers_and_requires_regeneration(
     ]
 
 
+# specweave: feature=specs/behavior/features/question_plan_regeneration/question-plan-regeneration.feature
+# specweave: scenario=@bdd-question-plan-regeneration-answer-many-rejects-duplicate-plain-text-ids
 def test_answer_many_rejects_duplicate_plain_text_ids(tmp_path: Path) -> None:
     _init_task(tmp_path)
     assert (
@@ -543,6 +552,8 @@ def test_answer_many_accepts_repeated_text_options(tmp_path: Path) -> None:
     assert result["result"]["plan_regeneration_needed"] is True
 
 
+# specweave: feature=specs/behavior/features/question_plan_regeneration/question-plan-regeneration.feature
+# specweave: scenario=@bdd-question-plan-regeneration-required-question-needs-explicit-user-source-for-agent
 def test_required_question_needs_explicit_user_source_for_agent(tmp_path: Path) -> None:
     _init_task(tmp_path)
     assert (
@@ -582,6 +593,8 @@ def test_required_question_needs_explicit_user_source_for_agent(tmp_path: Path) 
     )
 
 
+# specweave: feature=specs/behavior/features/question_plan_regeneration/question-plan-regeneration.feature
+# specweave: scenario=@bdd-question-plan-regeneration-question-answer-accepts-question-option-alias
 def test_question_answer_accepts_question_option_alias(tmp_path: Path) -> None:
     _init_task(tmp_path)
     assert (
@@ -618,6 +631,8 @@ def test_question_answer_accepts_question_option_alias(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.stdout
 
 
+# specweave: feature=specs/behavior/features/question_plan_regeneration/question-plan-regeneration.feature
+# specweave: scenario=@bdd-question-plan-regeneration-question-answer-rejects-both-positional-and-option-id
 def test_question_answer_rejects_both_positional_and_option_id(tmp_path: Path) -> None:
     _init_task(tmp_path)
     assert (
@@ -654,6 +669,8 @@ def test_question_answer_rejects_both_positional_and_option_id(tmp_path: Path) -
     assert "Provide exactly one question id" in combined
 
 
+# specweave: feature=specs/behavior/features/question_plan_regeneration/question-plan-regeneration.feature
+# specweave: scenario=@bdd-question-plan-regeneration-question-status-human-lists-required-open-ids
 def test_question_status_human_lists_required_open_ids(tmp_path: Path) -> None:
     _init_task(tmp_path)
     for text in ("Q1?", "Q2?"):
@@ -705,6 +722,8 @@ def test_question_status_human_lists_required_open_ids(tmp_path: Path) -> None:
     assert "Do not infer answers." in result.stdout
 
 
+# specweave: feature=specs/behavior/features/question_plan_regeneration/question-plan-regeneration.feature
+# specweave: scenario=@bdd-question-plan-regeneration-plan-upsert-from-answers-releases-planning-lock-and-allows-accept
 def test_plan_upsert_from_answers_releases_planning_lock_and_allows_accept(
     tmp_path: Path,
 ) -> None:

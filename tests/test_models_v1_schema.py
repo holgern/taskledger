@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 import pytest
@@ -168,6 +169,8 @@ def test_task_record_rejects_unknown_schema_version() -> None:
         TaskRecord.from_dict(payload)
 
 
+# specweave: feature=specs/behavior/features/models_v1_schema/models-v1-schema.feature
+# specweave: scenario=@bdd-models-v1-schema-plan-record-round-trips-acceptance-criteria-and-approval-metadata
 def test_plan_record_round_trips_acceptance_criteria_and_approval_metadata() -> None:
     plan = PlanRecord(
         task_id="task-0001",
@@ -203,6 +206,8 @@ def test_release_record_rejects_wrong_object_type_and_schema() -> None:
         ReleaseRecord.from_dict(too_new)
 
 
+# specweave: feature=specs/behavior/features/models_v1_schema/models-v1-schema.feature
+# specweave: scenario=@bdd-models-v1-schema-handoff-record-round-trips-focused-context-metadata
 def test_handoff_record_round_trips_focused_context_metadata() -> None:
     handoff = TaskHandoffRecord(
         handoff_id="handoff-0001",
@@ -246,6 +251,8 @@ def test_handoff_record_round_trips_focused_context_metadata() -> None:
     assert legacy.generated_at is None
 
 
+# specweave: feature=specs/behavior/features/models_v1_schema/models-v1-schema.feature
+# specweave: scenario=@bdd-models-v1-schema-validation-check-requires-criterion-id-unless-not-run
 def test_validation_check_requires_criterion_id_unless_not_run() -> None:
     with pytest.raises(LaunchError, match="criterion_id"):
         ValidationCheck.from_dict(

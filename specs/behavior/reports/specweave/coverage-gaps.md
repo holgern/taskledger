@@ -1,0 +1,403 @@
+# Behavior coverage
+
+**Status:** failed
+
+**Scenario coverage:** 816/816 bound (100.0%), 0 missing, 0 waived
+**Pytest coverage:** 816/1154 mapped (70.7%), 338 unmapped, 0 stale
+
+## Features -> pytest
+
+No feature-side gap findings.
+
+## Pytest -> features
+
+### Unmapped pytest tests
+
+- `tests/test_active_task.py`
+  - `tests/test_active_task.py::test_active_task_state_round_trips`
+  - `tests/test_active_task.py::test_no_ref_plan_implementation_validation_flow`
+  - `tests/test_active_task.py::test_secondary_positional_commands_default_to_active_task`
+- `tests/test_actor_harness_state.py`
+  - `tests/test_actor_harness_state.py::test_load_actor_state_missing`
+  - `tests/test_actor_harness_state.py::test_clear_actor_state_missing`
+  - `tests/test_actor_harness_state.py::test_load_harness_state_missing`
+  - `tests/test_actor_harness_state.py::test_clear_harness_state_missing`
+  - `tests/test_actor_harness_state.py::test_resolve_actor_no_workspace_no_stored`
+  - `tests/test_actor_harness_state.py::test_active_actor_state_from_dict_rejects_bad_type`
+  - `tests/test_actor_harness_state.py::test_active_harness_state_from_dict_rejects_bad_type`
+- `tests/test_agent_command_logging.py`
+  - `tests/test_agent_command_logging.py::test_agent_logging_config_rejects_unknown_and_bad_regex`
+- `tests/test_agent_session_protocol.py`
+  - `tests/test_agent_session_protocol.py::test_plan_propose_releases_planning_lock`
+- `tests/test_atomic_fast_io.py`
+  - `tests/test_atomic_fast_io.py::test_atomic_write_skips_fsync_when_fast_test_io_enabled`
+- `tests/test_bdd_gherkin.py`
+  - `tests/test_bdd_gherkin.py::test_export_refuses_no_formulated_examples`
+  - `tests/test_bdd_gherkin.py::test_export_warns_missing_ac_links`
+  - `tests/test_bdd_gherkin.py::test_export_refuses_outside_workspace`
+  - `tests/test_bdd_gherkin.py::test_export_deterministic_ordering`
+  - `tests/test_bdd_gherkin.py::test_export_no_bdd_initialized`
+- `tests/test_bdd_models.py`
+  - `tests/test_bdd_models.py::test_from_dict_invalid_type`
+  - `tests/test_bdd_models.py::test_invalid_status`
+  - `tests/test_bdd_models.py::test_from_dict_invalid_type`
+  - `tests/test_bdd_models.py::test_from_dict_wrong_object_type`
+  - `tests/test_bdd_models.py::test_from_dict_invalid_type`
+  - `tests/test_bdd_models.py::test_from_dict_invalid_type`
+  - `tests/test_bdd_models.py::test_invalid_status`
+  - `tests/test_bdd_models.py::test_from_dict_invalid_type`
+  - `tests/test_bdd_models.py::test_from_dict_bad_example_results`
+  - `tests/test_bdd_models.py::test_valid_example_statuses`
+  - `tests/test_bdd_models.py::test_invalid_example_status`
+  - `tests/test_bdd_models.py::test_valid_automation_statuses`
+  - `tests/test_bdd_models.py::test_invalid_automation_status`
+- `tests/test_bdd_report_import.py`
+  - `tests/test_bdd_report_import.py::test_import_passing_cucumber_report`
+  - `tests/test_bdd_report_import.py::test_import_failing_cucumber_report`
+  - `tests/test_bdd_report_import.py::test_import_non_passed_cucumber_report_does_not_pass`
+  - `tests/test_bdd_report_import.py::test_import_unmatched_scenarios`
+  - `tests/test_bdd_report_import.py::test_import_unmatched_failing_scenario_surfaces_flag`
+  - `tests/test_bdd_report_import.py::test_import_missing_file`
+  - `tests/test_bdd_report_import.py::test_import_unsupported_format`
+  - `tests/test_bdd_report_import.py::test_import_invalid_json`
+  - `tests/test_bdd_report_import.py::test_import_failing_junit_report`
+  - `tests/test_bdd_report_import.py::test_import_junit_with_testsuite_root`
+  - `tests/test_bdd_report_import.py::test_import_invalid_xml`
+- `tests/test_bdd_storage.py`
+  - `tests/test_bdd_storage.py::test_load_missing_feature_returns_none`
+  - `tests/test_bdd_storage.py::test_save_and_load_rules`
+  - `tests/test_bdd_storage.py::test_load_empty_rules`
+  - `tests/test_bdd_storage.py::test_resolve_rule_not_found`
+  - `tests/test_bdd_storage.py::test_save_and_load_examples`
+  - `tests/test_bdd_storage.py::test_load_empty_examples`
+  - `tests/test_bdd_storage.py::test_resolve_example_not_found`
+  - `tests/test_bdd_storage.py::test_save_and_load_reports`
+  - `tests/test_bdd_storage.py::test_load_empty_reports`
+- `tests/test_code_reviews.py`
+  - `tests/test_code_reviews.py::test_code_review_record_rejects_invalid_result_and_source`
+  - `tests/test_code_reviews.py::test_service_rejects_review_record_outside_allowed_stages`
+  - `tests/test_code_reviews.py::test_service_rejects_archived_task`
+- `tests/test_command_inventory.py`
+  - `tests/test_command_inventory.py::test_registered_commands_have_inventory_metadata`
+  - `tests/test_command_inventory.py::test_inventory_marks_core_and_repair_commands`
+  - `tests/test_command_inventory.py::test_mutating_commands_are_not_marked_safe_read_only`
+  - `tests/test_command_inventory.py::test_all_commands_have_ledger_effect`
+  - `tests/test_command_inventory.py::test_critical_tier_count_under_25`
+  - `tests/test_command_inventory.py::test_agent_golden_path_is_explicit_and_budgeted`
+  - `tests/test_command_inventory.py::test_critical_tier_is_primary_surface`
+  - `tests/test_command_inventory.py::test_no_other_deprecated_commands`
+  - `tests/test_command_inventory.py::test_monitor_and_file_commands_have_expected_metadata`
+  - `tests/test_command_inventory.py::test_workspace_read_commands`
+  - `tests/test_command_inventory.py::test_repair_commands_are_rare`
+  - `tests/test_command_inventory.py::test_tier_values_are_valid`
+  - `tests/test_command_inventory.py::test_ledger_effect_values_are_valid`
+  - `tests/test_command_inventory.py::test_legacy_mutation_commands_classified_correctly`
+  - `tests/test_command_inventory.py::test_read_only_commands_have_read_or_none_ledger_effect`
+  - `tests/test_command_inventory.py::test_sync_git_command_metadata_matches_revised_surface`
+  - `tests/test_command_inventory.py::test_targeting_values_are_valid`
+  - `tests/test_command_inventory.py::test_targeting_metadata_for_key_commands`
+- `tests/test_command_runner.py`
+  - `tests/test_command_runner.py::test_run_command_propagates_parent_keyboard_interrupt`
+- `tests/test_compact_mutation_output.py`
+  - `tests/test_compact_mutation_output.py::test_cli_misc_no_raw_render_json_payload`
+- `tests/test_delta_remaining_contracts.py`
+  - `tests/test_delta_remaining_contracts.py::test_services_tasks_has_no_duplicate_top_level_function_names`
+  - `tests/test_delta_remaining_contracts.py::test_resolve_criterion_ref_canonicalization`
+  - `tests/test_delta_remaining_contracts.py::test_resolve_criterion_ref_unknown`
+- `tests/test_docs_and_skill.py`
+  - `tests/test_docs_and_skill.py::test_skill_is_single_file_without_examples_dir`
+  - `tests/test_docs_and_skill.py::test_docs_directory_uses_rst_only`
+  - `tests/test_docs_and_skill.py::test_api_docs_mentions_all_task_first_command_groups`
+  - `tests/test_docs_and_skill.py::test_skill_has_single_repair_warning`
+  - `tests/test_docs_and_skill.py::test_readme_links_exist`
+  - `tests/test_docs_and_skill.py::test_service_boundary_whitelist_doc_matches_cli_import_whitelist_exactly`
+- `tests/test_doctor.py`
+  - `tests/test_doctor.py::test_inspect_healthy_project`
+  - `tests/test_doctor.py::test_doctor_module_compiles_without_syntaxwarning`
+  - `tests/test_doctor.py::test_inspect_project_with_active_task`
+  - `tests/test_doctor.py::test_inspect_duplicate_todo_ids`
+  - `tests/test_doctor.py::test_doctor_locks_reports_run_lock_mismatch`
+  - `tests/test_doctor.py::test_inspect_v2_locks_no_expired`
+  - `tests/test_doctor.py::test_inspect_v2_schema_no_errors`
+  - `tests/test_doctor.py::test_inspect_v2_indexes_all_present`
+  - `tests/test_doctor.py::test_inspect_v2_indexes_ignores_removed_legacy_indexes`
+  - `tests/test_doctor.py::test_inspect_v2_indexes_event_error`
+  - `tests/test_doctor.py::test_inspect_counts_include_plans_and_questions`
+  - `tests/test_doctor.py::test_doctor_no_warning_for_canonical_task_dir`
+- `tests/test_domain_policies.py`
+  - `tests/test_domain_policies.py::test_derive_active_stage_lock_no_runs`
+  - `tests/test_domain_policies.py::test_derive_active_stage_matching_run`
+  - `tests/test_domain_policies.py::test_derive_active_stage_run_not_running`
+  - `tests/test_domain_policies.py::test_derive_active_stage_run_id_mismatch`
+  - `tests/test_domain_policies.py::test_derive_active_stage_run_type_mismatch`
+  - `tests/test_domain_policies.py::test_can_start_planning_draft_no_lock`
+  - `tests/test_domain_policies.py::test_can_start_planning_plan_review_no_lock`
+  - `tests/test_domain_policies.py::test_metadata_edit_decision_ok`
+  - `tests/test_domain_policies.py::test_metadata_edit_decision_approved`
+  - `tests/test_domain_policies.py::test_require_known_actor_role_valid`
+  - `tests/test_domain_policies.py::test_require_known_actor_role_invalid`
+- `tests/test_handoff_lifecycle.py`
+  - `tests/test_handoff_lifecycle.py::test_handoff_creation`
+  - `tests/test_handoff_lifecycle.py::test_cannot_claim_already_claimed`
+  - `tests/test_handoff_lifecycle.py::test_actor_intent_validation`
+  - `tests/test_handoff_lifecycle.py::test_handoff_list`
+  - `tests/test_handoff_lifecycle.py::test_handoff_list_raises_for_malformed_record`
+  - `tests/test_handoff_lifecycle.py::test_handoff_modes`
+  - `tests/test_handoff_lifecycle.py::test_handoff_with_summary`
+  - `tests/test_handoff_lifecycle.py::test_handoff_list_empty_task`
+- `tests/test_help_subprocess.py`
+  - `tests/test_help_subprocess.py::test_help_is_not_agent_logged`
+- `tests/test_implementation_checks.py`
+  - `tests/test_implementation_checks.py::test_from_dict_rejects_wrong_object_type`
+  - `tests/test_implementation_checks.py::test_from_dict_rejects_unknown_status`
+  - `tests/test_implementation_checks.py::test_from_dict_rejects_unknown_category`
+  - `tests/test_implementation_checks.py::test_missing_command_fails`
+  - `tests/test_implementation_checks.py::test_pytest_direct`
+  - `tests/test_implementation_checks.py::test_python_m_pytest`
+  - `tests/test_implementation_checks.py::test_ruff_check`
+  - `tests/test_implementation_checks.py::test_ruff_format`
+  - `tests/test_implementation_checks.py::test_mypy`
+  - `tests/test_implementation_checks.py::test_pyright`
+  - `tests/test_implementation_checks.py::test_tox`
+  - `tests/test_implementation_checks.py::test_npm_test`
+  - `tests/test_implementation_checks.py::test_unknown`
+  - `tests/test_implementation_checks.py::test_empty`
+  - `tests/test_implementation_checks.py::test_pnpm_test`
+  - `tests/test_implementation_checks.py::test_yarn_test`
+  - `tests/test_implementation_checks.py::test_nox`
+  - `tests/test_implementation_checks.py::test_pyre`
+- `tests/test_legacy_cleanup_contracts.py`
+  - `tests/test_legacy_cleanup_contracts.py::test_legacy_modules_are_removed`
+- `tests/test_lifecycle_policies.py`
+  - `tests/test_lifecycle_policies.py::test_active_stage_requires_matching_running_run`
+  - `tests/test_lifecycle_policies.py::test_failed_validation_can_transition_back_to_implementing`
+- `tests/test_lock_diagnostics.py`
+  - `tests/test_lock_diagnostics.py::test_posix_pid_checker_permission_error_is_treated_as_alive`
+- `tests/test_models_v1_schema.py`
+  - `tests/test_models_v1_schema.py::test_persisted_models_round_trip_with_schema_metadata`
+  - `tests/test_models_v1_schema.py::test_task_record_requires_object_type`
+  - `tests/test_models_v1_schema.py::test_task_record_rejects_unknown_schema_version`
+  - `tests/test_models_v1_schema.py::test_release_record_rejects_wrong_object_type_and_schema`
+- `tests/test_monitor.py`
+  - `tests/test_monitor.py::test_monitor_snapshot_works_in_empty_initialized_project`
+  - `tests/test_monitor.py::test_monitor_snapshot_includes_plan_review_in_ready`
+  - `tests/test_monitor.py::test_monitor_activity_scope_task_filters_to_selected_task`
+  - `tests/test_monitor.py::test_monitor_activity_scope_ledger_shows_all`
+  - `tests/test_monitor.py::test_render_monitor_text_shows_recent_ledger_activity_heading`
+  - `tests/test_monitor.py::test_render_monitor_text_shows_task_activity_heading`
+  - `tests/test_monitor.py::test_render_monitor_text_includes_status_stage_in_focused`
+  - `tests/test_monitor.py::test_monitor_cli_activity_scope_task`
+  - `tests/test_monitor.py::test_monitor_cli_activity_scope_invalid`
+- `tests/test_no_log_feature.py`
+  - `tests/test_no_log_feature.py::test_simple_command`
+  - `tests/test_no_log_feature.py::test_command_with_global_json_option`
+  - `tests/test_no_log_feature.py::test_command_with_global_cwd_option`
+  - `tests/test_no_log_feature.py::test_command_with_global_cwd_equals_option`
+  - `tests/test_no_log_feature.py::test_nested_command_two_word`
+  - `tests/test_no_log_feature.py::test_nested_command_plan_review`
+  - `tests/test_no_log_feature.py::test_nested_command_task_report`
+  - `tests/test_no_log_feature.py::test_nested_command_todo_done`
+  - `tests/test_no_log_feature.py::test_nested_command_implement_command`
+  - `tests/test_no_log_feature.py::test_empty_argv`
+  - `tests/test_no_log_feature.py::test_unknown_command`
+  - `tests/test_no_log_feature.py::test_no_env_var`
+  - `tests/test_no_log_feature.py::test_env_var_0`
+  - `tests/test_no_log_feature.py::test_env_var_false`
+  - `tests/test_no_log_feature.py::test_dont_skip_human_oriented_when_capture_enabled`
+  - `tests/test_no_log_feature.py::test_dont_skip_safe_read_only_when_capture_enabled`
+  - `tests/test_no_log_feature.py::test_dont_skip_mutation`
+- `tests/test_plan_review.py`
+  - `tests/test_plan_review.py::test_plan_review_defaults_to_latest_plan`
+- `tests/test_project_root_config.py`
+  - `tests/test_project_root_config.py::test_relative_taskledger_dir_is_relative_to_config_path`
+  - `tests/test_project_root_config.py::test_legacy_dot_taskledger_without_root_config_still_resolves`
+  - `tests/test_project_root_config.py::test_legacy_project_toml_is_used_as_fallback_config`
+  - `tests/test_project_root_config.py::test_validate_prompt_profile_rejects_unknown_keys`
+  - `tests/test_project_root_config.py::test_validate_prompt_profile_rejects_invalid_profile_enum`
+  - `tests/test_project_root_config.py::test_validate_prompt_profile_rejects_invalid_question_policy`
+  - `tests/test_project_root_config.py::test_validate_prompt_profile_rejects_invalid_todo_granularity`
+  - `tests/test_project_root_config.py::test_validate_prompt_profile_rejects_invalid_plan_body_detail`
+  - `tests/test_project_root_config.py::test_validate_prompt_profile_rejects_non_integer_max_questions`
+  - `tests/test_project_root_config.py::test_validate_prompt_profile_rejects_non_boolean_field`
+  - `tests/test_project_root_config.py::test_validate_prompt_profile_rejects_excessive_extra_guidance`
+  - `tests/test_project_root_config.py::test_validate_prompt_profile_rejects_non_list_topics`
+  - `tests/test_project_root_config.py::test_validate_prompt_profile_rejects_negative_integer`
+  - `tests/test_project_root_config.py::test_prompt_profile_to_dict`
+  - `tests/test_project_root_config.py::test_validate_project_name_rejects_non_string`
+  - `tests/test_project_root_config.py::test_validate_project_name_rejects_blank`
+  - `tests/test_project_root_config.py::test_validate_project_name_rejects_newline`
+  - `tests/test_project_root_config.py::test_validate_sync_git_allows_valid_config`
+  - `tests/test_project_root_config.py::test_validate_sync_git_rejects_unknown_key`
+  - `tests/test_project_root_config.py::test_validate_sync_git_rejects_absolute_project_path`
+  - `tests/test_project_root_config.py::test_validate_sync_git_rejects_parent_path_escape`
+  - `tests/test_project_root_config.py::test_validate_event_logging_rejects_non_table`
+  - `tests/test_project_root_config.py::test_validate_event_logging_rejects_non_boolean_enabled`
+  - `tests/test_project_root_config.py::test_validate_event_logging_rejects_unknown_keys`
+- `tests/test_question_filter_answers.py`
+  - `tests/test_question_filter_answers.py::test_list_with_status_answered`
+  - `tests/test_question_filter_answers.py::test_list_with_status_dismissed`
+  - `tests/test_question_filter_answers.py::test_list_with_comma_separated_status`
+  - `tests/test_question_filter_answers.py::test_list_without_status_returns_all`
+  - `tests/test_question_filter_answers.py::test_list_with_status_open_returns_empty`
+  - `tests/test_question_filter_answers.py::test_answers_json_format`
+- `tests/test_question_plan_regeneration.py`
+  - `tests/test_question_plan_regeneration.py::test_changed_answer_requires_regeneration_again`
+  - `tests/test_question_plan_regeneration.py::test_answer_many_records_user_chat_answers_and_requires_regeneration`
+  - `tests/test_question_plan_regeneration.py::test_answer_many_accepts_repeated_text_options`
+  - `tests/test_question_plan_regeneration.py::test_next_action_prefers_question_answer_while_planning_questions_are_open`
+  - `tests/test_question_plan_regeneration.py::test_next_action_prefers_regenerate_over_approve_for_stale_answers`
+- `tests/test_ready_work.py`
+  - `tests/test_ready_work.py::test_priority_rank_parses_p_style`
+  - `tests/test_ready_work.py::test_priority_rank_non_p_defaults_to_50`
+  - `tests/test_ready_work.py::test_priority_rank_none`
+  - `tests/test_ready_work.py::test_ready_work_items_filters_by_ready_statuses`
+  - `tests/test_ready_work.py::test_ready_work_items_includes_next_and_command`
+  - `tests/test_ready_work.py::test_ready_work_items_stage_commands_are_explicit`
+  - `tests/test_ready_work.py::test_ready_work_items_respects_max_items`
+  - `tests/test_ready_work.py::test_ready_work_items_without_next_action`
+  - `tests/test_ready_work.py::test_ready_statuses_includes_plan_review`
+  - `tests/test_ready_work.py::test_stage_commands_cover_all_ready_statuses`
+- `tests/test_release_changelog.py`
+  - `tests/test_release_changelog.py::test_release_list_is_sorted_by_boundary_task`
+  - `tests/test_release_changelog.py::test_release_show_returns_persisted_record`
+  - `tests/test_release_changelog.py::test_release_changelog_filters_done_tasks_and_reports_omitted`
+  - `tests/test_release_changelog.py::test_release_changelog_supports_bootstrap_since_task`
+  - `tests/test_release_changelog.py::test_release_changelog_markdown_uses_project_name`
+- `tests/test_search.py`
+  - `tests/test_search.py::test_read_text_file_returns_none_on_decode_error`
+- `tests/test_service_boundaries.py`
+  - `tests/test_service_boundaries.py::test_tasks_planning_entrypoints_delegate_to_planning_flow`
+  - `tests/test_service_boundaries.py::test_tasks_implementation_entrypoints_delegate_to_implementation_flow`
+  - `tests/test_service_boundaries.py::test_tasks_validation_entrypoints_delegate_to_validation_flow`
+- `tests/test_services_dashboard.py`
+  - `tests/test_services_dashboard.py::test_dashboard_with_active_task`
+  - `tests/test_services_dashboard.py::test_dashboard_with_ref`
+  - `tests/test_services_dashboard.py::test_dashboard_todos_counts`
+  - `tests/test_services_dashboard.py::test_dashboard_todos_counts_with_saved_todos`
+  - `tests/test_services_dashboard.py::test_dashboard_files_counts`
+  - `tests/test_services_dashboard.py::test_dashboard_questions_counts`
+- `tests/test_storage_bundle_layout.py`
+  - `tests/test_storage_bundle_layout.py::test_ensure_v2_layout_does_not_create_removed_indexes`
+  - `tests/test_storage_bundle_layout.py::test_plan_list_does_not_need_removed_indexes`
+  - `tests/test_storage_bundle_layout.py::test_implement_status_does_not_need_removed_indexes`
+  - `tests/test_storage_bundle_layout.py::test_reindex_does_not_create_removed_indexes`
+- `tests/test_storage_common.py`
+  - `tests/test_storage_common.py::test_load_json_array_missing_file`
+  - `tests/test_storage_common.py::test_load_json_array_empty_file`
+  - `tests/test_storage_common.py::test_load_json_array_valid`
+  - `tests/test_storage_common.py::test_load_json_array_filters_non_dicts`
+  - `tests/test_storage_common.py::test_load_json_array_rejects_non_array`
+  - `tests/test_storage_common.py::test_load_json_array_rejects_invalid_json`
+  - `tests/test_storage_common.py::test_load_json_object_valid`
+  - `tests/test_storage_common.py::test_load_json_object_empty_file`
+  - `tests/test_storage_common.py::test_load_json_object_rejects_array`
+  - `tests/test_storage_common.py::test_load_json_object_rejects_invalid_json`
+  - `tests/test_storage_common.py::test_write_json_creates_file`
+  - `tests/test_storage_common.py::test_write_text_creates_parent_dirs`
+  - `tests/test_storage_common.py::test_read_text_reads_utf8`
+  - `tests/test_storage_common.py::test_read_text_raises_on_missing`
+  - `tests/test_storage_common.py::test_write_text_raises_on_oserror`
+  - `tests/test_storage_common.py::test_relative_to_project`
+  - `tests/test_storage_common.py::test_relative_to_workspace`
+  - `tests/test_storage_common.py::test_relative_to_workspace_outside_root`
+  - `tests/test_storage_common.py::test_summarize_text_short`
+  - `tests/test_storage_common.py::test_summarize_text_collapse_whitespace`
+  - `tests/test_storage_common.py::test_summarize_text_empty`
+  - `tests/test_storage_common.py::test_summarize_text_exactly_80`
+  - `tests/test_storage_common.py::test_content_hash_empty_returns_none`
+  - `tests/test_storage_common.py::test_merge_text_empty_current`
+  - `tests/test_storage_common.py::test_merge_text_empty_incoming`
+- `tests/test_storage_init.py`
+  - `tests/test_storage_init.py::test_init_project_state_idempotent`
+  - `tests/test_storage_init.py::test_ensure_project_exists_raises_without_init`
+  - `tests/test_storage_init.py::test_ensure_project_exists_rejects_legacy_item_index`
+  - `tests/test_storage_init.py::test_ensure_project_exists_rejects_legacy_memory_index`
+- `tests/test_storage_migration.py`
+  - `tests/test_storage_migration.py::test_missing_storage_yaml_returns_none`
+  - `tests/test_storage_migration.py::test_invalid_yaml_raises`
+  - `tests/test_storage_migration.py::test_non_mapping_raises`
+  - `tests/test_storage_migration.py::test_missing_required_field_raises`
+  - `tests/test_storage_migration.py::test_active_task_state_has_file_version`
+  - `tests/test_storage_migration.py::test_active_actor_state_has_file_version`
+  - `tests/test_storage_migration.py::test_active_harness_state_has_file_version`
+  - `tests/test_storage_migration.py::test_todo_rejects_too_new_schema`
+  - `tests/test_storage_migration.py::test_todo_rejects_wrong_object_type`
+  - `tests/test_storage_migration.py::test_todo_rejects_wrong_file_version`
+  - `tests/test_storage_migration.py::test_link_rejects_too_new_schema`
+  - `tests/test_storage_migration.py::test_requirement_rejects_too_new_schema`
+  - `tests/test_storage_migration.py::test_init_idempotent`
+  - `tests/test_storage_migration.py::test_required_layout_migrations_empty_when_current`
+  - `tests/test_storage_migration.py::test_required_layout_migrations_raises_for_unsupported`
+  - `tests/test_storage_migration.py::test_scan_records_empty_on_fresh_workspace`
+  - `tests/test_storage_migration.py::test_doctor_schema_up_to_date`
+  - `tests/test_storage_migration.py::test_migrate_status_reports_branch_scoped_migration_needed`
+  - `tests/test_storage_migration.py::test_migrate_handles_multiple_task_id_conflicts`
+  - `tests/test_storage_migration.py::test_migrate_apply_removes_legacy_root_indexes_and_rebuilds`
+- `tests/test_storage_repos.py`
+  - `tests/test_storage_repos.py::test_save_and_load_repos`
+  - `tests/test_storage_repos.py::test_add_repo_rejects_duplicate_name`
+  - `tests/test_storage_repos.py::test_add_repo_rejects_invalid_kind`
+  - `tests/test_storage_repos.py::test_add_repo_rejects_invalid_role`
+  - `tests/test_storage_repos.py::test_add_repo_rejects_preferred_readonly`
+  - `tests/test_storage_repos.py::test_add_repo_rejects_nonexistent_path`
+  - `tests/test_storage_repos.py::test_resolve_repo_unknown_raises`
+  - `tests/test_storage_repos.py::test_resolve_repo_root`
+  - `tests/test_storage_repos.py::test_set_repo_role_rejects_invalid`
+  - `tests/test_storage_repos.py::test_set_repo_role_rejects_readonly_if_preferred`
+  - `tests/test_storage_repos.py::test_set_default_execution_repo_rejects_readonly`
+- `tests/test_task_markdown_export.py`
+  - `tests/test_task_markdown_export.py::test_task_export_total_source_budget_does_not_charge_skipped_file`
+- `tests/test_task_report.py`
+  - `tests/test_task_report.py::test_task_report_unknown_section_fails`
+  - `tests/test_task_report.py::test_task_report_unknown_preset_fails`
+  - `tests/test_task_report.py::test_task_report_negative_events_limit_fails`
+- `tests/test_taskledger_v2_cli.py`
+  - `tests/test_taskledger_v2_cli.py::test_implement_command_records_stdout_stderr_and_exit_code`
+  - `tests/test_taskledger_v2_cli.py::test_failed_validation_restarts_implementation`
+  - `tests/test_taskledger_v2_cli.py::test_implement_resume_reacquires_lock_after_break`
+  - `tests/test_taskledger_v2_cli.py::test_can_implement_resume_after_uncancel_running_implementation`
+- `tests/test_taskledger_v2_exchange.py`
+  - `tests/test_taskledger_v2_exchange.py::test_explicit_export_path_is_not_rewritten`
+  - `tests/test_taskledger_v2_exchange.py::test_export_positional_tar_gz_still_means_output_path`
+  - `tests/test_taskledger_v2_exchange.py::test_import_single_task_renumbers_on_conflict_without_overwrite`
+  - `tests/test_taskledger_v2_exchange.py::test_import_single_task_dry_run_reports_id_map_without_mutation`
+  - `tests/test_taskledger_v2_exchange.py::test_import_single_task_updates_ledger_next_task_number`
+  - `tests/test_taskledger_v2_exchange.py::test_import_single_task_artifacts_follow_renumbered_task_id`
+  - `tests/test_taskledger_v2_exchange.py::test_import_single_task_does_not_replace_active_task`
+  - `tests/test_taskledger_v2_exchange.py::test_read_project_archive_rejects_too_many_members`
+  - `tests/test_taskledger_v2_exchange.py::test_read_project_archive_rejects_oversized_manifest`
+  - `tests/test_taskledger_v2_exchange.py::test_read_project_archive_rejects_oversized_payload`
+  - `tests/test_taskledger_v2_exchange.py::test_json_import_dry_run_does_not_mutate_state`
+  - `tests/test_taskledger_v2_exchange.py::test_import_archive_rejects_unsafe_artifact_member_paths`
+  - `tests/test_taskledger_v2_exchange.py::test_import_archive_rejects_oversized_artifact_payload`
+- `tests/test_trace.py`
+  - `tests/test_trace.py::test_trace_task_without_bdd_reports_gap`
+  - `tests/test_trace.py::test_trace_includes_bdd_mapping_validation_evidence_and_archledger_refs`
+- `tests/test_tree_command.py`
+  - `tests/test_tree_command.py::test_json_payload_structure`
+  - `tests/test_tree_command.py::test_json_envelope_ok`
+  - `tests/test_tree_command.py::test_json_active_task_marker`
+  - `tests/test_tree_command.py::test_subtree_json_scope`
+  - `tests/test_tree_command.py::test_no_details_means_null_counts`
+- `tests/test_usage_cli.py`
+  - `tests/test_usage_cli.py::test_usage_lists_claimable_handoffs_without_claiming`
+  - `tests/test_usage_cli.py::test_usage_ready_work_includes_command_hint_for_approved_task`
+  - `tests/test_usage_cli.py::test_usage_ready_work_human_render_shows_command_hint`
+  - `tests/test_usage_cli.py::test_usage_ready_work_includes_command_hint_for_plan_review`
+- `tests/test_worker_pipeline_config.py`
+  - `tests/test_worker_pipeline_config.py::test_worker_pipeline_enabled_requires_steps`
+  - `tests/test_worker_pipeline_config.py::test_worker_pipeline_duplicate_step_ids_fail`
+  - `tests/test_worker_pipeline_config.py::test_worker_pipeline_invalid_step_id_fails`
+  - `tests/test_worker_pipeline_config.py::test_worker_pipeline_invalid_base_context_fails`
+  - `tests/test_worker_pipeline_config.py::test_worker_pipeline_invalid_lifecycle_stage_fails`
+  - `tests/test_worker_pipeline_config.py::test_worker_pipeline_unknown_keys_fail`
+- `tests/test_worker_pipeline_todos.py`
+  - `tests/test_worker_pipeline_todos.py::test_worker_todo_materialization_stores_worker_step_id_sparse`
+  - `tests/test_worker_pipeline_todos.py::test_task_records_do_not_gain_worker_null_fields_without_worker_pipeline`
+- `tests/test_workflow_guidance.py`
+  - `tests/test_workflow_guidance.py::test_profile_label_known`
+  - `tests/test_workflow_guidance.py::test_profile_label_unknown_fallback`
+  - `tests/test_workflow_guidance.py::test_question_policy_label_known`
+  - `tests/test_workflow_guidance.py::test_todo_granularity_label_known`
+  - `tests/test_workflow_guidance.py::test_plan_body_detail_label_known`
+  - `tests/test_workflow_guidance.py::test_has_planning_profile_no_config`

@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -73,6 +74,8 @@ def _setup_active_task(workspace: Path) -> None:
     )
 
 
+# specweave: feature=specs/behavior/features/worker_pipeline_handoff/worker-pipeline-handoff.feature
+# specweave: scenario=@bdd-worker-pipeline-handoff-worker-handoff-stores-worker-step-id-sparse
 def test_worker_handoff_stores_worker_step_id_sparse(tmp_path: Path) -> None:
     _setup_active_task(tmp_path)
 
@@ -119,6 +122,8 @@ def test_worker_handoff_stores_worker_step_id_sparse(tmp_path: Path) -> None:
     assert "worker_step_id:" not in normal_handoff_path.read_text(encoding="utf-8")
 
 
+# specweave: feature=specs/behavior/features/worker_pipeline_handoff/worker-pipeline-handoff.feature
+# specweave: scenario=@bdd-worker-pipeline-handoff-worker-handoff-rejects-conflicting-mode-override
 def test_worker_handoff_rejects_conflicting_mode_override(tmp_path: Path) -> None:
     _setup_active_task(tmp_path)
 
@@ -141,6 +146,8 @@ def test_worker_handoff_rejects_conflicting_mode_override(tmp_path: Path) -> Non
     assert "requires mode 'implementation'" in output
 
 
+# specweave: feature=specs/behavior/features/worker_pipeline_handoff/worker-pipeline-handoff.feature
+# specweave: scenario=@bdd-worker-pipeline-handoff-worker-handoff-rejects-conflicting-context-override
 def test_worker_handoff_rejects_conflicting_context_override(tmp_path: Path) -> None:
     _setup_active_task(tmp_path)
 

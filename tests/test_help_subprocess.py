@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Subprocess tests for help command speed and non-logging."""
 
 from __future__ import annotations
@@ -53,6 +54,8 @@ def _strip_ansi(text: str) -> str:
         ["harness", "--help"],
     ],
 )
+# specweave: feature=specs/behavior/features/help_subprocess/help-subprocess.feature
+# specweave: scenario=@bdd-help-subprocess-help-subprocess-exits-quickly
 def test_help_subprocess_exits_quickly(argv: list[str], tmp_path: Path) -> None:
     result = _run_help(tmp_path, *argv)
     assert result.returncode == 0, f"stderr: {result.stderr}"
@@ -65,6 +68,8 @@ def test_help_is_not_agent_logged(tmp_path: Path) -> None:
     assert not agent_logs.exists(), f"agent-logs dir exists: {agent_logs}"
 
 
+# specweave: feature=specs/behavior/features/help_subprocess/help-subprocess.feature
+# specweave: scenario=@bdd-help-subprocess-root-help-shows-completion-options
 def test_root_help_shows_completion_options(tmp_path: Path) -> None:
     result = _run_help(tmp_path, "--help")
     assert result.returncode == 0, f"stderr: {result.stderr}"
@@ -77,6 +82,8 @@ def test_root_help_shows_completion_options(tmp_path: Path) -> None:
     assert completion.returncode == 0, f"stderr: {completion.stderr}"
 
 
+# specweave: feature=specs/behavior/features/help_subprocess/help-subprocess.feature
+# specweave: scenario=@bdd-help-subprocess-show-completion-exits-quickly-and-does-not-create-agent-logs
 def test_show_completion_exits_quickly_and_does_not_create_agent_logs(
     tmp_path: Path,
 ) -> None:

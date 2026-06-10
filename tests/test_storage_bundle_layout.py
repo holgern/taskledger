@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -126,6 +127,8 @@ Use task bundles instead of derived task, plan, and run indexes.
         )
 
 
+# specweave: feature=specs/behavior/features/storage_bundle_layout/storage-bundle-layout.feature
+# specweave: scenario=@bdd-storage-bundle-layout-task-create-uses-task-bundle-layout
 def test_task_create_uses_task_bundle_layout(tmp_path: Path) -> None:
     _init_project(tmp_path)
 
@@ -179,6 +182,8 @@ def test_task_create_uses_task_bundle_layout(tmp_path: Path) -> None:
     assert list((task_dir / "requirements").glob("req-*.md")) == []
 
 
+# specweave: feature=specs/behavior/features/storage_bundle_layout/storage-bundle-layout.feature
+# specweave: scenario=@bdd-storage-bundle-layout-task-list-scans-task-markdown-without-indexes
 def test_task_list_scans_task_markdown_without_indexes(tmp_path: Path) -> None:
     _init_project(tmp_path)
     runner.invoke(
@@ -203,6 +208,8 @@ def test_task_list_scans_task_markdown_without_indexes(tmp_path: Path) -> None:
     assert "scan-layout" in result.stdout
 
 
+# specweave: feature=specs/behavior/features/storage_bundle_layout/storage-bundle-layout.feature
+# specweave: scenario=@bdd-storage-bundle-layout-task-list-ignores-removed-legacy-indexes
 def test_task_list_ignores_removed_legacy_indexes(tmp_path: Path) -> None:
     _init_project(tmp_path)
     assert (
@@ -273,6 +280,8 @@ def test_reindex_does_not_create_removed_indexes(tmp_path: Path) -> None:
         assert not path.exists()
 
 
+# specweave: feature=specs/behavior/features/storage_bundle_layout/storage-bundle-layout.feature
+# specweave: scenario=@bdd-storage-bundle-layout-task-create-no-orphan-slug-directory
 def test_task_create_no_orphan_slug_directory(tmp_path: Path) -> None:
     _init_project(tmp_path)
 
@@ -297,6 +306,8 @@ def test_task_create_no_orphan_slug_directory(tmp_path: Path) -> None:
     assert not (tasks_dir / "slug-orphan-check").exists()
 
 
+# specweave: feature=specs/behavior/features/storage_bundle_layout/storage-bundle-layout.feature
+# specweave: scenario=@bdd-storage-bundle-layout-repair-task-dirs-removes-orphans
 def test_repair_task_dirs_removes_orphans(tmp_path: Path) -> None:
     _init_project(tmp_path)
 
@@ -325,6 +336,8 @@ def test_repair_task_dirs_removes_orphans(tmp_path: Path) -> None:
     assert not (tasks_dir / "orphan-parent").exists()
 
 
+# specweave: feature=specs/behavior/features/storage_bundle_layout/storage-bundle-layout.feature
+# specweave: scenario=@bdd-storage-bundle-layout-list-plans-skips-malformed-plan-files
 def test_list_plans_skips_malformed_plan_files(tmp_path: Path) -> None:
     """list_plans should skip plan files with missing required fields."""
     _init_project(tmp_path)
@@ -359,6 +372,8 @@ def test_list_plans_skips_malformed_plan_files(tmp_path: Path) -> None:
     assert len(plans) == 0
 
 
+# specweave: feature=specs/behavior/features/storage_bundle_layout/storage-bundle-layout.feature
+# specweave: scenario=@bdd-storage-bundle-layout-list-plans-loads-valid-plan-with-malformed-sibling
 def test_list_plans_loads_valid_plan_with_malformed_sibling(tmp_path: Path) -> None:
     """list_plans loads valid plans even when a sibling plan is malformed."""
     _init_project(tmp_path)
@@ -405,6 +420,8 @@ def test_list_plans_loads_valid_plan_with_malformed_sibling(tmp_path: Path) -> N
     assert plans[0].plan_version == 2
 
 
+# specweave: feature=specs/behavior/features/storage_bundle_layout/storage-bundle-layout.feature
+# specweave: scenario=@bdd-storage-bundle-layout-rewrite-task-refs-updates-id-and-task-id
 def test_rewrite_task_refs_updates_id_and_task_id(tmp_path: Path) -> None:
     """rewrite_task_refs updates id and task_id in all child records."""
     _init_project(tmp_path)
@@ -458,6 +475,8 @@ def test_rewrite_task_refs_updates_id_and_task_id(tmp_path: Path) -> None:
     assert q_meta["task_id"] == "task-0005"
 
 
+# specweave: feature=specs/behavior/features/storage_bundle_layout/storage-bundle-layout.feature
+# specweave: scenario=@bdd-storage-bundle-layout-rewrite-task-refs-adds-missing-task-id
 def test_rewrite_task_refs_adds_missing_task_id(tmp_path: Path) -> None:
     """rewrite_task_refs adds task_id when it is missing from front matter."""
     _init_project(tmp_path)
@@ -496,6 +515,8 @@ def test_rewrite_task_refs_adds_missing_task_id(tmp_path: Path) -> None:
     assert plan_meta["task_id"] == "task-0003"
 
 
+# specweave: feature=specs/behavior/features/storage_bundle_layout/storage-bundle-layout.feature
+# specweave: scenario=@bdd-storage-bundle-layout-rewrite-task-refs-noop-on-same-id
 def test_rewrite_task_refs_noop_on_same_id(tmp_path: Path) -> None:
     """rewrite_task_refs does nothing when old and new IDs match."""
     _init_project(tmp_path)

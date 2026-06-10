@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -79,6 +80,8 @@ def _prepare_proposed_plan(
     assert runner.invoke(app, command).exit_code == 0
 
 
+# specweave: feature=specs/behavior/features/plan_approval_contract/plan-approval-contract.feature
+# specweave: scenario=@bdd-plan-approval-contract-plan-approval-records-actor-metadata-and-criteria-ids
 def test_plan_approval_records_actor_metadata_and_criteria_ids(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _prepare_proposed_plan(tmp_path)
@@ -135,6 +138,8 @@ def test_plan_approval_records_actor_metadata_and_criteria_ids(tmp_path: Path) -
     assert plan["approved_at"]
 
 
+# specweave: feature=specs/behavior/features/plan_approval_contract/plan-approval-contract.feature
+# specweave: scenario=@bdd-plan-approval-contract-plan-approval-warns-when-source-is-missing
 def test_plan_approval_warns_when_source_is_missing(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _prepare_proposed_plan(tmp_path)
@@ -168,6 +173,8 @@ def test_plan_approval_warns_when_source_is_missing(tmp_path: Path) -> None:
     assert any("Approval source missing" in str(item) for item in warnings)
 
 
+# specweave: feature=specs/behavior/features/plan_approval_contract/plan-approval-contract.feature
+# specweave: scenario=@bdd-plan-approval-contract-task-report-warns-when-approved-plan-hash-mismatches
 def test_task_report_warns_when_approved_plan_hash_mismatches(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _prepare_proposed_plan(tmp_path)
@@ -218,6 +225,8 @@ def test_task_report_warns_when_approved_plan_hash_mismatches(tmp_path: Path) ->
     assert "approved plan content hash does not match" in report.stdout
 
 
+# specweave: feature=specs/behavior/features/plan_approval_contract/plan-approval-contract.feature
+# specweave: scenario=@bdd-plan-approval-contract-plan-approval-blocks-running-planning-run-without-lock
 def test_plan_approval_blocks_running_planning_run_without_lock(
     tmp_path: Path,
 ) -> None:
@@ -258,6 +267,8 @@ def test_plan_approval_blocks_running_planning_run_without_lock(
     assert details["running_run"]["run_type"] == "planning"
 
 
+# specweave: feature=specs/behavior/features/plan_approval_contract/plan-approval-contract.feature
+# specweave: scenario=@bdd-plan-approval-contract-plan-approval-rejects-agent-approval-without-escape-hatch
 def test_plan_approval_rejects_agent_approval_without_escape_hatch(
     tmp_path: Path,
 ) -> None:
@@ -291,6 +302,8 @@ def test_plan_approval_rejects_agent_approval_without_escape_hatch(
     assert "allow-agent-approval" in payload["error"]["message"]
 
 
+# specweave: feature=specs/behavior/features/plan_approval_contract/plan-approval-contract.feature
+# specweave: scenario=@bdd-plan-approval-contract-plan-approval-requires-criteria-by-default
 def test_plan_approval_requires_criteria_by_default(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _prepare_proposed_plan(tmp_path, criterion=None)
@@ -322,6 +335,8 @@ def test_plan_approval_requires_criteria_by_default(tmp_path: Path) -> None:
     assert "acceptance criterion" in payload["error"]["message"]
 
 
+# specweave: feature=specs/behavior/features/plan_approval_contract/plan-approval-contract.feature
+# specweave: scenario=@bdd-plan-approval-contract-plan-accept-human-error-includes-lint-issue-details
 def test_plan_accept_human_error_includes_lint_issue_details(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _prepare_proposed_plan(tmp_path)
@@ -354,6 +369,8 @@ def test_plan_accept_human_error_includes_lint_issue_details(tmp_path: Path) -> 
     assert "plan.todos" in combined
 
 
+# specweave: feature=specs/behavior/features/plan_approval_contract/plan-approval-contract.feature
+# specweave: scenario=@bdd-plan-approval-contract-plan-approve-default-actor-is-agent
 def test_plan_approve_default_actor_is_agent(tmp_path: Path) -> None:
     """Verify that plan approve defaults to agent,
     requiring explicit --actor user for user approval."""
@@ -385,6 +402,8 @@ def test_plan_approve_default_actor_is_agent(tmp_path: Path) -> None:
     assert "allow-agent-approval" in payload["error"]["message"]
 
 
+# specweave: feature=specs/behavior/features/plan_approval_contract/plan-approval-contract.feature
+# specweave: scenario=@bdd-plan-approval-contract-plan-yaml-single-key-shorthand-criteria
 def test_plan_yaml_single_key_shorthand_criteria(tmp_path: Path) -> None:
     """Verify plan YAML accepts single-key shorthand mappings for criteria."""
     _init_project(tmp_path)

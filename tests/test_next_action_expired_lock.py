@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Tests for expired-lock-resume next-action and implement resume path."""
 
 from __future__ import annotations
@@ -48,6 +49,8 @@ def _setup_impl_task(tmp: Path, slug: str) -> str:
     return task_id
 
 
+# specweave: feature=specs/behavior/features/next_action_expired_lock/next-action-expired-lock.feature
+# specweave: scenario=@bdd-next-action-expired-lock-expired-impl-lock-next-action-recommends-resume
 def test_expired_impl_lock_next_action_recommends_resume(
     tmp_path: Path,
 ) -> None:
@@ -67,6 +70,8 @@ def test_expired_impl_lock_next_action_recommends_resume(
     )
 
 
+# specweave: feature=specs/behavior/features/next_action_expired_lock/next-action-expired-lock.feature
+# specweave: scenario=@bdd-next-action-expired-lock-expired-impl-lock-resume-succeeds
 def test_expired_impl_lock_resume_succeeds(tmp_path: Path) -> None:
     """implement resume --repair-expired-lock succeeds after expired lock."""
     init_workspace(tmp_path)
@@ -88,6 +93,8 @@ def test_expired_impl_lock_resume_succeeds(tmp_path: Path) -> None:
     assert r.exit_code == 0, r.output
 
 
+# specweave: feature=specs/behavior/features/next_action_expired_lock/next-action-expired-lock.feature
+# specweave: scenario=@bdd-next-action-expired-lock-expired-planning-lock-still-routes-to-repair
 def test_expired_planning_lock_still_routes_to_repair(tmp_path: Path) -> None:
     """Expired planning lock should still route to repair-lock."""
     init_workspace(tmp_path)

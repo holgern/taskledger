@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -155,6 +156,8 @@ Use worker-tagged todos when the pipeline is enabled.
     assert "worker_step_id" not in todos[1]
 
 
+# specweave: feature=specs/behavior/features/worker_pipeline_todos/worker-pipeline-todos.feature
+# specweave: scenario=@bdd-worker-pipeline-todos-pipeline-next-returns-first-open-worker-todo
 def test_pipeline_next_returns_first_open_worker_todo(tmp_path: Path) -> None:
     _setup_planning_task(tmp_path, with_pipeline=True)
     _approve_plan(
@@ -184,6 +187,8 @@ Drive pipeline-next from worker-tagged todos.
     assert payload["result"]["step"]["id"] == "tester"
 
 
+# specweave: feature=specs/behavior/features/worker_pipeline_todos/worker-pipeline-todos.feature
+# specweave: scenario=@bdd-worker-pipeline-todos-plan-todo-worker-step-requires-enabled-pipeline
 def test_plan_todo_worker_step_requires_enabled_pipeline(tmp_path: Path) -> None:
     _setup_planning_task(tmp_path, with_pipeline=False)
 

@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -93,6 +94,8 @@ def _init_sync_workspace(
     return workspace, sync_repo
 
 
+# specweave: feature=specs/behavior/features/sync_git/sync-git.feature
+# specweave: scenario=@bdd-sync-git-sync-git-help-promotes-pull-and-push
 def test_sync_git_help_promotes_pull_and_push(
     tmp_path: Path,
 ) -> None:
@@ -124,6 +127,8 @@ def test_sync_git_help_promotes_pull_and_push(
     assert "uninstall" in hooks_help.stdout
 
 
+# specweave: feature=specs/behavior/features/sync_git/sync-git.feature
+# specweave: scenario=@bdd-sync-git-sync-git-status-splits-project-and-outside-dirty-state
 def test_sync_git_status_splits_project_and_outside_dirty_state(tmp_path: Path) -> None:
     workspace, sync_repo = _init_sync_workspace(tmp_path)
     (sync_repo / "project-a" / "local-note.txt").write_text(
@@ -164,6 +169,8 @@ def test_sync_git_status_splits_project_and_outside_dirty_state(tmp_path: Path) 
     assert any("project-b" in line for line in payload["outside_status_lines"])
 
 
+# specweave: feature=specs/behavior/features/sync_git/sync-git.feature
+# specweave: scenario=@bdd-sync-git-sync-git-commit-ignores-unrelated-dirty-paths
 def test_sync_git_commit_ignores_unrelated_dirty_paths(tmp_path: Path) -> None:
     workspace, sync_repo = _init_sync_workspace(tmp_path)
     (sync_repo / "project-a" / "local-note.txt").write_text(
@@ -209,6 +216,8 @@ def test_sync_git_commit_ignores_unrelated_dirty_paths(tmp_path: Path) -> None:
     assert "project-b" in _git(sync_repo, "status", "--short", "--", "project-b").stdout
 
 
+# specweave: feature=specs/behavior/features/sync_git/sync-git.feature
+# specweave: scenario=@bdd-sync-git-sync-git-export-local-remains-compatibility-alias
 def test_sync_git_export_local_remains_compatibility_alias(tmp_path: Path) -> None:
     workspace, sync_repo = _init_sync_workspace(tmp_path)
     (sync_repo / "project-a" / "alias-note.txt").write_text(
@@ -240,6 +249,8 @@ def test_sync_git_export_local_remains_compatibility_alias(tmp_path: Path) -> No
     assert payload["committed"] is True
 
 
+# specweave: feature=specs/behavior/features/sync_git/sync-git.feature
+# specweave: scenario=@bdd-sync-git-sync-git-cd-and-path-report-expected-locations
 def test_sync_git_cd_and_path_report_expected_locations(tmp_path: Path) -> None:
     workspace, sync_repo = _init_sync_workspace(tmp_path)
 
@@ -307,6 +318,8 @@ def test_sync_git_cd_and_path_report_expected_locations(tmp_path: Path) -> None:
     assert Path(path_payload["selected_path"]) == sync_repo / "project-a"
 
 
+# specweave: feature=specs/behavior/features/sync_git/sync-git.feature
+# specweave: scenario=@bdd-sync-git-sync-git-pull-fails-fast-for-dirty-shared-repo
 def test_sync_git_pull_fails_fast_for_dirty_shared_repo(tmp_path: Path) -> None:
     workspace, sync_repo = _init_sync_workspace(tmp_path)
     (sync_repo / "project-b").mkdir()
@@ -333,6 +346,8 @@ def test_sync_git_pull_fails_fast_for_dirty_shared_repo(tmp_path: Path) -> None:
     assert "--allow-dirty" in output
 
 
+# specweave: feature=specs/behavior/features/sync_git/sync-git.feature
+# specweave: scenario=@bdd-sync-git-sync-git-push-commits-all-sync-repo-changes-and-pushes
 def test_sync_git_push_commits_all_sync_repo_changes_and_pushes(tmp_path: Path) -> None:
     remote = tmp_path / "remote.git"
     _git(tmp_path, "init", "--bare", str(remote))
@@ -389,6 +404,8 @@ def test_sync_git_push_commits_all_sync_repo_changes_and_pushes(tmp_path: Path) 
     )
 
 
+# specweave: feature=specs/behavior/features/sync_git/sync-git.feature
+# specweave: scenario=@bdd-sync-git-sync-git-pull-runs-git-pull-without-manual-cd
 def test_sync_git_pull_runs_git_pull_without_manual_cd(tmp_path: Path) -> None:
     remote = tmp_path / "remote.git"
     _git(tmp_path, "init", "--bare", str(remote))
@@ -433,6 +450,8 @@ def test_sync_git_pull_runs_git_pull_without_manual_cd(tmp_path: Path) -> None:
     assert (sync_repo / "project-a" / "pulled-note.txt").exists()
 
 
+# specweave: feature=specs/behavior/features/sync_git/sync-git.feature
+# specweave: scenario=@bdd-sync-git-sync-git-hooks-install-rejects-cross-project-managed-hook
 def test_sync_git_hooks_install_rejects_cross_project_managed_hook(
     tmp_path: Path,
 ) -> None:

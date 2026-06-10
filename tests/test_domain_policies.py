@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Tests for taskledger.domain.policies covering uncovered branches."""
 
 from __future__ import annotations
@@ -119,6 +120,8 @@ def test_derive_active_stage_run_type_mismatch() -> None:
 # -- build_policy_context --
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-build-policy-context-no-lock-no-run
 def test_build_policy_context_no_lock_no_run() -> None:
     task = _task()
     ctx = build_policy_context(task, None)
@@ -127,6 +130,8 @@ def test_build_policy_context_no_lock_no_run() -> None:
     assert ctx.run is None
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-build-policy-context-with-lock-and-run
 def test_build_policy_context_with_lock_and_run() -> None:
     task = _task()
     lock = _lock(stage="planning", run_id="run-0001")
@@ -135,6 +140,8 @@ def test_build_policy_context_with_lock_and_run() -> None:
     assert ctx.active_stage == "planning"
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-build-policy-context-lock-without-run
 def test_build_policy_context_lock_without_run() -> None:
     task = _task()
     lock = _lock(stage="implementing", run_id="run-0001")
@@ -155,6 +162,8 @@ def test_can_start_planning_plan_review_no_lock() -> None:
     assert can_start_planning(task, FakeLedger()).ok is True
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-can-start-planning-rejected-if-locked
 def test_can_start_planning_rejected_if_locked() -> None:
     task = _task(status_stage="draft")
     lock = _lock()
@@ -162,6 +171,8 @@ def test_can_start_planning_rejected_if_locked() -> None:
     assert decision.ok is False
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-can-start-planning-rejected-if-wrong-stage
 def test_can_start_planning_rejected_if_wrong_stage() -> None:
     task = _task(status_stage="approved")
     decision = can_start_planning(task, FakeLedger())
@@ -171,6 +182,8 @@ def test_can_start_planning_rejected_if_wrong_stage() -> None:
 # -- can_propose_plan --
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-can-propose-plan-ok
 def test_can_propose_plan_ok() -> None:
     task = _task(status_stage="draft")
     lock = _lock(stage="planning", run_id="run-0001")
@@ -179,6 +192,8 @@ def test_can_propose_plan_ok() -> None:
     assert decision.ok is True
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-can-propose-plan-denied-wrong-stage
 def test_can_propose_plan_denied_wrong_stage() -> None:
     task = _task(status_stage="approved")
     run = _run(run_id="run-0001", run_type="planning", status="running")
@@ -189,12 +204,16 @@ def test_can_propose_plan_denied_wrong_stage() -> None:
 # -- can_approve_plan --
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-can-approve-plan-ok
 def test_can_approve_plan_ok() -> None:
     task = _task(status_stage="plan_review")
     decision = can_approve_plan(task, object(), FakeLedger())
     assert decision.ok is True
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-can-approve-plan-denied-wrong-stage
 def test_can_approve_plan_denied_wrong_stage() -> None:
     task = _task(status_stage="draft")
     decision = can_approve_plan(task, object(), FakeLedger())
@@ -204,24 +223,32 @@ def test_can_approve_plan_denied_wrong_stage() -> None:
 # -- can_start_implementation --
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-can-start-implementation-ok
 def test_can_start_implementation_ok() -> None:
     task = _task(status_stage="approved")
     decision = can_start_implementation(task, FakeLedger(accepted_plan=object()))
     assert decision.ok is True
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-can-start-implementation-failed-validation-ok
 def test_can_start_implementation_failed_validation_ok() -> None:
     task = _task(status_stage="failed_validation")
     decision = can_start_implementation(task, FakeLedger(accepted_plan=object()))
     assert decision.ok is True
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-can-start-implementation-no-accepted-plan
 def test_can_start_implementation_no_accepted_plan() -> None:
     task = _task(status_stage="approved")
     decision = can_start_implementation(task, FakeLedger())
     assert decision.ok is False
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-can-start-implementation-locked
 def test_can_start_implementation_locked() -> None:
     task = _task(status_stage="approved")
     lock = _lock()
@@ -234,6 +261,8 @@ def test_can_start_implementation_locked() -> None:
 # -- can_finish_implementation --
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-can-finish-implementation-ok
 def test_can_finish_implementation_ok() -> None:
     task = _task(status_stage="approved")
     lock = _lock(stage="implementing", run_id="run-0001")
@@ -242,6 +271,8 @@ def test_can_finish_implementation_ok() -> None:
     assert decision.ok is True
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-can-finish-implementation-wrong-stage
 def test_can_finish_implementation_wrong_stage() -> None:
     task = _task(status_stage="draft")
     run = _run()
@@ -252,18 +283,24 @@ def test_can_finish_implementation_wrong_stage() -> None:
 # -- can_start_validation --
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-can-start-validation-ok
 def test_can_start_validation_ok() -> None:
     task = _task(status_stage="implemented")
     decision = can_start_validation(task, FakeLedger())
     assert decision.ok is True
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-can-start-validation-wrong-stage
 def test_can_start_validation_wrong_stage() -> None:
     task = _task(status_stage="draft")
     decision = can_start_validation(task, FakeLedger())
     assert decision.ok is False
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-can-start-validation-locked
 def test_can_start_validation_locked() -> None:
     task = _task(status_stage="implemented")
     lock = _lock()
@@ -274,6 +311,8 @@ def test_can_start_validation_locked() -> None:
 # -- can_finish_validation --
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-can-finish-validation-ok
 def test_can_finish_validation_ok() -> None:
     task = _task(status_stage="implemented")
     lock = _lock(stage="validating", run_id="run-0001")
@@ -282,6 +321,8 @@ def test_can_finish_validation_ok() -> None:
     assert decision.ok is True
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-can-finish-validation-denied
 def test_can_finish_validation_denied() -> None:
     task = _task(status_stage="draft")
     run = _run()
@@ -292,6 +333,8 @@ def test_can_finish_validation_denied() -> None:
 # -- can_mark_todo_done --
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-can-mark-todo-done-user
 def test_can_mark_todo_done_user() -> None:
     task = _task(status_stage="draft")
     actor = FakeActor(actor_type="user")
@@ -299,6 +342,8 @@ def test_can_mark_todo_done_user() -> None:
     assert decision.ok is True
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-can-mark-todo-done-agent-denied
 def test_can_mark_todo_done_agent_denied() -> None:
     task = _task(status_stage="draft")
     actor = FakeActor(actor_type="agent")
@@ -319,12 +364,16 @@ def test_metadata_edit_decision_approved() -> None:
     assert metadata_edit_decision(task, None).ok is True
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-metadata-edit-decision-wrong-stage
 def test_metadata_edit_decision_wrong_stage() -> None:
     task = _task(status_stage="implemented")
     decision = metadata_edit_decision(task, None)
     assert decision.ok is False
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-metadata-edit-decision-locked
 def test_metadata_edit_decision_locked() -> None:
     task = _task(status_stage="draft")
     lock = _lock(stage="planning", run_id="run-0001")
@@ -336,12 +385,16 @@ def test_metadata_edit_decision_locked() -> None:
 # -- todo_add_decision --
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-todo-add-decision-ok
 def test_todo_add_decision_ok() -> None:
     task = _task(status_stage="draft")
     decision = todo_add_decision(task, None, actor_role="user")
     assert decision.ok is True
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-todo-add-decision-during-planning
 def test_todo_add_decision_during_planning() -> None:
     task = _task(status_stage="draft")
     lock = _lock(stage="planning", run_id="run-0001")
@@ -350,6 +403,8 @@ def test_todo_add_decision_during_planning() -> None:
     assert decision.ok is True
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-todo-add-decision-planning-non-user-allowed
 def test_todo_add_decision_planning_non_user_allowed() -> None:
     task = _task(status_stage="draft")
     lock = _lock(stage="planning", run_id="run-0001")
@@ -358,12 +413,16 @@ def test_todo_add_decision_planning_non_user_allowed() -> None:
     assert decision.ok is True
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-todo-add-decision-wrong-stage
 def test_todo_add_decision_wrong_stage() -> None:
     task = _task(status_stage="implemented")
     decision = todo_add_decision(task, None, actor_role="user")
     assert decision.ok is False
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-todo-add-decision-active-stage-blocks
 def test_todo_add_decision_active_stage_blocks() -> None:
     task = _task(status_stage="draft")
     lock = _lock(stage="implementing", run_id="run-0001")
@@ -374,12 +433,16 @@ def test_todo_add_decision_active_stage_blocks() -> None:
 # -- todo_toggle_decision --
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-todo-toggle-decision-ok
 def test_todo_toggle_decision_ok() -> None:
     task = _task(status_stage="draft")
     decision = todo_toggle_decision(task, None, actor_role="user")
     assert decision.ok is True
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-todo-toggle-during-implementation
 def test_todo_toggle_during_implementation() -> None:
     task = _task(status_stage="approved")
     lock = _lock(stage="implementing", run_id="run-0001")
@@ -387,6 +450,8 @@ def test_todo_toggle_during_implementation() -> None:
     assert decision.ok is True
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-todo-toggle-validation-denied
 def test_todo_toggle_validation_denied() -> None:
     task = _task(status_stage="implemented")
     lock = _lock(stage="validating", run_id="run-0001")
@@ -394,18 +459,24 @@ def test_todo_toggle_validation_denied() -> None:
     assert decision.ok is False
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-todo-toggle-done-denied
 def test_todo_toggle_done_denied() -> None:
     task = _task(status_stage="done")
     decision = todo_toggle_decision(task, None, actor_role="user")
     assert decision.ok is False
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-todo-toggle-cancelled-denied
 def test_todo_toggle_cancelled_denied() -> None:
     task = _task(status_stage="cancelled")
     decision = todo_toggle_decision(task, None, actor_role="user")
     assert decision.ok is False
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-todo-toggle-non-user-denied
 def test_todo_toggle_non_user_denied() -> None:
     task = _task(status_stage="draft")
     decision = todo_toggle_decision(task, None, actor_role="implementer")
@@ -415,12 +486,16 @@ def test_todo_toggle_non_user_denied() -> None:
 # -- question_add_decision --
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-question-add-ok
 def test_question_add_ok() -> None:
     task = _task(status_stage="draft")
     decision = question_add_decision(task, None, actor_role="user")
     assert decision.ok is True
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-question-add-during-planning-user
 def test_question_add_during_planning_user() -> None:
     task = _task(status_stage="draft")
     lock = _lock(stage="planning", run_id="run-0001")
@@ -428,6 +503,8 @@ def test_question_add_during_planning_user() -> None:
     assert decision.ok is True
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-question-add-planning-non-user-allowed
 def test_question_add_planning_non_user_allowed() -> None:
     task = _task(status_stage="draft")
     lock = _lock(stage="planning", run_id="run-0001")
@@ -436,12 +513,16 @@ def test_question_add_planning_non_user_allowed() -> None:
     assert decision.ok is True
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-question-add-wrong-stage
 def test_question_add_wrong_stage() -> None:
     task = _task(status_stage="approved")
     decision = question_add_decision(task, None, actor_role="user")
     assert decision.ok is False
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-question-add-wrong-active-stage
 def test_question_add_wrong_active_stage() -> None:
     task = _task(status_stage="draft")
     lock = _lock(stage="implementing", run_id="run-0001")
@@ -452,12 +533,16 @@ def test_question_add_wrong_active_stage() -> None:
 # -- question_mutation_decision --
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-question-mutation-ok
 def test_question_mutation_ok() -> None:
     task = _task(status_stage="plan_review")
     decision = question_mutation_decision(task, None, actor_role="user")
     assert decision.ok is True
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-question-mutation-planning-user-ok
 def test_question_mutation_planning_user_ok() -> None:
     task = _task(status_stage="draft")
     lock = _lock(stage="planning", run_id="run-0001")
@@ -465,6 +550,8 @@ def test_question_mutation_planning_user_ok() -> None:
     assert decision.ok is True
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-question-mutation-planning-non-user-allowed
 def test_question_mutation_planning_non_user_allowed() -> None:
     task = _task(status_stage="draft")
     lock = _lock(stage="planning", run_id="run-0001")
@@ -473,6 +560,8 @@ def test_question_mutation_planning_non_user_allowed() -> None:
     assert decision.ok is True
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-question-mutation-wrong-stage
 def test_question_mutation_wrong_stage() -> None:
     task = _task(status_stage="approved")
     decision = question_mutation_decision(task, None, actor_role="user")
@@ -482,6 +571,8 @@ def test_question_mutation_wrong_stage() -> None:
 # -- plan_propose_decision --
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-plan-propose-ok
 def test_plan_propose_ok() -> None:
     task = _task(status_stage="draft")
     lock = _lock(stage="planning", run_id="run-0001")
@@ -490,6 +581,8 @@ def test_plan_propose_ok() -> None:
     assert decision.ok is True
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-plan-propose-no-lock
 def test_plan_propose_no_lock() -> None:
     task = _task(status_stage="draft")
     run = _run(run_id="run-0001", run_type="planning", status="running")
@@ -497,6 +590,8 @@ def test_plan_propose_no_lock() -> None:
     assert decision.ok is False
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-plan-propose-no-run
 def test_plan_propose_no_run() -> None:
     task = _task(status_stage="draft")
     lock = _lock(stage="planning", run_id="run-0001")
@@ -504,6 +599,8 @@ def test_plan_propose_no_run() -> None:
     assert decision.ok is False
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-plan-propose-run-not-running
 def test_plan_propose_run_not_running() -> None:
     task = _task(status_stage="draft")
     lock = _lock(stage="planning", run_id="run-0001")
@@ -512,6 +609,8 @@ def test_plan_propose_run_not_running() -> None:
     assert decision.ok is False
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-plan-propose-wrong-stage
 def test_plan_propose_wrong_stage() -> None:
     task = _task(status_stage="approved")
     lock = _lock(stage="planning", run_id="run-0001")
@@ -523,18 +622,24 @@ def test_plan_propose_wrong_stage() -> None:
 # -- plan_approve_decision --
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-plan-approve-ok
 def test_plan_approve_ok() -> None:
     task = _task(status_stage="plan_review")
     decision = plan_approve_decision(task, None)
     assert decision.ok is True
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-plan-approve-wrong-stage
 def test_plan_approve_wrong_stage() -> None:
     task = _task(status_stage="draft")
     decision = plan_approve_decision(task, None)
     assert decision.ok is False
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-plan-approve-locked
 def test_plan_approve_locked() -> None:
     task = _task(status_stage="plan_review")
     lock = _lock(stage="planning", run_id="run-0001")
@@ -545,18 +650,24 @@ def test_plan_approve_locked() -> None:
 # -- plan_revise_decision --
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-plan-revise-ok
 def test_plan_revise_ok() -> None:
     task = _task(status_stage="plan_review")
     decision = plan_revise_decision(task, None)
     assert decision.ok is True
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-plan-revise-wrong-stage
 def test_plan_revise_wrong_stage() -> None:
     task = _task(status_stage="draft")
     decision = plan_revise_decision(task, None)
     assert decision.ok is False
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-plan-revise-locked
 def test_plan_revise_locked() -> None:
     task = _task(status_stage="plan_review")
     lock = _lock(stage="planning", run_id="run-0001")
@@ -567,6 +678,8 @@ def test_plan_revise_locked() -> None:
 # -- implementation_mutation_decision --
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-implementation-mutation-ok
 def test_implementation_mutation_ok() -> None:
     task = _task(status_stage="approved")
     lock = _lock(stage="implementing", run_id="run-0001")
@@ -575,6 +688,8 @@ def test_implementation_mutation_ok() -> None:
     assert decision.ok is True
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-implementation-mutation-no-lock
 def test_implementation_mutation_no_lock() -> None:
     task = _task(status_stage="approved")
     run = _run(run_id="run-0001", run_type="implementation", status="running")
@@ -582,6 +697,8 @@ def test_implementation_mutation_no_lock() -> None:
     assert decision.ok is False
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-implementation-mutation-no-run
 def test_implementation_mutation_no_run() -> None:
     task = _task(status_stage="approved")
     lock = _lock(stage="implementing", run_id="run-0001")
@@ -589,6 +706,8 @@ def test_implementation_mutation_no_run() -> None:
     assert decision.ok is False
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-implementation-mutation-run-not-running
 def test_implementation_mutation_run_not_running() -> None:
     task = _task(status_stage="approved")
     lock = _lock(stage="implementing", run_id="run-0001")
@@ -597,6 +716,8 @@ def test_implementation_mutation_run_not_running() -> None:
     assert decision.ok is False
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-implementation-mutation-wrong-stage
 def test_implementation_mutation_wrong_stage() -> None:
     task = _task(status_stage="draft")
     lock = _lock(stage="implementing", run_id="run-0001")
@@ -605,6 +726,8 @@ def test_implementation_mutation_wrong_stage() -> None:
     assert decision.ok is False
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-implementation-mutation-lock-run-id-mismatch
 def test_implementation_mutation_lock_run_id_mismatch() -> None:
     task = _task(status_stage="approved")
     lock = _lock(stage="implementing", run_id="run-0001")
@@ -616,6 +739,8 @@ def test_implementation_mutation_lock_run_id_mismatch() -> None:
 # -- validation_check_decision --
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-validation-check-ok
 def test_validation_check_ok() -> None:
     task = _task(status_stage="implemented")
     lock = _lock(stage="validating", run_id="run-0001")
@@ -624,6 +749,8 @@ def test_validation_check_ok() -> None:
     assert decision.ok is True
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-validation-check-no-lock
 def test_validation_check_no_lock() -> None:
     task = _task(status_stage="implemented")
     run = _run(run_id="run-0001", run_type="validation", status="running")
@@ -631,6 +758,8 @@ def test_validation_check_no_lock() -> None:
     assert decision.ok is False
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-validation-check-no-run
 def test_validation_check_no_run() -> None:
     task = _task(status_stage="implemented")
     lock = _lock(stage="validating", run_id="run-0001")
@@ -638,6 +767,8 @@ def test_validation_check_no_run() -> None:
     assert decision.ok is False
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-validation-check-run-not-running
 def test_validation_check_run_not_running() -> None:
     task = _task(status_stage="implemented")
     lock = _lock(stage="validating", run_id="run-0001")
@@ -646,6 +777,8 @@ def test_validation_check_run_not_running() -> None:
     assert decision.ok is False
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-validation-check-wrong-stage
 def test_validation_check_wrong_stage() -> None:
     task = _task(status_stage="draft")
     lock = _lock(stage="validating", run_id="run-0001")
@@ -654,6 +787,8 @@ def test_validation_check_wrong_stage() -> None:
     assert decision.ok is False
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-validation-check-lock-run-id-mismatch
 def test_validation_check_lock_run_id_mismatch() -> None:
     task = _task(status_stage="implemented")
     lock = _lock(stage="validating", run_id="run-0001")
@@ -681,6 +816,8 @@ def test_require_known_actor_role_invalid() -> None:
 # -- Decision properties --
 
 
+# specweave: feature=specs/behavior/features/domain_policies/domain-policies.feature
+# specweave: scenario=@bdd-domain-policies-decision-reason-property
 def test_decision_reason_property() -> None:
     d = Decision(allowed=True, code="OK", message="test msg")
     assert d.reason == "test msg"

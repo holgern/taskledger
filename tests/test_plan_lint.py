@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -293,6 +294,8 @@ Create the workflow file.
 
 
 class TestPlanLintPasses:
+    # specweave: feature=specs/behavior/features/plan_lint/plan-lint.feature
+    # specweave: scenario=@bdd-plan-lint-plan-lint-passes-for-executable-plan
     def test_plan_lint_passes_for_executable_plan(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         _create_task(tmp_path, "lint-pass")
@@ -315,6 +318,8 @@ class TestPlanLintPasses:
         assert isinstance(summary, dict)
         assert summary["errors"] == 0
 
+    # specweave: feature=specs/behavior/features/plan_lint/plan-lint.feature
+    # specweave: scenario=@bdd-plan-lint-plan-template-prints-stdout-when-no-file
     def test_plan_template_prints_stdout_when_no_file(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         _create_task(tmp_path, "template-stdout")
@@ -329,6 +334,8 @@ class TestPlanLintPasses:
         assert result.stdout.startswith("---\n")
         assert "acceptance_criteria:" in result.stdout
 
+    # specweave: feature=specs/behavior/features/plan_lint/plan-lint.feature
+    # specweave: scenario=@bdd-plan-lint-plan-guidance-human-message-when-no-profile
     def test_plan_guidance_human_message_when_no_profile(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         _create_task(tmp_path, "guidance-empty")
@@ -342,6 +349,8 @@ class TestPlanLintPasses:
         assert "No project planning guidance configured." in result.stdout
         assert "[prompt_profiles.planning]" in result.stdout
 
+    # specweave: feature=specs/behavior/features/plan_lint/plan-lint.feature
+    # specweave: scenario=@bdd-plan-lint-plan-guidance-json-contract-when-no-profile
     def test_plan_guidance_json_contract_when_no_profile(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         _create_task(tmp_path, "guidance-json-empty")
@@ -368,6 +377,8 @@ class TestPlanLintPasses:
         assert result_payload["has_project_guidance"] is False
         assert result_payload["guidance"] == ""
 
+    # specweave: feature=specs/behavior/features/plan_lint/plan-lint.feature
+    # specweave: scenario=@bdd-plan-lint-plan-guidance-rejects-invalid-format
     def test_plan_guidance_rejects_invalid_format(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         _create_task(tmp_path, "guidance-invalid-format")
@@ -390,6 +401,8 @@ class TestPlanLintPasses:
         combined = f"{result.stdout}\n{result.stderr}"
         assert "Invalid --format value" in combined
 
+    # specweave: feature=specs/behavior/features/plan_lint/plan-lint.feature
+    # specweave: scenario=@bdd-plan-lint-plan-template-from-answers-writes-file
     def test_plan_template_from_answers_writes_file(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         _create_task(tmp_path, "template-file")
@@ -417,6 +430,8 @@ class TestPlanLintPasses:
         assert "## Notes from answered questions" in contents
         assert "- q-0001: PostgreSQL." in contents
 
+    # specweave: feature=specs/behavior/features/plan_lint/plan-lint.feature
+    # specweave: scenario=@bdd-plan-lint-plan-template-include-guidance-writes-guidance-in-file
     def test_plan_template_include_guidance_writes_guidance_in_file(
         self, tmp_path: Path
     ) -> None:
@@ -454,6 +469,8 @@ class TestPlanLintPasses:
             in contents
         )
 
+    # specweave: feature=specs/behavior/features/plan_lint/plan-lint.feature
+    # specweave: scenario=@bdd-plan-lint-filled-plan-template-passes-lint
     def test_filled_plan_template_passes_lint(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         _create_task(tmp_path, "template-lint")
@@ -540,6 +557,8 @@ class TestPlanLintPasses:
 
 
 class TestPlanLintErrors:
+    # specweave: feature=specs/behavior/features/plan_lint/plan-lint.feature
+    # specweave: scenario=@bdd-plan-lint-plan-lint-reports-missing-goal
     def test_plan_lint_reports_missing_goal(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         _create_task(tmp_path, "no-goal")
@@ -569,6 +588,8 @@ class TestPlanLintErrors:
         goal_issues = [i for i in res["issues"] if i["code"] == "missing_goal"]
         assert goal_issues[0]["severity"] == "error"
 
+    # specweave: feature=specs/behavior/features/plan_lint/plan-lint.feature
+    # specweave: scenario=@bdd-plan-lint-plan-lint-reports-missing-criteria
     def test_plan_lint_reports_missing_criteria(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         _create_task(tmp_path, "no-criteria")
@@ -594,6 +615,8 @@ class TestPlanLintErrors:
         codes = [i["code"] for i in res["issues"]]
         assert "missing_acceptance_criteria" in codes
 
+    # specweave: feature=specs/behavior/features/plan_lint/plan-lint.feature
+    # specweave: scenario=@bdd-plan-lint-plan-lint-reports-missing-todos
     def test_plan_lint_reports_missing_todos(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         _create_task(tmp_path, "no-todos")
@@ -619,6 +642,8 @@ class TestPlanLintErrors:
         codes = [i["code"] for i in res["issues"]]
         assert "missing_todos" in codes
 
+    # specweave: feature=specs/behavior/features/plan_lint/plan-lint.feature
+    # specweave: scenario=@bdd-plan-lint-plan-lint-allows-todo-waiver-reason
     def test_plan_lint_allows_todo_waiver_reason(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         _create_task(tmp_path, "waived")
@@ -635,6 +660,8 @@ class TestPlanLintErrors:
         codes = [i["code"] for i in res["issues"]]
         assert "missing_todos" not in codes
 
+    # specweave: feature=specs/behavior/features/plan_lint/plan-lint.feature
+    # specweave: scenario=@bdd-plan-lint-plan-lint-rejects-vague-todo
     def test_plan_lint_rejects_vague_todo(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         _create_task(tmp_path, "vague")
@@ -653,6 +680,8 @@ class TestPlanLintErrors:
 
 
 class TestPlanLintWarnings:
+    # specweave: feature=specs/behavior/features/plan_lint/plan-lint.feature
+    # specweave: scenario=@bdd-plan-lint-plan-lint-warns-on-placeholders
     def test_plan_lint_warns_on_placeholders(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         _create_task(tmp_path, "placeholder")
@@ -679,6 +708,8 @@ class TestPlanLintWarnings:
         assert len(placeholder_issues) >= 1
         assert placeholder_issues[0]["severity"] == "warning"
 
+    # specweave: feature=specs/behavior/features/plan_lint/plan-lint.feature
+    # specweave: scenario=@bdd-plan-lint-plan-lint-strict-fails-on-placeholders
     def test_plan_lint_strict_fails_on_placeholders(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         _create_task(tmp_path, "strict-ph")
@@ -706,6 +737,8 @@ class TestPlanLintWarnings:
         assert len(placeholder_issues) >= 1
         assert placeholder_issues[0]["severity"] == "error"
 
+    # specweave: feature=specs/behavior/features/plan_lint/plan-lint.feature
+    # specweave: scenario=@bdd-plan-lint-plan-lint-warns-when-todos-lack-validation-hints-and-no-tests
     def test_plan_lint_warns_when_todos_lack_validation_hints_and_no_tests(
         self, tmp_path: Path
     ) -> None:
@@ -729,6 +762,8 @@ class TestPlanLintWarnings:
         assert len(hint_issues) == 1
         assert hint_issues[0]["severity"] == "warning"
 
+    # specweave: feature=specs/behavior/features/plan_lint/plan-lint.feature
+    # specweave: scenario=@bdd-plan-lint-plan-lint-strict-errors-when-todos-lack-validation-hints-and-no-tests
     def test_plan_lint_strict_errors_when_todos_lack_validation_hints_and_no_tests(
         self, tmp_path: Path
     ) -> None:
@@ -763,6 +798,8 @@ class TestPlanLintWarnings:
 
 
 class TestPlanLintVersioning:
+    # specweave: feature=specs/behavior/features/plan_lint/plan-lint.feature
+    # specweave: scenario=@bdd-plan-lint-plan-lint-defaults-to-latest-plan
     def test_plan_lint_defaults_to_latest_plan(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         _create_task(tmp_path, "multi")
@@ -784,6 +821,8 @@ class TestPlanLintVersioning:
 
 
 class TestPlanLintApprovalGate:
+    # specweave: feature=specs/behavior/features/plan_lint/plan-lint.feature
+    # specweave: scenario=@bdd-plan-lint-plan-approval-blocks-lint-errors
     def test_plan_approval_blocks_lint_errors(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         _create_task(tmp_path, "gate-block")
@@ -812,6 +851,8 @@ class TestPlanLintApprovalGate:
         output = result.output
         assert "lint" in output.lower() or "LINT" in output
 
+    # specweave: feature=specs/behavior/features/plan_lint/plan-lint.feature
+    # specweave: scenario=@bdd-plan-lint-plan-approval-lint-escape-hatch-requires-reason
     def test_plan_approval_lint_escape_hatch_requires_reason(
         self, tmp_path: Path
     ) -> None:
@@ -842,6 +883,8 @@ class TestPlanLintApprovalGate:
         assert result.exit_code != 0
         assert "reason" in result.output.lower()
 
+    # specweave: feature=specs/behavior/features/plan_lint/plan-lint.feature
+    # specweave: scenario=@bdd-plan-lint-plan-approval-lint-escape-hatch-succeeds-with-reason
     def test_plan_approval_lint_escape_hatch_succeeds_with_reason(
         self, tmp_path: Path
     ) -> None:
@@ -875,6 +918,8 @@ class TestPlanLintApprovalGate:
 
 
 class TestPlanLintMissingBody:
+    # specweave: feature=specs/behavior/features/plan_lint/plan-lint.feature
+    # specweave: scenario=@bdd-plan-lint-plan-lint-reports-missing-plan-body
     def test_plan_lint_reports_missing_plan_body(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         _create_task(tmp_path, "empty-body")
@@ -905,6 +950,8 @@ class TestPlanLintMissingBody:
         body_issues = [i for i in res["issues"] if i["code"] == "missing_plan_body"]
         assert body_issues[0]["severity"] == "error"
 
+    # specweave: feature=specs/behavior/features/plan_lint/plan-lint.feature
+    # specweave: scenario=@bdd-plan-lint-plan-approval-blocks-missing-body
     def test_plan_approval_blocks_missing_body(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         _create_task(tmp_path, "body-approve")
@@ -933,6 +980,8 @@ class TestPlanLintMissingBody:
         output = result.output.lower()
         assert "lint" in output or "missing_plan_body" in output
 
+    # specweave: feature=specs/behavior/features/plan_lint/plan-lint.feature
+    # specweave: scenario=@bdd-plan-lint-plan-lint-passes-with-body
     def test_plan_lint_passes_with_body(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         _create_task(tmp_path, "has-body")
@@ -958,6 +1007,8 @@ class TestPlanLintMissingBody:
 
 
 class TestPlanLintHumanOutput:
+    # specweave: feature=specs/behavior/features/plan_lint/plan-lint.feature
+    # specweave: scenario=@bdd-plan-lint-plan-lint-human-output-renders-issue-details
     def test_plan_lint_human_output_renders_issue_details(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         _create_task(tmp_path, "human-details")
@@ -983,6 +1034,8 @@ class TestPlanLintHumanOutput:
         assert "plan.todos[0]" in result.stdout
         assert "No lint findings" not in result.stdout
 
+    # specweave: feature=specs/behavior/features/plan_lint/plan-lint.feature
+    # specweave: scenario=@bdd-plan-lint-plan-lint-accepts-short-file-path-todo
     def test_plan_lint_accepts_short_file_path_todo(self, tmp_path: Path) -> None:
         _init_project(tmp_path)
         _create_task(tmp_path, "short-path")

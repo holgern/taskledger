@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -110,6 +111,8 @@ def _prepare_implementation(tmp_path: Path) -> None:
     )
 
 
+# specweave: feature=specs/behavior/features/implementation_change_scan/implementation-change-scan.feature
+# specweave: scenario=@bdd-implementation-change-scan-scan-changes-from-git-records-branch-status-and-diff-stat
 def test_scan_changes_from_git_records_branch_status_and_diff_stat(
     tmp_path: Path,
 ) -> None:
@@ -172,6 +175,8 @@ def test_scan_changes_from_git_records_branch_status_and_diff_stat(
     assert "README.md" in payload["result"]["git_diff_stat"]
 
 
+# specweave: feature=specs/behavior/features/implementation_change_scan/implementation-change-scan.feature
+# specweave: scenario=@bdd-implementation-change-scan-scan-changes-from-git-rejects-non-git-workspace
 def test_scan_changes_from_git_rejects_non_git_workspace(tmp_path: Path) -> None:
     _prepare_implementation(tmp_path)
 
@@ -194,6 +199,8 @@ def test_scan_changes_from_git_rejects_non_git_workspace(tmp_path: Path) -> None
     assert "Git work tree" in payload["error"]["message"]
 
 
+# specweave: feature=specs/behavior/features/implementation_change_scan/implementation-change-scan.feature
+# specweave: scenario=@bdd-implementation-change-scan-manual-implement-change-still-works-via-canonical-command
 def test_manual_implement_change_still_works_via_canonical_command(
     tmp_path: Path,
 ) -> None:
@@ -222,6 +229,8 @@ def test_manual_implement_change_still_works_via_canonical_command(
     assert payload["result"]["path"] == "taskledger/services/tasks.py"
 
 
+# specweave: feature=specs/behavior/features/implementation_change_scan/implementation-change-scan.feature
+# specweave: scenario=@bdd-implementation-change-scan-implement-finish-warns-when-git-scan-missing
 def test_implement_finish_warns_when_git_scan_missing(tmp_path: Path) -> None:
     _prepare_implementation(tmp_path)
     subprocess.run(
@@ -267,6 +276,8 @@ def test_implement_finish_warns_when_git_scan_missing(tmp_path: Path) -> None:
     assert any("no git-backed scan" in str(item) for item in warnings)
 
 
+# specweave: feature=specs/behavior/features/implementation_change_scan/implementation-change-scan.feature
+# specweave: scenario=@bdd-implementation-change-scan-implement-finish-warning-clears-after-git-scan
 def test_implement_finish_warning_clears_after_git_scan(tmp_path: Path) -> None:
     _prepare_implementation(tmp_path)
     subprocess.run(

@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 from pathlib import Path
@@ -19,6 +20,8 @@ def test_atomic_write_skips_fsync_when_fast_test_io_enabled(
     assert calls == []
 
 
+# specweave: feature=specs/behavior/features/atomic_fast_io/atomic-fast-io.feature
+# specweave: scenario=@bdd-atomic-fast-io-atomic-write-uses-fsync-by-default
 def test_atomic_write_uses_fsync_by_default(tmp_path: Path, monkeypatch) -> None:
     calls: list[int] = []
     monkeypatch.delenv("TASKLEDGER_TEST_FAST_IO", raising=False)

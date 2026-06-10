@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 from taskledger.domain.models import ActorRef, TaskLock, TaskRecord, TaskRunRecord
@@ -13,6 +14,8 @@ def _actor() -> ActorRef:
     return ActorRef(actor_type="agent", actor_name="taskledger")
 
 
+# specweave: feature=specs/behavior/features/lifecycle_policies/lifecycle-policies.feature
+# specweave: scenario=@bdd-lifecycle-policies-plan-proposal-uses-durable-status-plus-active-planning
 def test_plan_proposal_uses_durable_status_plus_active_planning() -> None:
     task = TaskRecord(
         id="task-0001",
@@ -59,6 +62,8 @@ def test_active_stage_requires_matching_running_run() -> None:
     assert derive_active_stage(lock, (run,)) is None
 
 
+# specweave: feature=specs/behavior/features/lifecycle_policies/lifecycle-policies.feature
+# specweave: scenario=@bdd-lifecycle-policies-implementation-mutation-allows-active-implementation-without-status-flip
 def test_implementation_mutation_allows_active_implementation_without_status_flip() -> (
     None
 ):

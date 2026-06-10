@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 import sys
@@ -7,6 +8,8 @@ import pytest
 from taskledger.services.command_runner import run_command
 
 
+# specweave: feature=specs/behavior/features/command_runner/command-runner.feature
+# specweave: scenario=@bdd-command-runner-run-command-preserves-nonzero-python-exit-code
 def test_run_command_preserves_nonzero_python_exit_code(tmp_path):
     result = run_command(
         (sys.executable, "-c", "raise SystemExit(3)"),
@@ -18,6 +21,8 @@ def test_run_command_preserves_nonzero_python_exit_code(tmp_path):
     assert result.stderr == ""
 
 
+# specweave: feature=specs/behavior/features/command_runner/command-runner.feature
+# specweave: scenario=@bdd-command-runner-run-command-preserves-zero-python-exit-code
 def test_run_command_preserves_zero_python_exit_code(tmp_path):
     result = run_command(
         (sys.executable, "-c", "pass"),

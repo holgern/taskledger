@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Tests for ImplementationCheckRecord domain model and check tracking."""
 
 from __future__ import annotations
@@ -14,6 +15,8 @@ from taskledger.services.check_tracking import classify_check_command
 
 
 class TestImplementationCheckRecordRoundTrip:
+    # specweave: feature=specs/behavior/features/implementation_checks/implementation-checks.feature
+    # specweave: scenario=@bdd-implementation-checks-to-dict-from-dict-round-trip
     def test_to_dict_from_dict_round_trip(self) -> None:
         record = ImplementationCheckRecord(
             check_id="check-0001",
@@ -87,6 +90,8 @@ class TestImplementationCheckRecordRoundTrip:
         with pytest.raises(Exception, match="command"):
             ImplementationCheckRecord.from_dict(data)
 
+    # specweave: feature=specs/behavior/features/implementation_checks/implementation-checks.feature
+    # specweave: scenario=@bdd-implementation-checks-defaults
     def test_defaults(self) -> None:
         data = {
             "object_type": "implementation_check",
@@ -215,6 +220,8 @@ def _prepare_task_with_impl_run(tmp_path: Path) -> str:
 
 
 class TestImplementCommandCreatesCheck:
+    # specweave: feature=specs/behavior/features/implementation_checks/implementation-checks.feature
+    # specweave: scenario=@bdd-implementation-checks-creates-check-not-change
     def test_creates_check_not_change(self, tmp_path: Path) -> None:
         root = _prepare_task_with_impl_run(tmp_path)
         runner = CliRunner()
@@ -238,6 +245,8 @@ class TestImplementCommandCreatesCheck:
         assert payload["result"]["check"]["check_id"].startswith("check-")
         assert payload["result"]["change"] is None
 
+    # specweave: feature=specs/behavior/features/implementation_checks/implementation-checks.feature
+    # specweave: scenario=@bdd-implementation-checks-check-has-category
     def test_check_has_category(self, tmp_path: Path) -> None:
         root = _prepare_task_with_impl_run(tmp_path)
         runner = CliRunner()
@@ -262,6 +271,8 @@ class TestImplementCommandCreatesCheck:
         payload = json.loads(r.output)
         assert payload["result"]["check"]["category"] == "test"
 
+    # specweave: feature=specs/behavior/features/implementation_checks/implementation-checks.feature
+    # specweave: scenario=@bdd-implementation-checks-check-refs-on-run
     def test_check_refs_on_run(self, tmp_path: Path) -> None:
         root = _prepare_task_with_impl_run(tmp_path)
         runner = CliRunner()
@@ -294,6 +305,8 @@ class TestImplementCommandCreatesCheck:
         run = resolve_run(P(root), task.id, task.latest_implementation_run)
         assert check_id in run.check_refs
 
+    # specweave: feature=specs/behavior/features/implementation_checks/implementation-checks.feature
+    # specweave: scenario=@bdd-implementation-checks-human-output-shows-check
     def test_human_output_shows_check(self, tmp_path: Path) -> None:
         root = _prepare_task_with_impl_run(tmp_path)
         runner = CliRunner()
@@ -304,6 +317,8 @@ class TestImplementCommandCreatesCheck:
         assert r.exit_code == 0, r.output
         assert "recorded check check-" in r.output
 
+    # specweave: feature=specs/behavior/features/implementation_checks/implementation-checks.feature
+    # specweave: scenario=@bdd-implementation-checks-failed-command-creates-failed-check
     def test_failed_command_creates_failed_check(self, tmp_path: Path) -> None:
         root = _prepare_task_with_impl_run(tmp_path)
         runner = CliRunner()
@@ -326,6 +341,8 @@ class TestImplementCommandCreatesCheck:
         assert payload["result"]["check"]["status"] == "failed"
         assert payload["result"]["check"]["exit_code"] == 1
 
+    # specweave: feature=specs/behavior/features/implementation_checks/implementation-checks.feature
+    # specweave: scenario=@bdd-implementation-checks-allow-failure-records-check
     def test_allow_failure_records_check(self, tmp_path: Path) -> None:
         root = _prepare_task_with_impl_run(tmp_path)
         runner = CliRunner()

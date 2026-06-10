@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 from pathlib import Path
@@ -22,6 +23,8 @@ def _init_project(tmp_path: Path) -> None:
     assert result.exit_code == 0
 
 
+# specweave: feature=specs/behavior/features/sidecar_collections/sidecar-collections.feature
+# specweave: scenario=@bdd-sidecar-collections-todos-links-and-requirements-use-per-record-markdown
 def test_todos_links_and_requirements_use_per_record_markdown(tmp_path: Path) -> None:
     _init_project(tmp_path)
 

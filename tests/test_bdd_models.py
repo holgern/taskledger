@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Tests for BDD domain models."""
 
 from __future__ import annotations
@@ -19,6 +20,8 @@ from taskledger.errors import LaunchError
 
 
 class TestBddAutomationRef:
+    # specweave: feature=specs/behavior/features/bdd_models/bdd-models.feature
+    # specweave: scenario=@bdd-bdd-models-defaults
     def test_defaults(self) -> None:
         ref = BddAutomationRef()
         assert ref.status == "pending"
@@ -29,6 +32,8 @@ class TestBddAutomationRef:
         assert ref.command == ""
         assert ref.report_path == ""
 
+    # specweave: feature=specs/behavior/features/bdd_models/bdd-models.feature
+    # specweave: scenario=@bdd-bdd-models-round-trip
     def test_round_trip(self) -> None:
         ref = BddAutomationRef(
             status="linked",
@@ -49,6 +54,8 @@ class TestBddAutomationRef:
         restored = BddAutomationRef.from_dict(d)
         assert restored == ref
 
+    # specweave: feature=specs/behavior/features/bdd_models/bdd-models.feature
+    # specweave: scenario=@bdd-bdd-models-from-dict-none
     def test_from_dict_none(self) -> None:
         ref = BddAutomationRef.from_dict(None)
         assert ref.status == "pending"
@@ -63,12 +70,16 @@ class TestBddAutomationRef:
 
 
 class TestBddFeatureRecord:
+    # specweave: feature=specs/behavior/features/bdd_models/bdd-models.feature
+    # specweave: scenario=@bdd-bdd-models-defaults-2
     def test_defaults(self) -> None:
         rec = BddFeatureRecord(id="feature-0001", task_id="task-0001", title="Test")
         assert rec.object_type == "bdd_feature"
         assert rec.description == ""
         assert rec.tags == ()
 
+    # specweave: feature=specs/behavior/features/bdd_models/bdd-models.feature
+    # specweave: scenario=@bdd-bdd-models-round-trip-2
     def test_round_trip(self) -> None:
         rec = BddFeatureRecord(
             id="feature-0001",
@@ -98,12 +109,16 @@ class TestBddFeatureRecord:
 
 
 class TestBddRuleRecord:
+    # specweave: feature=specs/behavior/features/bdd_models/bdd-models.feature
+    # specweave: scenario=@bdd-bdd-models-defaults-3
     def test_defaults(self) -> None:
         rec = BddRuleRecord(id="rule-0001", task_id="task-0001", title="Test")
         assert rec.object_type == "bdd_rule"
         assert rec.feature_id == "bdd"
         assert rec.source == "user"
 
+    # specweave: feature=specs/behavior/features/bdd_models/bdd-models.feature
+    # specweave: scenario=@bdd-bdd-models-round-trip-3
     def test_round_trip(self) -> None:
         rec = BddRuleRecord(
             id="rule-0001",
@@ -124,6 +139,8 @@ class TestBddRuleRecord:
 
 
 class TestBddExampleRecord:
+    # specweave: feature=specs/behavior/features/bdd_models/bdd-models.feature
+    # specweave: scenario=@bdd-bdd-models-defaults-4
     def test_defaults(self) -> None:
         rec = BddExampleRecord(id="bdd-0001", task_id="task-0001", title="Test")
         assert rec.object_type == "bdd_example"
@@ -134,6 +151,8 @@ class TestBddExampleRecord:
         assert rec.acceptance_criteria == ()
         assert rec.automation.status == "pending"
 
+    # specweave: feature=specs/behavior/features/bdd_models/bdd-models.feature
+    # specweave: scenario=@bdd-bdd-models-round-trip-4
     def test_round_trip(self) -> None:
         rec = BddExampleRecord(
             id="bdd-0001",
@@ -182,6 +201,8 @@ class TestBddExampleRecord:
 
 
 class TestBddReportRecord:
+    # specweave: feature=specs/behavior/features/bdd_models/bdd-models.feature
+    # specweave: scenario=@bdd-bdd-models-defaults-5
     def test_defaults(self) -> None:
         rec = BddReportRecord(
             id="bdd-report-0001",
@@ -193,6 +214,8 @@ class TestBddReportRecord:
         assert rec.result == "unknown"
         assert rec.example_results == ()
 
+    # specweave: feature=specs/behavior/features/bdd_models/bdd-models.feature
+    # specweave: scenario=@bdd-bdd-models-round-trip-5
     def test_round_trip(self) -> None:
         rec = BddReportRecord(
             id="bdd-report-0001",

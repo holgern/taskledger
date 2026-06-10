@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Tests for Gherkin export service."""
 
 from __future__ import annotations
@@ -12,6 +13,8 @@ from taskledger.storage.task_store import save_bdd_example
 
 
 class TestGherkinExport:
+    # specweave: feature=specs/behavior/features/bdd_gherkin/bdd-gherkin.feature
+    # specweave: scenario=@bdd-bdd-gherkin-export-basic-feature
     def test_export_basic_feature(self, tmp_path) -> None:
         """Test basic Gherkin export with rules and examples."""
         bdd_init(tmp_path, "task-0001", "Task lifecycle gates")
@@ -44,6 +47,8 @@ class TestGherkinExport:
         assert "When the agent starts implementation" in content
         assert "Then implementation is blocked" in content
 
+    # specweave: feature=specs/behavior/features/bdd_gherkin/bdd-gherkin.feature
+    # specweave: scenario=@bdd-bdd-gherkin-export-ownership-header
     def test_export_ownership_header(self, tmp_path) -> None:
         """Test that exported .feature files have derived-output headers."""
         bdd_init(tmp_path, "task-0001", "Test feature")
@@ -95,6 +100,8 @@ class TestGherkinExport:
         assert "no acceptance-criterion link" in result["warnings"][0]
         assert result["warning_details"] == []
 
+    # specweave: feature=specs/behavior/features/bdd_gherkin/bdd-gherkin.feature
+    # specweave: scenario=@bdd-bdd-gherkin-export-warns-for-deprecated-output-paths
     def test_export_warns_for_deprecated_output_paths(self, tmp_path) -> None:
         bdd_init(tmp_path, "task-0001", "Test feature")
         bdd_example_add(
@@ -162,6 +169,8 @@ class TestGherkinExport:
 
         assert out1.read_text() == out2.read_text()
 
+    # specweave: feature=specs/behavior/features/bdd_gherkin/bdd-gherkin.feature
+    # specweave: scenario=@bdd-bdd-gherkin-export-with-tags
     def test_export_with_tags(self, tmp_path) -> None:
         """Export should include tags."""
         bdd_init(tmp_path, "task-0001", "Test feature")

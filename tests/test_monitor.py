@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -39,6 +40,8 @@ def test_monitor_snapshot_works_in_empty_initialized_project(tmp_path: Path) -> 
     assert payload["ready"] == []
 
 
+# specweave: feature=specs/behavior/features/monitor/monitor.feature
+# specweave: scenario=@bdd-monitor-monitor-snapshot-includes-active-task-and-progress
 def test_monitor_snapshot_includes_active_task_and_progress(tmp_path: Path) -> None:
     ws = init_workspace(tmp_path)
     task_id = create_approved_task(
@@ -53,6 +56,8 @@ def test_monitor_snapshot_includes_active_task_and_progress(tmp_path: Path) -> N
     assert isinstance(active["next_action"], dict)
 
 
+# specweave: feature=specs/behavior/features/monitor/monitor.feature
+# specweave: scenario=@bdd-monitor-monitor-snapshot-groups-in-progress-and-ready-tasks
 def test_monitor_snapshot_groups_in_progress_and_ready_tasks(tmp_path: Path) -> None:
     ws = init_workspace(tmp_path)
     planning = create_task(
@@ -83,6 +88,8 @@ def test_monitor_snapshot_groups_in_progress_and_ready_tasks(tmp_path: Path) -> 
     assert failed in ready_ids
 
 
+# specweave: feature=specs/behavior/features/monitor/monitor.feature
+# specweave: scenario=@bdd-monitor-monitor-snapshot-lists-newest-activity-first
 def test_monitor_snapshot_lists_newest_activity_first(tmp_path: Path) -> None:
     ws = init_workspace(tmp_path)
     task = create_task(ws, title="Activity task", slug="activity-task", description="x")
@@ -112,6 +119,8 @@ def test_monitor_snapshot_lists_newest_activity_first(tmp_path: Path) -> None:
     assert activity[0]["event"] == "plan.started"
 
 
+# specweave: feature=specs/behavior/features/monitor/monitor.feature
+# specweave: scenario=@bdd-monitor-render-monitor-text-truncates-without-throwing
 def test_render_monitor_text_truncates_without_throwing() -> None:
     payload = {
         "kind": "monitor_snapshot",
@@ -155,6 +164,8 @@ def test_render_monitor_text_truncates_without_throwing() -> None:
     assert "..." in rendered
 
 
+# specweave: feature=specs/behavior/features/monitor/monitor.feature
+# specweave: scenario=@bdd-monitor-monitor-cli-once-exits-zero
 def test_monitor_cli_once_exits_zero(empty_workspace: Path) -> None:
     result = runner.invoke(
         app,
@@ -164,6 +175,8 @@ def test_monitor_cli_once_exits_zero(empty_workspace: Path) -> None:
     assert "CURRENT WORK" in result.stdout
 
 
+# specweave: feature=specs/behavior/features/monitor/monitor.feature
+# specweave: scenario=@bdd-monitor-monitor-cli-json-once-emits-monitor-snapshot
 def test_monitor_cli_json_once_emits_monitor_snapshot(empty_workspace: Path) -> None:
     result = runner.invoke(
         app,

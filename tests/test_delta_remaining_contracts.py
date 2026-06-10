@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -85,6 +86,8 @@ def _prepare_validating_task_with_mandatory_todo(tmp_path: Path) -> None:
     start_validation(tmp_path, task_id)
 
 
+# specweave: feature=specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature
+# specweave: scenario=@bdd-delta-remaining-contracts-validation-pass-requires-mandatory-criteria-checks
 def test_validation_pass_requires_mandatory_criteria_checks(tmp_path: Path) -> None:
     _prepare_validating_task(tmp_path)
 
@@ -111,6 +114,8 @@ def test_validation_pass_requires_mandatory_criteria_checks(tmp_path: Path) -> N
     assert payload["error"]["details"]["missing_criteria"] == ["ac-0001"]
 
 
+# specweave: feature=specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature
+# specweave: scenario=@bdd-delta-remaining-contracts-validation-pass-accepts-canonical-criterion-check
 def test_validation_pass_accepts_canonical_criterion_check(tmp_path: Path) -> None:
     _prepare_validating_task(tmp_path)
     assert (
@@ -155,6 +160,8 @@ def test_validation_pass_accepts_canonical_criterion_check(tmp_path: Path) -> No
     assert _json(result)["result"]["status"] == "done"
 
 
+# specweave: feature=specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature
+# specweave: scenario=@bdd-delta-remaining-contracts-context-dossier-and-link-alias-are-canonical
 def test_context_dossier_and_link_alias_are_canonical(tmp_path: Path) -> None:
     _init(tmp_path)
     assert (
@@ -226,6 +233,8 @@ def test_context_dossier_and_link_alias_are_canonical(tmp_path: Path) -> None:
     assert "Task Dossier" in dossier.stdout
 
 
+# specweave: feature=specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature
+# specweave: scenario=@bdd-delta-remaining-contracts-user-dependency-waiver-unblocks-implementation
 def test_user_dependency_waiver_unblocks_implementation(tmp_path: Path) -> None:
     _init(tmp_path)
     for slug in ("dependency", "main-task"):
@@ -359,6 +368,8 @@ def test_services_tasks_has_no_duplicate_top_level_function_names() -> None:
     assert duplicates == set(), f"Duplicate top-level functions: {duplicates}"
 
 
+# specweave: feature=specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature
+# specweave: scenario=@bdd-delta-remaining-contracts-import-smoke-tests
 def test_import_smoke_tests() -> None:
     """Smoke tests for module imports."""
     from taskledger.domain.policies import Decision, PolicyDecision
@@ -372,6 +383,8 @@ def test_import_smoke_tests() -> None:
     assert decision.reason == "Test message"
 
 
+# specweave: feature=specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature
+# specweave: scenario=@bdd-delta-remaining-contracts-taskledger-main-import
 def test_taskledger_main_import() -> None:
     """Verify taskledger can be imported as a package."""
     import taskledger
@@ -429,6 +442,8 @@ def test_resolve_criterion_ref_unknown(tmp_path: Path) -> None:
         assert "ac-0001" in str(e)
 
 
+# specweave: feature=specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature
+# specweave: scenario=@bdd-delta-remaining-contracts-reject-unknown-criterion-at-check-time
 def test_reject_unknown_criterion_at_check_time(tmp_path: Path) -> None:
     """Test that unknown criterion is rejected when recording a check."""
     _prepare_validating_task(tmp_path)
@@ -457,6 +472,8 @@ def test_reject_unknown_criterion_at_check_time(tmp_path: Path) -> None:
     )
 
 
+# specweave: feature=specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature
+# specweave: scenario=@bdd-delta-remaining-contracts-latest-check-wins-semantics
 def test_latest_check_wins_semantics(tmp_path: Path) -> None:
     """Test that latest check per criterion determines
     pass eligibility (not history)."""
@@ -521,6 +538,8 @@ def test_latest_check_wins_semantics(tmp_path: Path) -> None:
     assert data["result"]["status"] == "done"
 
 
+# specweave: feature=specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature
+# specweave: scenario=@bdd-delta-remaining-contracts-waiver-satisfies-criterion
 def test_waiver_satisfies_criterion(tmp_path: Path) -> None:
     """Test that user can waive a criterion to satisfy mandatory gate."""
     _prepare_validating_task(tmp_path)
@@ -563,6 +582,8 @@ def test_waiver_satisfies_criterion(tmp_path: Path) -> None:
     assert data["result"]["status"] == "done"
 
 
+# specweave: feature=specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature
+# specweave: scenario=@bdd-delta-remaining-contracts-validation-status-command-shows-blockers
 def test_validation_status_command_shows_blockers(tmp_path: Path) -> None:
     """Test validate status command renders blockers."""
     _prepare_validating_task(tmp_path)
@@ -588,6 +609,8 @@ def test_validation_status_command_shows_blockers(tmp_path: Path) -> None:
     assert any(b.get("kind") == "criterion_missing" for b in blockers)
 
 
+# specweave: feature=specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature
+# specweave: scenario=@bdd-delta-remaining-contracts-mandatory-todo-blocks-validation-completion
 def test_mandatory_todo_blocks_validation_completion(tmp_path: Path) -> None:
     """Test that open mandatory todos block validation completion."""
     _init(tmp_path)
@@ -745,6 +768,8 @@ def test_mandatory_todo_blocks_validation_completion(tmp_path: Path) -> None:
     assert len(payload["error"]["details"].get("open_mandatory_todos", [])) > 0
 
 
+# specweave: feature=specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature
+# specweave: scenario=@bdd-delta-remaining-contracts-next-action-validation-includes-next-missing-criterion
 def test_next_action_validation_includes_next_missing_criterion(tmp_path: Path) -> None:
     """Test that next-action reports the next concrete criterion during validation."""
     _prepare_validating_task(tmp_path)
@@ -793,6 +818,8 @@ def test_next_action_validation_includes_next_missing_criterion(tmp_path: Path) 
     assert any(b.get("kind") == "criterion_missing" for b in data.get("blocking", []))
 
 
+# specweave: feature=specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature
+# specweave: scenario=@bdd-delta-remaining-contracts-next-action-validation-with-no-blockers-returns-finish
 def test_next_action_validation_with_no_blockers_returns_finish(tmp_path: Path) -> None:
     _prepare_validating_task(tmp_path)
     checked = runner.invoke(
@@ -844,6 +871,8 @@ def test_next_action_validation_with_no_blockers_returns_finish(tmp_path: Path) 
     }
 
 
+# specweave: feature=specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature
+# specweave: scenario=@bdd-delta-remaining-contracts-next-action-with-expired-lock-returns-repair-hint
 def test_next_action_with_expired_lock_returns_repair_hint(tmp_path: Path) -> None:
     _init(tmp_path)
     assert (
@@ -939,6 +968,8 @@ def _prepare_done_task(
         )
 
 
+# specweave: feature=specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature
+# specweave: scenario=@bdd-delta-remaining-contracts-task-follow-up-creates-linked-child-and-copies-lightweight-links
 def test_task_follow_up_creates_linked_child_and_copies_lightweight_links(
     tmp_path: Path,
 ) -> None:
@@ -1021,6 +1052,8 @@ def test_task_follow_up_creates_linked_child_and_copies_lightweight_links(
     assert parent_show["follow_up_tasks"][0]["task_id"] == "task-0002"
 
 
+# specweave: feature=specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature
+# specweave: scenario=@bdd-delta-remaining-contracts-task-follow-up-activate-sets-child-active-and-next-command
 def test_task_follow_up_activate_sets_child_active_and_next_command(
     tmp_path: Path,
 ) -> None:
@@ -1050,6 +1083,8 @@ def test_task_follow_up_activate_sets_child_active_and_next_command(
     assert active["task_id"] == "task-0002"
 
 
+# specweave: feature=specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature
+# specweave: scenario=@bdd-delta-remaining-contracts-task-follow-up-rejects-non-done-parent-without-mutating-state
 def test_task_follow_up_rejects_non_done_parent_without_mutating_state(
     tmp_path: Path,
 ) -> None:
@@ -1094,6 +1129,8 @@ def test_task_follow_up_rejects_non_done_parent_without_mutating_state(
     assert len(tasks) == 1
 
 
+# specweave: feature=specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature
+# specweave: scenario=@bdd-delta-remaining-contracts-task-close-persists-closure-metadata-and-is-idempotent
 def test_task_close_persists_closure_metadata_and_is_idempotent(tmp_path: Path) -> None:
     _prepare_done_task(tmp_path, slug="closable", title="Closable task")
 
@@ -1149,6 +1186,8 @@ def test_task_close_persists_closure_metadata_and_is_idempotent(tmp_path: Path) 
     assert _json(second)["result"]["changed"] is False
 
 
+# specweave: feature=specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature
+# specweave: scenario=@bdd-delta-remaining-contracts-follow-up-relationships-render-in-show-dossier-and-context
 def test_follow_up_relationships_render_in_show_dossier_and_context(
     tmp_path: Path,
 ) -> None:
@@ -1220,6 +1259,8 @@ def test_follow_up_relationships_render_in_show_dossier_and_context(
     assert "- Latest validation: run-0003 passed" in context.stdout
 
 
+# specweave: feature=specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature
+# specweave: scenario=@bdd-delta-remaining-contracts-done-parent-next-action-stays-none-after-follow-up-creation
 def test_done_parent_next_action_stays_none_after_follow_up_creation(
     tmp_path: Path,
 ) -> None:

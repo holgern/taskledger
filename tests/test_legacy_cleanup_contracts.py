@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 from pathlib import Path
@@ -60,17 +61,23 @@ def test_legacy_modules_are_removed() -> None:
         assert not (ROOT / relative_path).exists(), relative_path
 
 
+# specweave: feature=specs/behavior/features/legacy_cleanup_contracts/legacy-cleanup-contracts.feature
+# specweave: scenario=@bdd-legacy-cleanup-contracts-package-initializers-do-not-use-star-imports
 def test_package_initializers_do_not_use_star_imports() -> None:
     for relative_path in ("taskledger/__init__.py", "taskledger/api/__init__.py"):
         text = (ROOT / relative_path).read_text(encoding="utf-8")
         assert "import *" not in text
 
 
+# specweave: feature=specs/behavior/features/legacy_cleanup_contracts/legacy-cleanup-contracts.feature
+# specweave: scenario=@bdd-legacy-cleanup-contracts-v2-storage-does-not-import-storage-facade
 def test_v2_storage_does_not_import_storage_facade() -> None:
     text = (ROOT / "taskledger/storage/task_store.py").read_text(encoding="utf-8")
     assert "from taskledger.storage import" not in text
 
 
+# specweave: feature=specs/behavior/features/legacy_cleanup_contracts/legacy-cleanup-contracts.feature
+# specweave: scenario=@bdd-legacy-cleanup-contracts-domain-models-does-not-import-legacy-models-package
 def test_domain_models_does_not_import_legacy_models_package() -> None:
     text = (ROOT / "taskledger/domain/models.py").read_text(encoding="utf-8")
     assert "from taskledger.models import" not in text

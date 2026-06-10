@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -186,6 +187,8 @@ def test_list_with_status_open_returns_empty(tmp_path: Path) -> None:
 # --- answers command tests ---
 
 
+# specweave: feature=specs/behavior/features/question_filter_answers/question-filter-answers.feature
+# specweave: scenario=@bdd-question-filter-answers-answers-markdown-format
 def test_answers_markdown_format(tmp_path: Path) -> None:
     _init_task_with_questions(tmp_path)
     result = runner.invoke(
@@ -222,6 +225,8 @@ def test_answers_json_format(tmp_path: Path) -> None:
     assert questions[0]["answer"] == "A1"
 
 
+# specweave: feature=specs/behavior/features/question_filter_answers/question-filter-answers.feature
+# specweave: scenario=@bdd-question-filter-answers-answers-empty-when-none-answered
 def test_answers_empty_when_none_answered(tmp_path: Path) -> None:
     init_workspace(tmp_path)
     assert (
@@ -254,6 +259,8 @@ def test_answers_empty_when_none_answered(tmp_path: Path) -> None:
 # --- empty answer validation test ---
 
 
+# specweave: feature=specs/behavior/features/question_filter_answers/question-filter-answers.feature
+# specweave: scenario=@bdd-question-filter-answers-answer-empty-text-rejected
 def test_answer_empty_text_rejected(tmp_path: Path) -> None:
     init_workspace(tmp_path)
     assert (
@@ -293,6 +300,8 @@ def test_answer_empty_text_rejected(tmp_path: Path) -> None:
     assert "empty" in payload["error"]["message"].lower()
 
 
+# specweave: feature=specs/behavior/features/question_filter_answers/question-filter-answers.feature
+# specweave: scenario=@bdd-question-filter-answers-answer-whitespace-only-rejected
 def test_answer_whitespace_only_rejected(tmp_path: Path) -> None:
     init_workspace(tmp_path)
     assert (

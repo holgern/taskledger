@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Tests for task report service and CLI."""
 
 from __future__ import annotations
@@ -45,6 +46,8 @@ def _invoke(args: list[str], cwd: Path) -> tuple[int, str, str]:
 
 
 class TestServiceReport:
+    # specweave: feature=specs/behavior/features/task_report/report.feature
+    # specweave: scenario=@bdd-task-report-task-report-full-markdown-includes-major-sections
     def test_task_report_full_markdown_includes_major_sections(
         self, tmp_path: Path
     ) -> None:
@@ -71,6 +74,8 @@ class TestServiceReport:
         assert "## Worker Contract" not in content
         assert "## Required Output" not in content
 
+    # specweave: feature=specs/behavior/features/task_report/report.feature
+    # specweave: scenario=@bdd-task-report-task-report-planning-preset-excludes-impl-and-val
     def test_task_report_planning_preset_excludes_impl_and_val(
         self, tmp_path: Path
     ) -> None:
@@ -90,6 +95,8 @@ class TestServiceReport:
         assert "## Validation" not in content
         assert "## Code Changes" not in content
 
+    # specweave: feature=specs/behavior/features/task_report/report.feature
+    # specweave: scenario=@bdd-task-report-task-report-implementation-preset-includes-code-reviews
     def test_task_report_implementation_preset_includes_code_reviews(
         self, tmp_path: Path
     ) -> None:
@@ -113,6 +120,8 @@ class TestServiceReport:
         assert "## Code Reviews" in content
         assert "review-0001" in content
 
+    # specweave: feature=specs/behavior/features/task_report/report.feature
+    # specweave: scenario=@bdd-task-report-task-report-planning-report-includes-proposed-plan-details
     def test_task_report_planning_report_includes_proposed_plan_details(
         self, tmp_path: Path
     ) -> None:
@@ -159,6 +168,8 @@ Render this proposed plan body in the task report.
         assert "Proposed todo is visible." in content
         assert "No accepted plan." in content
 
+    # specweave: feature=specs/behavior/features/task_report/report.feature
+    # specweave: scenario=@bdd-task-report-task-report-without-removes-sections
     def test_task_report_without_removes_sections(self, tmp_path: Path) -> None:
         ws = init_workspace(tmp_path)
         task_id = create_done_task(ws, allow_lint_errors=True)
@@ -178,6 +189,8 @@ Render this proposed plan body in the task report.
         assert "## Acceptance Criteria" not in content
         assert "## Summary" in content
 
+    # specweave: feature=specs/behavior/features/task_report/report.feature
+    # specweave: scenario=@bdd-task-report-task-report-explicit-sections-override-preset
     def test_task_report_explicit_sections_override_preset(
         self, tmp_path: Path
     ) -> None:
@@ -199,6 +212,8 @@ Render this proposed plan body in the task report.
         assert "## Implementation" not in content
         assert "## Validation" not in content
 
+    # specweave: feature=specs/behavior/features/task_report/report.feature
+    # specweave: scenario=@bdd-task-report-task-report-archive-includes-events
     def test_task_report_archive_includes_events(self, tmp_path: Path) -> None:
         ws = init_workspace(tmp_path)
         task_id = create_done_task(ws, allow_lint_errors=True)
@@ -211,6 +226,8 @@ Render this proposed plan body in the task report.
 
         assert "## Events" in content
 
+    # specweave: feature=specs/behavior/features/task_report/report.feature
+    # specweave: scenario=@bdd-task-report-task-report-events-limit
     def test_task_report_events_limit(self, tmp_path: Path) -> None:
         ws = init_workspace(tmp_path)
         task_id = create_done_task(ws, allow_lint_errors=True)
@@ -227,6 +244,8 @@ Render this proposed plan body in the task report.
         assert isinstance(content, str)
         assert "## Events" in content
 
+    # specweave: feature=specs/behavior/features/task_report/report.feature
+    # specweave: scenario=@bdd-task-report-task-report-include-command-log-section
     def test_task_report_include_command_log_section(self, tmp_path: Path) -> None:
         ws = init_workspace(tmp_path)
         task_id = create_done_task(ws, allow_lint_errors=True)
@@ -275,6 +294,8 @@ Render this proposed plan body in the task report.
                 options=TaskReportOptions(events_limit=-1),
             )
 
+    # specweave: feature=specs/behavior/features/task_report/report.feature
+    # specweave: scenario=@bdd-task-report-task-report-json-payload-is-structured
     def test_task_report_json_payload_is_structured(self, tmp_path: Path) -> None:
         ws = init_workspace(tmp_path)
         task_id = create_done_task(ws, allow_lint_errors=True)
@@ -297,6 +318,8 @@ Render this proposed plan body in the task report.
 
 
 class TestCLIReport:
+    # specweave: feature=specs/behavior/features/task_report/report.feature
+    # specweave: scenario=@bdd-task-report-task-report-stdout-markdown
     def test_task_report_stdout_markdown(self, tmp_path: Path) -> None:
         ws = init_workspace(tmp_path)
         task_id = create_done_task(ws, allow_lint_errors=True)
@@ -306,6 +329,8 @@ class TestCLIReport:
         assert f"# Task {task_id}" in stdout
         assert "## Summary" in stdout
 
+    # specweave: feature=specs/behavior/features/task_report/report.feature
+    # specweave: scenario=@bdd-task-report-task-report-output-writes-file
     def test_task_report_output_writes_file(self, tmp_path: Path) -> None:
         ws = init_workspace(tmp_path)
         task_id = create_done_task(ws, allow_lint_errors=True)
@@ -328,6 +353,8 @@ class TestCLIReport:
         content = output_path.read_text()
         assert f"# Task {task_id}" in content
 
+    # specweave: feature=specs/behavior/features/task_report/report.feature
+    # specweave: scenario=@bdd-task-report-task-report-output-json
     def test_task_report_output_json(self, tmp_path: Path) -> None:
         ws = init_workspace(tmp_path)
         task_id = create_done_task(ws, allow_lint_errors=True)
@@ -352,6 +379,8 @@ class TestCLIReport:
         assert data["result"]["kind"] == "task_report"
         assert data["result"]["output_path"] == str(output_path)
 
+    # specweave: feature=specs/behavior/features/task_report/report.feature
+    # specweave: scenario=@bdd-task-report-task-report-uses-active-task-default
     def test_task_report_uses_active_task_default(self, tmp_path: Path) -> None:
         ws = init_workspace(tmp_path)
         task_id = create_done_task(ws, allow_lint_errors=True)
@@ -364,6 +393,8 @@ class TestCLIReport:
         assert exit_code == 0
         assert f"# Task {task_id}" in stdout
 
+    # specweave: feature=specs/behavior/features/task_report/report.feature
+    # specweave: scenario=@bdd-task-report-task-report-preset-planning
     def test_task_report_preset_planning(self, tmp_path: Path) -> None:
         ws = init_workspace(tmp_path)
         task_id = create_approved_task(ws, allow_lint_errors=True)
@@ -383,6 +414,8 @@ class TestCLIReport:
         assert "## Plans" in stdout
         assert "## Implementation" not in stdout
 
+    # specweave: feature=specs/behavior/features/task_report/report.feature
+    # specweave: scenario=@bdd-task-report-task-report-without-todos-and-criteria
     def test_task_report_without_todos_and_criteria(self, tmp_path: Path) -> None:
         ws = init_workspace(tmp_path)
         task_id = create_done_task(ws, allow_lint_errors=True)
@@ -405,6 +438,8 @@ class TestCLIReport:
         assert "## Acceptance Criteria" not in stdout
         assert "## Summary" in stdout
 
+    # specweave: feature=specs/behavior/features/task_report/report.feature
+    # specweave: scenario=@bdd-task-report-task-report-invalid-format
     def test_task_report_invalid_format(self, tmp_path: Path) -> None:
         ws = init_workspace(tmp_path)
         task_id = create_done_task(ws, allow_lint_errors=True)

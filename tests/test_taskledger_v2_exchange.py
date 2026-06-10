@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 import hashlib
@@ -354,6 +355,8 @@ Exchange test setup.
     )
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature
+# specweave: scenario=@bdd-taskledger-v2-exchange-export-and-import-include-v2-state
 def test_export_and_import_include_v2_state(tmp_path: Path) -> None:
     source_root = tmp_path / "source"
     dest_root = tmp_path / "dest"
@@ -453,6 +456,8 @@ def test_export_and_import_include_v2_state(tmp_path: Path) -> None:
     assert task_payload["result"]["task"]["latest_plan_version"] == 1
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature
+# specweave: scenario=@bdd-taskledger-v2-exchange-export-import-roundtrip-preserves-code-reviews
 def test_export_import_roundtrip_preserves_code_reviews(tmp_path: Path) -> None:
     source_root = tmp_path / "source"
     dest_root = tmp_path / "dest"
@@ -499,6 +504,8 @@ def test_export_import_roundtrip_preserves_code_reviews(tmp_path: Path) -> None:
     assert payload_after["result"]["review"]["summary"] == "Reviewed for exchange test."
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature
+# specweave: scenario=@bdd-taskledger-v2-exchange-default-export-filename-includes-project-slug-and-ledger
 def test_default_export_filename_includes_project_slug_and_ledger(
     tmp_path: Path,
 ) -> None:
@@ -523,6 +530,8 @@ def test_default_export_filename_includes_project_slug_and_ledger(
     assert result["project_slug"] == "taskledger"
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature
+# specweave: scenario=@bdd-taskledger-v2-exchange-default-export-filename-sanitizes-project-name
 def test_default_export_filename_sanitizes_project_name(tmp_path: Path) -> None:
     workspace = tmp_path / "source"
     workspace.mkdir()
@@ -556,6 +565,8 @@ def test_explicit_export_path_is_not_rewritten(tmp_path: Path) -> None:
     assert export_result["result"]["path"] == str(archive_path)
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature
+# specweave: scenario=@bdd-taskledger-v2-exchange-export-positional-task-ref-exports-task-archive
 def test_export_positional_task_ref_exports_task_archive(tmp_path: Path) -> None:
     workspace = tmp_path / "source"
     workspace.mkdir()
@@ -636,6 +647,8 @@ def test_export_positional_tar_gz_still_means_output_path(tmp_path: Path) -> Non
     assert payload["archive_scope"] == "ledger"
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature
+# specweave: scenario=@bdd-taskledger-v2-exchange-archive-manifest-includes-project-name-slug-and-uuid
 def test_archive_manifest_includes_project_name_slug_and_uuid(tmp_path: Path) -> None:
     workspace = tmp_path / "source"
     workspace.mkdir()
@@ -659,6 +672,8 @@ def test_archive_manifest_includes_project_name_slug_and_uuid(tmp_path: Path) ->
     assert project["ledger_ref"] == "main"
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature
+# specweave: scenario=@bdd-taskledger-v2-exchange-archive-import-dry-run-reports-project-name
 def test_archive_import_dry_run_reports_project_name(tmp_path: Path) -> None:
     source_root = tmp_path / "source"
     dest_root = tmp_path / "dest"
@@ -700,6 +715,8 @@ def test_archive_import_dry_run_reports_project_name(tmp_path: Path) -> None:
     assert result["next_command"] == "taskledger next-action"
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature
+# specweave: scenario=@bdd-taskledger-v2-exchange-export-import-preserves-agent-command-logs
 def test_export_import_preserves_agent_command_logs(tmp_path: Path) -> None:
     source_root = tmp_path / "source"
     dest_root = tmp_path / "dest"
@@ -752,6 +769,8 @@ def test_export_import_preserves_agent_command_logs(tmp_path: Path) -> None:
     assert any(item.command_kind == "taskledger_cli" for item in dest_logs)
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature
+# specweave: scenario=@bdd-taskledger-v2-exchange-export-and-import-include-release-records
 def test_export_and_import_include_release_records(tmp_path: Path) -> None:
     source_root = tmp_path / "source"
     dest_root = tmp_path / "dest"
@@ -961,6 +980,8 @@ Finish the boundary task.
     assert payload["result"]["release"]["boundary_task_id"] == "task-0001"
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature
+# specweave: scenario=@bdd-taskledger-v2-exchange-import-replace-quarantines-lock-and-allows-resume
 def test_import_replace_quarantines_lock_and_allows_resume(tmp_path: Path) -> None:
     source_root = tmp_path / "source"
     dest_root = tmp_path / "dest"
@@ -998,6 +1019,8 @@ def test_import_replace_quarantines_lock_and_allows_resume(tmp_path: Path) -> No
     assert next_action_payload["result"]["action"] == "implement-resume"
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature
+# specweave: scenario=@bdd-taskledger-v2-exchange-import-replace-lock-policy-keep-restores-lock
 def test_import_replace_lock_policy_keep_restores_lock(tmp_path: Path) -> None:
     source_root = tmp_path / "source"
     dest_root = tmp_path / "dest"
@@ -1031,6 +1054,8 @@ def test_import_replace_lock_policy_keep_restores_lock(tmp_path: Path) -> None:
     assert _task_lock_paths(dest_root, "task-0001")
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature
+# specweave: scenario=@bdd-taskledger-v2-exchange-import-archive-rejects-different-project-uuid-without-mutation
 def test_import_archive_rejects_different_project_uuid_without_mutation(
     tmp_path: Path,
 ) -> None:
@@ -1093,6 +1118,8 @@ def test_import_archive_rejects_different_project_uuid_without_mutation(
     assert dest_task_result.exit_code == 0, dest_task_result.stdout
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature
+# specweave: scenario=@bdd-taskledger-v2-exchange-import-single-task-preserves-id-when-free
 def test_import_single_task_preserves_id_when_free(tmp_path: Path) -> None:
     source_root = tmp_path / "source"
     dest_root = tmp_path / "dest"
@@ -1279,6 +1306,8 @@ def test_import_single_task_dry_run_reports_id_map_without_mutation(
     assert len(cast(list[dict[str, Any]], tasks["result"]["tasks"])) == 1
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature
+# specweave: scenario=@bdd-taskledger-v2-exchange-import-single-task-id-policy-fail-on-conflict
 def test_import_single_task_id_policy_fail_on_conflict(tmp_path: Path) -> None:
     source_root = tmp_path / "source"
     dest_root = tmp_path / "dest"
@@ -1585,6 +1614,8 @@ def test_read_project_archive_rejects_oversized_payload(tmp_path: Path) -> None:
         read_project_archive(archive_path)
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature
+# specweave: scenario=@bdd-taskledger-v2-exchange-export-import-preserves-archived-task-metadata-and-slug-reuse
 def test_export_import_preserves_archived_task_metadata_and_slug_reuse(
     tmp_path: Path,
 ) -> None:
@@ -1671,6 +1702,8 @@ def test_export_import_preserves_archived_task_metadata_and_slug_reuse(
     assert payload["result"]["slug"] == "legacy-archive"
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature
+# specweave: scenario=@bdd-taskledger-v2-exchange-old-archive-without-project-name-still-imports
 def test_old_archive_without_project_name_still_imports(tmp_path: Path) -> None:
     source_root = tmp_path / "source"
     dest_root = tmp_path / "dest"
@@ -1790,6 +1823,8 @@ def test_json_import_dry_run_does_not_mutate_state(tmp_path: Path) -> None:
     assert list_result["result"]["tasks"] == []
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature
+# specweave: scenario=@bdd-taskledger-v2-exchange-export-without-bodies-omits-plan-and-task-body
 def test_export_without_bodies_omits_plan_and_task_body(tmp_path: Path) -> None:
     source_root = tmp_path / "source"
     source_root.mkdir()
@@ -1861,6 +1896,8 @@ This markdown body should be removed when include-bodies=false.
     assert "body" not in plans[0]
 
 
+# specweave: feature=specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature
+# specweave: scenario=@bdd-taskledger-v2-exchange-export-with-run-artifacts-includes-artifact-members
 def test_export_with_run_artifacts_includes_artifact_members(tmp_path: Path) -> None:
     source_root = tmp_path / "source"
     dest_root = tmp_path / "dest"

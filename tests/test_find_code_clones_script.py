@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -11,6 +12,8 @@ def _write(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+# specweave: feature=specs/behavior/features/find_code_clones_script/find-code-clones-script.feature
+# specweave: scenario=@bdd-find-code-clones-script-find-code-clones-script-json-and-include-tests
 def test_find_code_clones_script_json_and_include_tests(tmp_path: Path) -> None:
     _write(
         tmp_path / "taskledger" / "a.py",
