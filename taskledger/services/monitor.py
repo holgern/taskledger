@@ -8,6 +8,7 @@ from typing import cast
 from taskledger.domain.event import TaskEvent
 from taskledger.domain.policies import derive_active_stage
 from taskledger.domain.task import TaskRecord
+from taskledger.services.ready_work import READY_STATUSES, priority_rank
 from taskledger.storage.events import load_recent_events
 from taskledger.storage.locks import read_lock
 from taskledger.storage.task_store import (
@@ -27,15 +28,6 @@ def _status_to_active_stage(status_stage: str) -> str | None:
         "implementing": "implementation",
         "validating": "validation",
     }.get(status_stage)
-
-
-def _priority_rank(priority: str | None) -> tuple[int, str]:
-    if isinstance(priority, str):
-        normalized = priority.strip().upper()
-        if normalized.startswith("P") and normalized[1:].isdigit():
-            return (int(normalized[1:]), normalized)
-        return (50, normalized)
-    return (99, "")
 
 
 def _task_summary(
@@ -92,6 +84,7 @@ def monitor_snapshot(
     task_ref: str | None = None,
     max_events: int = 10,
     max_ready: int = 10,
+    activity_scope: str = "ledger",
 ) -> dict[str, object]:
     tasks = list_tasks_by_visibility(workspace_root, visibility="visible")
     task_by_id = {task.id: task for task in tasks}
@@ -112,7 +105,7 @@ def monitor_snapshot(
             if task.status_stage in {"planning", "implementing", "validating"}
         ],
         key=lambda item: (
-            _priority_rank(cast(str | None, item.get("priority"))),
+            priority_rank(cast(str | None, item.get("priority"))),
             str(item["task_id"]),
         ),
     )
@@ -120,17 +113,26 @@ def monitor_snapshot(
         [
             _task_summary(workspace_root, task)
             for task in tasks
-            if task.status_stage in {"approved", "failed_validation"}
+            if task.status_stage in READY_STATUSES
         ],
         key=lambda item: (
-            _priority_rank(cast(str | None, item.get("priority"))),
+            priority_rank(cast(str | None, item.get("priority"))),
             str(item["task_id"]),
         ),
     )[:max_ready]
 
     paths = resolve_v2_paths(workspace_root)
+    activity_task_id = (
+        selected.id if activity_scope == "task" and selected is not None else None
+    )
     recent_events = list(
-        reversed(load_recent_events(paths.events_dir, limit=max_events))
+        reversed(
+            load_recent_events(
+                paths.events_dir,
+                task_id=activity_task_id,
+                limit=max_events,
+            )
+        )
     )
     activity: list[dict[str, object]] = []
     for event in recent_events:
@@ -157,6 +159,7 @@ def monitor_snapshot(
         "activity": activity,
         "ready": ready,
         "counts": {"ready": len(ready), "in_progress": len(in_progress)},
+        "activity_scope": activity_scope,
         "warnings": [],
     }
 
@@ -180,8 +183,9 @@ def render_monitor_text(
     if isinstance(active, dict):
         header = (
             f"FOCUSED: {active['task_id']} "
+            f"[{active.get('status_stage')}] "
             f"{(active.get('priority') or '').strip()} "
-            f"{_fit(str(active.get('title') or ''), reserve=20)}"
+            f"{_fit(str(active.get('title') or ''), reserve=28)}"
         ).rstrip()
         lines.append(header)
         next_action = active.get("next_action")
@@ -218,7 +222,11 @@ def render_monitor_text(
         lines.append("  (none)")
 
     lines.append("")
-    lines.append("ACTIVITY LOG")
+    activity_scope = payload.get("activity_scope")
+    if activity_scope == "task" and isinstance(active, dict):
+        lines.append(f"TASK ACTIVITY: {active['task_id']}")
+    else:
+        lines.append("RECENT LEDGER ACTIVITY")
     activity = payload.get("activity")
     if isinstance(activity, list) and activity:
         for item in activity:

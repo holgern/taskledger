@@ -812,6 +812,10 @@ def monitor_command(
     once: Annotated[bool, typer.Option("--once")] = False,
     max_events: Annotated[int, typer.Option("--max-events")] = 10,
     max_ready: Annotated[int, typer.Option("--max-ready")] = 10,
+    activity_scope: Annotated[
+        str,
+        typer.Option("--activity-scope", help="Activity scope: ledger or task."),
+    ] = "ledger",
     plain: Annotated[bool, typer.Option("--plain")] = False,
     no_clear: Annotated[bool, typer.Option("--no-clear")] = False,
 ) -> None:
@@ -827,12 +831,21 @@ def monitor_command(
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
 
+    normalized_scope = activity_scope.strip().lower()
+    if normalized_scope not in {"ledger", "task"}:
+        emit_error(
+            ctx,
+            LaunchError("Invalid --activity-scope value. Use 'ledger' or 'task'."),
+        )
+        raise typer.Exit(code=2)
+
     def _snapshot() -> dict[str, object]:
         return monitor_snapshot(
             state.cwd,
             task_ref=selected_task_ref,
             max_events=max_events,
             max_ready=max_ready,
+            activity_scope=normalized_scope,
         )
 
     if state.json_output:

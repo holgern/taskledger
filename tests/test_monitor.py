@@ -172,3 +172,171 @@ def test_monitor_cli_json_once_emits_monitor_snapshot(empty_workspace: Path) -> 
     assert result.exit_code == 0, result.stdout
     payload = json.loads(result.stdout)
     assert payload["result"]["kind"] == "monitor_snapshot"
+
+
+def test_monitor_snapshot_includes_plan_review_in_ready(tmp_path: Path) -> None:
+    ws = init_workspace(tmp_path)
+    from taskledger.services.tasks import start_planning
+    from tests.support.builders import propose_plan
+
+    pr = create_task(ws, title="PR task", slug="pr-task", description="x")
+    start_planning(ws, pr.id)
+    propose_plan(ws, pr.id, body="Plan body")
+
+    payload = monitor_snapshot(ws)
+    ready_ids = {item["task_id"] for item in payload["ready"]}
+    assert pr.id in ready_ids
+
+
+def test_monitor_activity_scope_task_filters_to_selected_task(
+    tmp_path: Path,
+) -> None:
+    ws = init_workspace(tmp_path)
+    task_a = create_task(ws, title="Task A", slug="task-a", description="x")
+    task_b = create_task(ws, title="Task B", slug="task-b", description="x")
+    paths = resolve_v2_paths(ws)
+    append_event(
+        paths.events_dir,
+        TaskEvent(
+            ts="2026-01-01T12:38:00+00:00",
+            event="task.created",
+            task_id=task_a.id,
+            actor=ActorRef(actor_type="agent", actor_name="test"),
+        ),
+    )
+    append_event(
+        paths.events_dir,
+        TaskEvent(
+            ts="2026-01-01T12:39:00+00:00",
+            event="task.created",
+            task_id=task_b.id,
+            actor=ActorRef(actor_type="agent", actor_name="test"),
+        ),
+    )
+    payload = monitor_snapshot(
+        ws, task_ref=task_a.id, activity_scope="task", max_events=10
+    )
+    activity_task_ids = {item["task_id"] for item in payload["activity"]}
+    assert activity_task_ids == {task_a.id}
+    assert payload["activity_scope"] == "task"
+
+
+def test_monitor_activity_scope_ledger_shows_all(tmp_path: Path) -> None:
+    ws = init_workspace(tmp_path)
+    task_a = create_task(ws, title="Task A", slug="task-a", description="x")
+    task_b = create_task(ws, title="Task B", slug="task-b", description="x")
+    paths = resolve_v2_paths(ws)
+    append_event(
+        paths.events_dir,
+        TaskEvent(
+            ts="2026-01-01T12:38:00+00:00",
+            event="task.created",
+            task_id=task_a.id,
+            actor=ActorRef(actor_type="agent", actor_name="test"),
+        ),
+    )
+    append_event(
+        paths.events_dir,
+        TaskEvent(
+            ts="2026-01-01T12:39:00+00:00",
+            event="task.created",
+            task_id=task_b.id,
+            actor=ActorRef(actor_type="agent", actor_name="test"),
+        ),
+    )
+    payload = monitor_snapshot(
+        ws, task_ref=task_a.id, activity_scope="ledger", max_events=10
+    )
+    activity_task_ids = {item["task_id"] for item in payload["activity"]}
+    assert task_a.id in activity_task_ids
+    assert task_b.id in activity_task_ids
+    assert payload["activity_scope"] == "ledger"
+
+
+def test_render_monitor_text_shows_recent_ledger_activity_heading() -> None:
+    payload = {
+        "kind": "monitor_snapshot",
+        "active": None,
+        "in_progress": [],
+        "activity": [],
+        "ready": [],
+        "counts": {"ready": 0, "in_progress": 0},
+        "activity_scope": "ledger",
+        "warnings": [],
+    }
+    rendered = render_monitor_text(payload, width=100)
+    assert "RECENT LEDGER ACTIVITY" in rendered
+
+
+def test_render_monitor_text_shows_task_activity_heading() -> None:
+    payload = {
+        "kind": "monitor_snapshot",
+        "active": {
+            "task_id": "task-0042",
+            "status_stage": "implementing",
+            "title": "Test",
+        },
+        "in_progress": [],
+        "activity": [],
+        "ready": [],
+        "counts": {"ready": 0, "in_progress": 0},
+        "activity_scope": "task",
+        "warnings": [],
+    }
+    rendered = render_monitor_text(payload, width=100)
+    assert "TASK ACTIVITY: task-0042" in rendered
+
+
+def test_render_monitor_text_includes_status_stage_in_focused() -> None:
+    payload = {
+        "kind": "monitor_snapshot",
+        "active": {
+            "task_id": "task-0042",
+            "status_stage": "implementing",
+            "title": "Test task",
+        },
+        "in_progress": [],
+        "activity": [],
+        "ready": [],
+        "counts": {"ready": 0, "in_progress": 0},
+        "warnings": [],
+    }
+    rendered = render_monitor_text(payload, width=100)
+    assert "[implementing]" in rendered
+
+
+def test_monitor_cli_activity_scope_task(tmp_path: Path) -> None:
+    ws = init_workspace(tmp_path)
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(ws),
+            "--no-log",
+            "--json",
+            "monitor",
+            "--once",
+            "--activity-scope",
+            "task",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    payload = json.loads(result.stdout)
+    assert payload["result"]["activity_scope"] == "task"
+
+
+def test_monitor_cli_activity_scope_invalid(tmp_path: Path) -> None:
+    ws = init_workspace(tmp_path)
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(ws),
+            "--no-log",
+            "monitor",
+            "--once",
+            "--activity-scope",
+            "invalid",
+        ],
+    )
+    assert result.exit_code != 0

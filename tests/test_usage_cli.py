@@ -137,3 +137,51 @@ def test_usage_reports_expired_lock_in_inbox(tmp_path: Path) -> None:
     payload = usage_payload(ws)
     stale_locks = payload["inbox"]["stale_locks"]
     assert any(item["task_id"] == task_id for item in stale_locks)
+
+
+def test_usage_ready_work_includes_command_hint_for_approved_task(
+    tmp_path: Path,
+) -> None:
+    ws = init_workspace(tmp_path)
+    task_id = create_approved_task(ws, title="Ready to implement", slug="ready-impl")
+    payload = usage_payload(ws)
+    approved = payload["ready"]["approved"]
+    assert len(approved) == 1
+    item = approved[0]
+    assert item["task_id"] == task_id
+    assert isinstance(item.get("command"), str)
+    assert f"--task {task_id}" in item["command"]
+    assert isinstance(item.get("next"), str)
+
+
+def test_usage_ready_work_human_render_shows_command_hint(
+    tmp_path: Path,
+) -> None:
+    ws = init_workspace(tmp_path)
+    task_id = create_approved_task(ws, title="Ready to implement", slug="ready-impl")
+    result = runner.invoke(app, ["--cwd", str(ws), "--no-log", "usage"])
+    assert result.exit_code == 0, result.stdout
+    assert task_id in result.stdout
+    assert "command:" in result.stdout
+    assert f"--task {task_id}" in result.stdout
+
+
+def test_usage_ready_work_includes_command_hint_for_plan_review(
+    tmp_path: Path,
+) -> None:
+    from taskledger.services.tasks import create_task, start_planning
+    from tests.support.builders import propose_plan
+
+    ws = init_workspace(tmp_path)
+    task = create_task(ws, title="Review me", slug="review-me", description="x")
+    start_planning(ws, task.id)
+    propose_plan(ws, task.id, body="Plan body")
+
+    payload = usage_payload(ws)
+    plan_review = payload["ready"]["plan_review"]
+    assert len(plan_review) == 1
+    item = plan_review[0]
+    assert item["task_id"] == task.id
+    assert isinstance(item.get("command"), str)
+    assert "plan review" in item["command"]
+    assert f"--task {task.id}" in item["command"]

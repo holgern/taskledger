@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import cast
 
 from taskledger.domain.actor import ActorRef
 from taskledger.domain.policies import derive_active_stage
@@ -16,6 +15,7 @@ from taskledger.services.lock_diagnostics import (
     diagnose_lock,
 )
 from taskledger.services.navigation import next_action
+from taskledger.services.ready_work import ready_work_items
 from taskledger.services.task_collections import next_todo
 from taskledger.storage.locks import read_lock
 from taskledger.storage.task_store import (
@@ -32,31 +32,25 @@ from taskledger.storage.task_store import (
 )
 
 
-def _priority_rank(priority: str | None) -> tuple[int, str]:
-    if isinstance(priority, str):
-        normalized = priority.strip().upper()
-        if normalized.startswith("P") and normalized[1:].isdigit():
-            return (int(normalized[1:]), normalized)
-        return (50, normalized)
-    return (99, "")
-
-
-def _ready_entry(task: TaskRecord) -> dict[str, object]:
-    return {
-        "task_id": task.id,
-        "slug": task.slug,
-        "title": task.title,
-        "priority": task.priority,
-        "status_stage": task.status_stage,
-    }
-
-
 def _next_action_label(next_action: object) -> str:
     if isinstance(next_action, dict):
         value = next_action.get("action")
         if isinstance(value, str):
             return value
     return "none"
+
+
+def _render_ready_item(item: dict[str, object]) -> list[str]:
+    result = [
+        f"  {item.get('task_id')} [{item.get('status_stage')}] {item.get('title')}"
+    ]
+    if item.get("reason"):
+        result.append(f"    next: {item.get('next')} - {item.get('reason')}")
+    elif item.get("next"):
+        result.append(f"    next: {item.get('next')}")
+    if item.get("command"):
+        result.append(f"    command: {item.get('command')}")
+    return result
 
 
 def _lock_payload(
@@ -250,40 +244,17 @@ def usage_payload(
             }
         )
 
+    ready_items = ready_work_items(workspace_root, visible_tasks)
     ready: dict[str, list[dict[str, object]]] = {
-        "approved": sorted(
-            [
-                _ready_entry(task)
-                for task in visible_tasks
-                if task.status_stage == "approved"
-            ],
-            key=lambda item: (
-                _priority_rank(cast(str | None, item.get("priority"))),
-                str(item["task_id"]),
-            ),
-        ),
-        "failed_validation": sorted(
-            [
-                _ready_entry(task)
-                for task in visible_tasks
-                if task.status_stage == "failed_validation"
-            ],
-            key=lambda item: (
-                _priority_rank(cast(str | None, item.get("priority"))),
-                str(item["task_id"]),
-            ),
-        ),
-        "plan_review": sorted(
-            [
-                _ready_entry(task)
-                for task in visible_tasks
-                if task.status_stage == "plan_review"
-            ],
-            key=lambda item: (
-                _priority_rank(cast(str | None, item.get("priority"))),
-                str(item["task_id"]),
-            ),
-        ),
+        "approved": [
+            item for item in ready_items if item["status_stage"] == "approved"
+        ],
+        "failed_validation": [
+            item for item in ready_items if item["status_stage"] == "failed_validation"
+        ],
+        "plan_review": [
+            item for item in ready_items if item["status_stage"] == "plan_review"
+        ],
     }
 
     payload: dict[str, object] = {
@@ -412,10 +383,7 @@ def render_usage_text(payload: dict[str, object], *, quiet: bool = False) -> str
                 if not isinstance(item, dict):
                     continue
                 found_ready = True
-                lines.append(
-                    f"  {item.get('task_id')} [{item.get('status_stage')}] "
-                    f"{item.get('title')}"
-                )
+                lines.extend(_render_ready_item(item))
         if not found_ready:
             lines.append("  none")
 
