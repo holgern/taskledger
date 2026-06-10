@@ -7,7 +7,7 @@ import json
 from typer.testing import CliRunner
 
 from taskledger.cli import app
-from tests.support.builders import create_implemented_task, init_workspace
+from tests.support.builders import create_approved_task, init_workspace
 
 runner = CliRunner()
 
@@ -550,7 +550,7 @@ class TestBddReferenceValidation:
     ) -> None:
         monkeypatch.chdir(tmp_path)
         init_workspace(tmp_path)
-        create_implemented_task(tmp_path, plan_text=AC_PLAN)
+        create_approved_task(tmp_path, plan_text=AC_PLAN)
         runner.invoke(app, ["bdd", "init", "--feature", "Test"])
 
         result = runner.invoke(
@@ -578,7 +578,7 @@ class TestBddReferenceValidation:
     ) -> None:
         monkeypatch.chdir(tmp_path)
         init_workspace(tmp_path)
-        create_implemented_task(tmp_path, plan_text=AC_PLAN)
+        create_approved_task(tmp_path, plan_text=AC_PLAN)
         runner.invoke(app, ["bdd", "init", "--feature", "Test"])
 
         result = runner.invoke(
@@ -635,7 +635,7 @@ class TestBddReferenceValidation:
     ) -> None:
         monkeypatch.chdir(tmp_path)
         init_workspace(tmp_path)
-        create_implemented_task(tmp_path, plan_text=AC_PLAN)
+        create_approved_task(tmp_path, plan_text=AC_PLAN)
         runner.invoke(app, ["bdd", "init", "--feature", "Test"])
         runner.invoke(
             app,
