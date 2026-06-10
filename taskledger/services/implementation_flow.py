@@ -548,9 +548,6 @@ def _implementation_finish_warnings(
     task_id: str,
     run_id: str,
 ) -> list[str]:
-    if not _is_git_workspace(workspace_root):
-        return []
-
     changes = [
         change
         for change in list_changes(workspace_root, task_id)
@@ -561,13 +558,17 @@ def _implementation_finish_warnings(
 
     has_manual_change = any(change.kind != "scan" for change in changes)
     has_git_scan = any(change.kind == "scan" for change in changes)
-    if has_manual_change and not has_git_scan:
-        return [
-            "Warning: implementation has manual change records but no git-backed "
-            "scan. Recommended: taskledger implement scan-changes --from-git "
-            '--summary "Implementation diff summary."'
-        ]
-    return []
+    if not has_manual_change or has_git_scan:
+        return []
+
+    if not _is_git_workspace(workspace_root):
+        return []
+
+    return [
+        "Warning: implementation has manual change records but no git-backed "
+        "scan. Recommended: taskledger implement scan-changes --from-git "
+        '--summary "Implementation diff summary."'
+    ]
 
 
 def _is_git_workspace(workspace_root: Path) -> bool:

@@ -10,6 +10,7 @@ from typer.testing import CliRunner
 from taskledger.cli import app
 from taskledger.domain.models import AgentCommandLogRecord
 from taskledger.errors import LaunchError
+from taskledger.services.command_runner import CommandResult
 from taskledger.storage.agent_logs import (
     append_agent_command_log,
     load_agent_command_logs,
@@ -383,9 +384,20 @@ def test_task_transcript_review_mode_groups_wrapper_and_managed_shell(
     assert "failed, wrapper mismatch" in transcript.stdout
 
 
-def test_task_transcript_failures_mode_renders_failed_rows_only(tmp_path: Path) -> None:
+def test_task_transcript_failures_mode_renders_failed_rows_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     _init_project(tmp_path)
+    _enable_agent_logging(tmp_path)
     task_id = _prepare_approved_task(tmp_path)
+
+    def fake_run_command(argv: tuple[str, ...], *, cwd: Path) -> CommandResult:
+        return CommandResult(returncode=3, stdout="", stderr="")
+
+    monkeypatch.setattr(
+        "taskledger.services.implementation_flow.command_runner.run_command",
+        fake_run_command,
+    )
 
     failing = runner.invoke(
         app,
@@ -417,6 +429,8 @@ def test_task_transcript_failures_mode_renders_failed_rows_only(tmp_path: Path) 
     )
     assert failures.exit_code == 0, failures.stdout
     assert "## Transcript Failures" in failures.stdout
+    assert "raise SystemExit(3)" in failures.stdout
+    assert "| - | 3 |" in failures.stdout
 
 
 def test_transcript_tolerates_duplicate_log_ids_by_default(tmp_path: Path) -> None:
