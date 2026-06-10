@@ -1,0 +1,2452 @@
+{
+  "schema_version": 1,
+  "source_root": "taskledger",
+  "tests_root": "tests",
+  "features_root": "specs/behavior/features",
+  "module_count": 140,
+  "test_file_count": 82,
+  "feature_file_count": 82,
+  "connected_modules": 60,
+  "modules_without_direct_test_import": [
+    {
+      "module": "taskledger.__main__",
+      "path": "taskledger/__main__.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger._version",
+      "path": "taskledger/_version.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.api",
+      "path": "taskledger/api/__init__.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.api.config",
+      "path": "taskledger/api/config.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.api.introductions",
+      "path": "taskledger/api/introductions.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.api.locks",
+      "path": "taskledger/api/locks.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.api.plans",
+      "path": "taskledger/api/plans.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.api.questions",
+      "path": "taskledger/api/questions.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.api.releases",
+      "path": "taskledger/api/releases.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.api.reviews",
+      "path": "taskledger/api/reviews.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.api.search",
+      "path": "taskledger/api/search.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.api.storage",
+      "path": "taskledger/api/storage.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.api.sync",
+      "path": "taskledger/api/sync.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.api.task_runs",
+      "path": "taskledger/api/task_runs.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_actor",
+      "path": "taskledger/cli_actor.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_archive",
+      "path": "taskledger/cli_archive.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_bdd",
+      "path": "taskledger/cli_bdd.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_common",
+      "path": "taskledger/cli_common.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_config",
+      "path": "taskledger/cli_config.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_implement",
+      "path": "taskledger/cli_implement.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_ledger",
+      "path": "taskledger/cli_ledger.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_migrate",
+      "path": "taskledger/cli_migrate.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_misc",
+      "path": "taskledger/cli_misc.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_pipeline",
+      "path": "taskledger/cli_pipeline.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_plan",
+      "path": "taskledger/cli_plan.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_question",
+      "path": "taskledger/cli_question.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_release",
+      "path": "taskledger/cli_release.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_review",
+      "path": "taskledger/cli_review.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_storage",
+      "path": "taskledger/cli_storage.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_sync",
+      "path": "taskledger/cli_sync.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_task",
+      "path": "taskledger/cli_task.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_trace",
+      "path": "taskledger/cli_trace.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_validate",
+      "path": "taskledger/cli_validate.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.domain",
+      "path": "taskledger/domain/__init__.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.domain._model_utils",
+      "path": "taskledger/domain/_model_utils.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.domain.active_state",
+      "path": "taskledger/domain/active_state.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.domain.plan",
+      "path": "taskledger/domain/plan.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.domain.question",
+      "path": "taskledger/domain/question.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.domain.release",
+      "path": "taskledger/domain/release.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.domain.review",
+      "path": "taskledger/domain/review.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.domain.run",
+      "path": "taskledger/domain/run.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.domain.task",
+      "path": "taskledger/domain/task.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.ids",
+      "path": "taskledger/ids.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services",
+      "path": "taskledger/services/__init__.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.agent_transcripts",
+      "path": "taskledger/services/agent_transcripts.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.bdd_exports",
+      "path": "taskledger/services/bdd_exports.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.change_tracking",
+      "path": "taskledger/services/change_tracking.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.doctor_checks.migration_checks",
+      "path": "taskledger/services/doctor_checks/migration_checks.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.doctor_checks.project_scan",
+      "path": "taskledger/services/doctor_checks/project_scan.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.doctor_checks.task_checks",
+      "path": "taskledger/services/doctor_checks/task_checks.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.event_logging",
+      "path": "taskledger/services/event_logging.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.file_links",
+      "path": "taskledger/services/file_links.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.git_sync",
+      "path": "taskledger/services/git_sync.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.git_utils",
+      "path": "taskledger/services/git_utils.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.handoff",
+      "path": "taskledger/services/handoff.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.implementation_flow",
+      "path": "taskledger/services/implementation_flow.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.navigation",
+      "path": "taskledger/services/navigation.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.next_action_model",
+      "path": "taskledger/services/next_action_model.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.next_action_payload",
+      "path": "taskledger/services/next_action_payload.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.phase5_lock_transfer",
+      "path": "taskledger/services/phase5_lock_transfer.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.plan_editing",
+      "path": "taskledger/services/plan_editing.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.plan_hash",
+      "path": "taskledger/services/plan_hash.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.plan_lint",
+      "path": "taskledger/services/plan_lint.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.plan_materialization",
+      "path": "taskledger/services/plan_materialization.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.planning_flow",
+      "path": "taskledger/services/planning_flow.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.releases",
+      "path": "taskledger/services/releases.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.run_store",
+      "path": "taskledger/services/run_store.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.storage_locations",
+      "path": "taskledger/services/storage_locations.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.task_archive",
+      "path": "taskledger/services/task_archive.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.task_events",
+      "path": "taskledger/services/task_events.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.task_lifecycle",
+      "path": "taskledger/services/task_lifecycle.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.task_queries",
+      "path": "taskledger/services/task_queries.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.task_repair",
+      "path": "taskledger/services/task_repair.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.tree",
+      "path": "taskledger/services/tree.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.validation",
+      "path": "taskledger/services/validation.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.validation_flow",
+      "path": "taskledger/services/validation_flow.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.worker_context",
+      "path": "taskledger/services/worker_context.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.worker_pipeline",
+      "path": "taskledger/services/worker_pipeline.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.storage.toml_edit",
+      "path": "taskledger/storage/toml_edit.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.storage.worker_pipeline_config",
+      "path": "taskledger/storage/worker_pipeline_config.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    }
+  ],
+  "modules_tested_without_feature": [],
+  "modules": [
+    {
+      "module": "taskledger",
+      "path": "taskledger/__init__.py",
+      "tests": [
+        "tests/test_cli_import_resilience.py",
+        "tests/test_delta_remaining_contracts.py"
+      ],
+      "features": [
+        "specs/behavior/features/cli_import_resilience/cli-import-resilience.feature",
+        "specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature"
+      ],
+      "connected_tests": 2,
+      "connected_features": 2,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.__main__",
+      "path": "taskledger/__main__.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger._version",
+      "path": "taskledger/_version.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.api",
+      "path": "taskledger/api/__init__.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.api.bdd",
+      "path": "taskledger/api/bdd.py",
+      "tests": [
+        "tests/test_bdd_gherkin.py",
+        "tests/test_bdd_report_import.py",
+        "tests/test_trace.py"
+      ],
+      "features": [
+        "specs/behavior/features/bdd_gherkin/bdd-gherkin.feature",
+        "specs/behavior/features/bdd_report_import/bdd-report-import.feature",
+        "specs/behavior/features/trace/trace.feature"
+      ],
+      "connected_tests": 3,
+      "connected_features": 3,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.api.config",
+      "path": "taskledger/api/config.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.api.handoff",
+      "path": "taskledger/api/handoff.py",
+      "tests": ["tests/test_handoff_lifecycle.py", "tests/test_usage_cli.py"],
+      "features": [
+        "specs/behavior/features/handoff_lifecycle/handoff-lifecycle.feature",
+        "specs/behavior/features/usage_cli/usage-cli.feature"
+      ],
+      "connected_tests": 2,
+      "connected_features": 2,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.api.introductions",
+      "path": "taskledger/api/introductions.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.api.locks",
+      "path": "taskledger/api/locks.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.api.plans",
+      "path": "taskledger/api/plans.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.api.project",
+      "path": "taskledger/api/project.py",
+      "tests": ["tests/test_handoff_lifecycle.py"],
+      "features": [
+        "specs/behavior/features/handoff_lifecycle/handoff-lifecycle.feature"
+      ],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.api.questions",
+      "path": "taskledger/api/questions.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.api.releases",
+      "path": "taskledger/api/releases.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.api.reviews",
+      "path": "taskledger/api/reviews.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.api.search",
+      "path": "taskledger/api/search.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.api.storage",
+      "path": "taskledger/api/storage.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.api.sync",
+      "path": "taskledger/api/sync.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.api.task_runs",
+      "path": "taskledger/api/task_runs.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.api.tasks",
+      "path": "taskledger/api/tasks.py",
+      "tests": ["tests/test_active_task.py", "tests/test_handoff_lifecycle.py"],
+      "features": [
+        "specs/behavior/features/active_task/active-task.feature",
+        "specs/behavior/features/handoff_lifecycle/handoff-lifecycle.feature"
+      ],
+      "connected_tests": 2,
+      "connected_features": 2,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.cli",
+      "path": "taskledger/cli.py",
+      "tests": [
+        "tests/test_active_task.py",
+        "tests/test_actor_harness_state.py",
+        "tests/test_agent_command_logging.py",
+        "tests/test_agent_session_protocol.py",
+        "tests/test_bdd_cli.py",
+        "tests/test_bdd_validation_integration.py",
+        "tests/test_cli_command_contract.py",
+        "tests/test_cli_import_resilience.py",
+        "tests/test_code_reviews.py",
+        "tests/test_command_inventory.py",
+        "tests/test_compact_mutation_output.py",
+        "tests/test_config_cli.py",
+        "tests/test_delta_remaining_contracts.py",
+        "tests/test_event_logging_config.py",
+        "tests/test_file_link_snapshots.py",
+        "tests/test_implementation_change_scan.py",
+        "tests/test_implementation_checks.py",
+        "tests/test_json_contracts.py",
+        "tests/test_locks_audit.py",
+        "tests/test_monitor.py",
+        "tests/test_next_action_expired_lock.py",
+        "tests/test_no_log_feature.py",
+        "tests/test_plan_approval_contract.py",
+        "tests/test_plan_lint.py",
+        "tests/test_plan_review.py",
+        "tests/test_plan_revision_workflow.py",
+        "tests/test_plan_todo_materialization.py",
+        "tests/test_project_root_config.py",
+        "tests/test_question_add_many.py",
+        "tests/test_question_filter_answers.py",
+        "tests/test_question_plan_regeneration.py",
+        "tests/test_release_changelog.py",
+        "tests/test_sidecar_collections.py",
+        "tests/test_storage_bundle_layout.py",
+        "tests/test_storage_migration.py",
+        "tests/test_storage_sync.py",
+        "tests/test_sync_git.py",
+        "tests/test_task_archive.py",
+        "tests/test_task_events.py",
+        "tests/test_task_markdown_export.py",
+        "tests/test_task_report.py",
+        "tests/test_taskledger_branch_scoped_ledgers.py",
+        "tests/test_taskledger_cli_api_parity.py",
+        "tests/test_taskledger_v2_cli.py",
+        "tests/test_taskledger_v2_exchange.py",
+        "tests/test_todo_implementation_gate.py",
+        "tests/test_trace.py",
+        "tests/test_tree_command.py",
+        "tests/test_usage_cli.py",
+        "tests/test_worker_pipeline_cli.py",
+        "tests/test_worker_pipeline_context.py",
+        "tests/test_worker_pipeline_handoff.py",
+        "tests/test_worker_pipeline_plan_template.py",
+        "tests/test_worker_pipeline_todos.py"
+      ],
+      "features": [
+        "specs/behavior/features/active_task/active-task.feature",
+        "specs/behavior/features/actor_harness_state/actor-harness-state.feature",
+        "specs/behavior/features/agent_command_logging/agent-command-logging.feature",
+        "specs/behavior/features/agent_session_protocol/agent-session-protocol.feature",
+        "specs/behavior/features/bdd_cli/bdd-cli.feature",
+        "specs/behavior/features/bdd_validation_integration/bdd-validation-integration.feature",
+        "specs/behavior/features/cli_command_contract/cli-command-contract.feature",
+        "specs/behavior/features/cli_import_resilience/cli-import-resilience.feature",
+        "specs/behavior/features/code_reviews/code-reviews.feature",
+        "specs/behavior/features/command_inventory/command-inventory.feature",
+        "specs/behavior/features/compact_mutation_output/compact-mutation-output.feature",
+        "specs/behavior/features/config_cli/config-cli.feature",
+        "specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature",
+        "specs/behavior/features/event_logging_config/event-logging-config.feature",
+        "specs/behavior/features/file_link_snapshots/file-link-snapshots.feature",
+        "specs/behavior/features/implementation_change_scan/implementation-change-scan.feature",
+        "specs/behavior/features/implementation_checks/implementation-checks.feature",
+        "specs/behavior/features/json_contracts/json-contracts.feature",
+        "specs/behavior/features/locks_audit/locks-audit.feature",
+        "specs/behavior/features/monitor/monitor.feature",
+        "specs/behavior/features/next_action_expired_lock/next-action-expired-lock.feature",
+        "specs/behavior/features/no_log_feature/no-log-feature.feature",
+        "specs/behavior/features/plan_approval_contract/plan-approval-contract.feature",
+        "specs/behavior/features/plan_lint/plan-lint.feature",
+        "specs/behavior/features/plan_review/plan-review.feature",
+        "specs/behavior/features/plan_revision_workflow/plan-revision-workflow.feature",
+        "specs/behavior/features/plan_todo_materialization/plan-todo-materialization.feature",
+        "specs/behavior/features/project_root_config/project-root-config.feature",
+        "specs/behavior/features/question_add_many/question-add-many.feature",
+        "specs/behavior/features/question_filter_answers/question-filter-answers.feature",
+        "specs/behavior/features/question_plan_regeneration/question-plan-regeneration.feature",
+        "specs/behavior/features/release_changelog/release-changelog.feature",
+        "specs/behavior/features/sidecar_collections/sidecar-collections.feature",
+        "specs/behavior/features/storage_bundle_layout/storage-bundle-layout.feature",
+        "specs/behavior/features/storage_migration/storage-migration.feature",
+        "specs/behavior/features/storage_sync/storage-sync.feature",
+        "specs/behavior/features/sync_git/sync-git.feature",
+        "specs/behavior/features/task_archive/archive.feature",
+        "specs/behavior/features/task_events/events.feature",
+        "specs/behavior/features/task_markdown_export/markdown-export.feature",
+        "specs/behavior/features/task_report/report.feature",
+        "specs/behavior/features/taskledger_branch_scoped_ledgers/taskledger-branch-scoped-ledgers.feature",
+        "specs/behavior/features/taskledger_cli_api_parity/taskledger-cli-api-parity.feature",
+        "specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature",
+        "specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature",
+        "specs/behavior/features/todo_implementation_gate/todo-implementation-gate.feature",
+        "specs/behavior/features/trace/trace.feature",
+        "specs/behavior/features/tree_command/tree-command.feature",
+        "specs/behavior/features/usage_cli/usage-cli.feature",
+        "specs/behavior/features/worker_pipeline_cli/worker-pipeline-cli.feature",
+        "specs/behavior/features/worker_pipeline_context/worker-pipeline-context.feature",
+        "specs/behavior/features/worker_pipeline_handoff/worker-pipeline-handoff.feature",
+        "specs/behavior/features/worker_pipeline_plan_template/worker-pipeline-plan-template.feature",
+        "specs/behavior/features/worker_pipeline_todos/worker-pipeline-todos.feature"
+      ],
+      "connected_tests": 54,
+      "connected_features": 54,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.cli_actor",
+      "path": "taskledger/cli_actor.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_archive",
+      "path": "taskledger/cli_archive.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_bdd",
+      "path": "taskledger/cli_bdd.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_common",
+      "path": "taskledger/cli_common.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_config",
+      "path": "taskledger/cli_config.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_implement",
+      "path": "taskledger/cli_implement.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_ledger",
+      "path": "taskledger/cli_ledger.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_migrate",
+      "path": "taskledger/cli_migrate.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_misc",
+      "path": "taskledger/cli_misc.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_pipeline",
+      "path": "taskledger/cli_pipeline.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_plan",
+      "path": "taskledger/cli_plan.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_question",
+      "path": "taskledger/cli_question.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_release",
+      "path": "taskledger/cli_release.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_review",
+      "path": "taskledger/cli_review.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_storage",
+      "path": "taskledger/cli_storage.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_sync",
+      "path": "taskledger/cli_sync.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_task",
+      "path": "taskledger/cli_task.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_trace",
+      "path": "taskledger/cli_trace.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.cli_validate",
+      "path": "taskledger/cli_validate.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.command_inventory",
+      "path": "taskledger/command_inventory.py",
+      "tests": [
+        "tests/test_command_example_linter.py",
+        "tests/test_command_inventory.py",
+        "tests/test_docs_and_skill.py",
+        "tests/test_storage_migration.py"
+      ],
+      "features": [
+        "specs/behavior/features/command_example_linter/command-example-linter.feature",
+        "specs/behavior/features/command_inventory/command-inventory.feature",
+        "specs/behavior/features/docs_and_skill/docs-and-skill.feature",
+        "specs/behavior/features/storage_migration/storage-migration.feature"
+      ],
+      "connected_tests": 4,
+      "connected_features": 4,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.domain",
+      "path": "taskledger/domain/__init__.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.domain._model_utils",
+      "path": "taskledger/domain/_model_utils.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.domain.active_state",
+      "path": "taskledger/domain/active_state.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.domain.actor",
+      "path": "taskledger/domain/actor.py",
+      "tests": [
+        "tests/test_actor_resolution.py",
+        "tests/test_lock_diagnostics.py",
+        "tests/test_monitor.py"
+      ],
+      "features": [
+        "specs/behavior/features/actor_resolution/actor-resolution.feature",
+        "specs/behavior/features/lock_diagnostics/lock-diagnostics.feature",
+        "specs/behavior/features/monitor/monitor.feature"
+      ],
+      "connected_tests": 3,
+      "connected_features": 3,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.domain.bdd",
+      "path": "taskledger/domain/bdd.py",
+      "tests": [
+        "tests/test_bdd_gherkin.py",
+        "tests/test_bdd_models.py",
+        "tests/test_bdd_storage.py"
+      ],
+      "features": [
+        "specs/behavior/features/bdd_gherkin/bdd-gherkin.feature",
+        "specs/behavior/features/bdd_models/bdd-models.feature",
+        "specs/behavior/features/bdd_storage/bdd-storage.feature"
+      ],
+      "connected_tests": 3,
+      "connected_features": 3,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.domain.change",
+      "path": "taskledger/domain/change.py",
+      "tests": ["tests/test_task_markdown_export.py"],
+      "features": [
+        "specs/behavior/features/task_markdown_export/markdown-export.feature"
+      ],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.domain.check",
+      "path": "taskledger/domain/check.py",
+      "tests": ["tests/test_implementation_checks.py"],
+      "features": [
+        "specs/behavior/features/implementation_checks/implementation-checks.feature"
+      ],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.domain.event",
+      "path": "taskledger/domain/event.py",
+      "tests": ["tests/test_monitor.py"],
+      "features": ["specs/behavior/features/monitor/monitor.feature"],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.domain.handoff",
+      "path": "taskledger/domain/handoff.py",
+      "tests": ["tests/test_doctor.py"],
+      "features": ["specs/behavior/features/doctor/doctor.feature"],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.domain.lock",
+      "path": "taskledger/domain/lock.py",
+      "tests": ["tests/test_lock_diagnostics.py"],
+      "features": [
+        "specs/behavior/features/lock_diagnostics/lock-diagnostics.feature"
+      ],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.domain.models",
+      "path": "taskledger/domain/models.py",
+      "tests": [
+        "tests/test_actor_harness_state.py",
+        "tests/test_agent_command_logging.py",
+        "tests/test_code_reviews.py",
+        "tests/test_delta_remaining_contracts.py",
+        "tests/test_doctor.py",
+        "tests/test_domain_policies.py",
+        "tests/test_events.py",
+        "tests/test_handoff_lifecycle.py",
+        "tests/test_lifecycle_policies.py",
+        "tests/test_models_v1_schema.py",
+        "tests/test_services_dashboard.py",
+        "tests/test_storage_bundle_layout.py",
+        "tests/test_storage_migration.py",
+        "tests/test_trace.py"
+      ],
+      "features": [
+        "specs/behavior/features/actor_harness_state/actor-harness-state.feature",
+        "specs/behavior/features/agent_command_logging/agent-command-logging.feature",
+        "specs/behavior/features/code_reviews/code-reviews.feature",
+        "specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature",
+        "specs/behavior/features/doctor/doctor.feature",
+        "specs/behavior/features/domain_policies/domain-policies.feature",
+        "specs/behavior/features/events/events.feature",
+        "specs/behavior/features/handoff_lifecycle/handoff-lifecycle.feature",
+        "specs/behavior/features/lifecycle_policies/lifecycle-policies.feature",
+        "specs/behavior/features/models_v1_schema/models-v1-schema.feature",
+        "specs/behavior/features/services_dashboard/services-dashboard.feature",
+        "specs/behavior/features/storage_bundle_layout/storage-bundle-layout.feature",
+        "specs/behavior/features/storage_migration/storage-migration.feature",
+        "specs/behavior/features/trace/trace.feature"
+      ],
+      "connected_tests": 14,
+      "connected_features": 14,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.domain.plan",
+      "path": "taskledger/domain/plan.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.domain.policies",
+      "path": "taskledger/domain/policies.py",
+      "tests": [
+        "tests/test_delta_remaining_contracts.py",
+        "tests/test_domain_policies.py",
+        "tests/test_lifecycle_policies.py"
+      ],
+      "features": [
+        "specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature",
+        "specs/behavior/features/domain_policies/domain-policies.feature",
+        "specs/behavior/features/lifecycle_policies/lifecycle-policies.feature"
+      ],
+      "connected_tests": 3,
+      "connected_features": 3,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.domain.question",
+      "path": "taskledger/domain/question.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.domain.release",
+      "path": "taskledger/domain/release.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.domain.review",
+      "path": "taskledger/domain/review.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.domain.run",
+      "path": "taskledger/domain/run.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.domain.sidecars",
+      "path": "taskledger/domain/sidecars.py",
+      "tests": ["tests/test_file_link_snapshots.py"],
+      "features": [
+        "specs/behavior/features/file_link_snapshots/file-link-snapshots.feature"
+      ],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.domain.states",
+      "path": "taskledger/domain/states.py",
+      "tests": [
+        "tests/test_lifecycle_policies.py",
+        "tests/test_plan_lint.py",
+        "tests/test_storage_migration.py"
+      ],
+      "features": [
+        "specs/behavior/features/lifecycle_policies/lifecycle-policies.feature",
+        "specs/behavior/features/plan_lint/plan-lint.feature",
+        "specs/behavior/features/storage_migration/storage-migration.feature"
+      ],
+      "connected_tests": 3,
+      "connected_features": 3,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.domain.task",
+      "path": "taskledger/domain/task.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.errors",
+      "path": "taskledger/errors.py",
+      "tests": [
+        "tests/test_active_task.py",
+        "tests/test_actor_harness_state.py",
+        "tests/test_agent_command_logging.py",
+        "tests/test_bdd_gherkin.py",
+        "tests/test_bdd_models.py",
+        "tests/test_bdd_report_import.py",
+        "tests/test_code_reviews.py",
+        "tests/test_delta_remaining_contracts.py",
+        "tests/test_events.py",
+        "tests/test_handoff_lifecycle.py",
+        "tests/test_models_v1_schema.py",
+        "tests/test_project_root_config.py",
+        "tests/test_search.py",
+        "tests/test_storage_common.py",
+        "tests/test_storage_init.py",
+        "tests/test_storage_migration.py",
+        "tests/test_storage_repos.py",
+        "tests/test_task_report.py",
+        "tests/test_taskledger_v2_exchange.py",
+        "tests/test_worker_pipeline_config.py"
+      ],
+      "features": [
+        "specs/behavior/features/active_task/active-task.feature",
+        "specs/behavior/features/actor_harness_state/actor-harness-state.feature",
+        "specs/behavior/features/agent_command_logging/agent-command-logging.feature",
+        "specs/behavior/features/bdd_gherkin/bdd-gherkin.feature",
+        "specs/behavior/features/bdd_models/bdd-models.feature",
+        "specs/behavior/features/bdd_report_import/bdd-report-import.feature",
+        "specs/behavior/features/code_reviews/code-reviews.feature",
+        "specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature",
+        "specs/behavior/features/events/events.feature",
+        "specs/behavior/features/handoff_lifecycle/handoff-lifecycle.feature",
+        "specs/behavior/features/models_v1_schema/models-v1-schema.feature",
+        "specs/behavior/features/project_root_config/project-root-config.feature",
+        "specs/behavior/features/search/search.feature",
+        "specs/behavior/features/storage_common/storage-common.feature",
+        "specs/behavior/features/storage_init/storage-init.feature",
+        "specs/behavior/features/storage_migration/storage-migration.feature",
+        "specs/behavior/features/storage_repos/storage-repos.feature",
+        "specs/behavior/features/task_report/report.feature",
+        "specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature",
+        "specs/behavior/features/worker_pipeline_config/worker-pipeline-config.feature"
+      ],
+      "connected_tests": 20,
+      "connected_features": 20,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.exchange",
+      "path": "taskledger/exchange.py",
+      "tests": ["tests/test_taskledger_v2_exchange.py"],
+      "features": [
+        "specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature"
+      ],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.ids",
+      "path": "taskledger/ids.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.launcher",
+      "path": "taskledger/launcher.py",
+      "tests": ["tests/test_cli_import_resilience.py"],
+      "features": [
+        "specs/behavior/features/cli_import_resilience/cli-import-resilience.feature"
+      ],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.search",
+      "path": "taskledger/search.py",
+      "tests": ["tests/test_search.py"],
+      "features": ["specs/behavior/features/search/search.feature"],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.services",
+      "path": "taskledger/services/__init__.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.actors",
+      "path": "taskledger/services/actors.py",
+      "tests": [
+        "tests/test_actor_harness_state.py",
+        "tests/test_actor_resolution.py"
+      ],
+      "features": [
+        "specs/behavior/features/actor_harness_state/actor-harness-state.feature",
+        "specs/behavior/features/actor_resolution/actor-resolution.feature"
+      ],
+      "connected_tests": 2,
+      "connected_features": 2,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.services.agent_logging",
+      "path": "taskledger/services/agent_logging.py",
+      "tests": ["tests/test_no_log_feature.py"],
+      "features": [
+        "specs/behavior/features/no_log_feature/no-log-feature.feature"
+      ],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.services.agent_transcripts",
+      "path": "taskledger/services/agent_transcripts.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.bdd_exports",
+      "path": "taskledger/services/bdd_exports.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.bdd_gherkin",
+      "path": "taskledger/services/bdd_gherkin.py",
+      "tests": ["tests/test_bdd_gherkin.py"],
+      "features": ["specs/behavior/features/bdd_gherkin/bdd-gherkin.feature"],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.services.bdd_reports",
+      "path": "taskledger/services/bdd_reports.py",
+      "tests": ["tests/test_bdd_report_import.py", "tests/test_trace.py"],
+      "features": [
+        "specs/behavior/features/bdd_report_import/bdd-report-import.feature",
+        "specs/behavior/features/trace/trace.feature"
+      ],
+      "connected_tests": 2,
+      "connected_features": 2,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.services.change_tracking",
+      "path": "taskledger/services/change_tracking.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.check_tracking",
+      "path": "taskledger/services/check_tracking.py",
+      "tests": ["tests/test_implementation_checks.py"],
+      "features": [
+        "specs/behavior/features/implementation_checks/implementation-checks.feature"
+      ],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.services.code_review",
+      "path": "taskledger/services/code_review.py",
+      "tests": [
+        "tests/test_code_reviews.py",
+        "tests/test_task_report.py",
+        "tests/test_usage_cli.py"
+      ],
+      "features": [
+        "specs/behavior/features/code_reviews/code-reviews.feature",
+        "specs/behavior/features/task_report/report.feature",
+        "specs/behavior/features/usage_cli/usage-cli.feature"
+      ],
+      "connected_tests": 3,
+      "connected_features": 3,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.services.command_runner",
+      "path": "taskledger/services/command_runner.py",
+      "tests": [
+        "tests/test_agent_command_logging.py",
+        "tests/test_agent_session_protocol.py",
+        "tests/test_command_runner.py"
+      ],
+      "features": [
+        "specs/behavior/features/agent_command_logging/agent-command-logging.feature",
+        "specs/behavior/features/agent_session_protocol/agent-session-protocol.feature",
+        "specs/behavior/features/command_runner/command-runner.feature"
+      ],
+      "connected_tests": 3,
+      "connected_features": 3,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.services.dashboard",
+      "path": "taskledger/services/dashboard.py",
+      "tests": ["tests/test_services_dashboard.py"],
+      "features": [
+        "specs/behavior/features/services_dashboard/services-dashboard.feature"
+      ],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.services.doctor",
+      "path": "taskledger/services/doctor.py",
+      "tests": [
+        "tests/test_doctor.py",
+        "tests/test_project_root_config.py",
+        "tests/test_storage_migration.py"
+      ],
+      "features": [
+        "specs/behavior/features/doctor/doctor.feature",
+        "specs/behavior/features/project_root_config/project-root-config.feature",
+        "specs/behavior/features/storage_migration/storage-migration.feature"
+      ],
+      "connected_tests": 3,
+      "connected_features": 3,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.services.doctor_checks.migration_checks",
+      "path": "taskledger/services/doctor_checks/migration_checks.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.doctor_checks.project_scan",
+      "path": "taskledger/services/doctor_checks/project_scan.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.doctor_checks.task_checks",
+      "path": "taskledger/services/doctor_checks/task_checks.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.event_logging",
+      "path": "taskledger/services/event_logging.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.file_links",
+      "path": "taskledger/services/file_links.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.git_sync",
+      "path": "taskledger/services/git_sync.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.git_utils",
+      "path": "taskledger/services/git_utils.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.handoff",
+      "path": "taskledger/services/handoff.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.handoff_lifecycle",
+      "path": "taskledger/services/handoff_lifecycle.py",
+      "tests": ["tests/test_handoff_lifecycle.py"],
+      "features": [
+        "specs/behavior/features/handoff_lifecycle/handoff-lifecycle.feature"
+      ],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.services.implementation_flow",
+      "path": "taskledger/services/implementation_flow.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.lock_diagnostics",
+      "path": "taskledger/services/lock_diagnostics.py",
+      "tests": ["tests/test_lock_diagnostics.py"],
+      "features": [
+        "specs/behavior/features/lock_diagnostics/lock-diagnostics.feature"
+      ],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.services.monitor",
+      "path": "taskledger/services/monitor.py",
+      "tests": ["tests/test_monitor.py"],
+      "features": ["specs/behavior/features/monitor/monitor.feature"],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.services.navigation",
+      "path": "taskledger/services/navigation.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.next_action_model",
+      "path": "taskledger/services/next_action_model.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.next_action_payload",
+      "path": "taskledger/services/next_action_payload.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.phase5_lock_transfer",
+      "path": "taskledger/services/phase5_lock_transfer.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.plan_editing",
+      "path": "taskledger/services/plan_editing.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.plan_hash",
+      "path": "taskledger/services/plan_hash.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.plan_lint",
+      "path": "taskledger/services/plan_lint.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.plan_materialization",
+      "path": "taskledger/services/plan_materialization.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.plan_review",
+      "path": "taskledger/services/plan_review.py",
+      "tests": ["tests/test_plan_review.py"],
+      "features": ["specs/behavior/features/plan_review/plan-review.feature"],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.services.planning_flow",
+      "path": "taskledger/services/planning_flow.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.releases",
+      "path": "taskledger/services/releases.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.run_store",
+      "path": "taskledger/services/run_store.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.storage_locations",
+      "path": "taskledger/services/storage_locations.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.task_archive",
+      "path": "taskledger/services/task_archive.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.task_collections",
+      "path": "taskledger/services/task_collections.py",
+      "tests": ["tests/test_delta_remaining_contracts.py"],
+      "features": [
+        "specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature"
+      ],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.services.task_events",
+      "path": "taskledger/services/task_events.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.task_export",
+      "path": "taskledger/services/task_export.py",
+      "tests": ["tests/test_task_markdown_export.py"],
+      "features": [
+        "specs/behavior/features/task_markdown_export/markdown-export.feature"
+      ],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.services.task_lifecycle",
+      "path": "taskledger/services/task_lifecycle.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.task_queries",
+      "path": "taskledger/services/task_queries.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.task_repair",
+      "path": "taskledger/services/task_repair.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.task_reports",
+      "path": "taskledger/services/task_reports.py",
+      "tests": ["tests/test_task_report.py"],
+      "features": ["specs/behavior/features/task_report/report.feature"],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.services.tasks",
+      "path": "taskledger/services/tasks.py",
+      "tests": [
+        "tests/test_agent_session_protocol.py",
+        "tests/test_code_reviews.py",
+        "tests/test_delta_remaining_contracts.py",
+        "tests/test_file_link_snapshots.py",
+        "tests/test_handoff_lifecycle.py",
+        "tests/test_monitor.py",
+        "tests/test_plan_review.py",
+        "tests/test_question_filter_answers.py",
+        "tests/test_question_plan_regeneration.py",
+        "tests/test_task_markdown_export.py",
+        "tests/test_task_report.py",
+        "tests/test_taskledger_v2_cli.py",
+        "tests/test_todo_implementation_gate.py",
+        "tests/test_usage_cli.py"
+      ],
+      "features": [
+        "specs/behavior/features/agent_session_protocol/agent-session-protocol.feature",
+        "specs/behavior/features/code_reviews/code-reviews.feature",
+        "specs/behavior/features/delta_remaining_contracts/delta-remaining-contracts.feature",
+        "specs/behavior/features/file_link_snapshots/file-link-snapshots.feature",
+        "specs/behavior/features/handoff_lifecycle/handoff-lifecycle.feature",
+        "specs/behavior/features/monitor/monitor.feature",
+        "specs/behavior/features/plan_review/plan-review.feature",
+        "specs/behavior/features/question_filter_answers/question-filter-answers.feature",
+        "specs/behavior/features/question_plan_regeneration/question-plan-regeneration.feature",
+        "specs/behavior/features/task_markdown_export/markdown-export.feature",
+        "specs/behavior/features/task_report/report.feature",
+        "specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature",
+        "specs/behavior/features/todo_implementation_gate/todo-implementation-gate.feature",
+        "specs/behavior/features/usage_cli/usage-cli.feature"
+      ],
+      "connected_tests": 14,
+      "connected_features": 14,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.services.trace",
+      "path": "taskledger/services/trace.py",
+      "tests": ["tests/test_trace.py"],
+      "features": ["specs/behavior/features/trace/trace.feature"],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.services.tree",
+      "path": "taskledger/services/tree.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.usage",
+      "path": "taskledger/services/usage.py",
+      "tests": ["tests/test_usage_cli.py"],
+      "features": ["specs/behavior/features/usage_cli/usage-cli.feature"],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.services.validation",
+      "path": "taskledger/services/validation.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.validation_flow",
+      "path": "taskledger/services/validation_flow.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.worker_context",
+      "path": "taskledger/services/worker_context.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.worker_pipeline",
+      "path": "taskledger/services/worker_pipeline.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.services.workflow_guidance",
+      "path": "taskledger/services/workflow_guidance.py",
+      "tests": ["tests/test_workflow_guidance.py"],
+      "features": [
+        "specs/behavior/features/workflow_guidance/workflow-guidance.feature"
+      ],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.storage",
+      "path": "taskledger/storage/__init__.py",
+      "tests": ["tests/test_atomic_fast_io.py"],
+      "features": [
+        "specs/behavior/features/atomic_fast_io/atomic-fast-io.feature"
+      ],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.storage.agent_logs",
+      "path": "taskledger/storage/agent_logs.py",
+      "tests": [
+        "tests/test_agent_command_logging.py",
+        "tests/test_no_log_feature.py",
+        "tests/test_taskledger_v2_exchange.py"
+      ],
+      "features": [
+        "specs/behavior/features/agent_command_logging/agent-command-logging.feature",
+        "specs/behavior/features/no_log_feature/no-log-feature.feature",
+        "specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature"
+      ],
+      "connected_tests": 3,
+      "connected_features": 3,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.storage.atomic",
+      "path": "taskledger/storage/atomic.py",
+      "tests": ["tests/test_atomic_fast_io.py"],
+      "features": [
+        "specs/behavior/features/atomic_fast_io/atomic-fast-io.feature"
+      ],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.storage.common",
+      "path": "taskledger/storage/common.py",
+      "tests": ["tests/test_storage_common.py"],
+      "features": [
+        "specs/behavior/features/storage_common/storage-common.feature"
+      ],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.storage.events",
+      "path": "taskledger/storage/events.py",
+      "tests": ["tests/test_events.py", "tests/test_monitor.py"],
+      "features": [
+        "specs/behavior/features/events/events.feature",
+        "specs/behavior/features/monitor/monitor.feature"
+      ],
+      "connected_tests": 2,
+      "connected_features": 2,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.storage.frontmatter",
+      "path": "taskledger/storage/frontmatter.py",
+      "tests": [
+        "tests/test_release_changelog.py",
+        "tests/test_storage_bundle_layout.py",
+        "tests/test_storage_migration.py"
+      ],
+      "features": [
+        "specs/behavior/features/release_changelog/release-changelog.feature",
+        "specs/behavior/features/storage_bundle_layout/storage-bundle-layout.feature",
+        "specs/behavior/features/storage_migration/storage-migration.feature"
+      ],
+      "connected_tests": 3,
+      "connected_features": 3,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.storage.indexes",
+      "path": "taskledger/storage/indexes.py",
+      "tests": ["tests/test_storage_bundle_layout.py"],
+      "features": [
+        "specs/behavior/features/storage_bundle_layout/storage-bundle-layout.feature"
+      ],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.storage.init",
+      "path": "taskledger/storage/init.py",
+      "tests": [
+        "tests/test_search.py",
+        "tests/test_storage_init.py",
+        "tests/test_storage_migration.py",
+        "tests/test_storage_repos.py"
+      ],
+      "features": [
+        "specs/behavior/features/search/search.feature",
+        "specs/behavior/features/storage_init/storage-init.feature",
+        "specs/behavior/features/storage_migration/storage-migration.feature",
+        "specs/behavior/features/storage_repos/storage-repos.feature"
+      ],
+      "connected_tests": 4,
+      "connected_features": 4,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.storage.ledger_config",
+      "path": "taskledger/storage/ledger_config.py",
+      "tests": ["tests/test_taskledger_branch_scoped_ledgers.py"],
+      "features": [
+        "specs/behavior/features/taskledger_branch_scoped_ledgers/taskledger-branch-scoped-ledgers.feature"
+      ],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.storage.locks",
+      "path": "taskledger/storage/locks.py",
+      "tests": ["tests/test_usage_cli.py"],
+      "features": ["specs/behavior/features/usage_cli/usage-cli.feature"],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.storage.meta",
+      "path": "taskledger/storage/meta.py",
+      "tests": [
+        "tests/test_doctor.py",
+        "tests/test_project_root_config.py",
+        "tests/test_storage_migration.py"
+      ],
+      "features": [
+        "specs/behavior/features/doctor/doctor.feature",
+        "specs/behavior/features/project_root_config/project-root-config.feature",
+        "specs/behavior/features/storage_migration/storage-migration.feature"
+      ],
+      "connected_tests": 3,
+      "connected_features": 3,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.storage.migrations",
+      "path": "taskledger/storage/migrations.py",
+      "tests": ["tests/test_storage_migration.py"],
+      "features": [
+        "specs/behavior/features/storage_migration/storage-migration.feature"
+      ],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.storage.paths",
+      "path": "taskledger/storage/paths.py",
+      "tests": [
+        "tests/test_project_root_config.py",
+        "tests/test_storage_common.py",
+        "tests/test_taskledger_branch_scoped_ledgers.py"
+      ],
+      "features": [
+        "specs/behavior/features/project_root_config/project-root-config.feature",
+        "specs/behavior/features/storage_common/storage-common.feature",
+        "specs/behavior/features/taskledger_branch_scoped_ledgers/taskledger-branch-scoped-ledgers.feature"
+      ],
+      "connected_tests": 3,
+      "connected_features": 3,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.storage.project_config",
+      "path": "taskledger/storage/project_config.py",
+      "tests": [
+        "tests/test_agent_command_logging.py",
+        "tests/test_no_log_feature.py",
+        "tests/test_project_root_config.py",
+        "tests/test_worker_pipeline_config.py",
+        "tests/test_workflow_guidance.py"
+      ],
+      "features": [
+        "specs/behavior/features/agent_command_logging/agent-command-logging.feature",
+        "specs/behavior/features/no_log_feature/no-log-feature.feature",
+        "specs/behavior/features/project_root_config/project-root-config.feature",
+        "specs/behavior/features/worker_pipeline_config/worker-pipeline-config.feature",
+        "specs/behavior/features/workflow_guidance/workflow-guidance.feature"
+      ],
+      "connected_tests": 5,
+      "connected_features": 5,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.storage.project_identity",
+      "path": "taskledger/storage/project_identity.py",
+      "tests": ["tests/test_storage_sync.py"],
+      "features": ["specs/behavior/features/storage_sync/storage-sync.feature"],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.storage.repos",
+      "path": "taskledger/storage/repos.py",
+      "tests": ["tests/test_search.py", "tests/test_storage_repos.py"],
+      "features": [
+        "specs/behavior/features/search/search.feature",
+        "specs/behavior/features/storage_repos/storage-repos.feature"
+      ],
+      "connected_tests": 2,
+      "connected_features": 2,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.storage.task_store",
+      "path": "taskledger/storage/task_store.py",
+      "tests": [
+        "tests/test_active_task.py",
+        "tests/test_actor_harness_state.py",
+        "tests/test_agent_command_logging.py",
+        "tests/test_bdd_gherkin.py",
+        "tests/test_bdd_report_import.py",
+        "tests/test_bdd_storage.py",
+        "tests/test_bdd_validation_integration.py",
+        "tests/test_code_reviews.py",
+        "tests/test_doctor.py",
+        "tests/test_file_link_snapshots.py",
+        "tests/test_handoff_lifecycle.py",
+        "tests/test_implementation_checks.py",
+        "tests/test_monitor.py",
+        "tests/test_plan_approval_contract.py",
+        "tests/test_plan_revision_workflow.py",
+        "tests/test_question_plan_regeneration.py",
+        "tests/test_services_dashboard.py",
+        "tests/test_storage_bundle_layout.py",
+        "tests/test_task_markdown_export.py",
+        "tests/test_taskledger_v2_cli.py",
+        "tests/test_trace.py",
+        "tests/test_usage_cli.py"
+      ],
+      "features": [
+        "specs/behavior/features/active_task/active-task.feature",
+        "specs/behavior/features/actor_harness_state/actor-harness-state.feature",
+        "specs/behavior/features/agent_command_logging/agent-command-logging.feature",
+        "specs/behavior/features/bdd_gherkin/bdd-gherkin.feature",
+        "specs/behavior/features/bdd_report_import/bdd-report-import.feature",
+        "specs/behavior/features/bdd_storage/bdd-storage.feature",
+        "specs/behavior/features/bdd_validation_integration/bdd-validation-integration.feature",
+        "specs/behavior/features/code_reviews/code-reviews.feature",
+        "specs/behavior/features/doctor/doctor.feature",
+        "specs/behavior/features/file_link_snapshots/file-link-snapshots.feature",
+        "specs/behavior/features/handoff_lifecycle/handoff-lifecycle.feature",
+        "specs/behavior/features/implementation_checks/implementation-checks.feature",
+        "specs/behavior/features/monitor/monitor.feature",
+        "specs/behavior/features/plan_approval_contract/plan-approval-contract.feature",
+        "specs/behavior/features/plan_revision_workflow/plan-revision-workflow.feature",
+        "specs/behavior/features/question_plan_regeneration/question-plan-regeneration.feature",
+        "specs/behavior/features/services_dashboard/services-dashboard.feature",
+        "specs/behavior/features/storage_bundle_layout/storage-bundle-layout.feature",
+        "specs/behavior/features/task_markdown_export/markdown-export.feature",
+        "specs/behavior/features/taskledger_v2_cli/taskledger-v2-cli.feature",
+        "specs/behavior/features/trace/trace.feature",
+        "specs/behavior/features/usage_cli/usage-cli.feature"
+      ],
+      "connected_tests": 22,
+      "connected_features": 22,
+      "status": "connected"
+    },
+    {
+      "module": "taskledger.storage.toml_edit",
+      "path": "taskledger/storage/toml_edit.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.storage.worker_pipeline_config",
+      "path": "taskledger/storage/worker_pipeline_config.py",
+      "tests": [],
+      "features": [],
+      "connected_tests": 0,
+      "connected_features": 0,
+      "status": "no_direct_test_import"
+    },
+    {
+      "module": "taskledger.timeutils",
+      "path": "taskledger/timeutils.py",
+      "tests": ["tests/test_task_markdown_export.py"],
+      "features": [
+        "specs/behavior/features/task_markdown_export/markdown-export.feature"
+      ],
+      "connected_tests": 1,
+      "connected_features": 1,
+      "status": "connected"
+    }
+  ]
+}
