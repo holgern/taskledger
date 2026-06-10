@@ -5,13 +5,13 @@ state and time-based expiry. This module adds higher-level classification
 that compares the lock holder against the current host/actor and produces
 prescriptive remediation text. Storage stays free of process/host concerns.
 
-The module is intentionally pure: the only I/O is the injectable pid
-checker (defaulting to ``os.kill(pid, 0)``). Tests pass a stub pid checker
-so they never touch real processes.
+The module is intentionally pure except for the injectable pid checker. Tests
+pass a stub pid checker so they never touch real processes.
 """
 
 from __future__ import annotations
 
+import ctypes
 import os
 import platform
 import socket
@@ -44,13 +44,8 @@ PID_CHECK_NA = "n/a"
 PID_CHECK_UNKNOWN = "unknown"
 
 
-def default_pid_checker(pid: int) -> str:
-    """Probe a local PID using ``os.kill(pid, 0)``.
-
-    Returns one of ``PID_CHECK_ALIVE``, ``PID_CHECK_ALIVE_UNOWNED``, or
-    ``PID_CHECK_DEAD``. ``PermissionError`` means the process exists but is
-    owned by another user, which we treat as alive.
-    """
+def _posix_pid_checker(pid: int) -> str:
+    """Probe a local PID using POSIX ``os.kill(pid, 0)`` semantics."""
 
     try:
         os.kill(pid, 0)
@@ -61,6 +56,34 @@ def default_pid_checker(pid: int) -> str:
     except OSError:
         return PID_CHECK_DEAD
     return PID_CHECK_ALIVE
+
+
+def _windows_pid_checker(pid: int) -> str:
+    """Probe a local Windows PID without sending console control events."""
+
+    if pid <= 0:
+        return PID_CHECK_DEAD
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+    handle = kernel32.OpenProcess(0x1000, False, pid)
+    if handle:
+        kernel32.CloseHandle(handle)
+        return PID_CHECK_ALIVE
+
+    error = ctypes.get_last_error()  # type: ignore[attr-defined]
+    if error == 5:  # ERROR_ACCESS_DENIED
+        return PID_CHECK_ALIVE_UNOWNED
+    if error == 87:  # ERROR_INVALID_PARAMETER
+        return PID_CHECK_DEAD
+    return PID_CHECK_UNKNOWN
+
+
+def default_pid_checker(pid: int) -> str:
+    """Probe a local PID without interrupting the current process on Windows."""
+
+    if platform.system() == "Windows":
+        return _windows_pid_checker(pid)
+    return _posix_pid_checker(pid)
 
 
 def current_host_name() -> str:
@@ -347,7 +370,7 @@ def diagnose_lock(
 
     pid_alive = pid_status in {PID_CHECK_ALIVE, PID_CHECK_ALIVE_UNOWNED}
 
-    if not host_match:
+    if not host_match or pid_status == PID_CHECK_UNKNOWN:
         classification = CLASSIFICATION_ACTIVE_UNVERIFIABLE_REMOTE_OR_UNKNOWN_PROCESS
         summary = (
             f"Active {lock.stage} lock is held by {holder.actor_type}:"
@@ -363,9 +386,7 @@ def diagnose_lock(
             f"({pid}) that is no longer running."
         )
         remediation = _remediation_for_dead_local(lock, task_id, pid)
-        pid_status_out = (
-            pid_status if pid_status != PID_CHECK_UNKNOWN else PID_CHECK_DEAD
-        )
+        pid_status_out = pid_status
     elif same_actor:
         classification = CLASSIFICATION_ACTIVE_SAME_ACTOR
         summary = (

@@ -16,6 +16,8 @@ from taskledger.services.lock_diagnostics import (
     CLASSIFICATION_NONE,
     PID_CHECK_ALIVE,
     PID_CHECK_DEAD,
+    PID_CHECK_UNKNOWN,
+    _posix_pid_checker,
     diagnose_lock,
     diagnostics_from_payload,
 )
@@ -232,25 +234,39 @@ def test_diagnose_lock_same_actor_without_pid_still_classifies_same_actor() -> N
     assert diag.remediation == ()
 
 
-def test_diagnose_lock_permission_error_is_treated_as_alive(
+def test_posix_pid_checker_permission_error_is_treated_as_alive(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A PID owned by another user must not be reported as dead."""
 
     import os
 
-    lock = _lock()
-
     def fake_kill(pid: int, sig: int) -> None:
         raise PermissionError
 
     monkeypatch.setattr(os, "kill", fake_kill)
 
-    diag = diagnose_lock(lock, now=NOW, current_host=HOST_LOCAL)
+    assert _posix_pid_checker(512425) == "alive_unowned"
 
-    # Different actor (no current_actor supplied) and live PID -> other actor.
-    assert diag.classification == CLASSIFICATION_ACTIVE_OTHER_ACTOR
-    assert diag.holder_pid_check == "alive_unowned"
+
+def test_diagnose_lock_unknown_pid_check_stays_unverifiable() -> None:
+    lock = _lock()
+
+    diag = diagnose_lock(
+        lock,
+        now=NOW,
+        current_host=HOST_LOCAL,
+        pid_checker=lambda pid: PID_CHECK_UNKNOWN,
+    )
+
+    assert (
+        diag.classification
+        == CLASSIFICATION_ACTIVE_UNVERIFIABLE_REMOTE_OR_UNKNOWN_PROCESS
+    )
+    assert diag.holder_pid_check == PID_CHECK_UNKNOWN
+    assert all("taskledger repair lock" not in cmd for cmd in diag.remediation), (
+        diag.remediation
+    )
 
 
 def test_diagnostics_to_dict_round_trips_through_payload_reconstruction() -> None:
