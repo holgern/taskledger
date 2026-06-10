@@ -152,6 +152,7 @@ def register_validate_v2_commands(app: typer.Typer) -> None:
                 actor_role=actor_role,
                 harness=harness,
                 session_id=session_id,
+                workspace_root=state.cwd,
             )
             payload = start_validation(
                 state.cwd,

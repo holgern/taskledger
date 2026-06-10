@@ -2,7 +2,7 @@
 
 This directory is managed by SpecWeave.
 
-Feature files live under:
+Canonical feature files live under:
 
 ```text
 features/<area>/<feature>.feature

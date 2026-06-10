@@ -30,7 +30,6 @@ from taskledger.cli_common import (
     resolve_cli_task,
 )
 from taskledger.errors import LaunchError
-from taskledger.services.actors import resolve_actor, resolve_harness
 from taskledger.storage.task_store import load_todos
 
 
@@ -70,6 +69,7 @@ def start_command(
             actor_role=actor_role,
             harness=harness,
             session_id=session_id,
+            workspace_root=state.cwd,
         )
         payload = start_implementation(
             state.cwd,
@@ -115,13 +115,14 @@ def restart_command(
     state = cli_state_from_context(ctx)
     try:
         task = resolve_cli_task(state.cwd, task_ref)
-        resolved_actor = resolve_actor(
-            actor_type=actor,
+        resolved_actor, resolved_harness = resolve_cli_actor_harness(
+            actor=actor,
             actor_name=actor_name,
-            role=actor_role,
+            actor_role=actor_role,
+            harness=harness,
             session_id=session_id,
+            workspace_root=state.cwd,
         )
-        resolved_harness = resolve_harness(name=harness, session_id=session_id)
         payload = restart_implementation(
             state.cwd,
             task.id,
@@ -178,15 +179,13 @@ def resume_command(
     state = cli_state_from_context(ctx)
     try:
         task = resolve_cli_task(state.cwd, task_ref)
-        resolved_actor = resolve_actor(
-            actor_type=actor,
+        resolved_actor, resolved_harness = resolve_cli_actor_harness(
+            actor=actor,
             actor_name=actor_name,
-            role=actor_role,
+            actor_role=actor_role,
+            harness=harness,
             session_id=session_id,
-        )
-        resolved_harness = resolve_harness(
-            name=harness,
-            session_id=session_id,
+            workspace_root=state.cwd,
         )
         payload = resume_implementation(
             state.cwd,

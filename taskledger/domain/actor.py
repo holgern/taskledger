@@ -33,6 +33,8 @@ class ActorRef:
         Literal["planner", "implementer", "validator", "reviewer", "operator"] | None
     ) = None
     harness_id: str | None = None
+    command_pid: int | None = None
+    pid_scope: Literal["owner", "command", "unverifiable_harness"] | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -45,6 +47,8 @@ class ActorRef:
             "actor_id": self.actor_id,
             "role": self.role,
             "harness_id": self.harness_id,
+            "command_pid": self.command_pid,
+            "pid_scope": self.pid_scope,
         }
 
     @classmethod
@@ -56,6 +60,11 @@ class ActorRef:
         pid = data.get("pid")
         raw_role = _optional_string(data.get("role"))
         role = normalize_actor_role(raw_role) if raw_role else None
+        command_pid = data.get("command_pid")
+        raw_pid_scope = _optional_string(data.get("pid_scope"))
+        pid_scope: Literal["owner", "command", "unverifiable_harness"] | None = None
+        if raw_pid_scope in ("owner", "command", "unverifiable_harness"):
+            pid_scope = raw_pid_scope  # type: ignore[assignment]
         return cls(
             actor_type=actor_type,
             actor_name=_optional_string(data.get("actor_name")) or "taskledger",
@@ -66,6 +75,8 @@ class ActorRef:
             actor_id=_optional_string(data.get("actor_id")),
             role=role,
             harness_id=_optional_string(data.get("harness_id")),
+            command_pid=command_pid if isinstance(command_pid, int) else None,
+            pid_scope=pid_scope,
         )
 
 

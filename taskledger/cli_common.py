@@ -75,16 +75,23 @@ def resolve_cli_actor_harness(
     actor_role: str | None,
     harness: str | None,
     session_id: str | None,
+    workspace_root: Path | None = None,
 ) -> tuple[ActorRef, HarnessRef]:
     from taskledger.services.actors import resolve_actor, resolve_harness
 
+    resolved_harness = resolve_harness(
+        name=harness,
+        session_id=session_id,
+        workspace_root=workspace_root,
+    )
     resolved_actor = resolve_actor(
         actor_type=actor,
         actor_name=actor_name,
         role=actor_role,
-        session_id=session_id,
+        session_id=session_id or resolved_harness.session_id,
+        harness_id=resolved_harness.harness_id,
+        workspace_root=workspace_root,
     )
-    resolved_harness = resolve_harness(name=harness, session_id=session_id)
     return resolved_actor, resolved_harness
 
 

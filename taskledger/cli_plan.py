@@ -85,6 +85,7 @@ def start_command(
             actor_role=actor_role,
             harness=harness,
             session_id=session_id,
+            workspace_root=state.cwd,
         )
         payload = start_planning(
             state.cwd,

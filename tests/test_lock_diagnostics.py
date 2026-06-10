@@ -298,3 +298,201 @@ def test_diagnose_lock_uses_task_id_in_remediation_when_provided() -> None:
     )
 
     assert all("--task task-0099" in cmd for cmd in diag.remediation)
+
+
+class TestHarnessSessionDiagnostics:
+    """Tests for harness session PID scope and legacy inference."""
+
+    def test_pi_harness_without_owner_pid_is_not_dead_local_process(self) -> None:
+        from taskledger.services.lock_diagnostics import (
+            CLASSIFICATION_ACTIVE_HARNESS_SESSION,
+        )
+
+        lock = _lock(
+            holder=_holder(
+                actor_type="agent",
+                actor_name="pi",
+                tool="pi",
+                session_id="pi-session-1",
+                pid=None,
+                command_pid=999999,
+                pid_scope="unverifiable_harness",
+            )
+        )
+
+        diag = diagnose_lock(
+            lock,
+            now=NOW,
+            current_host=HOST_LOCAL,
+            pid_checker=lambda pid: PID_CHECK_DEAD,
+        )
+
+        assert diag.classification == CLASSIFICATION_ACTIVE_HARNESS_SESSION
+        assert diag.holder_pid_check in {"n/a", "unknown"}
+        assert all("repair lock" not in cmd for cmd in diag.remediation)
+
+    def test_harness_owner_pid_dead_still_repairs(self) -> None:
+        lock = _lock(
+            holder=_holder(
+                actor_type="agent",
+                actor_name="pi",
+                tool="pi",
+                session_id="pi-session-1",
+                pid=999999,
+                command_pid=111,
+                pid_scope="owner",
+            )
+        )
+
+        diag = diagnose_lock(
+            lock,
+            now=NOW,
+            current_host=HOST_LOCAL,
+            pid_checker=lambda pid: PID_CHECK_DEAD,
+        )
+
+        assert diag.classification == CLASSIFICATION_ACTIVE_DEAD_LOCAL_PROCESS
+        assert any("repair lock" in cmd for cmd in diag.remediation)
+
+    def test_legacy_pi_lock_with_session_inferred_as_unverifiable(self) -> None:
+        from taskledger.services.lock_diagnostics import (
+            CLASSIFICATION_ACTIVE_HARNESS_SESSION,
+        )
+
+        # Old record: tool=pi, session_id present, pid=some_value, no pid_scope.
+        lock = _lock(
+            holder=_holder(
+                actor_type="agent",
+                actor_name="pi",
+                tool="pi",
+                session_id="pi-session-1",
+                pid=999999,
+                # pid_scope intentionally not set (legacy).
+            )
+        )
+
+        diag = diagnose_lock(
+            lock,
+            now=NOW,
+            current_host=HOST_LOCAL,
+            pid_checker=lambda pid: PID_CHECK_DEAD,
+        )
+
+        # Should be classified as harness session, not dead local process.
+        assert diag.classification == CLASSIFICATION_ACTIVE_HARNESS_SESSION
+        assert all("repair lock" not in cmd for cmd in diag.remediation)
+
+    def test_legacy_pi_lock_with_harness_ref_inferred_as_unverifiable(self) -> None:
+        from taskledger.domain.actor import HarnessRef
+        from taskledger.services.lock_diagnostics import (
+            CLASSIFICATION_ACTIVE_HARNESS_SESSION,
+        )
+
+        lock = TaskLock(
+            lock_id="lock-test",
+            task_id="task-0001",
+            stage="implementing",
+            run_id="run-0001",
+            created_at=NOW.isoformat(),
+            expires_at=(NOW + timedelta(hours=2)).isoformat(),
+            reason="test",
+            holder=_holder(
+                actor_type="agent",
+                actor_name="pi",
+                pid=999999,
+            ),
+            harness=HarnessRef(
+                harness_id="h-001",
+                name="pi",
+                kind="agent_harness",
+                session_id="pi-session-1",
+            ),
+        )
+
+        diag = diagnose_lock(
+            lock,
+            now=NOW,
+            current_host=HOST_LOCAL,
+            pid_checker=lambda pid: PID_CHECK_DEAD,
+        )
+
+        assert diag.classification == CLASSIFICATION_ACTIVE_HARNESS_SESSION
+        assert all("repair lock" not in cmd for cmd in diag.remediation)
+
+    def test_command_pid_scope_not_checkable(self) -> None:
+        from taskledger.services.lock_diagnostics import (
+            CLASSIFICATION_ACTIVE_HARNESS_SESSION,
+        )
+
+        lock = _lock(
+            holder=_holder(
+                actor_type="agent",
+                actor_name="some-agent",
+                session_id="s1",
+                pid=999999,
+                pid_scope="command",
+            )
+        )
+
+        diag = diagnose_lock(
+            lock,
+            now=NOW,
+            current_host=HOST_LOCAL,
+            pid_checker=lambda pid: PID_CHECK_DEAD,
+        )
+
+        assert diag.classification == CLASSIFICATION_ACTIVE_HARNESS_SESSION
+        assert all("repair lock" not in cmd for cmd in diag.remediation)
+
+    def test_direct_user_dead_pid_still_repairs(self) -> None:
+        # Direct user: no harness session, no pid_scope, dead pid -> still dead local.
+        lock = _lock(
+            holder=_holder(
+                actor_type="user",
+                actor_name="nahrstaedt",
+                pid=999999,
+            )
+        )
+
+        diag = diagnose_lock(
+            lock,
+            now=NOW,
+            current_host=HOST_LOCAL,
+            pid_checker=lambda pid: PID_CHECK_DEAD,
+        )
+
+        assert diag.classification == CLASSIFICATION_ACTIVE_DEAD_LOCAL_PROCESS
+        assert any("repair lock" in cmd for cmd in diag.remediation)
+
+    def test_harness_session_same_actor_classification(self) -> None:
+        from taskledger.services.lock_diagnostics import (
+            CLASSIFICATION_ACTIVE_SAME_ACTOR,
+        )
+
+        lock = _lock(
+            holder=_holder(
+                actor_type="agent",
+                actor_name="pi",
+                tool="pi",
+                session_id="pi-session-1",
+                pid=999999,
+                pid_scope="unverifiable_harness",
+            )
+        )
+        current = ActorRef(
+            actor_type="agent",
+            actor_name="pi",
+            tool="pi",
+            session_id="pi-session-1",
+        )
+
+        diag = diagnose_lock(
+            lock,
+            current_actor=current,
+            now=NOW,
+            current_host=HOST_LOCAL,
+            pid_checker=lambda pid: PID_CHECK_DEAD,
+        )
+
+        assert diag.classification == CLASSIFICATION_ACTIVE_SAME_ACTOR
+        assert diag.remediation == ()

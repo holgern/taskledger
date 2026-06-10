@@ -35,6 +35,7 @@ CLASSIFICATION_ACTIVE_UNVERIFIABLE_REMOTE_OR_UNKNOWN_PROCESS = (
 )
 CLASSIFICATION_ACTIVE_NO_PID = "active_no_pid"
 CLASSIFICATION_ACTIVE_SAME_ACTOR = "active_same_actor"
+CLASSIFICATION_ACTIVE_HARNESS_SESSION = "active_harness_session"
 CLASSIFICATION_ACTIVE_OTHER_ACTOR = "active_other_actor"
 
 PID_CHECK_ALIVE = "alive"
@@ -252,6 +253,27 @@ def _remediation_for_unverifiable(
     )
 
 
+KNOWN_HARNESS_TOOLS = {"pi", "codex", "opencode"}
+
+
+def _pid_is_checkable_owner(holder: ActorRef, lock: TaskLock) -> bool:
+    """Return True if the holder PID is safe to probe for lock-owner liveness."""
+    scope = getattr(holder, "pid_scope", None)
+    if scope == "owner":
+        return holder.pid is not None
+    if scope in {"command", "unverifiable_harness"}:
+        return False
+
+    # Legacy inference for old lock records with no pid_scope.
+    if holder.session_id or holder.harness_id or lock.harness is not None:
+        tool = (holder.tool or "").lower()
+        harness_name = (lock.harness.name if lock.harness else "").lower()
+        if tool in KNOWN_HARNESS_TOOLS or harness_name in KNOWN_HARNESS_TOOLS:
+            return False
+
+    return holder.pid is not None
+
+
 def diagnose_lock(
     lock: TaskLock | None,
     *,
@@ -319,6 +341,13 @@ def diagnose_lock(
     same_actor = _actor_matches(holder, current_actor)
 
     if pid is None:
+        pid_scope = getattr(holder, "pid_scope", None)
+        has_harness_session = bool(
+            holder.session_id
+            or holder.harness_id
+            or (lock.harness is not None)
+            or pid_scope == "unverifiable_harness"
+        )
         if same_actor:
             classification = CLASSIFICATION_ACTIVE_SAME_ACTOR
             summary = (
@@ -327,6 +356,15 @@ def diagnose_lock(
                 "was recorded."
             )
             remediation = ()
+        elif has_harness_session:
+            classification = CLASSIFICATION_ACTIVE_HARNESS_SESSION
+            session_info = holder.session_id or "unknown"
+            summary = (
+                f"Active {lock.stage} lock is held by harness session "
+                f"{holder.actor_name}/{session_info}; no owner PID is available "
+                "for liveness probing. Do not repair solely from command PID state."
+            )
+            remediation = (f"taskledger lock show --task {task_id or lock.task_id}",)
         elif _host_matches(holder_host, host):
             classification = CLASSIFICATION_ACTIVE_NO_PID
             summary = (
@@ -361,56 +399,81 @@ def diagnose_lock(
             remediation=remediation,
         )
 
-    pid_check = pid_checker or default_pid_checker
-    host_match = _host_matches(holder_host, host)
-    if host_match:
-        pid_status = pid_check(pid)
-    else:
-        pid_status = PID_CHECK_UNKNOWN
+    checkable = _pid_is_checkable_owner(holder, lock)
 
-    pid_alive = pid_status in {PID_CHECK_ALIVE, PID_CHECK_ALIVE_UNOWNED}
-
-    if not host_match or pid_status == PID_CHECK_UNKNOWN:
-        classification = CLASSIFICATION_ACTIVE_UNVERIFIABLE_REMOTE_OR_UNKNOWN_PROCESS
-        summary = (
-            f"Active {lock.stage} lock is held by {holder.actor_type}:"
-            f"{holder.actor_name} on host {holder_host!r}; cannot verify "
-            "the holder process from this host."
-        )
-        remediation = _remediation_for_unverifiable(lock, task_id)
-        pid_status_out = PID_CHECK_UNKNOWN
-    elif not pid_alive:
-        classification = CLASSIFICATION_ACTIVE_DEAD_LOCAL_PROCESS
-        summary = (
-            f"Active non-expired {lock.stage} lock is held by a local PID "
-            f"({pid}) that is no longer running."
-        )
-        remediation = _remediation_for_dead_local(lock, task_id, pid)
-        pid_status_out = pid_status
-    elif same_actor:
-        classification = CLASSIFICATION_ACTIVE_SAME_ACTOR
-        summary = (
-            f"Active {lock.stage} lock is held by the current actor "
-            f"({holder.actor_type}:{holder.actor_name}); holder PID {pid} "
-            "is alive on this host."
-        )
-        remediation = ()
-        pid_status_out = pid_status
+    if not checkable:
+        # PID exists but is not a reliable owner indicator (harness/command subprocess).
+        if same_actor:
+            classification = CLASSIFICATION_ACTIVE_SAME_ACTOR
+            summary = (
+                f"Active {lock.stage} lock is held by the current actor "
+                f"({holder.actor_type}:{holder.actor_name}); holder PID "
+                "is a command subprocess, not used for liveness probing."
+            )
+            remediation = ()
+        else:
+            classification = CLASSIFICATION_ACTIVE_HARNESS_SESSION
+            session_info = holder.session_id or "unknown"
+            summary = (
+                f"Active {lock.stage} lock is held by harness session "
+                f"{holder.actor_name}/{session_info}; no owner PID is available "
+                "for liveness probing. Do not repair solely from command PID state."
+            )
+            remediation = (f"taskledger lock show --task {task_id or lock.task_id}",)
+        pid_status_out = PID_CHECK_NA
     else:
-        classification = CLASSIFICATION_ACTIVE_OTHER_ACTOR
-        summary = (
-            f"Active {lock.stage} lock is held by a different actor "
-            f"({holder.actor_type}:{holder.actor_name}); holder PID {pid} "
-            "is alive on this host."
-        )
-        remediation = (
-            (
-                "# Do not take over a live lock from another actor; "
-                "use a handoff or wait for the holder to release."
-            ),
-            f"taskledger lock show --task {task_id or lock.task_id}",
-        )
-        pid_status_out = pid_status
+        pid_check = pid_checker or default_pid_checker
+        host_match = _host_matches(holder_host, host)
+        if host_match:
+            pid_status = pid_check(pid)
+        else:
+            pid_status = PID_CHECK_UNKNOWN
+
+        pid_alive = pid_status in {PID_CHECK_ALIVE, PID_CHECK_ALIVE_UNOWNED}
+
+        if not host_match or pid_status == PID_CHECK_UNKNOWN:
+            classification = (
+                CLASSIFICATION_ACTIVE_UNVERIFIABLE_REMOTE_OR_UNKNOWN_PROCESS
+            )
+            summary = (
+                f"Active {lock.stage} lock is held by {holder.actor_type}:"
+                f"{holder.actor_name} on host {holder_host!r}; cannot verify "
+                "the holder process from this host."
+            )
+            remediation = _remediation_for_unverifiable(lock, task_id)
+            pid_status_out = PID_CHECK_UNKNOWN
+        elif not pid_alive:
+            classification = CLASSIFICATION_ACTIVE_DEAD_LOCAL_PROCESS
+            summary = (
+                f"Active non-expired {lock.stage} lock is held by a local PID "
+                f"({pid}) that is no longer running."
+            )
+            remediation = _remediation_for_dead_local(lock, task_id, pid)
+            pid_status_out = pid_status
+        elif same_actor:
+            classification = CLASSIFICATION_ACTIVE_SAME_ACTOR
+            summary = (
+                f"Active {lock.stage} lock is held by the current actor "
+                f"({holder.actor_type}:{holder.actor_name}); holder PID {pid} "
+                "is alive on this host."
+            )
+            remediation = ()
+            pid_status_out = pid_status
+        else:
+            classification = CLASSIFICATION_ACTIVE_OTHER_ACTOR
+            summary = (
+                f"Active {lock.stage} lock is held by a different actor "
+                f"({holder.actor_type}:{holder.actor_name}); holder PID {pid} "
+                "is alive on this host."
+            )
+            remediation = (
+                (
+                    "# Do not take over a live lock from another actor; "
+                    "use a handoff or wait for the holder to release."
+                ),
+                f"taskledger lock show --task {task_id or lock.task_id}",
+            )
+            pid_status_out = pid_status
 
     return LockDiagnostics(
         active=True,
