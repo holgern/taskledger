@@ -18,6 +18,7 @@ import pytest
 from typer.testing import CliRunner
 
 from taskledger.cli import app
+from taskledger.services.command_runner import CommandResult
 from taskledger.services.tasks import (
     activate_task,
     create_task,
@@ -41,6 +42,16 @@ runner = _make_runner()
 
 def _init_project(tmp_path: Path) -> None:
     init_workspace(tmp_path)
+
+
+def _stub_planning_command(monkeypatch: pytest.MonkeyPatch, *, exit_code: int) -> None:
+    def fake_run_command(argv: tuple[str, ...], *, cwd: Path) -> CommandResult:
+        return CommandResult(exit_code, "", "")
+
+    monkeypatch.setattr(
+        "taskledger.services.change_tracking.command_runner.run_command",
+        fake_run_command,
+    )
 
 
 def _json(result) -> dict[str, object]:
@@ -364,7 +375,11 @@ def test_plan_approval_empty_todos_without_reason_fails(tmp_path: Path) -> None:
 # --- Plan command ---
 
 
-def test_plan_command_records_exit_code(tmp_path: Path) -> None:
+def test_plan_command_records_exit_code(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _stub_planning_command(monkeypatch, exit_code=0)
     _init_project(tmp_path)
     assert (
         runner.invoke(
@@ -448,8 +463,12 @@ def test_plan_command_fails_without_active_planning(tmp_path: Path) -> None:
     assert payload["ok"] is False
 
 
-def test_plan_command_no_change_records(tmp_path: Path) -> None:
+def test_plan_command_no_change_records(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Verify plan command stores summary in worklog, not as change records."""
+    _stub_planning_command(monkeypatch, exit_code=0)
     _init_project(tmp_path)
     assert (
         runner.invoke(
@@ -513,7 +532,11 @@ def test_plan_command_no_change_records(tmp_path: Path) -> None:
     )
 
 
-def test_plan_command_mirrors_inner_exit_code_by_default(tmp_path: Path) -> None:
+def test_plan_command_mirrors_inner_exit_code_by_default(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _stub_planning_command(monkeypatch, exit_code=6)
     _init_project(tmp_path)
     assert (
         runner.invoke(
@@ -557,7 +580,9 @@ def test_plan_command_mirrors_inner_exit_code_by_default(tmp_path: Path) -> None
 
 def test_plan_command_allow_failure_keeps_wrapper_exit_zero(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    _stub_planning_command(monkeypatch, exit_code=6)
     _init_project(tmp_path)
     assert (
         runner.invoke(

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import subprocess
-import sys
 from pathlib import Path
 from typing import NamedTuple
 
@@ -17,10 +16,9 @@ def run_command(argv: tuple[str, ...], *, cwd: Path) -> CommandResult:
 
     Managed Taskledger commands capture stdout/stderr and intentionally close
     stdin so child processes cannot interact with Click/Typer's isolated test
-    input streams or block waiting for terminal input. On Windows,
-    CREATE_NO_WINDOW prevents the child from inheriting the parent console,
-    avoiding spurious KeyboardInterrupt propagation under Click/Typer test
-    isolation.
+    input streams or block waiting for terminal input. Parent process
+    interrupts are not converted into child command results; callers should
+    handle KeyboardInterrupt at the CLI boundary.
     """
     kwargs: dict[str, object] = {
         "cwd": cwd,
@@ -29,10 +27,6 @@ def run_command(argv: tuple[str, ...], *, cwd: Path) -> CommandResult:
         "text": True,
         "check": False,
     }
-    if sys.platform == "win32":
-        kwargs["creationflags"] = (
-            subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
-        )  # type: ignore[attr-defined]
     try:
         completed = subprocess.run(list(argv), **kwargs)  # type: ignore[arg-type]
     except FileNotFoundError:
@@ -40,5 +34,5 @@ def run_command(argv: tuple[str, ...], *, cwd: Path) -> CommandResult:
     except OSError as exc:
         return CommandResult(1, "", str(exc))
     except KeyboardInterrupt:
-        return CommandResult(130, "", "interrupted")
+        raise
     return CommandResult(completed.returncode, completed.stdout, completed.stderr)
