@@ -14,7 +14,7 @@ from taskledger.services.lock_diagnostics import (
     CLASSIFICATION_EXPIRED,
     diagnose_lock,
 )
-from taskledger.services.navigation import next_action
+from taskledger.services.navigation import next_action_for_task
 from taskledger.services.ready_work import ready_work_items
 from taskledger.services.task_collections import next_todo
 from taskledger.storage.locks import read_lock
@@ -103,9 +103,9 @@ def _active_payload(
     }
     active_warnings: list[str] = []
     try:
-        payload["next_action"] = next_action_payload = next_action(
+        payload["next_action"] = next_action_payload = next_action_for_task(
             workspace_root,
-            task.id,
+            task,
         )
     except LaunchError as exc:
         payload["next_action"] = None
@@ -244,7 +244,9 @@ def usage_payload(
             }
         )
 
-    ready_items = ready_work_items(workspace_root, visible_tasks)
+    ready_items = ready_work_items(
+        workspace_root, visible_tasks, include_next_action=False
+    )
     ready: dict[str, list[dict[str, object]]] = {
         "approved": [
             item for item in ready_items if item["status_stage"] == "approved"

@@ -273,15 +273,54 @@ def inspect_v2_indexes(workspace_root: Path) -> dict[str, object]:
         )
         if not path.exists()
     ]
+    # Check task index staleness.
+
+    from taskledger.storage.task_index import (
+        TASK_INDEX_FILENAME,
+        _read_index,
+    )
+    from taskledger.storage.task_store import task_markdown_path
+
+    stale_task_entries: list[str] = []
+    task_index_path = paths.indexes_dir / TASK_INDEX_FILENAME
+    if task_index_path.exists():
+        index_data = _read_index(paths)
+        if index_data is not None:
+            entries = index_data.get("entries", [])
+            if isinstance(entries, list):
+                for entry in entries:
+                    if not isinstance(entry, dict):
+                        continue
+                    task_id = entry.get("id")
+                    if not isinstance(task_id, str):
+                        continue
+                    task_path = task_markdown_path(paths, task_id)
+                    if not task_path.exists():
+                        stale_task_entries.append(f"{task_id}: file missing")
+                    else:
+                        try:
+                            stat = task_path.stat()
+                            if (
+                                entry.get("size") != stat.st_size
+                                or entry.get("mtime_ns") != stat.st_mtime_ns
+                            ):
+                                stale_task_entries.append(f"{task_id}: stale")
+                        except OSError:
+                            stale_task_entries.append(f"{task_id}: stat error")
+    else:
+        missing.append(str(task_index_path.relative_to(paths.project_dir)))
+
     event_errors: list[str] = []
     try:
         load_events(paths.events_dir)
     except Exception as exc:
         event_errors.append(str(exc))
+    healthy = not missing and not event_errors and not stale_task_entries
     return {
         "kind": "taskledger_index_inspection",
-        "healthy": not missing and not event_errors,
+        "healthy": healthy,
         "missing_indexes": missing,
+        "stale_task_entries": stale_task_entries[:20],
         "event_errors": event_errors,
     }
 

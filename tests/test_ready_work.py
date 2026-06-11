@@ -118,8 +118,11 @@ def test_ready_work_items_without_next_action(tmp_path: Path) -> None:
     visible = list_tasks_by_visibility(ws, visibility="visible")
     items = ready_work_items(ws, visible, include_next_action=False)
     assert len(items) == 1
-    assert "next" not in items[0]
-    assert "command" not in items[0]
+    item = items[0]
+    assert "next_action" not in item
+    assert isinstance(item.get("next"), str)
+    assert isinstance(item.get("reason"), str)
+    assert isinstance(item.get("command"), str)
 
 
 def test_ready_statuses_includes_plan_review() -> None:

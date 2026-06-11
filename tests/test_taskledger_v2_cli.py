@@ -600,6 +600,8 @@ def test_v2_task_lifecycle_and_handoff(tmp_path: Path) -> None:
         "introductions": 0,
         "locks": 0,
         "dependencies": 1,
+        "tasks": 1,
+        "sidecars": 1,
     }
 
 

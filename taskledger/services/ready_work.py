@@ -16,6 +16,15 @@ STAGE_COMMANDS: dict[str, str] = {
     "failed_validation": "taskledger next-action --task {task_id}",
 }
 
+READY_NEXT: dict[str, tuple[str, str]] = {
+    "plan_review": ("plan-approve", "A proposed plan is waiting for review."),
+    "approved": ("implement", "The approved plan is ready for implementation."),
+    "failed_validation": (
+        "implement-restart",
+        "Validation failed; restart implementation.",
+    ),
+}
+
 
 def priority_rank(priority: str | None) -> tuple[int, str]:
     if isinstance(priority, str):
@@ -46,6 +55,10 @@ def ready_work_items(
             "priority": task.priority,
             "status_stage": task.status_stage,
         }
+        stage = task.status_stage
+        template = STAGE_COMMANDS.get(stage)
+        if template:
+            item["command"] = template.format(task_id=task.id)
         if include_next_action:
             try:
                 decision = next_action(workspace_root, task.id)
@@ -59,11 +72,11 @@ def ready_work_items(
                     item["next"] = action
                 if isinstance(reason, str):
                     item["reason"] = reason
-            # Deterministic stage-specific command with explicit --task.
-            stage = task.status_stage
-            template = STAGE_COMMANDS.get(stage)
-            if template:
-                item["command"] = template.format(task_id=task.id)
+        else:
+            # Deterministic stage-level next/reason without full next_action() call.
+            stage_next = READY_NEXT.get(stage)
+            if stage_next is not None:
+                item["next"], item["reason"] = stage_next
         items.append(item)
 
     items.sort(

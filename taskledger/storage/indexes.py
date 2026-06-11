@@ -11,6 +11,9 @@ from taskledger.storage.task_store import (
 
 
 def rebuild_v2_indexes(paths: V2Paths) -> dict[str, int]:
+    from taskledger.storage.sidecar_index import rebuild_sidecar_index
+    from taskledger.storage.task_index import rebuild_task_index
+
     tasks = list_tasks(paths.workspace_root)
     introductions = list_introductions(paths.workspace_root)
     locks = load_active_locks(paths.workspace_root)
@@ -35,8 +38,13 @@ def rebuild_v2_indexes(paths: V2Paths) -> dict[str, int]:
     )
     write_json(paths.active_locks_index_path, [lock.to_dict() for lock in locks])
     write_json(paths.dependencies_index_path, dependencies)
+
+    task_index_counts = rebuild_task_index(paths)
+    sidecar_counts = rebuild_sidecar_index(paths)
     return {
         "introductions": len(introductions),
         "locks": len(locks),
         "dependencies": len(dependencies),
+        **task_index_counts,
+        **sidecar_counts,
     }

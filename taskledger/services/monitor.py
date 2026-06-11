@@ -11,15 +11,37 @@ from taskledger.domain.task import TaskRecord
 from taskledger.services.ready_work import READY_STATUSES, priority_rank
 from taskledger.storage.events import load_recent_events
 from taskledger.storage.locks import read_lock
+from taskledger.storage.task_index import (
+    TaskSummaryRecord,
+    list_task_summaries,
+)
 from taskledger.storage.task_store import (
     list_runs,
-    list_tasks_by_visibility,
     load_active_task_state,
     load_todos,
     resolve_task,
     resolve_v2_paths,
     task_lock_path,
 )
+
+
+def _summary_to_row(s: TaskSummaryRecord) -> dict[str, object]:
+    return {
+        "task_id": s.id,
+        "slug": s.slug,
+        "title": s.title,
+        "priority": s.priority,
+        "status_stage": s.status_stage,
+        "active_stage": None,
+    }
+
+
+def _task_by_id_or_resolve(
+    workspace_root: Path,
+    task_id: str,
+    summary_by_id: dict[str, TaskSummaryRecord],
+) -> TaskRecord:
+    return resolve_task(workspace_root, task_id)
 
 
 def _status_to_active_stage(status_stage: str) -> str | None:
@@ -34,13 +56,16 @@ def _task_summary(
     workspace_root: Path,
     task: TaskRecord,
     *,
+    include_active_stage: bool = True,
     include_next_action: bool = False,
 ) -> dict[str, object]:
-    lock = read_lock(task_lock_path(resolve_v2_paths(workspace_root), task.id))
-    runs = list_runs(workspace_root, task.id)
-    active_stage = derive_active_stage(lock, runs) or _status_to_active_stage(
-        task.status_stage
-    )
+    active_stage = None
+    if include_active_stage or include_next_action:
+        lock = read_lock(task_lock_path(resolve_v2_paths(workspace_root), task.id))
+        runs = list_runs(workspace_root, task.id)
+        active_stage = derive_active_stage(lock, runs) or _status_to_active_stage(
+            task.status_stage
+        )
     payload: dict[str, object] = {
         "task_id": task.id,
         "slug": task.slug,
@@ -50,10 +75,10 @@ def _task_summary(
         "active_stage": active_stage,
     }
     if include_next_action:
-        from taskledger.services.navigation import next_action
+        from taskledger.services.navigation import next_action_for_task
 
         todos = load_todos(workspace_root, task.id).todos
-        payload["next_action"] = next_action(workspace_root, task.id)
+        payload["next_action"] = next_action_for_task(workspace_root, task)
         payload["todo_progress"] = {
             "done": sum(1 for todo in todos if todo.done),
             "total": len(todos),
@@ -133,23 +158,27 @@ def monitor_snapshot(
     max_ready: int = 10,
     activity_scope: str = "ledger",
 ) -> dict[str, object]:
-    tasks = list_tasks_by_visibility(workspace_root, visibility="visible")
-    task_by_id = {task.id: task for task in tasks}
+    paths = resolve_v2_paths(workspace_root)
+    summaries = list_task_summaries(paths, visibility="visible")
+    summary_by_id = {s.id: s for s in summaries}
+
+    # Resolve the selected/active task (full record for detailed display).
     selected = None
     if task_ref is not None:
         selected = resolve_task(workspace_root, task_ref)
     else:
         active_state = load_active_task_state(workspace_root)
         if active_state is not None:
-            selected = task_by_id.get(active_state.task_id) or resolve_task(
-                workspace_root, active_state.task_id
+            selected = _task_by_id_or_resolve(
+                workspace_root, active_state.task_id, summary_by_id
             )
 
+    # In-progress and ready rows use summaries only.
     in_progress = sorted(
         [
-            _task_summary(workspace_root, task)
-            for task in tasks
-            if task.status_stage in {"planning", "implementing", "validating"}
+            _summary_to_row(s)
+            for s in summaries
+            if s.status_stage in {"planning", "implementing", "validating"}
         ],
         key=lambda item: (
             priority_rank(cast(str | None, item.get("priority"))),
@@ -157,18 +186,13 @@ def monitor_snapshot(
         ),
     )
     ready = sorted(
-        [
-            _task_summary(workspace_root, task)
-            for task in tasks
-            if task.status_stage in READY_STATUSES
-        ],
+        [_summary_to_row(s) for s in summaries if s.status_stage in READY_STATUSES],
         key=lambda item: (
             priority_rank(cast(str | None, item.get("priority"))),
             str(item["task_id"]),
         ),
     )[:max_ready]
 
-    paths = resolve_v2_paths(workspace_root)
     activity_task_id = (
         selected.id if activity_scope == "task" and selected is not None else None
     )
@@ -183,7 +207,7 @@ def monitor_snapshot(
     )
     activity: list[dict[str, object]] = []
     for event in recent_events:
-        task = task_by_id.get(event.task_id)
+        s = summary_by_id.get(event.task_id)
         time_short, _ = _event_time(event.ts)
         activity.append(
             {
@@ -192,7 +216,7 @@ def monitor_snapshot(
                 or (event.harness.session_id if event.harness is not None else None),
                 "event": event.event,
                 "task_id": event.task_id,
-                "slug": task.slug if task is not None else None,
+                "slug": s.slug if s is not None else None,
                 "message": _event_message(event),
             }
         )

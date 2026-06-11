@@ -191,6 +191,17 @@ def resolve_task(
 ) -> TaskRecord:
     normalized_ref = ref.strip().lower()
     normalized_id = _normalize_numeric_ref(normalized_ref, "task")
+
+    # Direct-path: if the normalized ref is a task ID, try reading just that file.
+    if normalized_id.startswith("task-"):
+        paths = resolve_v2_paths(workspace_root)
+        path = task_markdown_path(paths, normalized_id)
+        if path.exists():
+            task = _load_task(path)
+            if include_archived or not is_archived_task(task):
+                return task
+
+    # Fallback: full scan for slug lookup or archived ID miss.
     tasks = list_tasks(workspace_root)
     for task in tasks:
         if task.id == ref or task.id == normalized_id:
@@ -347,6 +358,15 @@ def save_task(workspace_root: Path, task: TaskRecord) -> TaskRecord:
     metadata.pop("file_links", None)
     metadata.pop("requirements", None)
     _write_markdown_record(path, metadata, task.body)
+    # Write-through: update the derived task index.
+    try:
+        from taskledger.storage.task_index import update_task_index_entry
+
+        update_task_index_entry(paths, task)
+    except Exception:
+        logging.getLogger(__name__).debug(
+            "Failed to update task index for %s", task.id, exc_info=True
+        )
     return task
 
 
@@ -496,6 +516,18 @@ def save_question(workspace_root: Path, question: QuestionRecord) -> QuestionRec
     paths = ensure_v2_layout(workspace_root)
     path = question_markdown_path(paths, question.task_id, question.id)
     _write_markdown_record(path, question.to_dict(), _render_question_body(question))
+    # Write-through sidecar index.
+    try:
+        from taskledger.storage.sidecar_index import update_sidecar_summary
+
+        questions = list_questions(workspace_root, question.task_id)
+        update_sidecar_summary(paths, question.task_id, questions=questions)
+    except Exception:
+        logging.getLogger(__name__).debug(
+            "Failed to update sidecar index for %s",
+            question.task_id,
+            exc_info=True,
+        )
     return question
 
 
@@ -520,6 +552,18 @@ def save_run(workspace_root: Path, run: TaskRunRecord) -> TaskRunRecord:
     paths = ensure_v2_layout(workspace_root)
     path = run_markdown_path(paths, run.task_id, run.run_id)
     _write_markdown_record(path, run.to_dict(), _render_run_body(run))
+    # Write-through sidecar index.
+    try:
+        from taskledger.storage.sidecar_index import update_sidecar_summary
+
+        runs = list_runs(workspace_root, run.task_id)
+        update_sidecar_summary(paths, run.task_id, runs=runs)
+    except Exception:
+        logging.getLogger(__name__).debug(
+            "Failed to update sidecar index for %s",
+            run.task_id,
+            exc_info=True,
+        )
     return run
 
 
@@ -594,6 +638,24 @@ def save_code_review(
     paths = ensure_v2_layout(workspace_root)
     path = code_review_markdown_path(paths, review.task_id, review.review_id)
     _write_markdown_record(path, review.to_dict(), review.body)
+    # Write-through sidecar index.
+    try:
+        from taskledger.storage.sidecar_index import update_sidecar_summary
+
+        reviews = list_code_reviews(workspace_root, review.task_id)
+        latest_impl_run = _task_latest_impl_run(workspace_root, review.task_id)
+        update_sidecar_summary(
+            paths,
+            review.task_id,
+            reviews=reviews,
+            latest_implementation_run=latest_impl_run,
+        )
+    except Exception:
+        logging.getLogger(__name__).debug(
+            "Failed to update sidecar index for %s",
+            review.task_id,
+            exc_info=True,
+        )
     return review
 
 
@@ -652,6 +714,17 @@ def save_todos(workspace_root: Path, collection: TodoCollection) -> TodoCollecti
     for path in directory.glob("todo-*.md"):
         if path.stem not in keep_ids:
             path.unlink()
+    # Write-through sidecar index.
+    try:
+        from taskledger.storage.sidecar_index import update_sidecar_summary
+
+        update_sidecar_summary(paths, collection.task_id, todos=list(collection.todos))
+    except Exception:
+        logging.getLogger(__name__).debug(
+            "Failed to update sidecar index for %s",
+            collection.task_id,
+            exc_info=True,
+        )
     return collection
 
 
@@ -977,6 +1050,15 @@ def _write_markdown_record(path: Path, metadata: dict[str, object], body: str) -
     write_markdown_front_matter(path, metadata, body.rstrip() + "\n")
 
 
+def _task_latest_impl_run(workspace_root: Path, task_id: str) -> str | None:
+    """Get latest_implementation_run from a task record."""
+    try:
+        task = resolve_task(workspace_root, task_id)
+        return task.latest_implementation_run
+    except Exception:
+        return None
+
+
 def _ensure_task_bundle(paths: V2Paths, task_id: str) -> None:
     for directory in (
         task_dir(paths, task_id),
@@ -1100,6 +1182,18 @@ def save_handoff(workspace_root: Path, handoff: TaskHandoffRecord) -> Path:
     metadata.pop("context_body", None)
     content = handoff.context_body or ""
     _write_markdown_record(path, metadata, content)
+    # Write-through sidecar index.
+    try:
+        from taskledger.storage.sidecar_index import update_sidecar_summary
+
+        handoffs = list_handoffs(workspace_root, handoff.task_id)
+        update_sidecar_summary(paths, handoff.task_id, handoffs=handoffs)
+    except Exception:
+        logging.getLogger(__name__).debug(
+            "Failed to update sidecar index for %s",
+            handoff.task_id,
+            exc_info=True,
+        )
     return path
 
 
@@ -1118,6 +1212,17 @@ def save_lock(workspace_root: Path, task_id: str, lock: TaskLock) -> Path:
         update_lock(lock_path, lock)
     else:
         write_lock(lock_path, lock)
+    # Write-through sidecar index.
+    try:
+        from taskledger.storage.sidecar_index import update_sidecar_summary
+
+        update_sidecar_summary(paths, task_id, lock=lock)
+    except Exception:
+        logging.getLogger(__name__).debug(
+            "Failed to update sidecar index for %s",
+            task_id,
+            exc_info=True,
+        )
     return lock_path
 
 

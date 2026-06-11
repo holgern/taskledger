@@ -75,14 +75,16 @@ def load_recent_events(
 
 
 def next_event_id(events_dir: Path, timestamp: str) -> str:
-    sequence = len(load_events(events_dir)) + 1
+    from uuid import uuid4
+
+    suffix = uuid4().hex[:12]
     normalized = (
         timestamp.replace(":", "")
         .replace("-", "")
         .replace("+00:00", "Z")
         .replace(".", "")
     )
-    return f"evt-{normalized}-{sequence:06d}"
+    return f"evt-{normalized}-{suffix}"
 
 
 def event_log_path(events_dir: Path, timestamp: str) -> Path:

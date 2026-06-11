@@ -38,10 +38,9 @@ def _init_project(tmp_path: Path) -> None:
     init_workspace(tmp_path)
 
 
-def _removed_index_paths(tmp_path: Path) -> tuple[Path, Path, Path]:
+def _removed_index_paths(tmp_path: Path) -> tuple[Path, Path]:
     indexes_dir = tmp_path / ".taskledger" / "ledgers" / "main" / "indexes"
     return (
-        indexes_dir / "tasks.json",
         indexes_dir / "plan_versions.json",
         indexes_dir / "latest_runs.json",
     )

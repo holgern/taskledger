@@ -10,6 +10,7 @@ from taskledger.domain.models import (
     QuestionRecord,
     TaskLock,
     TaskRecord,
+    TaskRunRecord,
     TaskTodo,
 )
 from taskledger.domain.states import (
@@ -49,10 +50,17 @@ from taskledger.storage.task_store import (
 )
 
 
-def next_action(workspace_root: Path, task_ref: str) -> dict[str, object]:
-    task = resolve_task(workspace_root, task_ref)
-    lock = _current_lock(workspace_root, task.id)
-    runs = list_runs(workspace_root, task.id)
+def next_action_for_task(
+    workspace_root: Path,
+    task: TaskRecord,
+    *,
+    lock: TaskLock | None = None,
+    runs: list[TaskRunRecord] | None = None,
+) -> dict[str, object]:
+    if lock is None:
+        lock = _current_lock(workspace_root, task.id)
+    if runs is None:
+        runs = list_runs(workspace_root, task.id)
     active_stage = _task_active_stage(
         workspace_root,
         task,
@@ -285,6 +293,11 @@ def next_action(workspace_root: Path, task_ref: str) -> dict[str, object]:
             guided_worker_pipeline,
         )
     return _finalize_next_action_payload(payload)
+
+
+def next_action(workspace_root: Path, task_ref: str) -> dict[str, object]:
+    task = resolve_task(workspace_root, task_ref)
+    return next_action_for_task(workspace_root, task)
 
 
 def _orphaned_active_stage_action(
@@ -1525,4 +1538,4 @@ def _optional_string_value(value: object) -> str | None:
     return value if isinstance(value, str) and value.strip() else None
 
 
-__all__ = ["can_perform", "next_action", "task_dossier"]
+__all__ = ["can_perform", "next_action", "next_action_for_task", "task_dossier"]

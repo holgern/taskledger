@@ -141,8 +141,8 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
     "taskledger/services/doctor.py:255": (
         "Doctor lock inspection ignores malformed optional lock metadata."
     ),
-    "taskledger/services/doctor.py:279": (
-        "Doctor lock inspection wraps malformed lock reads."
+    "taskledger/services/doctor.py:316": (
+        "Doctor index staleness check tolerates stat errors on individual task files."
     ),
     "taskledger/services/doctor_checks/project_scan.py:49": (
         "Project scan continues past config load errors."
@@ -176,13 +176,49 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
         "Path probe falls back when environment inspection raises platform-"
         "specific errors."
     ),
-    "taskledger/storage/task_store.py:421": (
+    "taskledger/storage/task_store.py:365": (
+        "save_task write-through index update degrades gracefully on failure."
+    ),
+    "taskledger/storage/task_store.py:440": (
         "rewrite_task_refs falls back to plain string replacement when "
         "front matter parsing fails."
     ),
-    "taskledger/storage/task_store.py:1068": (
+    "taskledger/storage/task_store.py:526": (
+        "save_question write-through sidecar index update degrades gracefully."
+    ),
+    "taskledger/storage/task_store.py:562": (
+        "save_run write-through sidecar index update degrades gracefully."
+    ),
+    "taskledger/storage/task_store.py:654": (
+        "save_code_review write-through sidecar index update degrades gracefully."
+    ),
+    "taskledger/storage/task_store.py:725": (
+        "save_todos write-through sidecar index update degrades gracefully."
+    ),
+    "taskledger/storage/task_store.py:1063": (
+        "_task_latest_impl_run returns None when task resolution fails."
+    ),
+    "taskledger/storage/task_store.py:1153": (
         "list_handoffs_with_errors tolerates malformed handoff records "
         "and continues scanning."
+    ),
+    "taskledger/storage/task_store.py:1196": (
+        "save_handoff write-through sidecar index update degrades gracefully."
+    ),
+    "taskledger/storage/task_store.py:1225": (
+        "save_lock write-through sidecar index update degrades gracefully."
+    ),
+    "taskledger/storage/task_index.py:185": (
+        "Task index rebuild skips unparseable task files and continues."
+    ),
+    "taskledger/storage/task_index.py:239": (
+        "Task index refresh keeps stale entry when re-read fails."
+    ),
+    "taskledger/storage/sidecar_index.py:287": (
+        "Sidecar index rebuild skips tasks with read failures and continues."
+    ),
+    "taskledger/storage/sidecar_index.py:333": (
+        "Sidecar index load falls back to rebuild on read errors."
     ),
 }
 

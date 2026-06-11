@@ -44,9 +44,9 @@ def dashboard(
         active_stage = derive_active_stage(lock, runs)
 
     # next action
-    from taskledger.services.navigation import next_action
+    from taskledger.services.navigation import next_action_for_task
 
-    action_info = next_action(workspace_root, task.id)
+    action_info = next_action_for_task(workspace_root, task)
 
     # todos
     todo_collection = load_todos(workspace_root, task.id)
