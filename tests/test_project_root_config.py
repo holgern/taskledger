@@ -654,17 +654,18 @@ def test_validate_sync_git_rejects_parent_path_escape() -> None:
 
 
 # sw: f=specs/behavior/features/project_root_config/project-root-config.feature
-# sw: s=@bdd-project-root-config-event-logging-disabled-by-default
-def test_event_logging_disabled_by_default() -> None:
+# sw: f=specs/behavior/features/project_root_config/project-root-config.feature
+# sw: s=@bdd-project-root-config-action-logging-enabled-by-default
+def test_action_logging_enabled_by_default() -> None:
     config = merge_project_config({})
-    assert config.event_logging.enabled is False
+    assert config.event_logging.enabled is True
 
 
 # sw: f=specs/behavior/features/project_root_config/project-root-config.feature
-# sw: s=@bdd-project-root-config-merge-project-config-with-event-logging-override
-def test_merge_project_config_with_event_logging_override() -> None:
-    config = merge_project_config({"event_logging": {"enabled": True}})
-    assert config.event_logging.enabled is True
+# sw: s=@bdd-project-root-config-merge-project-config-can-disable-action-logging
+def test_merge_project_config_can_disable_action_logging() -> None:
+    config = merge_project_config({"event_logging": {"enabled": False}})
+    assert config.event_logging.enabled is False
 
 
 # sw: f=specs/behavior/features/project_root_config/project-root-config.feature
@@ -685,7 +686,7 @@ def test_merge_project_config_preserves_base_event_logging() -> None:
 def test_default_taskledger_toml_includes_commented_event_logging() -> None:
     rendered = render_default_taskledger_toml()
     assert "# [event_logging]" in rendered
-    assert "# enabled = false" in rendered
+    assert "# enabled = true" in rendered
 
 
 # sw: f=specs/behavior/features/project_root_config/project-root-config.feature

@@ -71,7 +71,54 @@ def _event_time(value: str) -> tuple[str, str]:
 
 def _event_message(event: TaskEvent) -> str:
     data = event.data
-    for key in ("summary", "message", "reason", "note", "text", "path"):
+
+    if event.event == "implementation.started":
+        run_id = data.get("run_id")
+        restart = data.get("restart")
+        if isinstance(run_id, str) and run_id:
+            return (
+                f"Restarted implementation {run_id}"
+                if restart
+                else f"Started implementation {run_id}"
+            )
+        return "Started implementation"
+
+    if event.event == "todo.completed":
+        todo_id = data.get("todo_id")
+        evidence = data.get("evidence")
+        if isinstance(todo_id, str) and todo_id:
+            if isinstance(evidence, str) and evidence.strip():
+                return f"Completed {todo_id}: {evidence.strip()}"
+            return f"Completed {todo_id}"
+
+    if event.event == "implementation.check.logged":
+        check_id = data.get("check_id")
+        command = data.get("command")
+        if isinstance(check_id, str) and isinstance(command, str) and command:
+            return f"Checked {check_id}: {command}"
+        if isinstance(command, str) and command:
+            return f"Checked: {command}"
+
+    if event.event == "validation.check.logged":
+        criterion = data.get("criterion_id")
+        status = data.get("status")
+        if isinstance(criterion, str) and criterion:
+            return f"Validation {criterion}: {status or 'recorded'}"
+        return "Validation check recorded"
+
+    for key in (
+        "summary",
+        "message",
+        "reason",
+        "note",
+        "text",
+        "path",
+        "evidence",
+        "command",
+        "todo_id",
+        "check_id",
+        "run_id",
+    ):
         value = data.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()

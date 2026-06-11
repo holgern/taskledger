@@ -611,20 +611,25 @@ Example status payload:
 }
 ```
 
-## Event logging
+## Action/event logging
 
-Task lifecycle event logging is **disabled by default**. Enable it in
-`taskledger.toml` when debugging agent usage or lifecycle behavior:
+Action/event logging is **enabled by default**. Taskledger writes immutable
+`TaskEvent` records for lifecycle mutations (task create, implementation start,
+todo completion, validation checks, etc.) so `taskledger monitor` shows recent
+activity without extra configuration.
+
+To disable new action events, set in `taskledger.toml`:
 
 ```toml
 [event_logging]
-enabled = true
+enabled = false
 ```
 
-When enabled, mutations append immutable `TaskEvent` records viewable with
-`taskledger task events`. When disabled (the default), no event records are
-written but `task events` still works and returns empty results. Existing event
-files remain readable regardless of the setting.
+Existing event files remain readable regardless of the setting.
+`taskledger task events` continues to work when logging is disabled.
+
+Action/event logging is separate from agent command transcript logging,
+which remains **disabled by default** (see `[agent_logging]`).
 
 ## Handoff-driven work
 

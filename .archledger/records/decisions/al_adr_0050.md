@@ -25,11 +25,11 @@ test_refs:
 
 ## Context
 
-Need a storage layout that scales to many sidecar collections per task (plans, runs, locks, todos, questions, changes, checks, handoffs, links) while keeping each record individually addressable. Events are stored at ledger level, not per-task, and are opt-in.
+Need a storage layout that scales to many sidecar collections per task (plans, runs, locks, todos, questions, changes, checks, handoffs, links) while keeping each record individually addressable. Events are stored at ledger level, not per-task, and are enabled by default.
 
 ## Decision
 
-Use a directory-per-task layout (v2 bundle) under `.taskledger/ledgers/<ledger_ref>/`. Each task gets a directory containing the task record (Markdown) and subdirectories for sidecar collections. JSON indexes are derived caches at the ledger level. Event records are stored in the ledger-level `events/` directory (not per-task) and are only written when `[event_logging] enabled = true`.
+Use a directory-per-task layout (v2 bundle) under `.taskledger/ledgers/<ledger_ref>/`. Each task gets a directory containing the task record (Markdown) and subdirectories for sidecar collections. JSON indexes are derived caches at the ledger level. Event records are stored in the ledger-level `events/` directory (not per-task) and are written by default; set `[event_logging] enabled = false` to disable.
 
 ## Consequences
 

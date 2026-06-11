@@ -766,7 +766,21 @@ def _event_summary(evt: dict[str, object]) -> str:
     data = evt.get("data")
     if not isinstance(data, dict):
         return ""
-    for key in ("reason", "todo_id", "lock_id", "status", "slug", "title"):
+    for key in (
+        "summary",
+        "message",
+        "reason",
+        "evidence",
+        "command",
+        "todo_id",
+        "check_id",
+        "criterion_id",
+        "run_id",
+        "lock_id",
+        "status",
+        "slug",
+        "title",
+    ):
         value = data.get(key)
         if isinstance(value, str) and value:
             return value

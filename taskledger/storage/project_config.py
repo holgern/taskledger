@@ -182,7 +182,7 @@ class AgentLoggingConfig:
 
 @dataclass(slots=True, frozen=True)
 class EventLoggingConfig:
-    enabled: bool = False
+    enabled: bool = True
 
 
 @dataclass(slots=True, frozen=True)
@@ -337,10 +337,10 @@ def render_default_taskledger_toml(
         "# capture_safe_read_only = true\n"
         "# capture_human_oriented = true\n"
         "\n"
-        "# Task lifecycle event logging (disabled by default).\n"
-        "# Enable only when debugging agent usage or lifecycle behavior.\n"
+        "# Action/event logging for monitor activity (enabled by default).\n"
+        "# Set enabled = false to stop writing new action events.\n"
         "# [event_logging]\n"
-        "# enabled = false\n"
+        "# enabled = true\n"
         "\n"
         "# Optional sync.git defaults for private external Git state.\n"
         "# [sync.git]\n"

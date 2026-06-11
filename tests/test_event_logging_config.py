@@ -23,10 +23,11 @@ def _init_project(tmp_path: Path) -> None:
     assert result.exit_code == 0
 
 
-def _enable_event_logging(tmp_path: Path) -> None:
+def _disable_event_logging(tmp_path: Path) -> None:
     config_path = tmp_path / "taskledger.toml"
+    text = config_path.read_text(encoding="utf-8")
     config_path.write_text(
-        config_path.read_text(encoding="utf-8") + "\n[event_logging]\nenabled = true\n",
+        text + "\n[event_logging]\nenabled = false\n",
         encoding="utf-8",
     )
 
@@ -58,28 +59,30 @@ def _create_and_activate_task(tmp_path: Path, slug: str = "test-task") -> None:
     )
 
 
-# -- default-off tests --
+# -- default-on tests --
 
 
 # sw: f=specs/behavior/features/event_logging_config/event-logging-config.feature
-# sw: s=@bdd-event-logging-config-runtime-events-disabled-by-default
-def test_runtime_events_disabled_by_default(tmp_path: Path) -> None:
+# sw: s=@bdd-event-logging-config-runtime-events-enabled-by-default
+def test_runtime_events_enabled_by_default_writes_events(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _create_and_activate_task(tmp_path)
 
     event_files = sorted((tmp_path / ".taskledger").glob("**/events/*.ndjson"))
-    assert event_files == []
+    assert event_files
 
-    result = runner.invoke(
-        app,
-        ["--cwd", str(tmp_path), "task", "events", "--task", "test-task"],
-    )
-    assert result.exit_code == 0
+    events = []
+    for path in event_files:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                events.append(json.loads(line))
+
+    assert any(e["event"] == "task.created" for e in events)
 
 
 # sw: f=specs/behavior/features/event_logging_config/event-logging-config.feature
-# sw: s=@bdd-event-logging-config-task-events-shows-empty-when-disabled
-def test_task_events_shows_empty_when_disabled(tmp_path: Path) -> None:
+# sw: s=@bdd-event-logging-config-task-events-reads-default-action-events
+def test_task_events_reads_default_action_events(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _create_and_activate_task(tmp_path)
 
@@ -90,12 +93,12 @@ def test_task_events_shows_empty_when_disabled(tmp_path: Path) -> None:
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
     assert payload["ok"] is True
-    assert payload["result"]["items"] == []
+    assert len(payload["result"]["items"]) > 0
 
 
 # sw: f=specs/behavior/features/event_logging_config/event-logging-config.feature
-# sw: s=@bdd-event-logging-config-lock-break-no-events-by-default
-def test_lock_break_no_events_by_default(tmp_path: Path) -> None:
+# sw: s=@bdd-event-logging-config-lock-break-writes-events-by-default
+def test_lock_break_writes_events_by_default(tmp_path: Path) -> None:
     _init_project(tmp_path)
     assert (
         runner.invoke(
@@ -136,77 +139,7 @@ def test_lock_break_no_events_by_default(tmp_path: Path) -> None:
     assert result.exit_code == 0
 
     event_files = sorted((tmp_path / ".taskledger").glob("**/events/*.ndjson"))
-    assert event_files == []
-
-
-# -- opt-in tests --
-
-
-# sw: f=specs/behavior/features/event_logging_config/event-logging-config.feature
-# sw: s=@bdd-event-logging-config-runtime-events-enabled-writes-events
-def test_runtime_events_enabled_writes_events(tmp_path: Path) -> None:
-    _init_project(tmp_path)
-    _enable_event_logging(tmp_path)
-    _create_and_activate_task(tmp_path)
-
-    event_files = sorted((tmp_path / ".taskledger").glob("**/events/*.ndjson"))
-    assert len(event_files) > 0
-
-    events = []
-    for path in event_files:
-        for line in path.read_text(encoding="utf-8").splitlines():
-            if line.strip():
-                events.append(json.loads(line))
-
-    assert any(e["event"] == "task.created" for e in events)
-
-
-# sw: f=specs/behavior/features/event_logging_config/event-logging-config.feature
-# sw: s=@bdd-event-logging-config-lock-break-writes-events-when-enabled
-def test_lock_break_writes_events_when_enabled(tmp_path: Path) -> None:
-    _init_project(tmp_path)
-    _enable_event_logging(tmp_path)
-    assert (
-        runner.invoke(
-            app,
-            [
-                "--cwd",
-                str(tmp_path),
-                "task",
-                "create",
-                "lock-enabled",
-                "--description",
-                "Test lock break events enabled.",
-            ],
-        ).exit_code
-        == 0
-    )
-    assert (
-        runner.invoke(
-            app,
-            ["--cwd", str(tmp_path), "plan", "start", "--task", "lock-enabled"],
-        ).exit_code
-        == 0
-    )
-
-    result = runner.invoke(
-        app,
-        [
-            "--cwd",
-            str(tmp_path),
-            "--json",
-            "lock",
-            "break",
-            "--task",
-            "lock-enabled",
-            "--reason",
-            "test",
-        ],
-    )
-    assert result.exit_code == 0
-
-    event_files = sorted((tmp_path / ".taskledger").glob("**/events/*.ndjson"))
-    assert len(event_files) > 0
+    assert event_files
     events = []
     for path in event_files:
         for line in path.read_text(encoding="utf-8").splitlines():
@@ -215,26 +148,50 @@ def test_lock_break_writes_events_when_enabled(tmp_path: Path) -> None:
     assert any(e["event"] == "repair.lock_broken" for e in events)
 
 
+# -- opt-out tests --
+
+
+# sw: f=specs/behavior/features/event_logging_config/event-logging-config.feature
+# sw: s=@bdd-event-logging-config-false-disables-new-action-events
+def test_event_logging_false_disables_new_action_events(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+    _disable_event_logging(tmp_path)
+    _create_and_activate_task(tmp_path)
+
+    event_files = sorted((tmp_path / ".taskledger").glob("**/events/*.ndjson"))
+    assert event_files == []
+
+    result = runner.invoke(
+        app,
+        ["--cwd", str(tmp_path), "--json", "task", "events"],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is True
+    assert payload["result"]["items"] == []
+
+
 # sw: f=specs/behavior/features/event_logging_config/event-logging-config.feature
 # sw: s=@bdd-event-logging-config-existing-events-readable-after-disable
 def test_existing_events_readable_after_disable(tmp_path: Path) -> None:
     _init_project(tmp_path)
-    _enable_event_logging(tmp_path)
     _create_and_activate_task(tmp_path)
 
-    # Verify events were written
+    # Verify events were written (default-on)
     event_files = sorted((tmp_path / ".taskledger").glob("**/events/*.ndjson"))
     assert len(event_files) > 0
 
     # Disable event logging
-    config_path = tmp_path / "taskledger.toml"
-    text = config_path.read_text(encoding="utf-8")
-    config_path.write_text(
-        text.replace("enabled = true", "enabled = false"),
-        encoding="utf-8",
+    _disable_event_logging(tmp_path)
+
+    # Create another task - should not produce new events beyond what already exists
+    initial_count = sum(
+        len(line.strip().splitlines())
+        for p in event_files
+        for line in p.read_text(encoding="utf-8").splitlines()
+        if line.strip()
     )
 
-    # Create another task - should not produce new events
     assert (
         runner.invoke(
             app,
@@ -261,4 +218,12 @@ def test_existing_events_readable_after_disable(tmp_path: Path) -> None:
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
     assert payload["ok"] is True
-    assert len(payload["result"]["items"]) > 0
+    assert len(payload["result"]["items"]) >= initial_count
+
+    # The new task create should NOT have added events
+    second_task_events = [
+        item
+        for item in payload["result"]["items"]
+        if item.get("task_id") == "task-0002"
+    ]
+    assert second_task_events == []

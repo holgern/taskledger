@@ -172,6 +172,21 @@ def add_validation_check(
     )
     updated = replace(run, checks=tuple([*run.checks, check]))
     save_run(workspace_root, updated)
+    _tasks._append_event(
+        workspace_root,
+        task.id,
+        "validation.check.logged",
+        {
+            "run_id": run.run_id,
+            "check_id": check.id,
+            "criterion_id": check.criterion_id,
+            "status": check.status,
+            "evidence": " | ".join(check.evidence),
+            "details": check.details,
+        },
+    )
+    return updated
+    save_run(workspace_root, updated)
     return updated
 
 
@@ -221,6 +236,17 @@ def waive_criterion(
 
     updated = replace(run, checks=tuple([*run.checks, check]))
     save_run(workspace_root, updated)
+    _tasks._append_event(
+        workspace_root,
+        task.id,
+        "validation.criterion.waived",
+        {
+            "run_id": run.run_id,
+            "check_id": check.id,
+            "criterion_id": resolved_criterion,
+            "reason": reason.strip(),
+        },
+    )
     return updated
 
 
