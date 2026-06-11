@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -103,8 +102,8 @@ def _create_failed_validation_task(tmp_path: Path, *, title: str, slug: str) -> 
     )
 
 
-# specweave: feature=specs/behavior/features/release_changelog/release-changelog.feature
-# specweave: scenario=@bdd-release-changelog-release-tag-persists-release-record
+# sw: f=specs/behavior/features/release_changelog/release-changelog.feature
+# sw: s=@bdd-release-changelog-release-tag-persists-release-record
 def test_release_tag_persists_release_record(tmp_path: Path) -> None:
     _init_project(tmp_path)
     task_id = _create_done_task(
@@ -134,8 +133,8 @@ def test_release_tag_persists_release_record(tmp_path: Path) -> None:
     assert metadata["boundary_task_id"] == task_id
 
 
-# specweave: feature=specs/behavior/features/release_changelog/release-changelog.feature
-# specweave: scenario=@bdd-release-changelog-release-tag-rejects-non-done-boundary
+# sw: f=specs/behavior/features/release_changelog/release-changelog.feature
+# sw: s=@bdd-release-changelog-release-tag-rejects-non-done-boundary
 def test_release_tag_rejects_non_done_boundary(tmp_path: Path) -> None:
     _init_project(tmp_path)
     result = runner.invoke(
@@ -170,8 +169,8 @@ def test_release_tag_rejects_non_done_boundary(tmp_path: Path) -> None:
     assert "done tasks" in tag_result.stdout or "done tasks" in tag_result.stderr
 
 
-# specweave: feature=specs/behavior/features/release_changelog/release-changelog.feature
-# specweave: scenario=@bdd-release-changelog-release-tag-rejects-duplicate-version
+# sw: f=specs/behavior/features/release_changelog/release-changelog.feature
+# sw: s=@bdd-release-changelog-release-tag-rejects-duplicate-version
 def test_release_tag_rejects_duplicate_version(tmp_path: Path) -> None:
     _init_project(tmp_path)
     task_id = _create_done_task(
@@ -331,8 +330,13 @@ def test_release_changelog_filters_done_tasks_and_reports_omitted(
     assert payload["omitted_tasks"][0]["status_stage"] == "failed_validation"
 
 
-# specweave: feature=specs/behavior/features/release_changelog/release-changelog.feature
-# specweave: scenario=@bdd-release-changelog-release-changelog-markdown-includes-instruction-and-evidence
+@pytest.mark.specweave(
+    feature=("specs/behavior/features/release_changelog/release-changelog.feature"),
+    scenario=(
+        "@bdd-release-changelog-release-changelog-markdown-includes-"
+        "instruction-and-evidence"
+    ),
+)
 def test_release_changelog_markdown_includes_instruction_and_evidence(
     tmp_path: Path,
 ) -> None:
@@ -454,8 +458,8 @@ def test_release_changelog_markdown_uses_project_name(tmp_path: Path) -> None:
     assert payload["project_name"] == tmp_path.name
 
 
-# specweave: feature=specs/behavior/features/release_changelog/release-changelog.feature
-# specweave: scenario=@bdd-release-changelog-release-changelog-from-task-is-inclusive
+# sw: f=specs/behavior/features/release_changelog/release-changelog.feature
+# sw: s=@bdd-release-changelog-release-changelog-from-task-is-inclusive
 def test_release_changelog_from_task_is_inclusive(tmp_path: Path) -> None:
     _init_project(tmp_path)
     first = _create_done_task(tmp_path, title="First task", slug="first-task")
@@ -486,8 +490,8 @@ def test_release_changelog_from_task_is_inclusive(tmp_path: Path) -> None:
     assert second in task_ids
 
 
-# specweave: feature=specs/behavior/features/release_changelog/release-changelog.feature
-# specweave: scenario=@bdd-release-changelog-release-changelog-from-task-rejects-multiple-selectors
+# sw: f=specs/behavior/features/release_changelog/release-changelog.feature
+# sw: s=@bdd-release-changelog-release-changelog-from-task-rejects-multiple-selectors
 def test_release_changelog_from_task_rejects_multiple_selectors(tmp_path: Path) -> None:
     _init_project(tmp_path)
     result = runner.invoke(
@@ -507,8 +511,8 @@ def test_release_changelog_from_task_rejects_multiple_selectors(tmp_path: Path) 
     assert result.exit_code != 0
 
 
-# specweave: feature=specs/behavior/features/release_changelog/release-changelog.feature
-# specweave: scenario=@bdd-release-changelog-release-changelog-fail-on-omitted
+# sw: f=specs/behavior/features/release_changelog/release-changelog.feature
+# sw: s=@bdd-release-changelog-release-changelog-fail-on-omitted
 def test_release_changelog_fail_on_omitted(tmp_path: Path) -> None:
     _init_project(tmp_path)
     boundary = _create_done_task(
@@ -548,8 +552,8 @@ def test_release_changelog_fail_on_omitted(tmp_path: Path) -> None:
     assert "Omitted tasks found" in omitted_text
 
 
-# specweave: feature=specs/behavior/features/release_changelog/release-changelog.feature
-# specweave: scenario=@bdd-release-changelog-release-changelog-include-status-implemented
+# sw: f=specs/behavior/features/release_changelog/release-changelog.feature
+# sw: s=@bdd-release-changelog-release-changelog-include-status-implemented
 def test_release_changelog_include_status_implemented(tmp_path: Path) -> None:
     _init_project(tmp_path)
     boundary = _create_done_task(
@@ -595,8 +599,8 @@ def test_release_changelog_include_status_implemented(tmp_path: Path) -> None:
     assert payload["warnings"]
 
 
-# specweave: feature=specs/behavior/features/release_changelog/release-changelog.feature
-# specweave: scenario=@bdd-release-changelog-release-changelog-target-changelog-and-release-date
+# sw: f=specs/behavior/features/release_changelog/release-changelog.feature
+# sw: s=@bdd-release-changelog-release-changelog-target-changelog-and-release-date
 def test_release_changelog_target_changelog_and_release_date(tmp_path: Path) -> None:
     _init_project(tmp_path)
     boundary = _create_done_task(
@@ -684,8 +688,8 @@ def test_release_changelog_target_changelog_and_release_date(tmp_path: Path) -> 
     assert "## Changelog edit guidance" not in md_result2.stdout
 
 
-# specweave: feature=specs/behavior/features/release_changelog/release-changelog.feature
-# specweave: scenario=@bdd-release-changelog-release-changelog-include-status-rejects-unknown
+# sw: f=specs/behavior/features/release_changelog/release-changelog.feature
+# sw: s=@bdd-release-changelog-release-changelog-include-status-rejects-unknown
 def test_release_changelog_include_status_rejects_unknown(tmp_path: Path) -> None:
     _init_project(tmp_path)
     result = runner.invoke(

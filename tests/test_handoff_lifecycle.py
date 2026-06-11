@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Tests for handoff lifecycle operations."""
 
 from __future__ import annotations
@@ -43,8 +42,8 @@ def test_handoff_creation():
         assert result["intended_actor_name"] == "alice"
 
 
-# specweave: feature=specs/behavior/features/handoff_lifecycle/handoff-lifecycle.feature
-# specweave: scenario=@bdd-handoff-lifecycle-handoff-claim
+# sw: f=specs/behavior/features/handoff_lifecycle/handoff-lifecycle.feature
+# sw: s=@bdd-handoff-lifecycle-handoff-claim
 def test_handoff_claim():
     """Test claiming a handoff."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -61,8 +60,8 @@ def test_handoff_claim():
         assert claimed.claimed_at is not None
 
 
-# specweave: feature=specs/behavior/features/handoff_lifecycle/handoff-lifecycle.feature
-# specweave: scenario=@bdd-handoff-lifecycle-handoff-close
+# sw: f=specs/behavior/features/handoff_lifecycle/handoff-lifecycle.feature
+# sw: s=@bdd-handoff-lifecycle-handoff-close
 def test_handoff_close():
     """Test closing a handoff."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -80,8 +79,8 @@ def test_handoff_close():
         assert closed.status == "closed"
 
 
-# specweave: feature=specs/behavior/features/handoff_lifecycle/handoff-lifecycle.feature
-# specweave: scenario=@bdd-handoff-lifecycle-handoff-cancel
+# sw: f=specs/behavior/features/handoff_lifecycle/handoff-lifecycle.feature
+# sw: s=@bdd-handoff-lifecycle-handoff-cancel
 def test_handoff_cancel():
     """Test cancelling a handoff."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -224,8 +223,8 @@ def test_handoff_list_empty_task():
         assert len(handoffs) == 0
 
 
-# specweave: feature=specs/behavior/features/handoff_lifecycle/handoff-lifecycle.feature
-# specweave: scenario=@bdd-handoff-lifecycle-handoff-lifecycle-sequence
+# sw: f=specs/behavior/features/handoff_lifecycle/handoff-lifecycle.feature
+# sw: s=@bdd-handoff-lifecycle-handoff-lifecycle-sequence
 def test_handoff_lifecycle_sequence():
     """Test full handoff lifecycle: create -> claim -> close."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -251,8 +250,8 @@ def test_handoff_lifecycle_sequence():
         assert closed.status == "closed"
 
 
-# specweave: feature=specs/behavior/features/handoff_lifecycle/handoff-lifecycle.feature
-# specweave: scenario=@bdd-handoff-lifecycle-handoff-create-stores-generated-context-for-todo
+# sw: f=specs/behavior/features/handoff_lifecycle/handoff-lifecycle.feature
+# sw: s=@bdd-handoff-lifecycle-handoff-create-stores-generated-context-for-todo
 def test_handoff_create_stores_generated_context_for_todo() -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         workspace = Path(tmpdir)
@@ -283,8 +282,13 @@ def test_handoff_create_stores_generated_context_for_todo() -> None:
         assert "todo-0001" in handoff.context_body
 
 
-# specweave: feature=specs/behavior/features/handoff_lifecycle/handoff-lifecycle.feature
-# specweave: scenario=@bdd-handoff-lifecycle-handoff-lifecycle-preserves-context-metadata-on-claim-close-cancel
+@pytest.mark.specweave(
+    feature=("specs/behavior/features/handoff_lifecycle/handoff-lifecycle.feature"),
+    scenario=(
+        "@bdd-handoff-lifecycle-handoff-lifecycle-preserves-context-metadata-"
+        "on-claim-close-cancel"
+    ),
+)
 def test_handoff_lifecycle_preserves_context_metadata_on_claim_close_cancel() -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         workspace = Path(tmpdir)

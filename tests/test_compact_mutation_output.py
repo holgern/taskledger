@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Regression tests for compact mutation output.
 
 Mutation commands (todo add, todo done, todo undone, implement finish)
@@ -10,6 +9,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from taskledger.cli import app
@@ -133,8 +133,13 @@ def _init_and_prepare_for_implementation(tmp_path: Path) -> None:
 class TestTodoAddCompactOutput:
     """todo add must not dump full task JSON."""
 
-    # specweave: feature=specs/behavior/features/compact_mutation_output/compact-mutation-output.feature
-    # specweave: scenario=@bdd-compact-mutation-output-human-mode-does-not-contain-full-task
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/compact_mutation_output/compact-mutation-"
+            "output.feature"
+        ),
+        scenario=("@bdd-compact-mutation-output-human-mode-does-not-contain-full-task"),
+    )
     def test_human_mode_does_not_contain_full_task(self, tmp_path: Path) -> None:
         _init_and_prepare_for_implementation(tmp_path)
         result = runner.invoke(
@@ -153,8 +158,13 @@ class TestTodoAddCompactOutput:
         assert "accepted_plan" not in result.stdout
         assert "task-0001" not in result.stdout or "on task-0001" in result.stdout
 
-    # specweave: feature=specs/behavior/features/compact_mutation_output/compact-mutation-output.feature
-    # specweave: scenario=@bdd-compact-mutation-output-json-mode-compact-payload
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/compact_mutation_output/compact-mutation-"
+            "output.feature"
+        ),
+        scenario=("@bdd-compact-mutation-output-json-mode-compact-payload"),
+    )
     def test_json_mode_compact_payload(self, tmp_path: Path) -> None:
         _init_and_prepare_for_implementation(tmp_path)
         result = runner.invoke(
@@ -188,8 +198,15 @@ class TestTodoAddCompactOutput:
 class TestTodoDoneCompactOutput:
     """todo done must not dump full task JSON."""
 
-    # specweave: feature=specs/behavior/features/compact_mutation_output/compact-mutation-output.feature
-    # specweave: scenario=@bdd-compact-mutation-output-human-mode-does-not-contain-full-task-2
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/compact_mutation_output/compact-mutation-"
+            "output.feature"
+        ),
+        scenario=(
+            "@bdd-compact-mutation-output-human-mode-does-not-contain-full-task-2"
+        ),
+    )
     def test_human_mode_does_not_contain_full_task(self, tmp_path: Path) -> None:
         _init_and_prepare_for_implementation(tmp_path)
         # Add a todo first
@@ -222,8 +239,13 @@ class TestTodoDoneCompactOutput:
         assert '"task"' not in result.stdout
         assert "accepted_plan" not in result.stdout
 
-    # specweave: feature=specs/behavior/features/compact_mutation_output/compact-mutation-output.feature
-    # specweave: scenario=@bdd-compact-mutation-output-json-mode-compact-payload-2
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/compact_mutation_output/compact-mutation-"
+            "output.feature"
+        ),
+        scenario=("@bdd-compact-mutation-output-json-mode-compact-payload-2"),
+    )
     def test_json_mode_compact_payload(self, tmp_path: Path) -> None:
         _init_and_prepare_for_implementation(tmp_path)
         add_result = runner.invoke(
@@ -267,8 +289,15 @@ class TestTodoDoneCompactOutput:
 class TestImplementFinishCompactOutput:
     """implement finish must not dump full task/run JSON."""
 
-    # specweave: feature=specs/behavior/features/compact_mutation_output/compact-mutation-output.feature
-    # specweave: scenario=@bdd-compact-mutation-output-human-mode-does-not-contain-full-task-3
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/compact_mutation_output/compact-mutation-"
+            "output.feature"
+        ),
+        scenario=(
+            "@bdd-compact-mutation-output-human-mode-does-not-contain-full-task-3"
+        ),
+    )
     def test_human_mode_does_not_contain_full_task(self, tmp_path: Path) -> None:
         _init_and_prepare_for_implementation(tmp_path)
         result = runner.invoke(
@@ -286,8 +315,13 @@ class TestImplementFinishCompactOutput:
         assert '"task"' not in result.stdout
         assert "accepted_plan" not in result.stdout
 
-    # specweave: feature=specs/behavior/features/compact_mutation_output/compact-mutation-output.feature
-    # specweave: scenario=@bdd-compact-mutation-output-json-mode-compact-payload-3
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/compact_mutation_output/compact-mutation-"
+            "output.feature"
+        ),
+        scenario=("@bdd-compact-mutation-output-json-mode-compact-payload-3"),
+    )
     def test_json_mode_compact_payload(self, tmp_path: Path) -> None:
         _init_and_prepare_for_implementation(tmp_path)
         result = runner.invoke(
@@ -336,8 +370,15 @@ class TestStaticGuards:
                     f"cli_misc.py line {i + 1}: raw render_json with task payload"
                 )
 
-    # specweave: feature=specs/behavior/features/compact_mutation_output/compact-mutation-output.feature
-    # specweave: scenario=@bdd-compact-mutation-output-cli-implement-no-raw-render-json-payload
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/compact_mutation_output/compact-mutation-"
+            "output.feature"
+        ),
+        scenario=(
+            "@bdd-compact-mutation-output-cli-implement-no-raw-render-json-payload"
+        ),
+    )
     def test_cli_implement_no_raw_render_json_payload(self) -> None:
         """cli_implement.py should not call typer.echo(render_json(payload))."""
         content = (

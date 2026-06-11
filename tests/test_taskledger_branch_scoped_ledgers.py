@@ -1,8 +1,8 @@
-# ruff: noqa: E501
 from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from taskledger.cli import app
@@ -32,8 +32,16 @@ def _set_counter(tmp_path: Path, number: int, ref: str = "main") -> None:
     )
 
 
-# specweave: feature=specs/behavior/features/taskledger_branch_scoped_ledgers/taskledger-branch-scoped-ledgers.feature
-# specweave: scenario=@bdd-taskledger-branch-scoped-ledgers-two-ledgers-can-each-have-task-0030-and-hide-active-task
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/taskledger_branch_scoped_ledgers/taskledger-"
+        "branch-scoped-ledgers.feature"
+    ),
+    scenario=(
+        "@bdd-taskledger-branch-scoped-ledgers-two-ledgers-can-each-have-task-"
+        "0030-and-hide-active-task"
+    ),
+)
 def test_two_ledgers_can_each_have_task_0030_and_hide_active_task(
     tmp_path: Path,
 ) -> None:
@@ -68,8 +76,15 @@ def test_two_ledgers_can_each_have_task_0030_and_hide_active_task(
     ).is_dir()
 
 
-# specweave: feature=specs/behavior/features/taskledger_branch_scoped_ledgers/taskledger-branch-scoped-ledgers.feature
-# specweave: scenario=@bdd-taskledger-branch-scoped-ledgers-ledger-fork-switch-status-and-doctor
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/taskledger_branch_scoped_ledgers/taskledger-"
+        "branch-scoped-ledgers.feature"
+    ),
+    scenario=(
+        "@bdd-taskledger-branch-scoped-ledgers-ledger-fork-switch-status-and-doctor"
+    ),
+)
 def test_ledger_fork_switch_status_and_doctor(tmp_path: Path) -> None:
     assert _invoke(tmp_path, "init").exit_code == 0
 
@@ -94,8 +109,15 @@ def test_ledger_fork_switch_status_and_doctor(tmp_path: Path) -> None:
     assert "Healthy: yes" in result.stdout
 
 
-# specweave: feature=specs/behavior/features/taskledger_branch_scoped_ledgers/taskledger-branch-scoped-ledgers.feature
-# specweave: scenario=@bdd-taskledger-branch-scoped-ledgers-ledger-adopt-renumbers-on-collision
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/taskledger_branch_scoped_ledgers/taskledger-"
+        "branch-scoped-ledgers.feature"
+    ),
+    scenario=(
+        "@bdd-taskledger-branch-scoped-ledgers-ledger-adopt-renumbers-on-collision"
+    ),
+)
 def test_ledger_adopt_renumbers_on_collision(tmp_path: Path) -> None:
     assert _invoke(tmp_path, "init").exit_code == 0
     assert _invoke(tmp_path, "ledger", "fork", "feature-a").exit_code == 0
@@ -112,8 +134,15 @@ def test_ledger_adopt_renumbers_on_collision(tmp_path: Path) -> None:
     ).is_dir()
 
 
-# specweave: feature=specs/behavior/features/taskledger_branch_scoped_ledgers/taskledger-branch-scoped-ledgers.feature
-# specweave: scenario=@bdd-taskledger-branch-scoped-ledgers-doctor-reports-legacy-unscoped-state
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/taskledger_branch_scoped_ledgers/taskledger-"
+        "branch-scoped-ledgers.feature"
+    ),
+    scenario=(
+        "@bdd-taskledger-branch-scoped-ledgers-doctor-reports-legacy-unscoped-state"
+    ),
+)
 def test_doctor_reports_legacy_unscoped_state(tmp_path: Path) -> None:
     assert _invoke(tmp_path, "init").exit_code == 0
     legacy_tasks = tmp_path / ".taskledger" / "tasks"
@@ -124,8 +153,13 @@ def test_doctor_reports_legacy_unscoped_state(tmp_path: Path) -> None:
     assert "Legacy unscoped path exists" in result.stdout
 
 
-# specweave: feature=specs/behavior/features/taskledger_branch_scoped_ledgers/taskledger-branch-scoped-ledgers.feature
-# specweave: scenario=@bdd-taskledger-branch-scoped-ledgers-release-json-includes-ledger-ref
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/taskledger_branch_scoped_ledgers/taskledger-"
+        "branch-scoped-ledgers.feature"
+    ),
+    scenario=("@bdd-taskledger-branch-scoped-ledgers-release-json-includes-ledger-ref"),
+)
 def test_release_json_includes_ledger_ref(tmp_path: Path) -> None:
     assert _invoke(tmp_path, "init").exit_code == 0
     assert _invoke(tmp_path, "task", "create", "Release task").exit_code == 0

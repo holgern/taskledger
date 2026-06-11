@@ -1,10 +1,11 @@
-# ruff: noqa: E501
 """Tests for taskledger.services.doctor."""
 
 from __future__ import annotations
 
 import py_compile
 from pathlib import Path
+
+import pytest
 
 from taskledger.domain.handoff import TaskHandoffRecord
 from taskledger.domain.models import (
@@ -130,8 +131,8 @@ def test_inspect_project_with_active_task(tmp_path: Path) -> None:
     assert result["healthy"] is True
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-inspect-project-reports-malformed-handoff-record
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-inspect-project-reports-malformed-handoff-record
 def test_inspect_project_reports_malformed_handoff_record(tmp_path: Path) -> None:
     _setup_project(tmp_path)
     paths = ensure_v2_layout(tmp_path)
@@ -148,8 +149,8 @@ def test_inspect_project_reports_malformed_handoff_record(tmp_path: Path) -> Non
     assert any("handoff-0001.md" in error for error in result["errors"])
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-inspect-project-warns-for-unsupported-legacy-sidecar
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-inspect-project-warns-for-unsupported-legacy-sidecar
 def test_inspect_project_warns_for_unsupported_legacy_sidecar(tmp_path: Path) -> None:
     _setup_project(tmp_path)
     paths = ensure_v2_layout(tmp_path)
@@ -167,8 +168,8 @@ def test_inspect_project_warns_for_unsupported_legacy_sidecar(tmp_path: Path) ->
     assert any("one-off migration script" in hint for hint in result["repair_hints"])
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-inspect-project-active-task-missing
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-inspect-project-active-task-missing
 def test_inspect_project_active_task_missing(tmp_path: Path) -> None:
     ensure_v2_layout(tmp_path)
     save_active_task_state(
@@ -179,8 +180,8 @@ def test_inspect_project_active_task_missing(tmp_path: Path) -> None:
     assert any("missing task task-9999" in e for e in result["errors"])
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-inspect-project-active-task-done-warns
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-inspect-project-active-task-done-warns
 def test_inspect_project_active_task_done_warns(tmp_path: Path) -> None:
     task = _task(status_stage="done")
     save_task(tmp_path, task)
@@ -191,8 +192,8 @@ def test_inspect_project_active_task_done_warns(tmp_path: Path) -> None:
     assert any("done" in w for w in result["warnings"])
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-inspect-broken-introduction-ref
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-inspect-broken-introduction-ref
 def test_inspect_broken_introduction_ref(tmp_path: Path) -> None:
     task = _task(introduction_ref="intro-9999")
     save_task(tmp_path, task)
@@ -200,8 +201,8 @@ def test_inspect_broken_introduction_ref(tmp_path: Path) -> None:
     assert any("broken references" in str(e) for e in result["errors"])
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-inspect-broken-requirement-ref
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-inspect-broken-requirement-ref
 def test_inspect_broken_requirement_ref(tmp_path: Path) -> None:
     task = _task()
     save_task(tmp_path, task)
@@ -218,8 +219,8 @@ def test_inspect_broken_requirement_ref(tmp_path: Path) -> None:
     assert any("broken references" in str(e) for e in result["errors"])
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-inspect-accepted-plan-version-missing
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-inspect-accepted-plan-version-missing
 def test_inspect_accepted_plan_version_missing(tmp_path: Path) -> None:
     task = _task(accepted_plan_version=3)
     save_task(tmp_path, task)
@@ -227,8 +228,8 @@ def test_inspect_accepted_plan_version_missing(tmp_path: Path) -> None:
     assert any("missing accepted plan" in e for e in result["errors"])
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-inspect-multiple-accepted-plans
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-inspect-multiple-accepted-plans
 def test_inspect_multiple_accepted_plans(tmp_path: Path) -> None:
     task = _task(accepted_plan_version=1)
     save_task(tmp_path, task)
@@ -258,8 +259,8 @@ def test_inspect_multiple_accepted_plans(tmp_path: Path) -> None:
     assert any("multiple accepted plans" in e for e in result["errors"])
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-inspect-accepted-plan-version-points-to-wrong-plan
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-inspect-accepted-plan-version-points-to-wrong-plan
 def test_inspect_accepted_plan_version_points_to_wrong_plan(tmp_path: Path) -> None:
     task = _task(accepted_plan_version=2)
     save_task(tmp_path, task)
@@ -292,8 +293,8 @@ def test_inspect_duplicate_todo_ids(tmp_path: Path) -> None:
     assert not any("duplicate todo" in e for e in result["errors"])
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-doctor-warns-for-worker-refs-without-enabled-pipeline
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-doctor-warns-for-worker-refs-without-enabled-pipeline
 def test_doctor_warns_for_worker_refs_without_enabled_pipeline(tmp_path: Path) -> None:
     _setup_project(tmp_path)
     save_todos(
@@ -331,8 +332,8 @@ def test_doctor_warns_for_worker_refs_without_enabled_pipeline(tmp_path: Path) -
     } >= {"todo.stale_worker_step", "handoff.stale_worker_step"}
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-doctor-warns-for-worker-refs-missing-from-pipeline
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-doctor-warns-for-worker-refs-missing-from-pipeline
 def test_doctor_warns_for_worker_refs_missing_from_pipeline(tmp_path: Path) -> None:
     _setup_project(tmp_path)
     _append_pipeline_config(
@@ -368,8 +369,8 @@ def test_doctor_warns_for_worker_refs_missing_from_pipeline(tmp_path: Path) -> N
     )
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-inspect-transient-stage-in-status
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-inspect-transient-stage-in-status
 def test_inspect_transient_stage_in_status(tmp_path: Path) -> None:
     task = _task(status_stage="planning")
     save_task(tmp_path, task)
@@ -377,8 +378,8 @@ def test_inspect_transient_stage_in_status(tmp_path: Path) -> None:
     assert any("persists transient stage" in e for e in result["errors"])
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-inspect-multiple-running-runs
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-inspect-multiple-running-runs
 def test_inspect_multiple_running_runs(tmp_path: Path) -> None:
     task = _task()
     save_task(tmp_path, task)
@@ -388,8 +389,8 @@ def test_inspect_multiple_running_runs(tmp_path: Path) -> None:
     assert any("multiple running runs" in e for e in result["errors"])
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-inspect-running-run-without-matching-lock
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-inspect-running-run-without-matching-lock
 def test_inspect_running_run_without_matching_lock(tmp_path: Path) -> None:
     task = _task()
     save_task(tmp_path, task)
@@ -426,8 +427,13 @@ def test_doctor_locks_reports_run_lock_mismatch(tmp_path: Path) -> None:
     assert result["run_lock_mismatches"][0]["run_id"] == "run-0001"
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-doctor-reports-missing-lock-for-running-implementation-with-recovery-hint
+@pytest.mark.specweave(
+    feature=("specs/behavior/features/doctor/doctor.feature"),
+    scenario=(
+        "@bdd-doctor-doctor-reports-missing-lock-for-running-implementation-"
+        "with-recovery-hint"
+    ),
+)
 def test_doctor_reports_missing_lock_for_running_implementation_with_recovery_hint(
     tmp_path: Path,
 ) -> None:
@@ -466,8 +472,8 @@ def test_doctor_reports_missing_lock_for_running_implementation_with_recovery_hi
     assert mismatch["next_command"] != "taskledger doctor"
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-inspect-lock-without-running-run
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-inspect-lock-without-running-run
 def test_inspect_lock_without_running_run(tmp_path: Path) -> None:
     task = _task()
     save_task(tmp_path, task)
@@ -480,8 +486,8 @@ def test_inspect_lock_without_running_run(tmp_path: Path) -> None:
     assert any("without a running run" in e for e in result["errors"])
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-inspect-change-references-missing-run
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-inspect-change-references-missing-run
 def test_inspect_change_references_missing_run(tmp_path: Path) -> None:
     task = _task()
     save_task(tmp_path, task)
@@ -501,8 +507,8 @@ def test_inspect_change_references_missing_run(tmp_path: Path) -> None:
     assert any("references missing" in e for e in result["errors"])
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-inspect-change-references-non-implementation-run
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-inspect-change-references-non-implementation-run
 def test_inspect_change_references_non_implementation_run(tmp_path: Path) -> None:
     task = _task()
     save_task(tmp_path, task)
@@ -524,8 +530,8 @@ def test_inspect_change_references_non_implementation_run(tmp_path: Path) -> Non
     assert any("non-implementation run" in e for e in result["errors"])
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-inspect-validation-run-references-missing-impl
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-inspect-validation-run-references-missing-impl
 def test_inspect_validation_run_references_missing_impl(tmp_path: Path) -> None:
     task = _task()
     save_task(tmp_path, task)
@@ -543,8 +549,8 @@ def test_inspect_validation_run_references_missing_impl(tmp_path: Path) -> None:
     assert any("references missing" in e for e in result["errors"])
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-inspect-validation-run-references-non-impl-run
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-inspect-validation-run-references-non-impl-run
 def test_inspect_validation_run_references_non_impl_run(tmp_path: Path) -> None:
     task = _task()
     save_task(tmp_path, task)
@@ -564,8 +570,8 @@ def test_inspect_validation_run_references_non_impl_run(tmp_path: Path) -> None:
     assert any("non-implementation run" in e for e in result["errors"])
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-inspect-lock-references-missing-task
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-inspect-lock-references-missing-task
 def test_inspect_lock_references_missing_task(tmp_path: Path) -> None:
     paths = ensure_v2_layout(tmp_path)
     from taskledger.storage.task_store import task_lock_path
@@ -576,8 +582,8 @@ def test_inspect_lock_references_missing_task(tmp_path: Path) -> None:
     assert any("missing task" in e for e in result["errors"])
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-inspect-lock-references-non-running-run
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-inspect-lock-references-non-running-run
 def test_inspect_lock_references_non_running_run(tmp_path: Path) -> None:
     task = _task()
     save_task(tmp_path, task)
@@ -592,8 +598,8 @@ def test_inspect_lock_references_non_running_run(tmp_path: Path) -> None:
     assert any("non-running run" in e for e in result["errors"])
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-inspect-lock-stage-run-type-mismatch
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-inspect-lock-stage-run-type-mismatch
 def test_inspect_lock_stage_run_type_mismatch(tmp_path: Path) -> None:
     task = _task()
     save_task(tmp_path, task)
@@ -608,8 +614,8 @@ def test_inspect_lock_stage_run_type_mismatch(tmp_path: Path) -> None:
     assert any("does not match" in e for e in result["errors"])
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-inspect-expired-lock
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-inspect-expired-lock
 def test_inspect_expired_lock(tmp_path: Path) -> None:
     task = _task()
     save_task(tmp_path, task)
@@ -628,8 +634,8 @@ def test_inspect_expired_lock(tmp_path: Path) -> None:
     assert any("Expired" in w for w in result["warnings"])
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-inspect-lock-references-missing-run
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-inspect-lock-references-missing-run
 def test_inspect_lock_references_missing_run(tmp_path: Path) -> None:
     task = _task()
     save_task(tmp_path, task)
@@ -711,8 +717,8 @@ def test_inspect_counts_include_plans_and_questions(tmp_path: Path) -> None:
     assert counts["runs"] == 1
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-doctor-warns-about-empty-orphan-slug-dir
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-doctor-warns-about-empty-orphan-slug-dir
 def test_doctor_warns_about_empty_orphan_slug_dir(tmp_path: Path) -> None:
     task = _task(slug="my-feature")
     save_task(tmp_path, task)
@@ -726,8 +732,8 @@ def test_doctor_warns_about_empty_orphan_slug_dir(tmp_path: Path) -> None:
     assert any("repair task-dirs" in h for h in result["repair_hints"])
 
 
-# specweave: feature=specs/behavior/features/doctor/doctor.feature
-# specweave: scenario=@bdd-doctor-doctor-warns-about-non-empty-legacy-sidecar
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-doctor-warns-about-non-empty-legacy-sidecar
 def test_doctor_warns_about_non_empty_legacy_sidecar(tmp_path: Path) -> None:
     task = _task(slug="my-feature")
     save_task(tmp_path, task)

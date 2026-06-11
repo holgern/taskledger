@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 from __future__ import annotations
 
 from typing import Any
@@ -70,8 +69,8 @@ def test_inventory_marks_core_and_repair_commands() -> None:
     assert COMMAND_METADATA["doctor"].audience == REPAIR
 
 
-# specweave: feature=specs/behavior/features/command_inventory/command-inventory.feature
-# specweave: scenario=@bdd-command-inventory-plan-review-is-classified-read-only
+# sw: f=specs/behavior/features/command_inventory/command-inventory.feature
+# sw: s=@bdd-command-inventory-plan-review-is-classified-read-only
 def test_plan_review_is_classified_read_only() -> None:
     spec = COMMAND_METADATA["plan review"]
     assert spec.effect == "safe_read_only"
@@ -168,8 +167,8 @@ def test_critical_tier_is_primary_surface() -> None:
     assert non_primary == [], f"Non-primary critical commands: {non_primary}"
 
 
-# specweave: feature=specs/behavior/features/command_inventory/command-inventory.feature
-# specweave: scenario=@bdd-command-inventory-lock-break-is-deprecated
+# sw: f=specs/behavior/features/command_inventory/command-inventory.feature
+# sw: s=@bdd-command-inventory-lock-break-is-deprecated
 def test_lock_break_is_deprecated() -> None:
     spec = COMMAND_METADATA["lock break"]
     assert spec.deprecated is True
@@ -186,8 +185,8 @@ def test_no_other_deprecated_commands() -> None:
     ]
 
 
-# specweave: feature=specs/behavior/features/command_inventory/command-inventory.feature
-# specweave: scenario=@bdd-command-inventory-process-exec-commands
+# sw: f=specs/behavior/features/command_inventory/command-inventory.feature
+# sw: s=@bdd-command-inventory-process-exec-commands
 def test_process_exec_commands() -> None:
     """Commands that execute subprocesses must have process_exec."""
     process_cmds = [
@@ -207,8 +206,8 @@ def test_monitor_and_file_commands_have_expected_metadata() -> None:
     assert COMMAND_METADATA["file refresh"].targeting == TARGETING_EXPLICIT_REQUIRED
 
 
-# specweave: feature=specs/behavior/features/command_inventory/command-inventory.feature
-# specweave: scenario=@bdd-command-inventory-file-write-commands
+# sw: f=specs/behavior/features/command_inventory/command-inventory.feature
+# sw: s=@bdd-command-inventory-file-write-commands
 def test_file_write_commands() -> None:
     """Export, snapshot, release changelog write external files."""
     file_write_cmds = [
@@ -238,8 +237,8 @@ def test_repair_commands_are_rare() -> None:
     assert non_rare == [], f"Repair commands not rare: {non_rare}"
 
 
-# specweave: feature=specs/behavior/features/command_inventory/command-inventory.feature
-# specweave: scenario=@bdd-command-inventory-advanced-operations-are-not-in-agent-golden-path
+# sw: f=specs/behavior/features/command_inventory/command-inventory.feature
+# sw: s=@bdd-command-inventory-advanced-operations-are-not-in-agent-golden-path
 def test_advanced_operations_are_not_in_agent_golden_path() -> None:
     advanced_normal_work_exclusions = {
         "release tag",
@@ -314,8 +313,8 @@ def test_read_only_commands_have_read_or_none_ledger_effect() -> None:
     assert mismatches == [], f"Bad read-only ledger_effect: {mismatches}"
 
 
-# specweave: feature=specs/behavior/features/command_inventory/command-inventory.feature
-# specweave: scenario=@bdd-command-inventory-deprecated-hidden-by-default-in-commands-cli
+# sw: f=specs/behavior/features/command_inventory/command-inventory.feature
+# sw: s=@bdd-command-inventory-deprecated-hidden-by-default-in-commands-cli
 def test_deprecated_hidden_by_default_in_commands_cli() -> None:
     """taskledger commands should not show lock break."""
     from typer.testing import CliRunner
@@ -347,8 +346,8 @@ def test_sync_git_command_metadata_matches_revised_surface() -> None:
     assert COMMAND_METADATA["sync git sync"].deprecated is True
 
 
-# specweave: feature=specs/behavior/features/command_inventory/command-inventory.feature
-# specweave: scenario=@bdd-command-inventory-tier-filter-in-commands-cli
+# sw: f=specs/behavior/features/command_inventory/command-inventory.feature
+# sw: s=@bdd-command-inventory-tier-filter-in-commands-cli
 def test_tier_filter_in_commands_cli() -> None:
     """taskledger commands --tier critical returns only critical commands."""
     from typer.testing import CliRunner
@@ -367,8 +366,8 @@ def test_tier_filter_in_commands_cli() -> None:
     assert len(data_lines) == len(critical_names)
 
 
-# specweave: feature=specs/behavior/features/command_inventory/command-inventory.feature
-# specweave: scenario=@bdd-command-inventory-commands-json-includes-new-fields
+# sw: f=specs/behavior/features/command_inventory/command-inventory.feature
+# sw: s=@bdd-command-inventory-commands-json-includes-new-fields
 def test_commands_json_includes_new_fields() -> None:
     """taskledger --json commands should include all new metadata fields."""
     import json

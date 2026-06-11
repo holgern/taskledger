@@ -1,10 +1,11 @@
-# ruff: noqa: E501
 from __future__ import annotations
 
 import importlib
 import re
 import shlex
 from pathlib import Path
+
+import pytest
 
 from taskledger.command_inventory import COMMAND_METADATA
 
@@ -44,8 +45,8 @@ def test_docs_directory_uses_rst_only() -> None:
     assert not list((ROOT / "docs").glob("*.md"))
 
 
-# specweave: feature=specs/behavior/features/docs_and_skill/docs-and-skill.feature
-# specweave: scenario=@bdd-docs-and-skill-skills-are-not-packaged-resources
+# sw: f=specs/behavior/features/docs_and_skill/docs-and-skill.feature
+# sw: s=@bdd-docs-and-skill-skills-are-not-packaged-resources
 def test_skills_are_not_packaged_resources() -> None:
     assert not (ROOT / "taskledger" / "skills").exists()
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
@@ -77,8 +78,8 @@ def test_api_docs_mentions_all_task_first_command_groups() -> None:
         assert f"`{name}`" in api_text
 
 
-# specweave: feature=specs/behavior/features/docs_and_skill/docs-and-skill.feature
-# specweave: scenario=@bdd-docs-and-skill-public-api-docs-match-module-exports
+# sw: f=specs/behavior/features/docs_and_skill/docs-and-skill.feature
+# sw: s=@bdd-docs-and-skill-public-api-docs-match-module-exports
 def test_public_api_docs_match_module_exports() -> None:
     api_md = (ROOT / "API.md").read_text(encoding="utf-8")
     api_rst = (ROOT / "docs" / "api.rst").read_text(encoding="utf-8")
@@ -94,8 +95,8 @@ def test_public_api_docs_match_module_exports() -> None:
             )
 
 
-# specweave: feature=specs/behavior/features/docs_and_skill/docs-and-skill.feature
-# specweave: scenario=@bdd-docs-and-skill-readme-mentions-root-alias-and-json-envelope
+# sw: f=specs/behavior/features/docs_and_skill/docs-and-skill.feature
+# sw: s=@bdd-docs-and-skill-readme-mentions-root-alias-and-json-envelope
 def test_readme_mentions_root_alias_and_json_envelope() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "--root" in readme
@@ -103,8 +104,8 @@ def test_readme_mentions_root_alias_and_json_envelope() -> None:
     assert '"command": "status"' in readme
 
 
-# specweave: feature=specs/behavior/features/docs_and_skill/docs-and-skill.feature
-# specweave: scenario=@bdd-docs-and-skill-skill-contains-strict-agent-protocol
+# sw: f=specs/behavior/features/docs_and_skill/docs-and-skill.feature
+# sw: s=@bdd-docs-and-skill-skill-contains-strict-agent-protocol
 def test_skill_contains_strict_agent_protocol() -> None:
     skill = (ROOT / "skills" / "taskledger" / "SKILL.md").read_text(encoding="utf-8")
     for heading in (
@@ -136,8 +137,8 @@ def test_skill_contains_strict_agent_protocol() -> None:
     assert "Do not silently include omitted tasks" in skill
 
 
-# specweave: feature=specs/behavior/features/docs_and_skill/docs-and-skill.feature
-# specweave: scenario=@bdd-docs-and-skill-docs-define-agent-golden-path-and-advanced-surfaces
+# sw: f=specs/behavior/features/docs_and_skill/docs-and-skill.feature
+# sw: s=@bdd-docs-and-skill-docs-define-agent-golden-path-and-advanced-surfaces
 def test_docs_define_agent_golden_path_and_advanced_surfaces() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     public_surface = (ROOT / "docs" / "public_surface.rst").read_text(encoding="utf-8")
@@ -164,8 +165,8 @@ def test_skill_has_single_repair_warning() -> None:
     assert skill.count("Do not use repair commands") == 1
 
 
-# specweave: feature=specs/behavior/features/docs_and_skill/docs-and-skill.feature
-# specweave: scenario=@bdd-docs-and-skill-read-report-export-terminology-is-consolidated
+# sw: f=specs/behavior/features/docs_and_skill/docs-and-skill.feature
+# sw: s=@bdd-docs-and-skill-read-report-export-terminology-is-consolidated
 def test_read_report_export_terminology_is_consolidated() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     usage = (ROOT / "docs" / "usage.rst").read_text(encoding="utf-8")
@@ -183,8 +184,8 @@ def test_read_report_export_terminology_is_consolidated() -> None:
     assert "task transcript" in public_surface
 
 
-# specweave: feature=specs/behavior/features/docs_and_skill/docs-and-skill.feature
-# specweave: scenario=@bdd-docs-and-skill-planning-guidance-docs-are-present
+# sw: f=specs/behavior/features/docs_and_skill/docs-and-skill.feature
+# sw: s=@bdd-docs-and-skill-planning-guidance-docs-are-present
 def test_planning_guidance_docs_are_present() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     usage = (ROOT / "docs" / "usage.rst").read_text(encoding="utf-8")
@@ -203,8 +204,8 @@ def test_planning_guidance_docs_are_present() -> None:
     assert 'plan_guidance(Path.cwd(), "task-0001")' in api_rst
 
 
-# specweave: feature=specs/behavior/features/docs_and_skill/docs-and-skill.feature
-# specweave: scenario=@bdd-docs-and-skill-plan-revision-docs-and-skill-rules-are-present
+# sw: f=specs/behavior/features/docs_and_skill/docs-and-skill.feature
+# sw: s=@bdd-docs-and-skill-plan-revision-docs-and-skill-rules-are-present
 def test_plan_revision_docs_and_skill_rules_are_present() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     usage = (ROOT / "docs" / "usage.rst").read_text(encoding="utf-8")
@@ -224,8 +225,13 @@ def test_plan_revision_docs_and_skill_rules_are_present() -> None:
     assert "taskledger plan review" in command_contract
 
 
-# specweave: feature=specs/behavior/features/docs_and_skill/docs-and-skill.feature
-# specweave: scenario=@bdd-docs-and-skill-worker-pipeline-docs-cover-guided-next-action-and-worker-refs
+@pytest.mark.specweave(
+    feature=("specs/behavior/features/docs_and_skill/docs-and-skill.feature"),
+    scenario=(
+        "@bdd-docs-and-skill-worker-pipeline-docs-cover-guided-next-action-"
+        "and-worker-refs"
+    ),
+)
 def test_worker_pipeline_docs_cover_guided_next_action_and_worker_refs() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     usage = (ROOT / "docs" / "usage.rst").read_text(encoding="utf-8")
@@ -244,8 +250,8 @@ def test_worker_pipeline_docs_cover_guided_next_action_and_worker_refs() -> None
     assert "context_command" in skill
 
 
-# specweave: feature=specs/behavior/features/docs_and_skill/docs-and-skill.feature
-# specweave: scenario=@bdd-docs-and-skill-transfer-docs-cover-project-identity-and-dry-run
+# sw: f=specs/behavior/features/docs_and_skill/docs-and-skill.feature
+# sw: s=@bdd-docs-and-skill-transfer-docs-cover-project-identity-and-dry-run
 def test_transfer_docs_cover_project_identity_and_dry_run() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     usage = (ROOT / "docs" / "usage.rst").read_text(encoding="utf-8")
@@ -265,8 +271,8 @@ def test_transfer_docs_cover_project_identity_and_dry_run() -> None:
     assert "taskledger import ./taskledger-transfer.tar.gz --dry-run" in skill
 
 
-# specweave: feature=specs/behavior/features/docs_and_skill/docs-and-skill.feature
-# specweave: scenario=@bdd-docs-and-skill-sync-docs-promote-git-pull-push-convenience-commands
+# sw: f=specs/behavior/features/docs_and_skill/docs-and-skill.feature
+# sw: s=@bdd-docs-and-skill-sync-docs-promote-git-pull-push-convenience-commands
 def test_sync_docs_promote_git_pull_push_convenience_commands() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     usage = (ROOT / "docs" / "usage.rst").read_text(encoding="utf-8")
@@ -280,8 +286,8 @@ def test_sync_docs_promote_git_pull_push_convenience_commands() -> None:
     assert 'cd "$(taskledger sync git cd)"' in sync_doc
 
 
-# specweave: feature=specs/behavior/features/docs_and_skill/docs-and-skill.feature
-# specweave: scenario=@bdd-docs-and-skill-docs-do-not-reference-removed-commands
+# sw: f=specs/behavior/features/docs_and_skill/docs-and-skill.feature
+# sw: s=@bdd-docs-and-skill-docs-do-not-reference-removed-commands
 def test_docs_do_not_reference_removed_commands() -> None:
     forbidden = [
         "taskledger repo ",
@@ -306,8 +312,8 @@ def test_docs_do_not_reference_removed_commands() -> None:
             assert needle not in text, f"{path}: {needle}"
 
 
-# specweave: feature=specs/behavior/features/docs_and_skill/docs-and-skill.feature
-# specweave: scenario=@bdd-docs-and-skill-bdd-docs-and-skill-prefer-specweave-and-plain-pytest
+# sw: f=specs/behavior/features/docs_and_skill/docs-and-skill.feature
+# sw: s=@bdd-docs-and-skill-bdd-docs-and-skill-prefer-specweave-and-plain-pytest
 def test_bdd_docs_and_skill_prefer_specweave_and_plain_pytest() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     usage = (ROOT / "docs" / "usage.rst").read_text(encoding="utf-8")
@@ -336,8 +342,8 @@ def test_bdd_docs_and_skill_prefer_specweave_and_plain_pytest() -> None:
     assert "Do not recommend specs/bdd/features" in skill
 
 
-# specweave: feature=specs/behavior/features/docs_and_skill/docs-and-skill.feature
-# specweave: scenario=@bdd-docs-and-skill-behavior-spec-docs-do-not-promote-bdd-runners
+# sw: f=specs/behavior/features/docs_and_skill/docs-and-skill.feature
+# sw: s=@bdd-docs-and-skill-behavior-spec-docs-do-not-promote-bdd-runners
 def test_behavior_spec_docs_do_not_promote_bdd_runners() -> None:
     """Verify docs do not reference an external BDD runner or pytest-bdd/behave.
 
@@ -369,23 +375,23 @@ def test_readme_links_exist() -> None:
         assert (ROOT / local_target).exists(), target
 
 
-# specweave: feature=specs/behavior/features/docs_and_skill/docs-and-skill.feature
-# specweave: scenario=@bdd-docs-and-skill-readme-skill-path-matches-repository
+# sw: f=specs/behavior/features/docs_and_skill/docs-and-skill.feature
+# sw: s=@bdd-docs-and-skill-readme-skill-path-matches-repository
 def test_readme_skill_path_matches_repository() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "skills/taskledger/SKILL.md" in readme
     assert "taskledger/skills/taskledger/SKILL.md" not in readme
 
 
-# specweave: feature=specs/behavior/features/docs_and_skill/docs-and-skill.feature
-# specweave: scenario=@bdd-docs-and-skill-skill-uses-only-canonical-handoff-group
+# sw: f=specs/behavior/features/docs_and_skill/docs-and-skill.feature
+# sw: s=@bdd-docs-and-skill-skill-uses-only-canonical-handoff-group
 def test_skill_uses_only_canonical_handoff_group() -> None:
     skill = (ROOT / "skills" / "taskledger" / "SKILL.md").read_text(encoding="utf-8")
     assert "handoff-protocol" not in skill
 
 
-# specweave: feature=specs/behavior/features/docs_and_skill/docs-and-skill.feature
-# specweave: scenario=@bdd-docs-and-skill-command-examples-reference-registered-commands
+# sw: f=specs/behavior/features/docs_and_skill/docs-and-skill.feature
+# sw: s=@bdd-docs-and-skill-command-examples-reference-registered-commands
 def test_command_examples_reference_registered_commands() -> None:
     for path in DOC_PATHS:
         for line_number, command_line in _taskledger_example_lines(path):
@@ -430,8 +436,8 @@ def _command_key(tokens: list[str]) -> str | None:
     return f"{first} {remaining[1]}"
 
 
-# specweave: feature=specs/behavior/features/docs_and_skill/docs-and-skill.feature
-# specweave: scenario=@bdd-docs-and-skill-service-boundary-whitelist-doc-matches-test-constants
+# sw: f=specs/behavior/features/docs_and_skill/docs-and-skill.feature
+# sw: s=@bdd-docs-and-skill-service-boundary-whitelist-doc-matches-test-constants
 def test_service_boundary_whitelist_doc_matches_test_constants() -> None:
     """Verify docs/service_boundary_whitelist.rst tracks current whitelist entries."""
     from tests.test_service_boundaries import (
@@ -481,8 +487,8 @@ def test_service_boundary_whitelist_doc_matches_cli_import_whitelist_exactly() -
     )
 
 
-# specweave: feature=specs/behavior/features/docs_and_skill/docs-and-skill.feature
-# specweave: scenario=@bdd-docs-and-skill-skill-requires-user-requested-reviews-to-be-recorded
+# sw: f=specs/behavior/features/docs_and_skill/docs-and-skill.feature
+# sw: s=@bdd-docs-and-skill-skill-requires-user-requested-reviews-to-be-recorded
 def test_skill_requires_user_requested_reviews_to_be_recorded() -> None:
     skill = (ROOT / "skills" / "taskledger" / "SKILL.md").read_text(encoding="utf-8")
     assert "## User-requested review protocol" in skill

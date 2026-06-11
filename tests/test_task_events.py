@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -66,8 +65,8 @@ def _create_and_activate_task(tmp_path: Path, slug: str = "test-task") -> None:
     )
 
 
-# specweave: feature=specs/behavior/features/task_events/events.feature
-# specweave: scenario=@bdd-task-events-task-events-human-output
+# sw: f=specs/behavior/features/task_events/events.feature
+# sw: s=@bdd-task-events-task-events-human-output
 def test_task_events_human_output(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _enable_event_logging(tmp_path)
@@ -82,8 +81,8 @@ def test_task_events_human_output(tmp_path: Path) -> None:
     assert "task.created" in result.output
 
 
-# specweave: feature=specs/behavior/features/task_events/events.feature
-# specweave: scenario=@bdd-task-events-task-events-json-output
+# sw: f=specs/behavior/features/task_events/events.feature
+# sw: s=@bdd-task-events-task-events-json-output
 def test_task_events_json_output(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _enable_event_logging(tmp_path)
@@ -104,8 +103,8 @@ def test_task_events_json_output(tmp_path: Path) -> None:
     assert "actor" in event
 
 
-# specweave: feature=specs/behavior/features/task_events/events.feature
-# specweave: scenario=@bdd-task-events-task-events-all
+# sw: f=specs/behavior/features/task_events/events.feature
+# sw: s=@bdd-task-events-task-events-all
 def test_task_events_all(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _enable_event_logging(tmp_path)
@@ -120,8 +119,8 @@ def test_task_events_all(tmp_path: Path) -> None:
     assert "task.created" in result.output
 
 
-# specweave: feature=specs/behavior/features/task_events/events.feature
-# specweave: scenario=@bdd-task-events-task-events-limit
+# sw: f=specs/behavior/features/task_events/events.feature
+# sw: s=@bdd-task-events-task-events-limit
 def test_task_events_limit(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _enable_event_logging(tmp_path)
@@ -142,8 +141,8 @@ def test_task_events_limit(tmp_path: Path) -> None:
     assert len(lines) <= 1
 
 
-# specweave: feature=specs/behavior/features/task_events/events.feature
-# specweave: scenario=@bdd-task-events-task-events-empty
+# sw: f=specs/behavior/features/task_events/events.feature
+# sw: s=@bdd-task-events-task-events-empty
 def test_task_events_empty(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _create_and_activate_task(tmp_path)
@@ -157,8 +156,8 @@ def test_task_events_empty(tmp_path: Path) -> None:
     assert result.exit_code != 0
 
 
-# specweave: feature=specs/behavior/features/task_events/events.feature
-# specweave: scenario=@bdd-task-events-task-events-with-explicit-task-ref
+# sw: f=specs/behavior/features/task_events/events.feature
+# sw: s=@bdd-task-events-task-events-with-explicit-task-ref
 def test_task_events_with_explicit_task_ref(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _enable_event_logging(tmp_path)

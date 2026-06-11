@@ -71,8 +71,6 @@ Current sanctioned imports:
   emits recorder task/payload/error notes.
 * ``taskledger/cli_common.py:taskledger.services.actors`` — CLI common
   resolves actor/harness context for event metadata.
-* ``taskledger/cli_implement.py:taskledger.services.actors`` — Implementation
-  commands resolve actor/harness context.
 * ``taskledger/cli_implement.py:taskledger.services.agent_logging`` —
   Implement command wrapper records managed-shell command failures.
 * ``taskledger/cli_misc.py:taskledger.services.doctor`` — Doctor commands

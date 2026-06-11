@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -95,8 +94,8 @@ def test_trace_includes_bdd_mapping_validation_evidence_and_archledger_refs(
     assert payload["gaps"] == []
 
 
-# specweave: feature=specs/behavior/features/trace/trace.feature
-# specweave: scenario=@bdd-trace-trace-cli-format-json-is-raw-json
+# sw: f=specs/behavior/features/trace/trace.feature
+# sw: s=@bdd-trace-trace-cli-format-json-is-raw-json
 def test_trace_cli_format_json_is_raw_json(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     init_workspace(tmp_path)

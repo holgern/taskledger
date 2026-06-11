@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Tests for taskledger.services.dashboard."""
 
 from __future__ import annotations
@@ -98,8 +97,8 @@ def test_dashboard_questions_counts(tmp_path: Path) -> None:
     assert result["questions"]["open"] == 0
 
 
-# specweave: feature=specs/behavior/features/services_dashboard/services-dashboard.feature
-# specweave: scenario=@bdd-services-dashboard-dashboard-next-action
+# sw: f=specs/behavior/features/services_dashboard/services-dashboard.feature
+# sw: s=@bdd-services-dashboard-dashboard-next-action
 def test_dashboard_next_action(tmp_path: Path) -> None:
     _create_task_and_activate(tmp_path)
     result = dashboard(tmp_path)
@@ -111,8 +110,8 @@ def test_dashboard_next_action(tmp_path: Path) -> None:
 # -- render_dashboard_text tests --
 
 
-# specweave: feature=specs/behavior/features/services_dashboard/services-dashboard.feature
-# specweave: scenario=@bdd-services-dashboard-render-dashboard-text-basic
+# sw: f=specs/behavior/features/services_dashboard/services-dashboard.feature
+# sw: s=@bdd-services-dashboard-render-dashboard-text-basic
 def test_render_dashboard_text_basic() -> None:
     payload = {
         "task": {
@@ -146,8 +145,8 @@ def test_render_dashboard_text_basic() -> None:
     assert "Lock: none" in text
 
 
-# specweave: feature=specs/behavior/features/services_dashboard/services-dashboard.feature
-# specweave: scenario=@bdd-services-dashboard-render-dashboard-text-with-plan
+# sw: f=specs/behavior/features/services_dashboard/services-dashboard.feature
+# sw: s=@bdd-services-dashboard-render-dashboard-text-with-plan
 def test_render_dashboard_text_with_plan() -> None:
     payload = {
         "task": {
@@ -202,8 +201,8 @@ def test_render_dashboard_text_with_plan() -> None:
     assert "Files: 3 linked" in text
 
 
-# specweave: feature=specs/behavior/features/services_dashboard/services-dashboard.feature
-# specweave: scenario=@bdd-services-dashboard-render-dashboard-text-with-next-action
+# sw: f=specs/behavior/features/services_dashboard/services-dashboard.feature
+# sw: s=@bdd-services-dashboard-render-dashboard-text-with-next-action
 def test_render_dashboard_text_with_next_action() -> None:
     payload = {
         "task": {
@@ -262,8 +261,8 @@ def test_render_dashboard_text_with_next_action() -> None:
     assert "blocker: Missing requirement X" in text
 
 
-# specweave: feature=specs/behavior/features/services_dashboard/services-dashboard.feature
-# specweave: scenario=@bdd-services-dashboard-render-dashboard-text-with-runs
+# sw: f=specs/behavior/features/services_dashboard/services-dashboard.feature
+# sw: s=@bdd-services-dashboard-render-dashboard-text-with-runs
 def test_render_dashboard_text_with_runs() -> None:
     payload = {
         "task": {
@@ -305,8 +304,8 @@ def test_render_dashboard_text_with_runs() -> None:
     assert "[passed]" in text
 
 
-# specweave: feature=specs/behavior/features/services_dashboard/services-dashboard.feature
-# specweave: scenario=@bdd-services-dashboard-render-dashboard-text-with-changes
+# sw: f=specs/behavior/features/services_dashboard/services-dashboard.feature
+# sw: s=@bdd-services-dashboard-render-dashboard-text-with-changes
 def test_render_dashboard_text_with_changes() -> None:
     payload = {
         "task": {
@@ -345,8 +344,8 @@ def test_render_dashboard_text_with_changes() -> None:
     assert "Fixed bug" in text
 
 
-# specweave: feature=specs/behavior/features/services_dashboard/services-dashboard.feature
-# specweave: scenario=@bdd-services-dashboard-render-dashboard-text-with-lock
+# sw: f=specs/behavior/features/services_dashboard/services-dashboard.feature
+# sw: s=@bdd-services-dashboard-render-dashboard-text-with-lock
 def test_render_dashboard_text_with_lock() -> None:
     payload = {
         "task": {
@@ -378,8 +377,8 @@ def test_render_dashboard_text_with_lock() -> None:
     assert "Lock: implementing (run-0001)" in text
 
 
-# specweave: feature=specs/behavior/features/services_dashboard/services-dashboard.feature
-# specweave: scenario=@bdd-services-dashboard-render-dashboard-text-with-metadata
+# sw: f=specs/behavior/features/services_dashboard/services-dashboard.feature
+# sw: s=@bdd-services-dashboard-render-dashboard-text-with-metadata
 def test_render_dashboard_text_with_metadata() -> None:
     payload = {
         "task": {

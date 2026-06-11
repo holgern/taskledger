@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Tests for BDD validation integration.
 
 These tests exercise the real validation persistence path. They use a task
@@ -12,6 +11,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 from typer.testing import CliRunner
 
 from taskledger.cli import app
@@ -118,8 +118,16 @@ def _write_behavior_assets(tmp_path) -> tuple[str, str]:
 
 
 class TestBddValidationIntegration:
-    # specweave: feature=specs/behavior/features/bdd_validation_integration/bdd-validation-integration.feature
-    # specweave: scenario=@bdd-bdd-validation-integration-import-bdd-report-creates-validation-checks
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/bdd_validation_integration/bdd-validation-"
+            "integration.feature"
+        ),
+        scenario=(
+            "@bdd-bdd-validation-integration-import-bdd-report-creates-validation-"
+            "checks"
+        ),
+    )
     def test_import_bdd_report_creates_validation_checks(
         self, tmp_path, monkeypatch
     ) -> None:
@@ -221,8 +229,16 @@ class TestBddValidationIntegration:
         assert f"pytest_nodeid: {pytest_ref}" in evidence_blob
         assert "report:" in evidence_blob
 
-    # specweave: feature=specs/behavior/features/bdd_validation_integration/bdd-validation-integration.feature
-    # specweave: scenario=@bdd-bdd-validation-integration-failing-bdd-report-blocks-validation-finish
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/bdd_validation_integration/bdd-validation-"
+            "integration.feature"
+        ),
+        scenario=(
+            "@bdd-bdd-validation-integration-failing-bdd-report-blocks-validation-"
+            "finish"
+        ),
+    )
     def test_failing_bdd_report_blocks_validation_finish(
         self, tmp_path, monkeypatch
     ) -> None:
@@ -279,8 +295,16 @@ class TestBddValidationIntegration:
         )
         assert finish_result.exit_code != 0
 
-    # specweave: feature=specs/behavior/features/bdd_validation_integration/bdd-validation-integration.feature
-    # specweave: scenario=@bdd-bdd-validation-integration-import-bdd-report-without-active-validation-fails-clearly
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/bdd_validation_integration/bdd-validation-"
+            "integration.feature"
+        ),
+        scenario=(
+            "@bdd-bdd-validation-integration-import-bdd-report-without-active-"
+            "validation-fails-clearly"
+        ),
+    )
     def test_import_bdd_report_without_active_validation_fails_clearly(
         self, tmp_path, monkeypatch
     ) -> None:
@@ -329,8 +353,16 @@ class TestBddValidationIntegration:
         assert payload["ok"] is False
         assert "persistence failed" in payload["error"]["message"]
 
-    # specweave: feature=specs/behavior/features/bdd_validation_integration/bdd-validation-integration.feature
-    # specweave: scenario=@bdd-bdd-validation-integration-import-bdd-report-without-accepted-plan-fails-clearly
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/bdd_validation_integration/bdd-validation-"
+            "integration.feature"
+        ),
+        scenario=(
+            "@bdd-bdd-validation-integration-import-bdd-report-without-accepted-"
+            "plan-fails-clearly"
+        ),
+    )
     def test_import_bdd_report_without_accepted_plan_fails_clearly(
         self, tmp_path, monkeypatch
     ) -> None:

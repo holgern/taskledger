@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Tests for BDD storage layer."""
 
 from __future__ import annotations
@@ -27,8 +26,8 @@ from taskledger.storage.task_store import (
 
 
 class TestBddFeatureStorage:
-    # specweave: feature=specs/behavior/features/bdd_storage/bdd-storage.feature
-    # specweave: scenario=@bdd-bdd-storage-save-and-load-feature
+    # sw: f=specs/behavior/features/bdd_storage/bdd-storage.feature
+    # sw: s=@bdd-bdd-storage-save-and-load-feature
     def test_save_and_load_feature(self, tmp_path) -> None:
         feature = BddFeatureRecord(
             id="feature-0001",
@@ -73,16 +72,16 @@ class TestBddRuleStorage:
     def test_load_empty_rules(self, tmp_path) -> None:
         assert load_bdd_rules(tmp_path, "task-9999") == []
 
-    # specweave: feature=specs/behavior/features/bdd_storage/bdd-storage.feature
-    # specweave: scenario=@bdd-bdd-storage-resolve-rule
+    # sw: f=specs/behavior/features/bdd_storage/bdd-storage.feature
+    # sw: s=@bdd-bdd-storage-resolve-rule
     def test_resolve_rule(self, tmp_path) -> None:
         rule = BddRuleRecord(id="rule-0001", task_id="task-0001", title="Test rule")
         save_bdd_rule(tmp_path, rule)
         resolved = resolve_bdd_rule(tmp_path, "task-0001", "rule-0001")
         assert resolved.id == "rule-0001"
 
-    # specweave: feature=specs/behavior/features/bdd_storage/bdd-storage.feature
-    # specweave: scenario=@bdd-bdd-storage-resolve-rule-normalized
+    # sw: f=specs/behavior/features/bdd_storage/bdd-storage.feature
+    # sw: s=@bdd-bdd-storage-resolve-rule-normalized
     def test_resolve_rule_normalized(self, tmp_path) -> None:
         rule = BddRuleRecord(id="rule-0001", task_id="task-0001", title="Test rule")
         save_bdd_rule(tmp_path, rule)
@@ -122,16 +121,16 @@ class TestBddExampleStorage:
     def test_load_empty_examples(self, tmp_path) -> None:
         assert load_bdd_examples(tmp_path, "task-9999") == []
 
-    # specweave: feature=specs/behavior/features/bdd_storage/bdd-storage.feature
-    # specweave: scenario=@bdd-bdd-storage-resolve-example
+    # sw: f=specs/behavior/features/bdd_storage/bdd-storage.feature
+    # sw: s=@bdd-bdd-storage-resolve-example
     def test_resolve_example(self, tmp_path) -> None:
         example = BddExampleRecord(id="bdd-0001", task_id="task-0001", title="Test")
         save_bdd_example(tmp_path, example)
         resolved = resolve_bdd_example(tmp_path, "task-0001", "bdd-0001")
         assert resolved.id == "bdd-0001"
 
-    # specweave: feature=specs/behavior/features/bdd_storage/bdd-storage.feature
-    # specweave: scenario=@bdd-bdd-storage-resolve-example-normalized
+    # sw: f=specs/behavior/features/bdd_storage/bdd-storage.feature
+    # sw: s=@bdd-bdd-storage-resolve-example-normalized
     def test_resolve_example_normalized(self, tmp_path) -> None:
         example = BddExampleRecord(id="bdd-0001", task_id="task-0001", title="Test")
         save_bdd_example(tmp_path, example)

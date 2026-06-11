@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Tests for workflow_guidance service."""
 
 from __future__ import annotations
@@ -39,8 +38,8 @@ def test_plan_body_detail_label_known() -> None:
     )
 
 
-# specweave: feature=specs/behavior/features/workflow_guidance/workflow-guidance.feature
-# specweave: scenario=@bdd-workflow-guidance-render-guidance-default-profile
+# sw: f=specs/behavior/features/workflow_guidance/workflow-guidance.feature
+# sw: s=@bdd-workflow-guidance-render-guidance-default-profile
 def test_render_guidance_default_profile() -> None:
     p = PromptProfile()
     result = _render_guidance_from_profile(p)
@@ -54,8 +53,8 @@ def test_render_guidance_default_profile() -> None:
     )
 
 
-# specweave: feature=specs/behavior/features/workflow_guidance/workflow-guidance.feature
-# specweave: scenario=@bdd-workflow-guidance-render-guidance-strict-profile
+# sw: f=specs/behavior/features/workflow_guidance/workflow-guidance.feature
+# sw: s=@bdd-workflow-guidance-render-guidance-strict-profile
 def test_render_guidance_strict_profile() -> None:
     p = PromptProfile(
         profile="strict",
@@ -82,8 +81,8 @@ def test_render_guidance_strict_profile() -> None:
     assert "Always include a migration plan" in result
 
 
-# specweave: feature=specs/behavior/features/workflow_guidance/workflow-guidance.feature
-# specweave: scenario=@bdd-workflow-guidance-render-guidance-when-required-fields-disabled
+# sw: f=specs/behavior/features/workflow_guidance/workflow-guidance.feature
+# sw: s=@bdd-workflow-guidance-render-guidance-when-required-fields-disabled
 def test_render_guidance_when_required_fields_disabled() -> None:
     p = PromptProfile(
         require_files=False,
@@ -95,24 +94,24 @@ def test_render_guidance_when_required_fields_disabled() -> None:
     assert "Required plan fields: none (all optional in this profile)." in result
 
 
-# specweave: feature=specs/behavior/features/workflow_guidance/workflow-guidance.feature
-# specweave: scenario=@bdd-workflow-guidance-render-guidance-no-extra-guidance
+# sw: f=specs/behavior/features/workflow_guidance/workflow-guidance.feature
+# sw: s=@bdd-workflow-guidance-render-guidance-no-extra-guidance
 def test_render_guidance_no_extra_guidance() -> None:
     p = PromptProfile(extra_guidance=None)
     result = _render_guidance_from_profile(p)
     assert "Project guidance:" not in result
 
 
-# specweave: feature=specs/behavior/features/workflow_guidance/workflow-guidance.feature
-# specweave: scenario=@bdd-workflow-guidance-render-guidance-no-topics
+# sw: f=specs/behavior/features/workflow_guidance/workflow-guidance.feature
+# sw: s=@bdd-workflow-guidance-render-guidance-no-topics
 def test_render_guidance_no_topics() -> None:
     p = PromptProfile(required_question_topics=())
     result = _render_guidance_from_profile(p)
     assert "Required question topics:" not in result
 
 
-# specweave: feature=specs/behavior/features/workflow_guidance/workflow-guidance.feature
-# specweave: scenario=@bdd-workflow-guidance-render-guidance-guardrail-always-present
+# sw: f=specs/behavior/features/workflow_guidance/workflow-guidance.feature
+# sw: s=@bdd-workflow-guidance-render-guidance-guardrail-always-present
 def test_render_guidance_guardrail_always_present() -> None:
     for profile_value in ("compact", "balanced", "strict", "exploratory"):
         p = PromptProfile(profile=profile_value)

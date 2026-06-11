@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 from __future__ import annotations
 
 import importlib
@@ -33,8 +32,15 @@ def _init_project(app, tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
 
 
-# specweave: feature=specs/behavior/features/cli_import_resilience/cli-import-resilience.feature
-# specweave: scenario=@bdd-cli-import-resilience-optional-release-import-failure-keeps-core-commands-available
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/cli_import_resilience/cli-import-resilience.feature"
+    ),
+    scenario=(
+        "@bdd-cli-import-resilience-optional-release-import-failure-keeps-"
+        "core-commands-available"
+    ),
+)
 def test_optional_release_import_failure_keeps_core_commands_available(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -134,8 +140,8 @@ def test_optional_release_import_failure_keeps_core_commands_available(
         importlib.reload(cli_module)
 
 
-# specweave: feature=specs/behavior/features/cli_import_resilience/cli-import-resilience.feature
-# specweave: scenario=@bdd-cli-import-resilience-launcher-reports-cli-import-failure
+# sw: f=specs/behavior/features/cli_import_resilience/cli-import-resilience.feature
+# sw: s=@bdd-cli-import-resilience-launcher-reports-cli-import-failure
 def test_launcher_reports_cli_import_failure(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -155,8 +161,8 @@ def test_launcher_reports_cli_import_failure(
     )
 
 
-# specweave: feature=specs/behavior/features/cli_import_resilience/cli-import-resilience.feature
-# specweave: scenario=@bdd-cli-import-resilience-python-m-taskledger-help-works
+# sw: f=specs/behavior/features/cli_import_resilience/cli-import-resilience.feature
+# sw: s=@bdd-cli-import-resilience-python-m-taskledger-help-works
 def test_python_m_taskledger_help_works() -> None:
     result = subprocess.run(
         [sys.executable, "-m", "taskledger", "--help"],

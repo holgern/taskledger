@@ -1,8 +1,8 @@
-# ruff: noqa: E501
 from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from taskledger.cli import app
@@ -80,8 +80,16 @@ def _setup_planning_task(workspace: Path) -> None:
     assert runner.invoke(app, ["--cwd", str(workspace), "plan", "start"]).exit_code == 0
 
 
-# specweave: feature=specs/behavior/features/worker_pipeline_plan_template/worker-pipeline-plan-template.feature
-# specweave: scenario=@bdd-worker-pipeline-plan-template-plan-template-unchanged-without-worker-pipeline
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/worker_pipeline_plan_template/worker-"
+        "pipeline-plan-template.feature"
+    ),
+    scenario=(
+        "@bdd-worker-pipeline-plan-template-plan-template-unchanged-without-"
+        "worker-pipeline"
+    ),
+)
 def test_plan_template_unchanged_without_worker_pipeline(tmp_path: Path) -> None:
     _setup_planning_task(tmp_path)
 
@@ -95,8 +103,16 @@ def test_plan_template_unchanged_without_worker_pipeline(tmp_path: Path) -> None
     assert "worker_step:" not in result.stdout
 
 
-# specweave: feature=specs/behavior/features/worker_pipeline_plan_template/worker-pipeline-plan-template.feature
-# specweave: scenario=@bdd-worker-pipeline-plan-template-plan-template-requires-opt-in-flag-for-worker-pipeline-hints
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/worker_pipeline_plan_template/worker-"
+        "pipeline-plan-template.feature"
+    ),
+    scenario=(
+        "@bdd-worker-pipeline-plan-template-plan-template-requires-opt-in-"
+        "flag-for-worker-pipeline-hints"
+    ),
+)
 def test_plan_template_requires_opt_in_flag_for_worker_pipeline_hints(
     tmp_path: Path,
 ) -> None:
@@ -113,8 +129,16 @@ def test_plan_template_requires_opt_in_flag_for_worker_pipeline_hints(
     assert "api-designer" not in result.stdout
 
 
-# specweave: feature=specs/behavior/features/worker_pipeline_plan_template/worker-pipeline-plan-template.feature
-# specweave: scenario=@bdd-worker-pipeline-plan-template-worker-plan-template-uses-configured-steps-not-hardcoded-names
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/worker_pipeline_plan_template/worker-"
+        "pipeline-plan-template.feature"
+    ),
+    scenario=(
+        "@bdd-worker-pipeline-plan-template-worker-plan-template-uses-"
+        "configured-steps-not-hardcoded-names"
+    ),
+)
 def test_worker_plan_template_uses_configured_steps_not_hardcoded_names(
     tmp_path: Path,
 ) -> None:
@@ -141,8 +165,16 @@ def test_worker_plan_template_uses_configured_steps_not_hardcoded_names(
     assert "skeletor" not in result.stdout
 
 
-# specweave: feature=specs/behavior/features/worker_pipeline_plan_template/worker-pipeline-plan-template.feature
-# specweave: scenario=@bdd-worker-pipeline-plan-template-plan-template-worker-hints-require-template-or-guided-mode
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/worker_pipeline_plan_template/worker-"
+        "pipeline-plan-template.feature"
+    ),
+    scenario=(
+        "@bdd-worker-pipeline-plan-template-plan-template-worker-hints-"
+        "require-template-or-guided-mode"
+    ),
+)
 def test_plan_template_worker_hints_require_template_or_guided_mode(
     tmp_path: Path,
 ) -> None:

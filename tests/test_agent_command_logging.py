@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -127,8 +126,8 @@ Capture a managed shell transcript.
     return "task-0001"
 
 
-# specweave: feature=specs/behavior/features/agent_command_logging/agent-command-logging.feature
-# specweave: scenario=@bdd-agent-command-logging-agent-logging-config-validation-and-defaults
+# sw: f=specs/behavior/features/agent_command_logging/agent-command-logging.feature
+# sw: s=@bdd-agent-command-logging-agent-logging-config-validation-and-defaults
 def test_agent_logging_config_validation_and_defaults() -> None:
     config = merge_project_config({})
     assert config.agent_logging.enabled is False
@@ -153,8 +152,8 @@ def test_agent_logging_config_rejects_unknown_and_bad_regex() -> None:
         _validate_project_config_overrides(bad_regex, Path("taskledger.toml"))
 
 
-# specweave: feature=specs/behavior/features/agent_command_logging/agent-command-logging.feature
-# specweave: scenario=@bdd-agent-command-logging-cli-success-command-is-captured-when-enabled
+# sw: f=specs/behavior/features/agent_command_logging/agent-command-logging.feature
+# sw: s=@bdd-agent-command-logging-cli-success-command-is-captured-when-enabled
 def test_cli_success_command_is_captured_when_enabled(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _enable_agent_logging(tmp_path)
@@ -185,8 +184,8 @@ def test_cli_success_command_is_captured_when_enabled(tmp_path: Path) -> None:
     assert "created task" in record.visible_stdout_excerpt
 
 
-# specweave: feature=specs/behavior/features/agent_command_logging/agent-command-logging.feature
-# specweave: scenario=@bdd-agent-command-logging-cli-error-command-is-captured-when-enabled
+# sw: f=specs/behavior/features/agent_command_logging/agent-command-logging.feature
+# sw: s=@bdd-agent-command-logging-cli-error-command-is-captured-when-enabled
 def test_cli_error_command_is_captured_when_enabled(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _enable_agent_logging(tmp_path)
@@ -214,8 +213,8 @@ def test_cli_error_command_is_captured_when_enabled(tmp_path: Path) -> None:
     assert "Task not found" in record.error_summary
 
 
-# specweave: feature=specs/behavior/features/agent_command_logging/agent-command-logging.feature
-# specweave: scenario=@bdd-agent-command-logging-managed-shell-capture-and-transcript-report-rendering
+# sw: f=specs/behavior/features/agent_command_logging/agent-command-logging.feature
+# sw: s=@bdd-agent-command-logging-managed-shell-capture-and-transcript-report-rendering
 def test_managed_shell_capture_and_transcript_report_rendering(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _enable_agent_logging(tmp_path)
@@ -283,8 +282,8 @@ def test_managed_shell_capture_and_transcript_report_rendering(tmp_path: Path) -
     assert "| Time | Exit | Command | Result |" in report.stdout
 
 
-# specweave: feature=specs/behavior/features/agent_command_logging/agent-command-logging.feature
-# specweave: scenario=@bdd-agent-command-logging-task-transcript-json-contract
+# sw: f=specs/behavior/features/agent_command_logging/agent-command-logging.feature
+# sw: s=@bdd-agent-command-logging-task-transcript-json-contract
 def test_task_transcript_json_contract(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _enable_agent_logging(tmp_path)
@@ -315,8 +314,15 @@ def test_task_transcript_json_contract(tmp_path: Path) -> None:
     assert payload["result"]["kind"] == "task_transcript"
 
 
-# specweave: feature=specs/behavior/features/agent_command_logging/agent-command-logging.feature
-# specweave: scenario=@bdd-agent-command-logging-task-transcript-review-mode-groups-wrapper-and-managed-shell
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/agent_command_logging/agent-command-logging.feature"
+    ),
+    scenario=(
+        "@bdd-agent-command-logging-task-transcript-review-mode-groups-"
+        "wrapper-and-managed-shell"
+    ),
+)
 def test_task_transcript_review_mode_groups_wrapper_and_managed_shell(
     tmp_path: Path,
 ) -> None:
@@ -397,8 +403,15 @@ def test_task_transcript_review_mode_groups_wrapper_and_managed_shell(
     assert "failed, wrapper mismatch" in transcript.stdout
 
 
-# specweave: feature=specs/behavior/features/agent_command_logging/agent-command-logging.feature
-# specweave: scenario=@bdd-agent-command-logging-task-transcript-failures-mode-renders-failed-rows-only
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/agent_command_logging/agent-command-logging.feature"
+    ),
+    scenario=(
+        "@bdd-agent-command-logging-task-transcript-failures-mode-renders-"
+        "failed-rows-only"
+    ),
+)
 def test_task_transcript_failures_mode_renders_failed_rows_only(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -448,8 +461,8 @@ def test_task_transcript_failures_mode_renders_failed_rows_only(
     assert "| - | 3 |" in failures.stdout
 
 
-# specweave: feature=specs/behavior/features/agent_command_logging/agent-command-logging.feature
-# specweave: scenario=@bdd-agent-command-logging-transcript-tolerates-duplicate-log-ids-by-default
+# sw: f=specs/behavior/features/agent_command_logging/agent-command-logging.feature
+# sw: s=@bdd-agent-command-logging-transcript-tolerates-duplicate-log-ids-by-default
 def test_transcript_tolerates_duplicate_log_ids_by_default(tmp_path: Path) -> None:
     _init_project(tmp_path)
     assert (
@@ -501,8 +514,8 @@ def test_transcript_tolerates_duplicate_log_ids_by_default(tmp_path: Path) -> No
     assert "- dup-0001" in transcript.stdout
 
 
-# specweave: feature=specs/behavior/features/agent_command_logging/agent-command-logging.feature
-# specweave: scenario=@bdd-agent-command-logging-default-transcript-produces-review-output
+# sw: f=specs/behavior/features/agent_command_logging/agent-command-logging.feature
+# sw: s=@bdd-agent-command-logging-default-transcript-produces-review-output
 def test_default_transcript_produces_review_output(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _enable_agent_logging(tmp_path)
@@ -547,8 +560,8 @@ def test_default_transcript_produces_review_output(tmp_path: Path) -> None:
     assert "### Summary" in transcript.stdout
 
 
-# specweave: feature=specs/behavior/features/agent_command_logging/agent-command-logging.feature
-# specweave: scenario=@bdd-agent-command-logging-raw-flag-produces-raw-table-output
+# sw: f=specs/behavior/features/agent_command_logging/agent-command-logging.feature
+# sw: s=@bdd-agent-command-logging-raw-flag-produces-raw-table-output
 def test_raw_flag_produces_raw_table_output(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _enable_agent_logging(tmp_path)
@@ -592,8 +605,8 @@ def test_raw_flag_produces_raw_table_output(tmp_path: Path) -> None:
     assert "## Transcript Review" not in transcript.stdout
 
 
-# specweave: feature=specs/behavior/features/agent_command_logging/agent-command-logging.feature
-# specweave: scenario=@bdd-agent-command-logging-report-command-log-uses-logical-rows
+# sw: f=specs/behavior/features/agent_command_logging/agent-command-logging.feature
+# sw: s=@bdd-agent-command-logging-report-command-log-uses-logical-rows
 def test_report_command_log_uses_logical_rows(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _enable_agent_logging(tmp_path)
@@ -653,8 +666,8 @@ def test_report_command_log_uses_logical_rows(tmp_path: Path) -> None:
     assert "| Time | Exit | Kind | Command | Output |" not in report.stdout
 
 
-# specweave: feature=specs/behavior/features/agent_command_logging/agent-command-logging.feature
-# specweave: scenario=@bdd-agent-command-logging-duplicate-log-id-warning-in-raw-mode
+# sw: f=specs/behavior/features/agent_command_logging/agent-command-logging.feature
+# sw: s=@bdd-agent-command-logging-duplicate-log-id-warning-in-raw-mode
 def test_duplicate_log_id_warning_in_raw_mode(tmp_path: Path) -> None:
     _init_project(tmp_path)
     assert (

@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Tests for `taskledger tree` command."""
 
 from __future__ import annotations
@@ -65,8 +64,8 @@ def _json_tree(tmp_path: Path, *extra: str) -> dict:
 
 
 class TestEmptyLedger:
-    # specweave: feature=specs/behavior/features/tree_command/tree-command.feature
-    # specweave: scenario=@bdd-tree-command-human-output-shows-no-tasks
+    # sw: f=specs/behavior/features/tree_command/tree-command.feature
+    # sw: s=@bdd-tree-command-human-output-shows-no-tasks
     def test_human_output_shows_no_tasks(self, tmp_path: Path) -> None:
         _init(tmp_path)
         result = _tree(tmp_path)
@@ -105,8 +104,8 @@ class TestEmptyLedger:
 
 
 class TestCurrentLedgerTasks:
-    # specweave: feature=specs/behavior/features/tree_command/tree-command.feature
-    # specweave: scenario=@bdd-tree-command-shows-both-tasks
+    # sw: f=specs/behavior/features/tree_command/tree-command.feature
+    # sw: s=@bdd-tree-command-shows-both-tasks
     def test_shows_both_tasks(self, tmp_path: Path) -> None:
         _init(tmp_path)
         _create_task(tmp_path, "Parser fix", slug="parser-fix")
@@ -134,8 +133,8 @@ class TestCurrentLedgerTasks:
         assert tasks[0]["is_active"] is False
         assert tasks[1]["is_active"] is True
 
-    # specweave: feature=specs/behavior/features/tree_command/tree-command.feature
-    # specweave: scenario=@bdd-tree-command-no-active-task-still-succeeds
+    # sw: f=specs/behavior/features/tree_command/tree-command.feature
+    # sw: s=@bdd-tree-command-no-active-task-still-succeeds
     def test_no_active_task_still_succeeds(self, tmp_path: Path) -> None:
         _init(tmp_path)
         _create_task(tmp_path, "Lonely task", slug="lonely")
@@ -150,8 +149,8 @@ class TestCurrentLedgerTasks:
 
 
 class TestFollowUpNesting:
-    # specweave: feature=specs/behavior/features/tree_command/tree-command.feature
-    # specweave: scenario=@bdd-tree-command-child-nested-under-parent-human
+    # sw: f=specs/behavior/features/tree_command/tree-command.feature
+    # sw: s=@bdd-tree-command-child-nested-under-parent-human
     def test_child_nested_under_parent_human(self, tmp_path: Path) -> None:
         _init(tmp_path)
         # Create a done parent via task record
@@ -196,8 +195,8 @@ class TestFollowUpNesting:
         assert "task-0002" in result.output
         assert "(follow-up)" in result.output
 
-    # specweave: feature=specs/behavior/features/tree_command/tree-command.feature
-    # specweave: scenario=@bdd-tree-command-child-nested-under-parent-json
+    # sw: f=specs/behavior/features/tree_command/tree-command.feature
+    # sw: s=@bdd-tree-command-child-nested-under-parent-json
     def test_child_nested_under_parent_json(self, tmp_path: Path) -> None:
         _init(tmp_path)
         result = runner.invoke(
@@ -251,8 +250,8 @@ class TestFollowUpNesting:
 
 
 class TestTaskSubtree:
-    # specweave: feature=specs/behavior/features/tree_command/tree-command.feature
-    # specweave: scenario=@bdd-tree-command-subtree-shows-only-selected
+    # sw: f=specs/behavior/features/tree_command/tree-command.feature
+    # sw: s=@bdd-tree-command-subtree-shows-only-selected
     def test_subtree_shows_only_selected(self, tmp_path: Path) -> None:
         _init(tmp_path)
         _create_task(tmp_path, "Alpha", slug="alpha")
@@ -280,8 +279,8 @@ class TestTaskSubtree:
         assert len(tasks) == 1
         assert tasks[0]["slug"] == "alpha"
 
-    # specweave: feature=specs/behavior/features/tree_command/tree-command.feature
-    # specweave: scenario=@bdd-tree-command-subtree-with-children
+    # sw: f=specs/behavior/features/tree_command/tree-command.feature
+    # sw: s=@bdd-tree-command-subtree-with-children
     def test_subtree_with_children(self, tmp_path: Path) -> None:
         _init(tmp_path)
         result = runner.invoke(
@@ -333,8 +332,8 @@ class TestTaskSubtree:
 
 
 class TestDetails:
-    # specweave: feature=specs/behavior/features/tree_command/tree-command.feature
-    # specweave: scenario=@bdd-tree-command-details-shows-counts
+    # sw: f=specs/behavior/features/tree_command/tree-command.feature
+    # sw: s=@bdd-tree-command-details-shows-counts
     def test_details_shows_counts(self, tmp_path: Path) -> None:
         _init(tmp_path)
         _create_task(tmp_path, "Detailed task", slug="detailed")
@@ -355,8 +354,8 @@ class TestDetails:
         assert "changes" in counts
         assert "has_lock" in counts
 
-    # specweave: feature=specs/behavior/features/tree_command/tree-command.feature
-    # specweave: scenario=@bdd-tree-command-details-human-output-compact
+    # sw: f=specs/behavior/features/tree_command/tree-command.feature
+    # sw: s=@bdd-tree-command-details-human-output-compact
     def test_details_human_output_compact(self, tmp_path: Path) -> None:
         _init(tmp_path)
         _create_task(tmp_path, "Detailed task", slug="detailed")
@@ -381,8 +380,8 @@ class TestDetails:
 
 
 class TestAllLedgers:
-    # specweave: feature=specs/behavior/features/tree_command/tree-command.feature
-    # specweave: scenario=@bdd-tree-command-all-ledgers-shows-multiple
+    # sw: f=specs/behavior/features/tree_command/tree-command.feature
+    # sw: s=@bdd-tree-command-all-ledgers-shows-multiple
     def test_all_ledgers_shows_multiple(self, tmp_path: Path) -> None:
         _init(tmp_path)
         _create_task(tmp_path, "Main task", slug="main-task")
@@ -408,8 +407,8 @@ class TestAllLedgers:
         current = [ledger for ledger in ledgers if ledger["is_current"]]
         assert len(current) == 1
 
-    # specweave: feature=specs/behavior/features/tree_command/tree-command.feature
-    # specweave: scenario=@bdd-tree-command-all-ledgers-does-not-mutate-config
+    # sw: f=specs/behavior/features/tree_command/tree-command.feature
+    # sw: s=@bdd-tree-command-all-ledgers-does-not-mutate-config
     def test_all_ledgers_does_not_mutate_config(self, tmp_path: Path) -> None:
         _init(tmp_path)
         _create_task(tmp_path, "Main task", slug="main-task")
@@ -430,8 +429,8 @@ class TestAllLedgers:
 
 
 class TestReleaseRendering:
-    # specweave: feature=specs/behavior/features/tree_command/tree-command.feature
-    # specweave: scenario=@bdd-tree-command-current-ledger-release-is-rendered
+    # sw: f=specs/behavior/features/tree_command/tree-command.feature
+    # sw: s=@bdd-tree-command-current-ledger-release-is-rendered
     def test_current_ledger_release_is_rendered(self, tmp_path: Path) -> None:
         _init(tmp_path)
         result = runner.invoke(
@@ -477,8 +476,8 @@ class TestReleaseRendering:
         assert ledger["releases"][0]["version"] == "0.1.0"
         assert ledger["releases"][0]["boundary_task_id"] == "task-0001"
 
-    # specweave: feature=specs/behavior/features/tree_command/tree-command.feature
-    # specweave: scenario=@bdd-tree-command-all-ledgers-uses-each-ledger-release-records
+    # sw: f=specs/behavior/features/tree_command/tree-command.feature
+    # sw: s=@bdd-tree-command-all-ledgers-uses-each-ledger-release-records
     def test_all_ledgers_uses_each_ledger_release_records(self, tmp_path: Path) -> None:
         _init(tmp_path)
         result = runner.invoke(
@@ -533,8 +532,8 @@ class TestReleaseRendering:
 
 
 class TestPlainOutput:
-    # specweave: feature=specs/behavior/features/tree_command/tree-command.feature
-    # specweave: scenario=@bdd-tree-command-plain-uses-ascii-glyphs
+    # sw: f=specs/behavior/features/tree_command/tree-command.feature
+    # sw: s=@bdd-tree-command-plain-uses-ascii-glyphs
     def test_plain_uses_ascii_glyphs(self, tmp_path: Path) -> None:
         _init(tmp_path)
         _create_task(tmp_path, "Test task", slug="test-task")
@@ -553,8 +552,8 @@ class TestPlainOutput:
 
 
 class TestRecordedTaskType:
-    # specweave: feature=specs/behavior/features/tree_command/tree-command.feature
-    # specweave: scenario=@bdd-tree-command-recorded-marker-in-output
+    # sw: f=specs/behavior/features/tree_command/tree-command.feature
+    # sw: s=@bdd-tree-command-recorded-marker-in-output
     def test_recorded_marker_in_output(self, tmp_path: Path) -> None:
         _init(tmp_path)
         result = runner.invoke(
@@ -580,8 +579,8 @@ class TestRecordedTaskType:
         assert result.exit_code == 0, result.output
         assert "{recorded}" in result.output
 
-    # specweave: feature=specs/behavior/features/tree_command/tree-command.feature
-    # specweave: scenario=@bdd-tree-command-recorded-in-json
+    # sw: f=specs/behavior/features/tree_command/tree-command.feature
+    # sw: s=@bdd-tree-command-recorded-in-json
     def test_recorded_in_json(self, tmp_path: Path) -> None:
         _init(tmp_path)
         result = runner.invoke(
@@ -610,8 +609,8 @@ class TestRecordedTaskType:
 
 
 class TestArchivedTasks:
-    # specweave: feature=specs/behavior/features/tree_command/tree-command.feature
-    # specweave: scenario=@bdd-tree-command-tree-hides-archived-by-default
+    # sw: f=specs/behavior/features/tree_command/tree-command.feature
+    # sw: s=@bdd-tree-command-tree-hides-archived-by-default
     def test_tree_hides_archived_by_default(self, tmp_path: Path) -> None:
         _init(tmp_path)
         result = runner.invoke(
@@ -653,8 +652,8 @@ class TestArchivedTasks:
         assert "legacy" not in result.output
         assert "next=task-0002" in result.output
 
-    # specweave: feature=specs/behavior/features/tree_command/tree-command.feature
-    # specweave: scenario=@bdd-tree-command-tree-include-archived-marks-nodes
+    # sw: f=specs/behavior/features/tree_command/tree-command.feature
+    # sw: s=@bdd-tree-command-tree-include-archived-marks-nodes
     def test_tree_include_archived_marks_nodes(self, tmp_path: Path) -> None:
         _init(tmp_path)
         result = runner.invoke(

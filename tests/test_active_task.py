@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -72,8 +71,8 @@ def test_active_task_state_round_trips(tmp_path: Path) -> None:
         raise AssertionError("resolve_active_task should require an active task")
 
 
-# specweave: feature=specs/behavior/features/active_task/active-task.feature
-# specweave: scenario=@bdd-active-task-task-scoped-command-without-active-task-fails-json
+# sw: f=specs/behavior/features/active_task/active-task.feature
+# sw: s=@bdd-active-task-task-scoped-command-without-active-task-fails-json
 def test_task_scoped_command_without_active_task_fails_json(tmp_path: Path) -> None:
     _init_project(tmp_path)
     result = runner.invoke(
@@ -86,8 +85,8 @@ def test_task_scoped_command_without_active_task_fails_json(tmp_path: Path) -> N
     assert payload["error"]["code"] == "NO_ACTIVE_TASK"
 
 
-# specweave: feature=specs/behavior/features/active_task/active-task.feature
-# specweave: scenario=@bdd-active-task-single-task-without-active-task-fails-for-task-scoped-defaults
+# sw: f=specs/behavior/features/active_task/active-task.feature
+# sw: s=@bdd-active-task-single-task-without-active-task-fails-for-task-scoped-defaults
 def test_single_task_without_active_task_fails_for_task_scoped_defaults(
     tmp_path: Path,
 ) -> None:
@@ -112,8 +111,8 @@ def test_single_task_without_active_task_fails_for_task_scoped_defaults(
         assert payload["error"]["code"] == "NO_ACTIVE_TASK"
 
 
-# specweave: feature=specs/behavior/features/active_task/active-task.feature
-# specweave: scenario=@bdd-active-task-single-task-without-active-task-can-still-be-used-explicitly
+# sw: f=specs/behavior/features/active_task/active-task.feature
+# sw: s=@bdd-active-task-single-task-without-active-task-can-still-be-used-explicitly
 def test_single_task_without_active_task_can_still_be_used_explicitly(
     tmp_path: Path,
 ) -> None:
@@ -128,8 +127,8 @@ def test_single_task_without_active_task_can_still_be_used_explicitly(
     assert result.exit_code == 0, result.stdout
 
 
-# specweave: feature=specs/behavior/features/active_task/active-task.feature
-# specweave: scenario=@bdd-active-task-task-activate-sets-active-task
+# sw: f=specs/behavior/features/active_task/active-task.feature
+# sw: s=@bdd-active-task-task-activate-sets-active-task
 def test_task_activate_sets_active_task(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _create_task(tmp_path, "one")
@@ -298,8 +297,8 @@ def test_secondary_positional_commands_default_to_active_task(tmp_path: Path) ->
     )
 
 
-# specweave: feature=specs/behavior/features/active_task/active-task.feature
-# specweave: scenario=@bdd-active-task-task-option-overrides-active-task
+# sw: f=specs/behavior/features/active_task/active-task.feature
+# sw: s=@bdd-active-task-task-option-overrides-active-task
 def test_task_option_overrides_active_task(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _create_task(tmp_path, "task-a")
@@ -318,8 +317,8 @@ def test_task_option_overrides_active_task(tmp_path: Path) -> None:
     assert payload["result"]["task_id"] == "task-0002"
 
 
-# specweave: feature=specs/behavior/features/active_task/active-task.feature
-# specweave: scenario=@bdd-active-task-export-import-preserves-active-task
+# sw: f=specs/behavior/features/active_task/active-task.feature
+# sw: s=@bdd-active-task-export-import-preserves-active-task
 def test_export_import_preserves_active_task(tmp_path: Path) -> None:
     source = tmp_path / "source"
     dest = tmp_path / "dest"
@@ -357,8 +356,8 @@ def test_export_import_preserves_active_task(tmp_path: Path) -> None:
     assert active["result"]["task_id"] == "task-0001"
 
 
-# specweave: feature=specs/behavior/features/active_task/active-task.feature
-# specweave: scenario=@bdd-active-task-task-list-marks-active-task-without-active-stage
+# sw: f=specs/behavior/features/active_task/active-task.feature
+# sw: s=@bdd-active-task-task-list-marks-active-task-without-active-stage
 def test_task_list_marks_active_task_without_active_stage(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _create_task(tmp_path, "list-active")
@@ -375,8 +374,8 @@ def test_task_list_marks_active_task_without_active_stage(tmp_path: Path) -> Non
     assert "active" in result.stdout
 
 
-# specweave: feature=specs/behavior/features/active_task/active-task.feature
-# specweave: scenario=@bdd-active-task-status-human-output-shows-active-task-before-counts
+# sw: f=specs/behavior/features/active_task/active-task.feature
+# sw: s=@bdd-active-task-status-human-output-shows-active-task-before-counts
 def test_status_human_output_shows_active_task_before_counts(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _create_task(tmp_path, "status-active")

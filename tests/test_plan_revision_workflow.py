@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -122,8 +121,8 @@ def _internal_plan_path(tmp_path: Path) -> Path:
     return matches[0]
 
 
-# specweave: feature=specs/behavior/features/plan_revision_workflow/plan-revision-workflow.feature
-# specweave: scenario=@bdd-plan-revision-workflow-plan-upsert-rejects-taskledger-storage-file
+# sw: f=specs/behavior/features/plan_revision_workflow/plan-revision-workflow.feature
+# sw: s=@bdd-plan-revision-workflow-plan-upsert-rejects-taskledger-storage-file
 def test_plan_upsert_rejects_taskledger_storage_file(tmp_path: Path) -> None:
     _setup_plan_review_task(tmp_path)
     plan_path = _internal_plan_path(tmp_path)
@@ -153,8 +152,15 @@ def test_plan_upsert_rejects_taskledger_storage_file(tmp_path: Path) -> None:
     ]
 
 
-# specweave: feature=specs/behavior/features/plan_revision_workflow/plan-revision-workflow.feature
-# specweave: scenario=@bdd-plan-revision-workflow-plan-propose-and-regenerate-reject-taskledger-storage-file
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/plan_revision_workflow/plan-revision-workflow.feature"
+    ),
+    scenario=(
+        "@bdd-plan-revision-workflow-plan-propose-and-regenerate-reject-"
+        "taskledger-storage-file"
+    ),
+)
 def test_plan_propose_and_regenerate_reject_taskledger_storage_file(
     tmp_path: Path,
 ) -> None:
@@ -196,8 +202,8 @@ def test_plan_propose_and_regenerate_reject_taskledger_storage_file(
     assert "Taskledger storage" in regenerate_payload["error"]["message"]
 
 
-# specweave: feature=specs/behavior/features/plan_revision_workflow/plan-revision-workflow.feature
-# specweave: scenario=@bdd-plan-revision-workflow-plan-export-round-trips-after-revision
+# sw: f=specs/behavior/features/plan_revision_workflow/plan-revision-workflow.feature
+# sw: s=@bdd-plan-revision-workflow-plan-export-round-trips-after-revision
 def test_plan_export_round_trips_after_revision(tmp_path: Path) -> None:
     _setup_plan_review_task(tmp_path)
     exported = tmp_path / "plan.md"
@@ -255,8 +261,15 @@ def test_plan_export_round_trips_after_revision(tmp_path: Path) -> None:
     )
 
 
-# specweave: feature=specs/behavior/features/plan_revision_workflow/plan-revision-workflow.feature
-# specweave: scenario=@bdd-plan-revision-workflow-plan-amend-drops-criteria-and-todos-and-records-event
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/plan_revision_workflow/plan-revision-workflow.feature"
+    ),
+    scenario=(
+        "@bdd-plan-revision-workflow-plan-amend-drops-criteria-and-todos-and-"
+        "records-event"
+    ),
+)
 def test_plan_amend_drops_criteria_and_todos_and_records_event(tmp_path: Path) -> None:
     _setup_plan_review_task(tmp_path)
     _enable_event_logging(tmp_path)
@@ -316,8 +329,8 @@ def test_plan_amend_drops_criteria_and_todos_and_records_event(tmp_path: Path) -
     assert any(item.get("event") == "plan.amended" for item in events)
 
 
-# specweave: feature=specs/behavior/features/plan_revision_workflow/plan-revision-workflow.feature
-# specweave: scenario=@bdd-plan-revision-workflow-plan-amend-unknown-criterion-fails-without-mutation
+# sw: f=specs/behavior/features/plan_revision_workflow/plan-revision-workflow.feature
+# sw: s=@bdd-plan-revision-workflow-plan-amend-unknown-criterion-fails-without-mutation
 def test_plan_amend_unknown_criterion_fails_without_mutation(tmp_path: Path) -> None:
     _setup_plan_review_task(tmp_path)
 
@@ -343,8 +356,8 @@ def test_plan_amend_unknown_criterion_fails_without_mutation(tmp_path: Path) -> 
     assert task.latest_plan_version == 1
 
 
-# specweave: feature=specs/behavior/features/plan_revision_workflow/plan-revision-workflow.feature
-# specweave: scenario=@bdd-plan-revision-workflow-plan-upsert-auto-revise-from-plan-review
+# sw: f=specs/behavior/features/plan_revision_workflow/plan-revision-workflow.feature
+# sw: s=@bdd-plan-revision-workflow-plan-upsert-auto-revise-from-plan-review
 def test_plan_upsert_auto_revise_from_plan_review(tmp_path: Path) -> None:
     _setup_plan_review_task(tmp_path)
     plan_file = tmp_path / "plan-v2.md"
@@ -371,8 +384,15 @@ def test_plan_upsert_auto_revise_from_plan_review(tmp_path: Path) -> None:
     assert payload["result"]["revision_run_id"].startswith("run-")
 
 
-# specweave: feature=specs/behavior/features/plan_revision_workflow/plan-revision-workflow.feature
-# specweave: scenario=@bdd-plan-revision-workflow-plan-upsert-without-active-planning-suggests-revision-workflow
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/plan_revision_workflow/plan-revision-workflow.feature"
+    ),
+    scenario=(
+        "@bdd-plan-revision-workflow-plan-upsert-without-active-planning-"
+        "suggests-revision-workflow"
+    ),
+)
 def test_plan_upsert_without_active_planning_suggests_revision_workflow(
     tmp_path: Path,
 ) -> None:
@@ -404,8 +424,8 @@ def test_plan_upsert_without_active_planning_suggests_revision_workflow(
     ]
 
 
-# specweave: feature=specs/behavior/features/plan_revision_workflow/plan-revision-workflow.feature
-# specweave: scenario=@bdd-plan-revision-workflow-next-action-plan-review-mentions-revision-commands
+# sw: f=specs/behavior/features/plan_revision_workflow/plan-revision-workflow.feature
+# sw: s=@bdd-plan-revision-workflow-next-action-plan-review-mentions-revision-commands
 def test_next_action_plan_review_mentions_revision_commands(tmp_path: Path) -> None:
     _setup_plan_review_task(tmp_path)
 

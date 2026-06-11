@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 from pathlib import Path
 
 import pytest
@@ -37,8 +36,8 @@ def setup_repo_with_files(
     return paths
 
 
-# specweave: feature=specs/behavior/features/search/search.feature
-# specweave: scenario=@bdd-search-search-grep-and-symbols-basic
+# sw: f=specs/behavior/features/search/search.feature
+# sw: s=@bdd-search-search-grep-and-symbols-basic
 def test_search_grep_and_symbols_basic(tmp_path: Path):
     # Create a repo with text files, a binary file and a python symbol
     files = {
@@ -75,8 +74,8 @@ def test_search_grep_and_symbols_basic(tmp_path: Path):
     assert all(not item.endswith("image.png") for item in seen)
 
 
-# specweave: feature=specs/behavior/features/search/search.feature
-# specweave: scenario=@bdd-search-module-dependencies-and-errors
+# sw: f=specs/behavior/features/search/search.feature
+# sw: s=@bdd-search-module-dependencies-and-errors
 def test_module_dependencies_and_errors(tmp_path: Path):
     # valid manifest
     files = {
@@ -109,8 +108,8 @@ def test_module_dependencies_and_errors(tmp_path: Path):
         module_dependencies(paths, repo_ref="repo_b", module="badmod")
 
 
-# specweave: feature=specs/behavior/features/search/search.feature
-# specweave: scenario=@bdd-search-discovery-tokens-and-discover-files
+# sw: f=specs/behavior/features/search/search.feature
+# sw: s=@bdd-search-discovery-tokens-and-discover-files
 def test_discovery_tokens_and_discover_files(tmp_path: Path):
     # discovery tokens filters stop words and short tokens
     tokens = _discovery_tokens("The quick brown fox and the something")

@@ -1,8 +1,8 @@
-# ruff: noqa: E501
 from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from taskledger.cli import app
@@ -130,8 +130,16 @@ Add worker-aware context support without changing default context rendering.
     )
 
 
-# specweave: feature=specs/behavior/features/worker_pipeline_context/worker-pipeline-context.feature
-# specweave: scenario=@bdd-worker-pipeline-context-context-for-implementer-unchanged-without-worker-pipeline
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/worker_pipeline_context/worker-pipeline-"
+        "context.feature"
+    ),
+    scenario=(
+        "@bdd-worker-pipeline-context-context-for-implementer-unchanged-"
+        "without-worker-pipeline"
+    ),
+)
 def test_context_for_implementer_unchanged_without_worker_pipeline(
     tmp_path: Path,
 ) -> None:
@@ -153,8 +161,16 @@ def test_context_for_implementer_unchanged_without_worker_pipeline(
     assert after.stdout == before.stdout
 
 
-# specweave: feature=specs/behavior/features/worker_pipeline_context/worker-pipeline-context.feature
-# specweave: scenario=@bdd-worker-pipeline-context-worker-context-renders-base-context-plus-worker-guidance
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/worker_pipeline_context/worker-pipeline-"
+        "context.feature"
+    ),
+    scenario=(
+        "@bdd-worker-pipeline-context-worker-context-renders-base-context-"
+        "plus-worker-guidance"
+    ),
+)
 def test_worker_context_renders_base_context_plus_worker_guidance(
     tmp_path: Path,
 ) -> None:
@@ -187,8 +203,8 @@ def test_worker_context_renders_base_context_plus_worker_guidance(
     )
 
 
-# specweave: feature=specs/behavior/features/worker_pipeline_context/worker-pipeline-context.feature
-# specweave: scenario=@bdd-worker-pipeline-context-pipeline-context-command-renders-worker-context
+# sw: f=specs/behavior/features/worker_pipeline_context/worker-pipeline-context.feature
+# sw: s=@bdd-worker-pipeline-context-pipeline-context-command-renders-worker-context
 def test_pipeline_context_command_renders_worker_context(tmp_path: Path) -> None:
     _setup_task_with_accepted_plan(tmp_path)
     _append_pipeline_config(tmp_path / "taskledger.toml")
@@ -203,8 +219,8 @@ def test_pipeline_context_command_renders_worker_context(tmp_path: Path) -> None
     assert "Test Writer" in result.stdout
 
 
-# specweave: feature=specs/behavior/features/worker_pipeline_context/worker-pipeline-context.feature
-# specweave: scenario=@bdd-worker-pipeline-context-context-worker-requires-enabled-pipeline
+# sw: f=specs/behavior/features/worker_pipeline_context/worker-pipeline-context.feature
+# sw: s=@bdd-worker-pipeline-context-context-worker-requires-enabled-pipeline
 def test_context_worker_requires_enabled_pipeline(tmp_path: Path) -> None:
     _setup_task_with_accepted_plan(tmp_path)
 

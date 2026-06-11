@@ -3,7 +3,7 @@
 **Status:** failed
 
 **Scenario coverage:** 816/816 bound (100.0%), 0 missing, 0 waived
-**Pytest coverage:** 816/1154 mapped (70.7%), 338 unmapped, 0 stale
+**Pytest coverage:** 577/1154 mapped (50.0%), 577 unmapped, 0 stale
 
 ## Features -> pytest
 
@@ -25,54 +25,119 @@ No feature-side gap findings.
   - `tests/test_actor_harness_state.py::test_resolve_actor_no_workspace_no_stored`
   - `tests/test_actor_harness_state.py::test_active_actor_state_from_dict_rejects_bad_type`
   - `tests/test_actor_harness_state.py::test_active_harness_state_from_dict_rejects_bad_type`
+- `tests/test_actor_resolution.py`
+  - `tests/test_actor_resolution.py::TestActorRefPidScope::test_round_trip_command_pid_and_pid_scope`
+  - `tests/test_actor_resolution.py::TestActorRefPidScope::test_round_trip_owner_pid_scope`
+  - `tests/test_actor_resolution.py::TestActorRefPidScope::test_missing_pid_scope_is_none`
+  - `tests/test_actor_resolution.py::TestActorRefPidScope::test_invalid_pid_scope_is_ignored`
+  - `tests/test_actor_resolution.py::TestResolveActorHarnessContext::test_pi_context_without_owner_pid_stores_none_pid`
+  - `tests/test_actor_resolution.py::TestResolveActorHarnessContext::test_pi_context_with_owner_pid_env`
+  - `tests/test_actor_resolution.py::TestResolveActorHarnessContext::test_harness_pid_alias_env`
+  - `tests/test_actor_resolution.py::TestResolveActorHarnessContext::test_owner_pid_takes_priority_over_harness_pid`
+  - `tests/test_actor_resolution.py::TestResolveActorHarnessContext::test_codex_context_without_owner_pid`
+  - `tests/test_actor_resolution.py::TestResolveActorHarnessContext::test_opencode_context_without_owner_pid`
+  - `tests/test_actor_resolution.py::TestResolveActorHarnessContext::test_env_actor_with_harness_session`
+  - `tests/test_actor_resolution.py::TestResolveActorHarnessContext::test_default_agent_gets_command_pid_as_owner`
+  - `tests/test_actor_resolution.py::TestResolveActorHarnessContext::test_invalid_owner_pid_ignored`
+  - `tests/test_actor_resolution.py::TestResolveActorHarnessContext::test_zero_owner_pid_ignored`
 - `tests/test_agent_command_logging.py`
   - `tests/test_agent_command_logging.py::test_agent_logging_config_rejects_unknown_and_bad_regex`
 - `tests/test_agent_session_protocol.py`
   - `tests/test_agent_session_protocol.py::test_plan_propose_releases_planning_lock`
 - `tests/test_atomic_fast_io.py`
   - `tests/test_atomic_fast_io.py::test_atomic_write_skips_fsync_when_fast_test_io_enabled`
+- `tests/test_bdd_cli.py`
+  - `tests/test_bdd_cli.py::TestBddInit::test_bdd_init_json`
+  - `tests/test_bdd_cli.py::TestBddInit::test_bdd_init_human`
+  - `tests/test_bdd_cli.py::TestBddInit::test_bdd_init_twice_fails`
+  - `tests/test_bdd_cli.py::TestBddStatus::test_bdd_status_json`
+  - `tests/test_bdd_cli.py::TestBddRuleCommands::test_rule_add_json`
+  - `tests/test_bdd_cli.py::TestBddRuleCommands::test_rule_list_json`
+  - `tests/test_bdd_cli.py::TestBddRuleCommands::test_rule_show_json`
+  - `tests/test_bdd_cli.py::TestBddExampleCommands::test_example_add_json`
+  - `tests/test_bdd_cli.py::TestBddExampleCommands::test_example_list_json`
+  - `tests/test_bdd_cli.py::TestBddExampleCommands::test_example_show_json`
+  - `tests/test_bdd_cli.py::TestBddExampleCommands::test_example_link_ac`
+  - `tests/test_bdd_cli.py::TestBddGherkinExport::test_gherkin_export_json`
+  - `tests/test_bdd_cli.py::TestBddGherkinExport::test_gherkin_export_warns_for_deprecated_paths`
+  - `tests/test_bdd_cli.py::TestBddGherkinExport::test_export_json_includes_external_behavior_spec_metadata`
+  - `tests/test_bdd_cli.py::TestBddArchledgerBridge::test_archledger_candidate`
+  - `tests/test_bdd_cli.py::TestBddArchledgerBridge::test_example_link_archledger`
+  - `tests/test_bdd_cli.py::TestBddArchledgerBridge::test_link_automation_then_candidate_includes_feature_file`
+  - `tests/test_bdd_cli.py::TestBddArchledgerBridge::test_link_automation_rejects_non_canonical_feature_path`
+  - `tests/test_bdd_cli.py::TestBddReferenceValidation::test_example_add_unknown_rule_fails`
+  - `tests/test_bdd_cli.py::TestBddReferenceValidation::test_example_add_unknown_criterion_with_accepted_plan_fails`
+  - `tests/test_bdd_cli.py::TestBddReferenceValidation::test_example_add_known_criterion_with_accepted_plan_succeeds`
+  - `tests/test_bdd_cli.py::TestBddReferenceValidation::test_example_add_criterion_without_plan_warns`
+  - `tests/test_bdd_cli.py::TestBddReferenceValidation::test_link_ac_unknown_criterion_with_accepted_plan_fails`
 - `tests/test_bdd_gherkin.py`
-  - `tests/test_bdd_gherkin.py::test_export_refuses_no_formulated_examples`
-  - `tests/test_bdd_gherkin.py::test_export_warns_missing_ac_links`
-  - `tests/test_bdd_gherkin.py::test_export_refuses_outside_workspace`
-  - `tests/test_bdd_gherkin.py::test_export_deterministic_ordering`
-  - `tests/test_bdd_gherkin.py::test_export_no_bdd_initialized`
+  - `tests/test_bdd_gherkin.py::TestGherkinExport::test_export_basic_feature`
+  - `tests/test_bdd_gherkin.py::TestGherkinExport::test_export_ownership_header`
+  - `tests/test_bdd_gherkin.py::TestGherkinExport::test_export_refuses_no_formulated_examples`
+  - `tests/test_bdd_gherkin.py::TestGherkinExport::test_export_warns_missing_ac_links`
+  - `tests/test_bdd_gherkin.py::TestGherkinExport::test_export_warns_for_deprecated_output_paths`
+  - `tests/test_bdd_gherkin.py::TestGherkinExport::test_export_refuses_outside_workspace`
+  - `tests/test_bdd_gherkin.py::TestGherkinExport::test_export_deterministic_ordering`
+  - `tests/test_bdd_gherkin.py::TestGherkinExport::test_export_with_tags`
+  - `tests/test_bdd_gherkin.py::TestGherkinExport::test_export_no_bdd_initialized`
 - `tests/test_bdd_models.py`
-  - `tests/test_bdd_models.py::test_from_dict_invalid_type`
-  - `tests/test_bdd_models.py::test_invalid_status`
-  - `tests/test_bdd_models.py::test_from_dict_invalid_type`
-  - `tests/test_bdd_models.py::test_from_dict_wrong_object_type`
-  - `tests/test_bdd_models.py::test_from_dict_invalid_type`
-  - `tests/test_bdd_models.py::test_from_dict_invalid_type`
-  - `tests/test_bdd_models.py::test_invalid_status`
-  - `tests/test_bdd_models.py::test_from_dict_invalid_type`
-  - `tests/test_bdd_models.py::test_from_dict_bad_example_results`
-  - `tests/test_bdd_models.py::test_valid_example_statuses`
-  - `tests/test_bdd_models.py::test_invalid_example_status`
-  - `tests/test_bdd_models.py::test_valid_automation_statuses`
-  - `tests/test_bdd_models.py::test_invalid_automation_status`
+  - `tests/test_bdd_models.py::TestBddAutomationRef::test_defaults`
+  - `tests/test_bdd_models.py::TestBddAutomationRef::test_round_trip`
+  - `tests/test_bdd_models.py::TestBddAutomationRef::test_from_dict_none`
+  - `tests/test_bdd_models.py::TestBddAutomationRef::test_from_dict_invalid_type`
+  - `tests/test_bdd_models.py::TestBddAutomationRef::test_invalid_status`
+  - `tests/test_bdd_models.py::TestBddFeatureRecord::test_defaults`
+  - `tests/test_bdd_models.py::TestBddFeatureRecord::test_round_trip`
+  - `tests/test_bdd_models.py::TestBddFeatureRecord::test_from_dict_invalid_type`
+  - `tests/test_bdd_models.py::TestBddFeatureRecord::test_from_dict_wrong_object_type`
+  - `tests/test_bdd_models.py::TestBddRuleRecord::test_defaults`
+  - `tests/test_bdd_models.py::TestBddRuleRecord::test_round_trip`
+  - `tests/test_bdd_models.py::TestBddRuleRecord::test_from_dict_invalid_type`
+  - `tests/test_bdd_models.py::TestBddExampleRecord::test_defaults`
+  - `tests/test_bdd_models.py::TestBddExampleRecord::test_round_trip`
+  - `tests/test_bdd_models.py::TestBddExampleRecord::test_from_dict_invalid_type`
+  - `tests/test_bdd_models.py::TestBddExampleRecord::test_invalid_status`
+  - `tests/test_bdd_models.py::TestBddReportRecord::test_defaults`
+  - `tests/test_bdd_models.py::TestBddReportRecord::test_round_trip`
+  - `tests/test_bdd_models.py::TestBddReportRecord::test_from_dict_invalid_type`
+  - `tests/test_bdd_models.py::TestBddReportRecord::test_from_dict_bad_example_results`
+  - `tests/test_bdd_models.py::TestStatusNormalizers::test_valid_example_statuses`
+  - `tests/test_bdd_models.py::TestStatusNormalizers::test_invalid_example_status`
+  - `tests/test_bdd_models.py::TestStatusNormalizers::test_valid_automation_statuses`
+  - `tests/test_bdd_models.py::TestStatusNormalizers::test_invalid_automation_status`
 - `tests/test_bdd_report_import.py`
-  - `tests/test_bdd_report_import.py::test_import_passing_cucumber_report`
-  - `tests/test_bdd_report_import.py::test_import_failing_cucumber_report`
-  - `tests/test_bdd_report_import.py::test_import_non_passed_cucumber_report_does_not_pass`
-  - `tests/test_bdd_report_import.py::test_import_unmatched_scenarios`
-  - `tests/test_bdd_report_import.py::test_import_unmatched_failing_scenario_surfaces_flag`
-  - `tests/test_bdd_report_import.py::test_import_missing_file`
-  - `tests/test_bdd_report_import.py::test_import_unsupported_format`
-  - `tests/test_bdd_report_import.py::test_import_invalid_json`
-  - `tests/test_bdd_report_import.py::test_import_failing_junit_report`
-  - `tests/test_bdd_report_import.py::test_import_junit_with_testsuite_root`
-  - `tests/test_bdd_report_import.py::test_import_invalid_xml`
+  - `tests/test_bdd_report_import.py::TestCucumberJsonImport::test_import_passing_cucumber_report`
+  - `tests/test_bdd_report_import.py::TestCucumberJsonImport::test_import_failing_cucumber_report`
+  - `tests/test_bdd_report_import.py::TestCucumberJsonImport::test_import_non_passed_cucumber_report_does_not_pass`
+  - `tests/test_bdd_report_import.py::TestCucumberJsonImport::test_import_unmatched_scenarios`
+  - `tests/test_bdd_report_import.py::TestCucumberJsonImport::test_import_unmatched_failing_scenario_surfaces_flag`
+  - `tests/test_bdd_report_import.py::TestCucumberJsonImport::test_import_missing_file`
+  - `tests/test_bdd_report_import.py::TestCucumberJsonImport::test_import_unsupported_format`
+  - `tests/test_bdd_report_import.py::TestCucumberJsonImport::test_import_invalid_json`
+  - `tests/test_bdd_report_import.py::TestJunitXmlImport::test_import_passing_junit_report`
+  - `tests/test_bdd_report_import.py::TestJunitXmlImport::test_import_failing_junit_report`
+  - `tests/test_bdd_report_import.py::TestJunitXmlImport::test_import_junit_with_testsuite_root`
+  - `tests/test_bdd_report_import.py::TestJunitXmlImport::test_import_invalid_xml`
 - `tests/test_bdd_storage.py`
-  - `tests/test_bdd_storage.py::test_load_missing_feature_returns_none`
-  - `tests/test_bdd_storage.py::test_save_and_load_rules`
-  - `tests/test_bdd_storage.py::test_load_empty_rules`
-  - `tests/test_bdd_storage.py::test_resolve_rule_not_found`
-  - `tests/test_bdd_storage.py::test_save_and_load_examples`
-  - `tests/test_bdd_storage.py::test_load_empty_examples`
-  - `tests/test_bdd_storage.py::test_resolve_example_not_found`
-  - `tests/test_bdd_storage.py::test_save_and_load_reports`
-  - `tests/test_bdd_storage.py::test_load_empty_reports`
+  - `tests/test_bdd_storage.py::TestBddFeatureStorage::test_save_and_load_feature`
+  - `tests/test_bdd_storage.py::TestBddFeatureStorage::test_load_missing_feature_returns_none`
+  - `tests/test_bdd_storage.py::TestBddRuleStorage::test_save_and_load_rules`
+  - `tests/test_bdd_storage.py::TestBddRuleStorage::test_load_empty_rules`
+  - `tests/test_bdd_storage.py::TestBddRuleStorage::test_resolve_rule`
+  - `tests/test_bdd_storage.py::TestBddRuleStorage::test_resolve_rule_normalized`
+  - `tests/test_bdd_storage.py::TestBddRuleStorage::test_resolve_rule_not_found`
+  - `tests/test_bdd_storage.py::TestBddExampleStorage::test_save_and_load_examples`
+  - `tests/test_bdd_storage.py::TestBddExampleStorage::test_load_empty_examples`
+  - `tests/test_bdd_storage.py::TestBddExampleStorage::test_resolve_example`
+  - `tests/test_bdd_storage.py::TestBddExampleStorage::test_resolve_example_normalized`
+  - `tests/test_bdd_storage.py::TestBddExampleStorage::test_resolve_example_not_found`
+  - `tests/test_bdd_storage.py::TestBddReportStorage::test_save_and_load_reports`
+  - `tests/test_bdd_storage.py::TestBddReportStorage::test_load_empty_reports`
+- `tests/test_bdd_validation_integration.py`
+  - `tests/test_bdd_validation_integration.py::TestBddValidationIntegration::test_import_bdd_report_creates_validation_checks`
+  - `tests/test_bdd_validation_integration.py::TestBddValidationIntegration::test_failing_bdd_report_blocks_validation_finish`
+  - `tests/test_bdd_validation_integration.py::TestBddValidationIntegration::test_import_bdd_report_without_active_validation_fails_clearly`
+  - `tests/test_bdd_validation_integration.py::TestBddValidationIntegration::test_import_bdd_report_without_accepted_plan_fails_clearly`
 - `tests/test_code_reviews.py`
   - `tests/test_code_reviews.py::test_code_review_record_rejects_invalid_result_and_source`
   - `tests/test_code_reviews.py::test_service_rejects_review_record_outside_allowed_stages`
@@ -99,7 +164,14 @@ No feature-side gap findings.
 - `tests/test_command_runner.py`
   - `tests/test_command_runner.py::test_run_command_propagates_parent_keyboard_interrupt`
 - `tests/test_compact_mutation_output.py`
-  - `tests/test_compact_mutation_output.py::test_cli_misc_no_raw_render_json_payload`
+  - `tests/test_compact_mutation_output.py::TestTodoAddCompactOutput::test_human_mode_does_not_contain_full_task`
+  - `tests/test_compact_mutation_output.py::TestTodoAddCompactOutput::test_json_mode_compact_payload`
+  - `tests/test_compact_mutation_output.py::TestTodoDoneCompactOutput::test_human_mode_does_not_contain_full_task`
+  - `tests/test_compact_mutation_output.py::TestTodoDoneCompactOutput::test_json_mode_compact_payload`
+  - `tests/test_compact_mutation_output.py::TestImplementFinishCompactOutput::test_human_mode_does_not_contain_full_task`
+  - `tests/test_compact_mutation_output.py::TestImplementFinishCompactOutput::test_json_mode_compact_payload`
+  - `tests/test_compact_mutation_output.py::TestStaticGuards::test_cli_misc_no_raw_render_json_payload`
+  - `tests/test_compact_mutation_output.py::TestStaticGuards::test_cli_implement_no_raw_render_json_payload`
 - `tests/test_delta_remaining_contracts.py`
   - `tests/test_delta_remaining_contracts.py::test_services_tasks_has_no_duplicate_top_level_function_names`
   - `tests/test_delta_remaining_contracts.py::test_resolve_criterion_ref_canonicalization`
@@ -148,24 +220,32 @@ No feature-side gap findings.
 - `tests/test_help_subprocess.py`
   - `tests/test_help_subprocess.py::test_help_is_not_agent_logged`
 - `tests/test_implementation_checks.py`
-  - `tests/test_implementation_checks.py::test_from_dict_rejects_wrong_object_type`
-  - `tests/test_implementation_checks.py::test_from_dict_rejects_unknown_status`
-  - `tests/test_implementation_checks.py::test_from_dict_rejects_unknown_category`
-  - `tests/test_implementation_checks.py::test_missing_command_fails`
-  - `tests/test_implementation_checks.py::test_pytest_direct`
-  - `tests/test_implementation_checks.py::test_python_m_pytest`
-  - `tests/test_implementation_checks.py::test_ruff_check`
-  - `tests/test_implementation_checks.py::test_ruff_format`
-  - `tests/test_implementation_checks.py::test_mypy`
-  - `tests/test_implementation_checks.py::test_pyright`
-  - `tests/test_implementation_checks.py::test_tox`
-  - `tests/test_implementation_checks.py::test_npm_test`
-  - `tests/test_implementation_checks.py::test_unknown`
-  - `tests/test_implementation_checks.py::test_empty`
-  - `tests/test_implementation_checks.py::test_pnpm_test`
-  - `tests/test_implementation_checks.py::test_yarn_test`
-  - `tests/test_implementation_checks.py::test_nox`
-  - `tests/test_implementation_checks.py::test_pyre`
+  - `tests/test_implementation_checks.py::TestImplementationCheckRecordRoundTrip::test_to_dict_from_dict_round_trip`
+  - `tests/test_implementation_checks.py::TestImplementationCheckRecordRoundTrip::test_from_dict_rejects_wrong_object_type`
+  - `tests/test_implementation_checks.py::TestImplementationCheckRecordRoundTrip::test_from_dict_rejects_unknown_status`
+  - `tests/test_implementation_checks.py::TestImplementationCheckRecordRoundTrip::test_from_dict_rejects_unknown_category`
+  - `tests/test_implementation_checks.py::TestImplementationCheckRecordRoundTrip::test_missing_command_fails`
+  - `tests/test_implementation_checks.py::TestImplementationCheckRecordRoundTrip::test_defaults`
+  - `tests/test_implementation_checks.py::TestClassifyCheckCommand::test_pytest_direct`
+  - `tests/test_implementation_checks.py::TestClassifyCheckCommand::test_python_m_pytest`
+  - `tests/test_implementation_checks.py::TestClassifyCheckCommand::test_ruff_check`
+  - `tests/test_implementation_checks.py::TestClassifyCheckCommand::test_ruff_format`
+  - `tests/test_implementation_checks.py::TestClassifyCheckCommand::test_mypy`
+  - `tests/test_implementation_checks.py::TestClassifyCheckCommand::test_pyright`
+  - `tests/test_implementation_checks.py::TestClassifyCheckCommand::test_tox`
+  - `tests/test_implementation_checks.py::TestClassifyCheckCommand::test_npm_test`
+  - `tests/test_implementation_checks.py::TestClassifyCheckCommand::test_unknown`
+  - `tests/test_implementation_checks.py::TestClassifyCheckCommand::test_empty`
+  - `tests/test_implementation_checks.py::TestClassifyCheckCommand::test_pnpm_test`
+  - `tests/test_implementation_checks.py::TestClassifyCheckCommand::test_yarn_test`
+  - `tests/test_implementation_checks.py::TestClassifyCheckCommand::test_nox`
+  - `tests/test_implementation_checks.py::TestClassifyCheckCommand::test_pyre`
+  - `tests/test_implementation_checks.py::TestImplementCommandCreatesCheck::test_creates_check_not_change`
+  - `tests/test_implementation_checks.py::TestImplementCommandCreatesCheck::test_check_has_category`
+  - `tests/test_implementation_checks.py::TestImplementCommandCreatesCheck::test_check_refs_on_run`
+  - `tests/test_implementation_checks.py::TestImplementCommandCreatesCheck::test_human_output_shows_check`
+  - `tests/test_implementation_checks.py::TestImplementCommandCreatesCheck::test_failed_command_creates_failed_check`
+  - `tests/test_implementation_checks.py::TestImplementCommandCreatesCheck::test_allow_failure_records_check`
 - `tests/test_legacy_cleanup_contracts.py`
   - `tests/test_legacy_cleanup_contracts.py::test_legacy_modules_are_removed`
 - `tests/test_lifecycle_policies.py`
@@ -173,6 +253,13 @@ No feature-side gap findings.
   - `tests/test_lifecycle_policies.py::test_failed_validation_can_transition_back_to_implementing`
 - `tests/test_lock_diagnostics.py`
   - `tests/test_lock_diagnostics.py::test_posix_pid_checker_permission_error_is_treated_as_alive`
+  - `tests/test_lock_diagnostics.py::TestHarnessSessionDiagnostics::test_pi_harness_without_owner_pid_is_not_dead_local_process`
+  - `tests/test_lock_diagnostics.py::TestHarnessSessionDiagnostics::test_harness_owner_pid_dead_still_repairs`
+  - `tests/test_lock_diagnostics.py::TestHarnessSessionDiagnostics::test_legacy_pi_lock_with_session_inferred_as_unverifiable`
+  - `tests/test_lock_diagnostics.py::TestHarnessSessionDiagnostics::test_legacy_pi_lock_with_harness_ref_inferred_as_unverifiable`
+  - `tests/test_lock_diagnostics.py::TestHarnessSessionDiagnostics::test_command_pid_scope_not_checkable`
+  - `tests/test_lock_diagnostics.py::TestHarnessSessionDiagnostics::test_direct_user_dead_pid_still_repairs`
+  - `tests/test_lock_diagnostics.py::TestHarnessSessionDiagnostics::test_harness_session_same_actor_classification`
 - `tests/test_models_v1_schema.py`
   - `tests/test_models_v1_schema.py::test_persisted_models_round_trip_with_schema_metadata`
   - `tests/test_models_v1_schema.py::test_task_record_requires_object_type`
@@ -189,23 +276,74 @@ No feature-side gap findings.
   - `tests/test_monitor.py::test_monitor_cli_activity_scope_task`
   - `tests/test_monitor.py::test_monitor_cli_activity_scope_invalid`
 - `tests/test_no_log_feature.py`
-  - `tests/test_no_log_feature.py::test_simple_command`
-  - `tests/test_no_log_feature.py::test_command_with_global_json_option`
-  - `tests/test_no_log_feature.py::test_command_with_global_cwd_option`
-  - `tests/test_no_log_feature.py::test_command_with_global_cwd_equals_option`
-  - `tests/test_no_log_feature.py::test_nested_command_two_word`
-  - `tests/test_no_log_feature.py::test_nested_command_plan_review`
-  - `tests/test_no_log_feature.py::test_nested_command_task_report`
-  - `tests/test_no_log_feature.py::test_nested_command_todo_done`
-  - `tests/test_no_log_feature.py::test_nested_command_implement_command`
-  - `tests/test_no_log_feature.py::test_empty_argv`
-  - `tests/test_no_log_feature.py::test_unknown_command`
-  - `tests/test_no_log_feature.py::test_no_env_var`
-  - `tests/test_no_log_feature.py::test_env_var_0`
-  - `tests/test_no_log_feature.py::test_env_var_false`
-  - `tests/test_no_log_feature.py::test_dont_skip_human_oriented_when_capture_enabled`
-  - `tests/test_no_log_feature.py::test_dont_skip_safe_read_only_when_capture_enabled`
-  - `tests/test_no_log_feature.py::test_dont_skip_mutation`
+  - `tests/test_no_log_feature.py::TestCommandKeyParsing::test_simple_command`
+  - `tests/test_no_log_feature.py::TestCommandKeyParsing::test_command_with_global_json_option`
+  - `tests/test_no_log_feature.py::TestCommandKeyParsing::test_command_with_global_cwd_option`
+  - `tests/test_no_log_feature.py::TestCommandKeyParsing::test_command_with_global_cwd_equals_option`
+  - `tests/test_no_log_feature.py::TestCommandKeyParsing::test_nested_command_two_word`
+  - `tests/test_no_log_feature.py::TestCommandKeyParsing::test_nested_command_plan_review`
+  - `tests/test_no_log_feature.py::TestCommandKeyParsing::test_nested_command_task_report`
+  - `tests/test_no_log_feature.py::TestCommandKeyParsing::test_nested_command_todo_done`
+  - `tests/test_no_log_feature.py::TestCommandKeyParsing::test_nested_command_implement_command`
+  - `tests/test_no_log_feature.py::TestCommandKeyParsing::test_empty_argv`
+  - `tests/test_no_log_feature.py::TestCommandKeyParsing::test_unknown_command`
+  - `tests/test_no_log_feature.py::TestEnvironmentVariable::test_no_env_var`
+  - `tests/test_no_log_feature.py::TestEnvironmentVariable::test_env_var_1`
+  - `tests/test_no_log_feature.py::TestEnvironmentVariable::test_env_var_true`
+  - `tests/test_no_log_feature.py::TestEnvironmentVariable::test_env_var_yes`
+  - `tests/test_no_log_feature.py::TestEnvironmentVariable::test_env_var_on`
+  - `tests/test_no_log_feature.py::TestEnvironmentVariable::test_env_var_0`
+  - `tests/test_no_log_feature.py::TestEnvironmentVariable::test_env_var_false`
+  - `tests/test_no_log_feature.py::TestEnvironmentVariable::test_env_var_case_insensitive`
+  - `tests/test_no_log_feature.py::TestShouldSkipRecording::test_skip_when_no_log_flag_set`
+  - `tests/test_no_log_feature.py::TestShouldSkipRecording::test_skip_when_env_var_set`
+  - `tests/test_no_log_feature.py::TestShouldSkipRecording::test_skip_when_disabled`
+  - `tests/test_no_log_feature.py::TestShouldSkipRecording::test_skip_when_cli_capture_disabled`
+  - `tests/test_no_log_feature.py::TestShouldSkipRecording::test_skip_human_oriented_when_capture_disabled`
+  - `tests/test_no_log_feature.py::TestShouldSkipRecording::test_dont_skip_human_oriented_when_capture_enabled`
+  - `tests/test_no_log_feature.py::TestShouldSkipRecording::test_skip_safe_read_only_when_capture_disabled`
+  - `tests/test_no_log_feature.py::TestShouldSkipRecording::test_dont_skip_safe_read_only_when_capture_enabled`
+  - `tests/test_no_log_feature.py::TestShouldSkipRecording::test_dont_skip_mutation`
+  - `tests/test_no_log_feature.py::TestShouldSkipRecording::test_precedence_no_log_overrides_config`
+  - `tests/test_no_log_feature.py::TestNoLogIntegration::test_no_log_flag_suppresses_logging`
+  - `tests/test_no_log_feature.py::TestNoLogIntegration::test_normal_command_still_logs`
+  - `tests/test_no_log_feature.py::TestNoLogIntegration::test_env_var_suppresses_logging`
+  - `tests/test_no_log_feature.py::TestNoLogIntegration::test_no_log_mutation_still_executes`
+  - `tests/test_no_log_feature.py::TestConfigFiltering::test_capture_safe_read_only_false_skips_view`
+  - `tests/test_no_log_feature.py::TestConfigFiltering::test_capture_safe_read_only_false_still_logs_mutations`
+  - `tests/test_no_log_feature.py::TestConfigFiltering::test_capture_human_oriented_false_skips_report`
+  - `tests/test_no_log_feature.py::TestCommandsCommand::test_commands_list_all`
+  - `tests/test_no_log_feature.py::TestCommandsCommand::test_commands_filter_by_audience`
+  - `tests/test_no_log_feature.py::TestCommandsCommand::test_commands_filter_by_effect`
+  - `tests/test_no_log_feature.py::TestCommandsCommand::test_commands_json_output`
+  - `tests/test_no_log_feature.py::TestCommandsCommand::test_commands_json_with_filters`
+- `tests/test_plan_lint.py`
+  - `tests/test_plan_lint.py::TestPlanLintPasses::test_plan_lint_passes_for_executable_plan`
+  - `tests/test_plan_lint.py::TestPlanLintPasses::test_plan_template_prints_stdout_when_no_file`
+  - `tests/test_plan_lint.py::TestPlanLintPasses::test_plan_guidance_human_message_when_no_profile`
+  - `tests/test_plan_lint.py::TestPlanLintPasses::test_plan_guidance_json_contract_when_no_profile`
+  - `tests/test_plan_lint.py::TestPlanLintPasses::test_plan_guidance_rejects_invalid_format`
+  - `tests/test_plan_lint.py::TestPlanLintPasses::test_plan_template_from_answers_writes_file`
+  - `tests/test_plan_lint.py::TestPlanLintPasses::test_plan_template_include_guidance_writes_guidance_in_file`
+  - `tests/test_plan_lint.py::TestPlanLintPasses::test_filled_plan_template_passes_lint`
+  - `tests/test_plan_lint.py::TestPlanLintErrors::test_plan_lint_reports_missing_goal`
+  - `tests/test_plan_lint.py::TestPlanLintErrors::test_plan_lint_reports_missing_criteria`
+  - `tests/test_plan_lint.py::TestPlanLintErrors::test_plan_lint_reports_missing_todos`
+  - `tests/test_plan_lint.py::TestPlanLintErrors::test_plan_lint_allows_todo_waiver_reason`
+  - `tests/test_plan_lint.py::TestPlanLintErrors::test_plan_lint_rejects_vague_todo`
+  - `tests/test_plan_lint.py::TestPlanLintWarnings::test_plan_lint_warns_on_placeholders`
+  - `tests/test_plan_lint.py::TestPlanLintWarnings::test_plan_lint_strict_fails_on_placeholders`
+  - `tests/test_plan_lint.py::TestPlanLintWarnings::test_plan_lint_warns_when_todos_lack_validation_hints_and_no_tests`
+  - `tests/test_plan_lint.py::TestPlanLintWarnings::test_plan_lint_strict_errors_when_todos_lack_validation_hints_and_no_tests`
+  - `tests/test_plan_lint.py::TestPlanLintVersioning::test_plan_lint_defaults_to_latest_plan`
+  - `tests/test_plan_lint.py::TestPlanLintApprovalGate::test_plan_approval_blocks_lint_errors`
+  - `tests/test_plan_lint.py::TestPlanLintApprovalGate::test_plan_approval_lint_escape_hatch_requires_reason`
+  - `tests/test_plan_lint.py::TestPlanLintApprovalGate::test_plan_approval_lint_escape_hatch_succeeds_with_reason`
+  - `tests/test_plan_lint.py::TestPlanLintMissingBody::test_plan_lint_reports_missing_plan_body`
+  - `tests/test_plan_lint.py::TestPlanLintMissingBody::test_plan_approval_blocks_missing_body`
+  - `tests/test_plan_lint.py::TestPlanLintMissingBody::test_plan_lint_passes_with_body`
+  - `tests/test_plan_lint.py::TestPlanLintHumanOutput::test_plan_lint_human_output_renders_issue_details`
+  - `tests/test_plan_lint.py::TestPlanLintHumanOutput::test_plan_lint_accepts_short_file_path_todo`
 - `tests/test_plan_review.py`
   - `tests/test_plan_review.py::test_plan_review_defaults_to_latest_plan`
 - `tests/test_project_root_config.py`
@@ -313,26 +451,56 @@ No feature-side gap findings.
   - `tests/test_storage_init.py::test_ensure_project_exists_rejects_legacy_item_index`
   - `tests/test_storage_init.py::test_ensure_project_exists_rejects_legacy_memory_index`
 - `tests/test_storage_migration.py`
-  - `tests/test_storage_migration.py::test_missing_storage_yaml_returns_none`
-  - `tests/test_storage_migration.py::test_invalid_yaml_raises`
-  - `tests/test_storage_migration.py::test_non_mapping_raises`
-  - `tests/test_storage_migration.py::test_missing_required_field_raises`
-  - `tests/test_storage_migration.py::test_active_task_state_has_file_version`
-  - `tests/test_storage_migration.py::test_active_actor_state_has_file_version`
-  - `tests/test_storage_migration.py::test_active_harness_state_has_file_version`
-  - `tests/test_storage_migration.py::test_todo_rejects_too_new_schema`
-  - `tests/test_storage_migration.py::test_todo_rejects_wrong_object_type`
-  - `tests/test_storage_migration.py::test_todo_rejects_wrong_file_version`
-  - `tests/test_storage_migration.py::test_link_rejects_too_new_schema`
-  - `tests/test_storage_migration.py::test_requirement_rejects_too_new_schema`
-  - `tests/test_storage_migration.py::test_init_idempotent`
-  - `tests/test_storage_migration.py::test_required_layout_migrations_empty_when_current`
-  - `tests/test_storage_migration.py::test_required_layout_migrations_raises_for_unsupported`
-  - `tests/test_storage_migration.py::test_scan_records_empty_on_fresh_workspace`
-  - `tests/test_storage_migration.py::test_doctor_schema_up_to_date`
-  - `tests/test_storage_migration.py::test_migrate_status_reports_branch_scoped_migration_needed`
-  - `tests/test_storage_migration.py::test_migrate_handles_multiple_task_id_conflicts`
-  - `tests/test_storage_migration.py::test_migrate_apply_removes_legacy_root_indexes_and_rebuilds`
+  - `tests/test_storage_migration.py::TestStorageVersionConstants::test_storage_layout_version_is_3`
+  - `tests/test_storage_migration.py::TestStorageVersionConstants::test_record_schema_version_matches_schema_version`
+  - `tests/test_storage_migration.py::TestStorageVersionConstants::test_schema_version_is_1`
+  - `tests/test_storage_migration.py::TestStorageVersionConstants::test_v2_file_version`
+  - `tests/test_storage_migration.py::TestStorageMeta::test_roundtrip`
+  - `tests/test_storage_migration.py::TestStorageMeta::test_missing_storage_yaml_returns_none`
+  - `tests/test_storage_migration.py::TestStorageMeta::test_invalid_yaml_raises`
+  - `tests/test_storage_migration.py::TestStorageMeta::test_non_mapping_raises`
+  - `tests/test_storage_migration.py::TestStorageMeta::test_missing_required_field_raises`
+  - `tests/test_storage_migration.py::TestStorageMeta::test_to_dict_keys`
+  - `tests/test_storage_migration.py::TestActiveStateFileVersion::test_active_task_state_has_file_version`
+  - `tests/test_storage_migration.py::TestActiveStateFileVersion::test_active_actor_state_has_file_version`
+  - `tests/test_storage_migration.py::TestActiveStateFileVersion::test_active_harness_state_has_file_version`
+  - `tests/test_storage_migration.py::TestActiveStateFileVersion::test_active_task_roundtrip_with_file_version`
+  - `tests/test_storage_migration.py::TestActiveStateFileVersion::test_active_task_legacy_no_file_version`
+  - `tests/test_storage_migration.py::TestSidecarVersionEnforcement::test_todo_accepts_valid_v2`
+  - `tests/test_storage_migration.py::TestSidecarVersionEnforcement::test_todo_accepts_legacy_no_version`
+  - `tests/test_storage_migration.py::TestSidecarVersionEnforcement::test_todo_rejects_too_new_schema`
+  - `tests/test_storage_migration.py::TestSidecarVersionEnforcement::test_todo_rejects_wrong_object_type`
+  - `tests/test_storage_migration.py::TestSidecarVersionEnforcement::test_todo_rejects_wrong_file_version`
+  - `tests/test_storage_migration.py::TestSidecarVersionEnforcement::test_link_accepts_valid_v2`
+  - `tests/test_storage_migration.py::TestSidecarVersionEnforcement::test_link_accepts_legacy_no_version`
+  - `tests/test_storage_migration.py::TestSidecarVersionEnforcement::test_link_rejects_too_new_schema`
+  - `tests/test_storage_migration.py::TestSidecarVersionEnforcement::test_requirement_accepts_valid_v2`
+  - `tests/test_storage_migration.py::TestSidecarVersionEnforcement::test_requirement_accepts_legacy_no_version`
+  - `tests/test_storage_migration.py::TestSidecarVersionEnforcement::test_requirement_rejects_too_new_schema`
+  - `tests/test_storage_migration.py::TestInitWritesStorageYaml::test_init_creates_storage_yaml`
+  - `tests/test_storage_migration.py::TestInitWritesStorageYaml::test_init_idempotent`
+  - `tests/test_storage_migration.py::TestMigrationFramework::test_required_layout_migrations_empty_when_current`
+  - `tests/test_storage_migration.py::TestMigrationFramework::test_required_layout_migrations_raises_for_unsupported`
+  - `tests/test_storage_migration.py::TestMigrationFramework::test_scan_records_empty_on_fresh_workspace`
+  - `tests/test_storage_migration.py::TestMigrateCLI::test_migrate_status_no_storage`
+  - `tests/test_storage_migration.py::TestMigrateCLI::test_migrate_status_up_to_date`
+  - `tests/test_storage_migration.py::TestMigrateCLI::test_migrate_plan_no_storage`
+  - `tests/test_storage_migration.py::TestMigrateCLI::test_migrate_apply_no_storage`
+  - `tests/test_storage_migration.py::TestMigrateCLI::test_migrate_apply_up_to_date`
+  - `tests/test_storage_migration.py::TestMigrateCLI::test_migrate_commands_in_inventory`
+  - `tests/test_storage_migration.py::TestDoctorSchemaLayoutVersion::test_doctor_schema_missing_storage_yaml`
+  - `tests/test_storage_migration.py::TestDoctorSchemaLayoutVersion::test_doctor_schema_up_to_date`
+  - `tests/test_storage_migration.py::TestDoctorSchemaLayoutVersion::test_inspect_records_for_migration_reports_malformed_markdown`
+  - `tests/test_storage_migration.py::TestDoctorSchemaLayoutVersion::test_doctor_schema_reports_malformed_task_record`
+  - `tests/test_storage_migration.py::TestBranchScopedLedgerMigration::test_migrate_apply_moves_legacy_unscoped_state_to_current_ledger`
+  - `tests/test_storage_migration.py::TestBranchScopedLedgerMigration::test_migrate_status_reports_branch_scoped_migration_needed`
+  - `tests/test_storage_migration.py::TestBranchScopedLedgerMigration::test_migrate_apply_noop_for_already_branch_scoped_v2_workspace`
+  - `tests/test_storage_migration.py::TestBranchScopedLedgerMigration::test_migrate_renumbers_older_root_task_on_conflict`
+  - `tests/test_storage_migration.py::TestBranchScopedLedgerMigration::test_migrate_handles_multiple_task_id_conflicts`
+  - `tests/test_storage_migration.py::TestBranchScopedLedgerMigration::test_migrate_preserves_task_timestamps_after_renumbering`
+  - `tests/test_storage_migration.py::TestBranchScopedLedgerMigration::test_migrate_apply_removes_legacy_root_indexes_and_rebuilds`
+  - `tests/test_storage_migration.py::TestBranchScopedLedgerMigration::test_migrate_merges_active_task_keeping_newer`
+  - `tests/test_storage_migration.py::TestBranchScopedLedgerMigration::test_migrate_merges_active_task_from_root_if_newer`
 - `tests/test_storage_repos.py`
   - `tests/test_storage_repos.py::test_save_and_load_repos`
   - `tests/test_storage_repos.py::test_add_repo_rejects_duplicate_name`
@@ -346,11 +514,47 @@ No feature-side gap findings.
   - `tests/test_storage_repos.py::test_set_repo_role_rejects_readonly_if_preferred`
   - `tests/test_storage_repos.py::test_set_default_execution_repo_rejects_readonly`
 - `tests/test_task_markdown_export.py`
-  - `tests/test_task_markdown_export.py::test_task_export_total_source_budget_does_not_charge_skipped_file`
+  - `tests/test_task_markdown_export.py::TestServiceExport::test_task_export_includes_curated_report_and_raw_task_files`
+  - `tests/test_task_markdown_export.py::TestServiceExport::test_task_export_includes_source_file_snapshots_from_changes`
+  - `tests/test_task_markdown_export.py::TestServiceExport::test_task_export_no_source_files_skips_source_snapshot_section`
+  - `tests/test_task_markdown_export.py::TestServiceExport::test_task_export_skips_outside_workspace_file`
+  - `tests/test_task_markdown_export.py::TestServiceExport::test_task_export_skips_oversized_source_file`
+  - `tests/test_task_markdown_export.py::TestServiceExport::test_task_export_does_not_mutate_taskledger_state`
+  - `tests/test_task_markdown_export.py::TestServiceExport::test_task_export_front_matter_contains_metadata`
+  - `tests/test_task_markdown_export.py::TestServiceExport::test_task_export_deterministic_body`
+  - `tests/test_task_markdown_export.py::TestServiceExport::test_task_export_summary_table`
+  - `tests/test_task_markdown_export.py::TestServiceExport::test_task_export_dedupes_change_and_plan_source_paths`
+  - `tests/test_task_markdown_export.py::TestServiceExport::test_task_export_skips_nested_git_directory`
+  - `tests/test_task_markdown_export.py::TestServiceExport::test_task_export_does_not_report_missing_plan_only_source_file`
+  - `tests/test_task_markdown_export.py::TestServiceExport::test_task_export_does_not_report_git_scan_dot_as_source_file`
+  - `tests/test_task_markdown_export.py::TestServiceExport::test_task_export_total_source_budget_does_not_charge_skipped_file`
+  - `tests/test_task_markdown_export.py::TestCliExport::test_task_export_writes_markdown_file`
+  - `tests/test_task_markdown_export.py::TestCliExport::test_task_export_stdout_markdown`
+  - `tests/test_task_markdown_export.py::TestCliExport::test_task_export_json_output_writes_file`
+  - `tests/test_task_markdown_export.py::TestCliExport::test_task_export_uses_active_task_default`
+  - `tests/test_task_markdown_export.py::TestCliExport::test_task_export_no_source_files_flag`
+  - `tests/test_task_markdown_export.py::TestCliExport::test_task_export_positional_task_ref`
 - `tests/test_task_report.py`
-  - `tests/test_task_report.py::test_task_report_unknown_section_fails`
-  - `tests/test_task_report.py::test_task_report_unknown_preset_fails`
-  - `tests/test_task_report.py::test_task_report_negative_events_limit_fails`
+  - `tests/test_task_report.py::TestServiceReport::test_task_report_full_markdown_includes_major_sections`
+  - `tests/test_task_report.py::TestServiceReport::test_task_report_planning_preset_excludes_impl_and_val`
+  - `tests/test_task_report.py::TestServiceReport::test_task_report_implementation_preset_includes_code_reviews`
+  - `tests/test_task_report.py::TestServiceReport::test_task_report_planning_report_includes_proposed_plan_details`
+  - `tests/test_task_report.py::TestServiceReport::test_task_report_without_removes_sections`
+  - `tests/test_task_report.py::TestServiceReport::test_task_report_explicit_sections_override_preset`
+  - `tests/test_task_report.py::TestServiceReport::test_task_report_archive_includes_events`
+  - `tests/test_task_report.py::TestServiceReport::test_task_report_events_limit`
+  - `tests/test_task_report.py::TestServiceReport::test_task_report_include_command_log_section`
+  - `tests/test_task_report.py::TestServiceReport::test_task_report_unknown_section_fails`
+  - `tests/test_task_report.py::TestServiceReport::test_task_report_unknown_preset_fails`
+  - `tests/test_task_report.py::TestServiceReport::test_task_report_negative_events_limit_fails`
+  - `tests/test_task_report.py::TestServiceReport::test_task_report_json_payload_is_structured`
+  - `tests/test_task_report.py::TestCLIReport::test_task_report_stdout_markdown`
+  - `tests/test_task_report.py::TestCLIReport::test_task_report_output_writes_file`
+  - `tests/test_task_report.py::TestCLIReport::test_task_report_output_json`
+  - `tests/test_task_report.py::TestCLIReport::test_task_report_uses_active_task_default`
+  - `tests/test_task_report.py::TestCLIReport::test_task_report_preset_planning`
+  - `tests/test_task_report.py::TestCLIReport::test_task_report_without_todos_and_criteria`
+  - `tests/test_task_report.py::TestCLIReport::test_task_report_invalid_format`
 - `tests/test_taskledger_v2_cli.py`
   - `tests/test_taskledger_v2_cli.py::test_implement_command_records_stdout_stderr_and_exit_code`
   - `tests/test_taskledger_v2_cli.py::test_failed_validation_restarts_implementation`
@@ -370,15 +574,55 @@ No feature-side gap findings.
   - `tests/test_taskledger_v2_exchange.py::test_json_import_dry_run_does_not_mutate_state`
   - `tests/test_taskledger_v2_exchange.py::test_import_archive_rejects_unsafe_artifact_member_paths`
   - `tests/test_taskledger_v2_exchange.py::test_import_archive_rejects_oversized_artifact_payload`
+- `tests/test_todo_implementation_gate.py`
+  - `tests/test_todo_implementation_gate.py::TestTodoImplementationGate::test_finish_blocked_by_open_todo`
+  - `tests/test_todo_implementation_gate.py::TestTodoImplementationGate::test_finish_succeeds_when_todos_done`
+  - `tests/test_todo_implementation_gate.py::TestTodoImplementationGate::test_finish_succeeds_with_no_todos`
+  - `tests/test_todo_implementation_gate.py::TestTodoImplementationGate::test_finish_blocked_by_multiple_open_todos`
+  - `tests/test_todo_implementation_gate.py::TestTodoImplementationGate::test_finish_succeeds_after_all_todos_done`
+  - `tests/test_todo_implementation_gate.py::TestTodoImplementationGate::test_validation_status_open_todo_hint_uses_existing_command`
+  - `tests/test_todo_implementation_gate.py::TestTodoImplementationGate::test_lock_remains_active_on_finish_failure`
+  - `tests/test_todo_implementation_gate.py::TestTodoImplementationGate::test_run_remains_running_on_finish_failure`
+  - `tests/test_todo_implementation_gate.py::TestTodoImplementationGate::test_error_payload_includes_blockers`
+  - `tests/test_todo_implementation_gate.py::TestTodoObservability::test_four_todo_adds_all_visible_in_status`
+  - `tests/test_todo_implementation_gate.py::TestTodoObservability::test_todo_next_json_includes_command_hints`
+  - `tests/test_todo_implementation_gate.py::TestTodoObservability::test_todo_next_human_output_shows_validation_hint_and_done_command`
+  - `tests/test_todo_implementation_gate.py::TestTodoObservability::test_todo_show_human_output_shows_validation_hint_and_done_command`
+  - `tests/test_todo_implementation_gate.py::TestNextActionTodoOutput::test_next_action_includes_next_todo_payload_during_implementation`
+  - `tests/test_todo_implementation_gate.py::TestNextActionTodoOutput::test_next_action_includes_validation_hint_when_available`
+  - `tests/test_todo_implementation_gate.py::TestNextActionTodoOutput::test_next_action_human_output_names_next_todo`
+  - `tests/test_todo_implementation_gate.py::TestNextActionTodoOutput::test_next_action_returns_implement_finish_when_todos_are_done`
+  - `tests/test_todo_implementation_gate.py::TestNextActionTodoOutput::test_next_action_orphaned_implementation_recommends_resume`
+  - `tests/test_todo_implementation_gate.py::TestNextActionTodoOutput::test_next_action_does_not_call_orphaned_implementation_cancelled`
+  - `tests/test_todo_implementation_gate.py::TestLegacyTodoSidecars::test_legacy_todos_yaml_is_ignored_in_normal_reads`
+  - `tests/test_todo_implementation_gate.py::TestLegacyTodoSidecars::test_legacy_todos_yaml_does_not_block_finish`
 - `tests/test_trace.py`
   - `tests/test_trace.py::test_trace_task_without_bdd_reports_gap`
   - `tests/test_trace.py::test_trace_includes_bdd_mapping_validation_evidence_and_archledger_refs`
 - `tests/test_tree_command.py`
-  - `tests/test_tree_command.py::test_json_payload_structure`
-  - `tests/test_tree_command.py::test_json_envelope_ok`
-  - `tests/test_tree_command.py::test_json_active_task_marker`
-  - `tests/test_tree_command.py::test_subtree_json_scope`
-  - `tests/test_tree_command.py::test_no_details_means_null_counts`
+  - `tests/test_tree_command.py::TestEmptyLedger::test_human_output_shows_no_tasks`
+  - `tests/test_tree_command.py::TestEmptyLedger::test_json_payload_structure`
+  - `tests/test_tree_command.py::TestEmptyLedger::test_json_envelope_ok`
+  - `tests/test_tree_command.py::TestCurrentLedgerTasks::test_shows_both_tasks`
+  - `tests/test_tree_command.py::TestCurrentLedgerTasks::test_json_active_task_marker`
+  - `tests/test_tree_command.py::TestCurrentLedgerTasks::test_no_active_task_still_succeeds`
+  - `tests/test_tree_command.py::TestFollowUpNesting::test_child_nested_under_parent_human`
+  - `tests/test_tree_command.py::TestFollowUpNesting::test_child_nested_under_parent_json`
+  - `tests/test_tree_command.py::TestTaskSubtree::test_subtree_shows_only_selected`
+  - `tests/test_tree_command.py::TestTaskSubtree::test_subtree_json_scope`
+  - `tests/test_tree_command.py::TestTaskSubtree::test_subtree_with_children`
+  - `tests/test_tree_command.py::TestDetails::test_details_shows_counts`
+  - `tests/test_tree_command.py::TestDetails::test_details_human_output_compact`
+  - `tests/test_tree_command.py::TestDetails::test_no_details_means_null_counts`
+  - `tests/test_tree_command.py::TestAllLedgers::test_all_ledgers_shows_multiple`
+  - `tests/test_tree_command.py::TestAllLedgers::test_all_ledgers_does_not_mutate_config`
+  - `tests/test_tree_command.py::TestReleaseRendering::test_current_ledger_release_is_rendered`
+  - `tests/test_tree_command.py::TestReleaseRendering::test_all_ledgers_uses_each_ledger_release_records`
+  - `tests/test_tree_command.py::TestPlainOutput::test_plain_uses_ascii_glyphs`
+  - `tests/test_tree_command.py::TestRecordedTaskType::test_recorded_marker_in_output`
+  - `tests/test_tree_command.py::TestRecordedTaskType::test_recorded_in_json`
+  - `tests/test_tree_command.py::TestArchivedTasks::test_tree_hides_archived_by_default`
+  - `tests/test_tree_command.py::TestArchivedTasks::test_tree_include_archived_marks_nodes`
 - `tests/test_usage_cli.py`
   - `tests/test_usage_cli.py::test_usage_lists_claimable_handoffs_without_claiming`
   - `tests/test_usage_cli.py::test_usage_ready_work_includes_command_hint_for_approved_task`

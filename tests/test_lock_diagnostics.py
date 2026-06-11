@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -57,8 +56,8 @@ def _lock(
     )
 
 
-# specweave: feature=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
-# specweave: scenario=@bdd-lock-diagnostics-diagnose-lock-none-returns-none-classification
+# sw: f=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
+# sw: s=@bdd-lock-diagnostics-diagnose-lock-none-returns-none-classification
 def test_diagnose_lock_none_returns_none_classification() -> None:
     diag = diagnose_lock(None, current_host=HOST_LOCAL)
 
@@ -69,8 +68,8 @@ def test_diagnose_lock_none_returns_none_classification() -> None:
     assert diag.remediation == ()
 
 
-# specweave: feature=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
-# specweave: scenario=@bdd-lock-diagnostics-diagnose-expired-impl-recommends-repair-flag
+# sw: f=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
+# sw: s=@bdd-lock-diagnostics-diagnose-expired-impl-recommends-repair-flag
 def test_diagnose_expired_impl_recommends_repair_flag() -> None:
     expired_at = NOW - timedelta(minutes=5)
     lock = _lock(
@@ -90,8 +89,8 @@ def test_diagnose_expired_impl_recommends_repair_flag() -> None:
     assert "--task task-0001" in diag.remediation[0]
 
 
-# specweave: feature=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
-# specweave: scenario=@bdd-lock-diagnostics-diagnose-lock-expired-planning-recommends-repair-lock
+# sw: f=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
+# sw: s=@bdd-lock-diagnostics-diagnose-lock-expired-planning-recommends-repair-lock
 def test_diagnose_lock_expired_planning_recommends_repair_lock() -> None:
     expired_at = NOW - timedelta(minutes=5)
     lock = _lock(
@@ -106,8 +105,8 @@ def test_diagnose_lock_expired_planning_recommends_repair_lock() -> None:
     assert diag.remediation[0].startswith("taskledger repair lock")
 
 
-# specweave: feature=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
-# specweave: scenario=@bdd-lock-diagnostics-diagnose-lock-local-dead-pid-classifies-dead-local-process
+# sw: f=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
+# sw: s=@bdd-lock-diagnostics-diagnose-lock-local-dead-pid-classifies-dead-local-process
 def test_diagnose_lock_local_dead_pid_classifies_dead_local_process() -> None:
     lock = _lock()
 
@@ -134,8 +133,13 @@ def test_diagnose_lock_local_dead_pid_classifies_dead_local_process() -> None:
     assert any("Holder PID 512425" in cmd for cmd in diag.remediation)
 
 
-# specweave: feature=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
-# specweave: scenario=@bdd-lock-diagnostics-diagnose-lock-local-dead-pid-for-planning-only-recommends-repair
+@pytest.mark.specweave(
+    feature=("specs/behavior/features/lock_diagnostics/lock-diagnostics.feature"),
+    scenario=(
+        "@bdd-lock-diagnostics-diagnose-lock-local-dead-pid-for-planning-only-"
+        "recommends-repair"
+    ),
+)
 def test_diagnose_lock_local_dead_pid_for_planning_only_recommends_repair() -> None:
     lock = _lock(stage="planning")
 
@@ -152,8 +156,13 @@ def test_diagnose_lock_local_dead_pid_for_planning_only_recommends_repair() -> N
     )
 
 
-# specweave: feature=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
-# specweave: scenario=@bdd-lock-diagnostics-diagnose-lock-local-live-pid-other-actor-classifies-other-actor
+@pytest.mark.specweave(
+    feature=("specs/behavior/features/lock_diagnostics/lock-diagnostics.feature"),
+    scenario=(
+        "@bdd-lock-diagnostics-diagnose-lock-local-live-pid-other-actor-"
+        "classifies-other-actor"
+    ),
+)
 def test_diagnose_lock_local_live_pid_other_actor_classifies_other_actor() -> None:
     lock = _lock()
     current = ActorRef(actor_type="agent", actor_name="pi")
@@ -174,8 +183,13 @@ def test_diagnose_lock_local_live_pid_other_actor_classifies_other_actor() -> No
     )
 
 
-# specweave: feature=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
-# specweave: scenario=@bdd-lock-diagnostics-diagnose-lock-local-live-pid-same-actor-classifies-same-actor
+@pytest.mark.specweave(
+    feature=("specs/behavior/features/lock_diagnostics/lock-diagnostics.feature"),
+    scenario=(
+        "@bdd-lock-diagnostics-diagnose-lock-local-live-pid-same-actor-"
+        "classifies-same-actor"
+    ),
+)
 def test_diagnose_lock_local_live_pid_same_actor_classifies_same_actor() -> None:
     lock = _lock()
     current = ActorRef(actor_type="user", actor_name="nahrstaedt", host=HOST_LOCAL)
@@ -193,8 +207,8 @@ def test_diagnose_lock_local_live_pid_same_actor_classifies_same_actor() -> None
     assert diag.remediation == ()
 
 
-# specweave: feature=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
-# specweave: scenario=@bdd-lock-diagnostics-diagnose-lock-remote-host-is-unverifiable
+# sw: f=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
+# sw: s=@bdd-lock-diagnostics-diagnose-lock-remote-host-is-unverifiable
 def test_diagnose_lock_remote_host_is_unverifiable() -> None:
     lock = _lock(holder=_holder(host=HOST_REMOTE, pid=99999))
 
@@ -219,8 +233,8 @@ def test_diagnose_lock_remote_host_is_unverifiable() -> None:
     assert any("verify" in cmd.lower() for cmd in diag.remediation)
 
 
-# specweave: feature=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
-# specweave: scenario=@bdd-lock-diagnostics-diagnose-lock-no-pid-local-host-classifies-no-pid
+# sw: f=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
+# sw: s=@bdd-lock-diagnostics-diagnose-lock-no-pid-local-host-classifies-no-pid
 def test_diagnose_lock_no_pid_local_host_classifies_no_pid() -> None:
     lock = _lock(holder=_holder(pid=None))
 
@@ -238,8 +252,13 @@ def test_diagnose_lock_no_pid_local_host_classifies_no_pid() -> None:
     ), diag.remediation
 
 
-# specweave: feature=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
-# specweave: scenario=@bdd-lock-diagnostics-diagnose-lock-same-actor-without-pid-still-classifies-same-actor
+@pytest.mark.specweave(
+    feature=("specs/behavior/features/lock_diagnostics/lock-diagnostics.feature"),
+    scenario=(
+        "@bdd-lock-diagnostics-diagnose-lock-same-actor-without-pid-still-"
+        "classifies-same-actor"
+    ),
+)
 def test_diagnose_lock_same_actor_without_pid_still_classifies_same_actor() -> None:
     lock = _lock(holder=_holder(pid=None))
     current = ActorRef(actor_type="user", actor_name="nahrstaedt")
@@ -270,8 +289,8 @@ def test_posix_pid_checker_permission_error_is_treated_as_alive(
     assert _posix_pid_checker(512425) == "alive_unowned"
 
 
-# specweave: feature=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
-# specweave: scenario=@bdd-lock-diagnostics-diagnose-lock-unknown-pid-check-stays-unverifiable
+# sw: f=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
+# sw: s=@bdd-lock-diagnostics-diagnose-lock-unknown-pid-check-stays-unverifiable
 def test_diagnose_lock_unknown_pid_check_stays_unverifiable() -> None:
     lock = _lock()
 
@@ -292,8 +311,13 @@ def test_diagnose_lock_unknown_pid_check_stays_unverifiable() -> None:
     )
 
 
-# specweave: feature=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
-# specweave: scenario=@bdd-lock-diagnostics-diagnostics-to-dict-round-trips-through-payload-reconstruction
+@pytest.mark.specweave(
+    feature=("specs/behavior/features/lock_diagnostics/lock-diagnostics.feature"),
+    scenario=(
+        "@bdd-lock-diagnostics-diagnostics-to-dict-round-trips-through-"
+        "payload-reconstruction"
+    ),
+)
 def test_diagnostics_to_dict_round_trips_through_payload_reconstruction() -> None:
     lock = _lock()
     diag = diagnose_lock(
@@ -311,8 +335,8 @@ def test_diagnostics_to_dict_round_trips_through_payload_reconstruction() -> Non
     assert rebuilt.summary == diag.summary
 
 
-# specweave: feature=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
-# specweave: scenario=@bdd-lock-diagnostics-diagnose-lock-uses-task-id-in-remediation-when-provided
+# sw: f=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
+# sw: s=@bdd-lock-diagnostics-diagnose-lock-uses-task-id-in-remediation-when-provided
 def test_diagnose_lock_uses_task_id_in_remediation_when_provided() -> None:
     lock = _lock()
 
@@ -330,8 +354,8 @@ def test_diagnose_lock_uses_task_id_in_remediation_when_provided() -> None:
 class TestHarnessSessionDiagnostics:
     """Tests for harness session PID scope and legacy inference."""
 
-    # specweave: feature=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
-    # specweave: scenario=@bdd-lock-diagnostics-pi-harness-without-owner-pid-is-not-dead-local-process
+    # sw: f=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
+    # sw: s=@bdd-lock-diagnostics-pi-harness-without-owner-pid-is-not-dead-local-process
     def test_pi_harness_without_owner_pid_is_not_dead_local_process(self) -> None:
         from taskledger.services.lock_diagnostics import (
             CLASSIFICATION_ACTIVE_HARNESS_SESSION,
@@ -360,8 +384,8 @@ class TestHarnessSessionDiagnostics:
         assert diag.holder_pid_check in {"n/a", "unknown"}
         assert all("repair lock" not in cmd for cmd in diag.remediation)
 
-    # specweave: feature=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
-    # specweave: scenario=@bdd-lock-diagnostics-harness-owner-pid-dead-still-repairs
+    # sw: f=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
+    # sw: s=@bdd-lock-diagnostics-harness-owner-pid-dead-still-repairs
     def test_harness_owner_pid_dead_still_repairs(self) -> None:
         lock = _lock(
             holder=_holder(
@@ -385,8 +409,8 @@ class TestHarnessSessionDiagnostics:
         assert diag.classification == CLASSIFICATION_ACTIVE_DEAD_LOCAL_PROCESS
         assert any("repair lock" in cmd for cmd in diag.remediation)
 
-    # specweave: feature=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
-    # specweave: scenario=@bdd-lock-diagnostics-legacy-pi-lock-with-session-inferred-as-unverifiable
+    # sw: f=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
+    # sw: s=@bdd-lock-diagnostics-legacy-pi-lock-with-session-inferred-as-unverifiable
     def test_legacy_pi_lock_with_session_inferred_as_unverifiable(self) -> None:
         from taskledger.services.lock_diagnostics import (
             CLASSIFICATION_ACTIVE_HARNESS_SESSION,
@@ -415,8 +439,13 @@ class TestHarnessSessionDiagnostics:
         assert diag.classification == CLASSIFICATION_ACTIVE_HARNESS_SESSION
         assert all("repair lock" not in cmd for cmd in diag.remediation)
 
-    # specweave: feature=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
-    # specweave: scenario=@bdd-lock-diagnostics-legacy-pi-lock-with-harness-ref-inferred-as-unverifiable
+    @pytest.mark.specweave(
+        feature=("specs/behavior/features/lock_diagnostics/lock-diagnostics.feature"),
+        scenario=(
+            "@bdd-lock-diagnostics-legacy-pi-lock-with-harness-ref-inferred-as-"
+            "unverifiable"
+        ),
+    )
     def test_legacy_pi_lock_with_harness_ref_inferred_as_unverifiable(self) -> None:
         from taskledger.domain.actor import HarnessRef
         from taskledger.services.lock_diagnostics import (
@@ -454,8 +483,8 @@ class TestHarnessSessionDiagnostics:
         assert diag.classification == CLASSIFICATION_ACTIVE_HARNESS_SESSION
         assert all("repair lock" not in cmd for cmd in diag.remediation)
 
-    # specweave: feature=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
-    # specweave: scenario=@bdd-lock-diagnostics-command-pid-scope-not-checkable
+    # sw: f=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
+    # sw: s=@bdd-lock-diagnostics-command-pid-scope-not-checkable
     def test_command_pid_scope_not_checkable(self) -> None:
         from taskledger.services.lock_diagnostics import (
             CLASSIFICATION_ACTIVE_HARNESS_SESSION,
@@ -481,8 +510,8 @@ class TestHarnessSessionDiagnostics:
         assert diag.classification == CLASSIFICATION_ACTIVE_HARNESS_SESSION
         assert all("repair lock" not in cmd for cmd in diag.remediation)
 
-    # specweave: feature=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
-    # specweave: scenario=@bdd-lock-diagnostics-direct-user-dead-pid-still-repairs
+    # sw: f=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
+    # sw: s=@bdd-lock-diagnostics-direct-user-dead-pid-still-repairs
     def test_direct_user_dead_pid_still_repairs(self) -> None:
         # Direct user: no harness session, no pid_scope, dead pid -> still dead local.
         lock = _lock(
@@ -503,8 +532,8 @@ class TestHarnessSessionDiagnostics:
         assert diag.classification == CLASSIFICATION_ACTIVE_DEAD_LOCAL_PROCESS
         assert any("repair lock" in cmd for cmd in diag.remediation)
 
-    # specweave: feature=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
-    # specweave: scenario=@bdd-lock-diagnostics-harness-session-same-actor-classification
+    # sw: f=specs/behavior/features/lock_diagnostics/lock-diagnostics.feature
+    # sw: s=@bdd-lock-diagnostics-harness-session-same-actor-classification
     def test_harness_session_same_actor_classification(self) -> None:
         from taskledger.services.lock_diagnostics import (
             CLASSIFICATION_ACTIVE_SAME_ACTOR,

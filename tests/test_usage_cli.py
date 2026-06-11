@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -36,8 +35,8 @@ def _make_runner() -> CliRunner:
 runner = _make_runner()
 
 
-# specweave: feature=specs/behavior/features/usage_cli/usage-cli.feature
-# specweave: scenario=@bdd-usage-cli-usage-works-in-empty-initialized-project
+# sw: f=specs/behavior/features/usage_cli/usage-cli.feature
+# sw: s=@bdd-usage-cli-usage-works-in-empty-initialized-project
 def test_usage_works_in_empty_initialized_project(tmp_path: Path) -> None:
     ws = init_workspace(tmp_path)
     result = runner.invoke(app, ["--cwd", str(ws), "--no-log", "usage"])
@@ -46,8 +45,8 @@ def test_usage_works_in_empty_initialized_project(tmp_path: Path) -> None:
     assert "ACTIVE" in result.stdout
 
 
-# specweave: feature=specs/behavior/features/usage_cli/usage-cli.feature
-# specweave: scenario=@bdd-usage-cli-usage-json-emits-usage-result
+# sw: f=specs/behavior/features/usage_cli/usage-cli.feature
+# sw: s=@bdd-usage-cli-usage-json-emits-usage-result
 def test_usage_json_emits_usage_result(empty_workspace: Path) -> None:
     result = runner.invoke(
         app,
@@ -59,8 +58,8 @@ def test_usage_json_emits_usage_result(empty_workspace: Path) -> None:
     assert payload["result"]["active"] is None
 
 
-# specweave: feature=specs/behavior/features/usage_cli/usage-cli.feature
-# specweave: scenario=@bdd-usage-cli-usage-reports-active-implementation-and-next-action
+# sw: f=specs/behavior/features/usage_cli/usage-cli.feature
+# sw: s=@bdd-usage-cli-usage-reports-active-implementation-and-next-action
 def test_usage_reports_active_implementation_and_next_action(tmp_path: Path) -> None:
     ws = init_workspace(tmp_path)
     task_id = create_approved_task(ws, title="Impl task", slug="impl-task")
@@ -100,8 +99,8 @@ def test_usage_lists_claimable_handoffs_without_claiming(tmp_path: Path) -> None
     assert list_handoffs(ws, task_id)[0].status == "open"
 
 
-# specweave: feature=specs/behavior/features/usage_cli/usage-cli.feature
-# specweave: scenario=@bdd-usage-cli-usage-does-not-mark-latest-run-review-ready-when-review-exists
+# sw: f=specs/behavior/features/usage_cli/usage-cli.feature
+# sw: s=@bdd-usage-cli-usage-does-not-mark-latest-run-review-ready-when-review-exists
 def test_usage_does_not_mark_latest_run_review_ready_when_review_exists(
     tmp_path: Path,
 ) -> None:
@@ -126,8 +125,8 @@ def test_usage_does_not_mark_latest_run_review_ready_when_review_exists(
     assert reviewed_task not in review_ready_ids
 
 
-# specweave: feature=specs/behavior/features/usage_cli/usage-cli.feature
-# specweave: scenario=@bdd-usage-cli-usage-reports-expired-lock-in-inbox
+# sw: f=specs/behavior/features/usage_cli/usage-cli.feature
+# sw: s=@bdd-usage-cli-usage-reports-expired-lock-in-inbox
 def test_usage_reports_expired_lock_in_inbox(tmp_path: Path) -> None:
     ws = init_workspace(tmp_path)
     task_id = create_approved_task(

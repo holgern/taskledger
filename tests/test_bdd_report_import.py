@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Tests for BDD report import service."""
 
 from __future__ import annotations
@@ -284,8 +283,8 @@ class TestCucumberJsonImport:
 
 
 class TestJunitXmlImport:
-    # specweave: feature=specs/behavior/features/bdd_report_import/bdd-report-import.feature
-    # specweave: scenario=@bdd-bdd-report-import-import-passing-junit-report
+    # sw: f=specs/behavior/features/bdd_report_import/bdd-report-import.feature
+    # sw: s=@bdd-bdd-report-import-import-passing-junit-report
     def test_import_passing_junit_report(self, tmp_path) -> None:
         """Test importing a passing JUnit XML report."""
         bdd_init(tmp_path, "task-0001", "Test feature")

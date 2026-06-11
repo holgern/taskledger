@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Tests for storage version enforcement, migration framework, and migrate CLI."""
 
 from __future__ import annotations
@@ -30,23 +29,23 @@ from taskledger.storage.meta import StorageMeta, read_storage_meta, write_storag
 
 
 class TestStorageVersionConstants:
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-storage-layout-version-is-3
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-storage-layout-version-is-3
     def test_storage_layout_version_is_3(self) -> None:
         assert TASKLEDGER_STORAGE_LAYOUT_VERSION == 3
 
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-record-schema-version-matches-schema-version
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-record-schema-version-matches-schema-version
     def test_record_schema_version_matches_schema_version(self) -> None:
         assert TASKLEDGER_RECORD_SCHEMA_VERSION == TASKLEDGER_SCHEMA_VERSION
 
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-schema-version-is-1
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-schema-version-is-1
     def test_schema_version_is_1(self) -> None:
         assert TASKLEDGER_SCHEMA_VERSION == 1
 
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-v2-file-version
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-v2-file-version
     def test_v2_file_version(self) -> None:
         assert TASKLEDGER_V2_FILE_VERSION == "v2"
 
@@ -57,8 +56,8 @@ class TestStorageVersionConstants:
 
 
 class TestStorageMeta:
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-roundtrip
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-roundtrip
     def test_roundtrip(self, tmp_path: Path) -> None:
         meta = StorageMeta(created_with_taskledger="0.1.0")
         write_storage_meta(tmp_path, meta)
@@ -94,8 +93,8 @@ class TestStorageMeta:
         with pytest.raises(LaunchError, match="Missing or invalid"):
             read_storage_meta(tmp_path)
 
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-to-dict-keys
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-to-dict-keys
     def test_to_dict_keys(self) -> None:
         meta = StorageMeta()
         d = meta.to_dict()
@@ -126,15 +125,15 @@ class TestActiveStateFileVersion:
         d = state.to_dict()
         assert d["file_version"] == TASKLEDGER_V2_FILE_VERSION
 
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-active-task-roundtrip-with-file-version
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-active-task-roundtrip-with-file-version
     def test_active_task_roundtrip_with_file_version(self) -> None:
         state = ActiveTaskState(task_id="task-0001")
         restored = ActiveTaskState.from_dict(state.to_dict())
         assert restored.file_version == TASKLEDGER_V2_FILE_VERSION
 
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-active-task-legacy-no-file-version
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-active-task-legacy-no-file-version
     def test_active_task_legacy_no_file_version(self) -> None:
         data = {
             "schema_version": 1,
@@ -153,8 +152,8 @@ class TestActiveStateFileVersion:
 
 
 class TestSidecarVersionEnforcement:
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-todo-accepts-valid-v2
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-todo-accepts-valid-v2
     def test_todo_accepts_valid_v2(self) -> None:
         todo = TaskTodo.from_dict(
             {
@@ -167,8 +166,8 @@ class TestSidecarVersionEnforcement:
         )
         assert todo.id == "todo-0001"
 
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-todo-accepts-legacy-no-version
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-todo-accepts-legacy-no-version
     def test_todo_accepts_legacy_no_version(self) -> None:
         todo = TaskTodo.from_dict({"id": "todo-0001", "text": "test"})
         assert todo.id == "todo-0001"
@@ -209,8 +208,8 @@ class TestSidecarVersionEnforcement:
                 }
             )
 
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-link-accepts-valid-v2
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-link-accepts-valid-v2
     def test_link_accepts_valid_v2(self) -> None:
         link = FileLink.from_dict(
             {
@@ -222,8 +221,8 @@ class TestSidecarVersionEnforcement:
         )
         assert link.path == "/foo.py"
 
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-link-accepts-legacy-no-version
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-link-accepts-legacy-no-version
     def test_link_accepts_legacy_no_version(self) -> None:
         link = FileLink.from_dict({"path": "/foo.py"})
         assert link.path == "/foo.py"
@@ -239,8 +238,8 @@ class TestSidecarVersionEnforcement:
                 }
             )
 
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-requirement-accepts-valid-v2
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-requirement-accepts-valid-v2
     def test_requirement_accepts_valid_v2(self) -> None:
         req = DependencyRequirement.from_dict(
             {
@@ -252,8 +251,8 @@ class TestSidecarVersionEnforcement:
         )
         assert req.task_id == "task-0001"
 
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-requirement-accepts-legacy-no-version
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-requirement-accepts-legacy-no-version
     def test_requirement_accepts_legacy_no_version(self) -> None:
         req = DependencyRequirement.from_dict({"task_id": "task-0001"})
         assert req.task_id == "task-0001"
@@ -276,8 +275,8 @@ class TestSidecarVersionEnforcement:
 
 
 class TestInitWritesStorageYaml:
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-init-creates-storage-yaml
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-init-creates-storage-yaml
     def test_init_creates_storage_yaml(self, tmp_path: Path) -> None:
         from taskledger.storage.init import init_project_state
 
@@ -330,8 +329,8 @@ class TestMigrationFramework:
 
 
 class TestMigrateCLI:
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-migrate-status-no-storage
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-migrate-status-no-storage
     def test_migrate_status_no_storage(self, tmp_path: Path) -> None:
         from typer.testing import CliRunner
 
@@ -342,8 +341,8 @@ class TestMigrateCLI:
         assert result.exit_code == 0
         assert "No storage.yaml" in result.output
 
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-migrate-status-up-to-date
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-migrate-status-up-to-date
     def test_migrate_status_up_to_date(self, tmp_path: Path) -> None:
         from typer.testing import CliRunner
 
@@ -356,8 +355,8 @@ class TestMigrateCLI:
         assert result.exit_code == 0
         assert "up to date" in result.output
 
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-migrate-plan-no-storage
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-migrate-plan-no-storage
     def test_migrate_plan_no_storage(self, tmp_path: Path) -> None:
         from typer.testing import CliRunner
 
@@ -368,8 +367,8 @@ class TestMigrateCLI:
         assert result.exit_code == 0
         assert "No storage.yaml" in result.output
 
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-migrate-apply-no-storage
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-migrate-apply-no-storage
     def test_migrate_apply_no_storage(self, tmp_path: Path) -> None:
         from typer.testing import CliRunner
 
@@ -379,8 +378,8 @@ class TestMigrateCLI:
         result = runner.invoke(app, ["--root", str(tmp_path), "migrate", "apply"])
         assert result.exit_code == 2
 
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-migrate-apply-up-to-date
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-migrate-apply-up-to-date
     def test_migrate_apply_up_to_date(self, tmp_path: Path) -> None:
         from typer.testing import CliRunner
 
@@ -395,8 +394,8 @@ class TestMigrateCLI:
         assert result.exit_code == 0
         assert "up to date" in result.output
 
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-migrate-commands-in-inventory
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-migrate-commands-in-inventory
     def test_migrate_commands_in_inventory(self) -> None:
         from taskledger.command_inventory import COMMAND_METADATA
 
@@ -411,8 +410,8 @@ class TestMigrateCLI:
 
 
 class TestDoctorSchemaLayoutVersion:
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-doctor-schema-missing-storage-yaml
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-doctor-schema-missing-storage-yaml
     def test_doctor_schema_missing_storage_yaml(self, tmp_path: Path) -> None:
         from taskledger.storage.init import init_project_state
 
@@ -442,8 +441,13 @@ class TestDoctorSchemaLayoutVersion:
         ]
         assert layout_errors == []
 
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-inspect-records-for-migration-reports-malformed-markdown
+    @pytest.mark.specweave(
+        feature=("specs/behavior/features/storage_migration/storage-migration.feature"),
+        scenario=(
+            "@bdd-storage-migration-inspect-records-for-migration-reports-"
+            "malformed-markdown"
+        ),
+    )
     def test_inspect_records_for_migration_reports_malformed_markdown(
         self, tmp_path: Path
     ) -> None:
@@ -460,8 +464,8 @@ class TestDoctorSchemaLayoutVersion:
 
         assert any(issue.path == task_path for issue in issues)
 
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-doctor-schema-reports-malformed-task-record
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-doctor-schema-reports-malformed-task-record
     def test_doctor_schema_reports_malformed_task_record(self, tmp_path: Path) -> None:
         from taskledger.services.doctor import inspect_v2_schema
         from taskledger.storage.init import init_project_state
@@ -486,8 +490,13 @@ class TestDoctorSchemaLayoutVersion:
 class TestBranchScopedLedgerMigration:
     """Tests for layout v2 -> v3 migration moving legacy root state to ledgers."""
 
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-migrate-apply-moves-legacy-unscoped-state-to-current-ledger
+    @pytest.mark.specweave(
+        feature=("specs/behavior/features/storage_migration/storage-migration.feature"),
+        scenario=(
+            "@bdd-storage-migration-migrate-apply-moves-legacy-unscoped-state-to-"
+            "current-ledger"
+        ),
+    )
     def test_migrate_apply_moves_legacy_unscoped_state_to_current_ledger(
         self, tmp_path: Path
     ) -> None:
@@ -615,8 +624,13 @@ Test Task
         assert migrations[0].from_version == 2
         assert migrations[0].to_version == 3
 
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-migrate-apply-noop-for-already-branch-scoped-v2-workspace
+    @pytest.mark.specweave(
+        feature=("specs/behavior/features/storage_migration/storage-migration.feature"),
+        scenario=(
+            "@bdd-storage-migration-migrate-apply-noop-for-already-branch-scoped-"
+            "v2-workspace"
+        ),
+    )
     def test_migrate_apply_noop_for_already_branch_scoped_v2_workspace(
         self, tmp_path: Path
     ) -> None:
@@ -673,8 +687,8 @@ Test Task
         applied2 = apply_layout_migrations(tmp_path, 3, dry_run=False)
         assert len(applied2) == 0
 
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-migrate-renumbers-older-root-task-on-conflict
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-migrate-renumbers-older-root-task-on-conflict
     def test_migrate_renumbers_older_root_task_on_conflict(
         self, tmp_path: Path
     ) -> None:
@@ -814,8 +828,8 @@ Test Task
             assert f"Ledger Task {i}" in content
             assert f"id: task-{new_id:04d}" in content
 
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-migrate-preserves-task-timestamps-after-renumbering
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-migrate-preserves-task-timestamps-after-renumbering
     def test_migrate_preserves_task_timestamps_after_renumbering(
         self, tmp_path: Path
     ) -> None:
@@ -915,8 +929,8 @@ Test Task
         # Ledger indexes should be rebuilt
         assert (ledger_dir / "indexes").is_dir()
 
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-migrate-merges-active-task-keeping-newer
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-migrate-merges-active-task-keeping-newer
     def test_migrate_merges_active_task_keeping_newer(self, tmp_path: Path) -> None:
         """Test that active-task.yaml files merge by keeping the newer activation."""
         import yaml
@@ -969,8 +983,8 @@ Test Task
         assert "task-0005" in result_content  # Newer activation kept
         assert "2026-04-25" in result_content  # Newer timestamp
 
-    # specweave: feature=specs/behavior/features/storage_migration/storage-migration.feature
-    # specweave: scenario=@bdd-storage-migration-migrate-merges-active-task-from-root-if-newer
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-migrate-merges-active-task-from-root-if-newer
     def test_migrate_merges_active_task_from_root_if_newer(
         self, tmp_path: Path
     ) -> None:

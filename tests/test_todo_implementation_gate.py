@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Tests for todo-based implementation finish gate.
 
 Verifies that implement finish is blocked until all todos are done,
@@ -101,8 +100,13 @@ Ship compact todo hints.
 class TestTodoImplementationGate:
     """Test suite for todo-based implementation finish gate."""
 
-    # specweave: feature=specs/behavior/features/todo_implementation_gate/todo-implementation-gate.feature
-    # specweave: scenario=@bdd-todo-implementation-gate-finish-blocked-by-open-todo
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/todo_implementation_gate/todo-implementation-"
+            "gate.feature"
+        ),
+        scenario=("@bdd-todo-implementation-gate-finish-blocked-by-open-todo"),
+    )
     def test_finish_blocked_by_open_todo(self, tmp_path: Path) -> None:
         """Verify that implement finish is blocked when a todo is open."""
         _prepare_task_for_implementation(tmp_path)
@@ -139,8 +143,13 @@ class TestTodoImplementationGate:
         assert data.get("error", {}).get("code") == "IMPLEMENTATION_TODOS_INCOMPLETE"
         assert "open_todos" in data.get("error", {}).get("details", {})
 
-    # specweave: feature=specs/behavior/features/todo_implementation_gate/todo-implementation-gate.feature
-    # specweave: scenario=@bdd-todo-implementation-gate-finish-succeeds-when-todos-done
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/todo_implementation_gate/todo-implementation-"
+            "gate.feature"
+        ),
+        scenario=("@bdd-todo-implementation-gate-finish-succeeds-when-todos-done"),
+    )
     def test_finish_succeeds_when_todos_done(self, tmp_path: Path) -> None:
         """Verify that implement finish succeeds when all todos are done."""
         _prepare_task_for_implementation(tmp_path)
@@ -193,8 +202,13 @@ class TestTodoImplementationGate:
         assert data.get("ok") is True
         assert data["result"]["status"] == "implemented"
 
-    # specweave: feature=specs/behavior/features/todo_implementation_gate/todo-implementation-gate.feature
-    # specweave: scenario=@bdd-todo-implementation-gate-finish-succeeds-with-no-todos
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/todo_implementation_gate/todo-implementation-"
+            "gate.feature"
+        ),
+        scenario=("@bdd-todo-implementation-gate-finish-succeeds-with-no-todos"),
+    )
     def test_finish_succeeds_with_no_todos(self, tmp_path: Path) -> None:
         """Verify that implement finish succeeds when no todos exist."""
         _prepare_task_for_implementation(tmp_path)
@@ -216,8 +230,15 @@ class TestTodoImplementationGate:
         data = _json(result)
         assert data.get("ok") is True
 
-    # specweave: feature=specs/behavior/features/todo_implementation_gate/todo-implementation-gate.feature
-    # specweave: scenario=@bdd-todo-implementation-gate-finish-blocked-by-multiple-open-todos
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/todo_implementation_gate/todo-implementation-"
+            "gate.feature"
+        ),
+        scenario=(
+            "@bdd-todo-implementation-gate-finish-blocked-by-multiple-open-todos"
+        ),
+    )
     def test_finish_blocked_by_multiple_open_todos(self, tmp_path: Path) -> None:
         """Verify finish is blocked when multiple todos are open."""
         _prepare_task_for_implementation(tmp_path)
@@ -270,8 +291,13 @@ class TestTodoImplementationGate:
         open_todos = data.get("error", {}).get("details", {}).get("open_todos", [])
         assert len(open_todos) == 2
 
-    # specweave: feature=specs/behavior/features/todo_implementation_gate/todo-implementation-gate.feature
-    # specweave: scenario=@bdd-todo-implementation-gate-finish-succeeds-after-all-todos-done
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/todo_implementation_gate/todo-implementation-"
+            "gate.feature"
+        ),
+        scenario=("@bdd-todo-implementation-gate-finish-succeeds-after-all-todos-done"),
+    )
     def test_finish_succeeds_after_all_todos_done(self, tmp_path: Path) -> None:
         """Verify finish succeeds after marking all todos as done."""
         _prepare_task_for_implementation(tmp_path)
@@ -321,8 +347,16 @@ class TestTodoImplementationGate:
         assert data.get("ok") is True
         assert data["result"]["status"] == "implemented"
 
-    # specweave: feature=specs/behavior/features/todo_implementation_gate/todo-implementation-gate.feature
-    # specweave: scenario=@bdd-todo-implementation-gate-validation-status-open-todo-hint-uses-existing-command
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/todo_implementation_gate/todo-implementation-"
+            "gate.feature"
+        ),
+        scenario=(
+            "@bdd-todo-implementation-gate-validation-status-open-todo-hint-uses-"
+            "existing-command"
+        ),
+    )
     def test_validation_status_open_todo_hint_uses_existing_command(
         self,
         tmp_path: Path,
@@ -428,8 +462,15 @@ Implement the feature.
         assert all("todo toggle" not in hint for hint in hints)
         assert all("todo done" in hint for hint in hints)
 
-    # specweave: feature=specs/behavior/features/todo_implementation_gate/todo-implementation-gate.feature
-    # specweave: scenario=@bdd-todo-implementation-gate-lock-remains-active-on-finish-failure
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/todo_implementation_gate/todo-implementation-"
+            "gate.feature"
+        ),
+        scenario=(
+            "@bdd-todo-implementation-gate-lock-remains-active-on-finish-failure"
+        ),
+    )
     def test_lock_remains_active_on_finish_failure(self, tmp_path: Path) -> None:
         """Verify that implementation lock remains active when finish is blocked."""
         _prepare_task_for_implementation(tmp_path)
@@ -475,8 +516,15 @@ Implement the feature.
             == "implementing"
         )
 
-    # specweave: feature=specs/behavior/features/todo_implementation_gate/todo-implementation-gate.feature
-    # specweave: scenario=@bdd-todo-implementation-gate-run-remains-running-on-finish-failure
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/todo_implementation_gate/todo-implementation-"
+            "gate.feature"
+        ),
+        scenario=(
+            "@bdd-todo-implementation-gate-run-remains-running-on-finish-failure"
+        ),
+    )
     def test_run_remains_running_on_finish_failure(self, tmp_path: Path) -> None:
         """Verify that implementation run remains in 'running' state
         when finish is blocked."""
@@ -520,8 +568,13 @@ Implement the feature.
         run_data = _json(result)
         assert run_data.get("result", {}).get("run", {}).get("status") == "running"
 
-    # specweave: feature=specs/behavior/features/todo_implementation_gate/todo-implementation-gate.feature
-    # specweave: scenario=@bdd-todo-implementation-gate-error-payload-includes-blockers
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/todo_implementation_gate/todo-implementation-"
+            "gate.feature"
+        ),
+        scenario=("@bdd-todo-implementation-gate-error-payload-includes-blockers"),
+    )
     def test_error_payload_includes_blockers(self, tmp_path: Path) -> None:
         """Verify error payload includes blocker details."""
         _prepare_task_for_implementation(tmp_path)
@@ -573,8 +626,13 @@ Implement the feature.
 class TestTodoObservability:
     """Regression tests for todo visibility during implementation."""
 
-    # specweave: feature=specs/behavior/features/todo_implementation_gate/todo-implementation-gate.feature
-    # specweave: scenario=@bdd-todo-implementation-gate-four-todo-adds-all-visible-in-status
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/todo_implementation_gate/todo-implementation-"
+            "gate.feature"
+        ),
+        scenario=("@bdd-todo-implementation-gate-four-todo-adds-all-visible-in-status"),
+    )
     def test_four_todo_adds_all_visible_in_status(self, tmp_path: Path) -> None:
         """Four sequential todo adds during implementation
         should all appear in status."""
@@ -626,8 +684,15 @@ class TestTodoObservability:
         for t in listed.get("result", {}).get("todos", []):
             assert t["mandatory"] is True
 
-    # specweave: feature=specs/behavior/features/todo_implementation_gate/todo-implementation-gate.feature
-    # specweave: scenario=@bdd-todo-implementation-gate-todo-next-json-includes-command-hints
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/todo_implementation_gate/todo-implementation-"
+            "gate.feature"
+        ),
+        scenario=(
+            "@bdd-todo-implementation-gate-todo-next-json-includes-command-hints"
+        ),
+    )
     def test_todo_next_json_includes_command_hints(self, tmp_path: Path) -> None:
         _prepare_task_for_implementation(tmp_path)
         assert (
@@ -666,8 +731,16 @@ class TestTodoObservability:
             },
         ]
 
-    # specweave: feature=specs/behavior/features/todo_implementation_gate/todo-implementation-gate.feature
-    # specweave: scenario=@bdd-todo-implementation-gate-todo-next-human-output-shows-validation-hint-and-done-command
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/todo_implementation_gate/todo-implementation-"
+            "gate.feature"
+        ),
+        scenario=(
+            "@bdd-todo-implementation-gate-todo-next-human-output-shows-"
+            "validation-hint-and-done-command"
+        ),
+    )
     def test_todo_next_human_output_shows_validation_hint_and_done_command(
         self, tmp_path: Path
     ) -> None:
@@ -681,8 +754,16 @@ class TestTodoObservability:
         assert "Done command:" in result.stdout
         assert 'taskledger todo done todo-0001 --evidence "..."' in result.stdout
 
-    # specweave: feature=specs/behavior/features/todo_implementation_gate/todo-implementation-gate.feature
-    # specweave: scenario=@bdd-todo-implementation-gate-todo-show-human-output-shows-validation-hint-and-done-command
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/todo_implementation_gate/todo-implementation-"
+            "gate.feature"
+        ),
+        scenario=(
+            "@bdd-todo-implementation-gate-todo-show-human-output-shows-"
+            "validation-hint-and-done-command"
+        ),
+    )
     def test_todo_show_human_output_shows_validation_hint_and_done_command(
         self, tmp_path: Path
     ) -> None:
@@ -704,8 +785,16 @@ class TestTodoObservability:
 
 
 class TestNextActionTodoOutput:
-    # specweave: feature=specs/behavior/features/todo_implementation_gate/todo-implementation-gate.feature
-    # specweave: scenario=@bdd-todo-implementation-gate-next-action-includes-next-todo-payload-during-implementation
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/todo_implementation_gate/todo-implementation-"
+            "gate.feature"
+        ),
+        scenario=(
+            "@bdd-todo-implementation-gate-next-action-includes-next-todo-payload-"
+            "during-implementation"
+        ),
+    )
     def test_next_action_includes_next_todo_payload_during_implementation(
         self, tmp_path: Path
     ) -> None:
@@ -756,8 +845,16 @@ class TestNextActionTodoOutput:
             "open_ids": ["todo-0001", "todo-0002"],
         }
 
-    # specweave: feature=specs/behavior/features/todo_implementation_gate/todo-implementation-gate.feature
-    # specweave: scenario=@bdd-todo-implementation-gate-next-action-includes-validation-hint-when-available
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/todo_implementation_gate/todo-implementation-"
+            "gate.feature"
+        ),
+        scenario=(
+            "@bdd-todo-implementation-gate-next-action-includes-validation-hint-"
+            "when-available"
+        ),
+    )
     def test_next_action_includes_validation_hint_when_available(
         self, tmp_path: Path
     ) -> None:
@@ -774,8 +871,15 @@ class TestNextActionTodoOutput:
             == 'taskledger todo done todo-0001 --evidence "..."'
         )
 
-    # specweave: feature=specs/behavior/features/todo_implementation_gate/todo-implementation-gate.feature
-    # specweave: scenario=@bdd-todo-implementation-gate-next-action-human-output-names-next-todo
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/todo_implementation_gate/todo-implementation-"
+            "gate.feature"
+        ),
+        scenario=(
+            "@bdd-todo-implementation-gate-next-action-human-output-names-next-todo"
+        ),
+    )
     def test_next_action_human_output_names_next_todo(self, tmp_path: Path) -> None:
         _prepare_task_for_implementation(tmp_path)
         assert (
@@ -803,8 +907,16 @@ class TestNextActionTodoOutput:
         assert 'taskledger todo done todo-0001 --evidence "..."' in result.stdout
         assert "Progress: 0/1 todos done" in result.stdout
 
-    # specweave: feature=specs/behavior/features/todo_implementation_gate/todo-implementation-gate.feature
-    # specweave: scenario=@bdd-todo-implementation-gate-next-action-returns-implement-finish-when-todos-are-done
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/todo_implementation_gate/todo-implementation-"
+            "gate.feature"
+        ),
+        scenario=(
+            "@bdd-todo-implementation-gate-next-action-returns-implement-finish-"
+            "when-todos-are-done"
+        ),
+    )
     def test_next_action_returns_implement_finish_when_todos_are_done(
         self, tmp_path: Path
     ) -> None:
@@ -849,8 +961,16 @@ class TestNextActionTodoOutput:
             "status_stage": "implementing",
         }
 
-    # specweave: feature=specs/behavior/features/todo_implementation_gate/todo-implementation-gate.feature
-    # specweave: scenario=@bdd-todo-implementation-gate-next-action-orphaned-implementation-recommends-resume
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/todo_implementation_gate/todo-implementation-"
+            "gate.feature"
+        ),
+        scenario=(
+            "@bdd-todo-implementation-gate-next-action-orphaned-implementation-"
+            "recommends-resume"
+        ),
+    )
     def test_next_action_orphaned_implementation_recommends_resume(
         self, tmp_path: Path
     ) -> None:
@@ -896,8 +1016,16 @@ class TestNextActionTodoOutput:
             for blocker in payload["blocking"]
         )
 
-    # specweave: feature=specs/behavior/features/todo_implementation_gate/todo-implementation-gate.feature
-    # specweave: scenario=@bdd-todo-implementation-gate-next-action-does-not-call-orphaned-implementation-cancelled
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/todo_implementation_gate/todo-implementation-"
+            "gate.feature"
+        ),
+        scenario=(
+            "@bdd-todo-implementation-gate-next-action-does-not-call-orphaned-"
+            "implementation-cancelled"
+        ),
+    )
     def test_next_action_does_not_call_orphaned_implementation_cancelled(
         self, tmp_path: Path
     ) -> None:
@@ -937,8 +1065,15 @@ class TestNextActionTodoOutput:
 class TestLegacyTodoSidecars:
     """Legacy sidecars are ignored during normal v2 operation."""
 
-    # specweave: feature=specs/behavior/features/todo_implementation_gate/todo-implementation-gate.feature
-    # specweave: scenario=@bdd-todo-implementation-gate-legacy-todos-yaml-is-ignored-in-normal-reads
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/todo_implementation_gate/todo-implementation-"
+            "gate.feature"
+        ),
+        scenario=(
+            "@bdd-todo-implementation-gate-legacy-todos-yaml-is-ignored-in-normal-reads"
+        ),
+    )
     def test_legacy_todos_yaml_is_ignored_in_normal_reads(self, tmp_path: Path) -> None:
         _init(tmp_path)
 
@@ -989,8 +1124,15 @@ todos:
         todos = task_data.get("result", {}).get("task", {}).get("todos", [])
         assert todos == []
 
-    # specweave: feature=specs/behavior/features/todo_implementation_gate/todo-implementation-gate.feature
-    # specweave: scenario=@bdd-todo-implementation-gate-legacy-todos-yaml-does-not-block-finish
+    @pytest.mark.specweave(
+        feature=(
+            "specs/behavior/features/todo_implementation_gate/todo-implementation-"
+            "gate.feature"
+        ),
+        scenario=(
+            "@bdd-todo-implementation-gate-legacy-todos-yaml-does-not-block-finish"
+        ),
+    )
     def test_legacy_todos_yaml_does_not_block_finish(self, tmp_path: Path) -> None:
         _prepare_task_for_implementation(tmp_path)
 

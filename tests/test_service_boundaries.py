@@ -1,8 +1,9 @@
-# ruff: noqa: E501
 from __future__ import annotations
 
 import ast
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_ROOT = ROOT / "taskledger"
@@ -222,8 +223,8 @@ def _relative(path: Path) -> str:
     return path.relative_to(ROOT).as_posix()
 
 
-# specweave: feature=specs/behavior/features/service_boundaries/service-boundaries.feature
-# specweave: scenario=@bdd-service-boundaries-boundary-whitelists-include-reasons
+# sw: f=specs/behavior/features/service_boundaries/service-boundaries.feature
+# sw: s=@bdd-service-boundaries-boundary-whitelists-include-reasons
 def test_boundary_whitelists_include_reasons() -> None:
     for whitelist in (
         MODULE_LINE_WHITELIST,
@@ -235,8 +236,8 @@ def test_boundary_whitelists_include_reasons() -> None:
             assert reason.strip()
 
 
-# specweave: feature=specs/behavior/features/service_boundaries/service-boundaries.feature
-# specweave: scenario=@bdd-service-boundaries-service-module-line-budget
+# sw: f=specs/behavior/features/service_boundaries/service-boundaries.feature
+# sw: s=@bdd-service-boundaries-service-module-line-budget
 def test_service_module_line_budget() -> None:
     module_lines: dict[str, int] = {}
     for path in _python_files():
@@ -264,8 +265,8 @@ def test_service_module_line_budget() -> None:
     )
 
 
-# specweave: feature=specs/behavior/features/service_boundaries/service-boundaries.feature
-# specweave: scenario=@bdd-service-boundaries-service-function-line-budget
+# sw: f=specs/behavior/features/service_boundaries/service-boundaries.feature
+# sw: s=@bdd-service-boundaries-service-function-line-budget
 def test_service_function_line_budget() -> None:
     long_functions: dict[str, int] = {}
     for path in _python_files():
@@ -301,8 +302,8 @@ def test_service_function_line_budget() -> None:
     )
 
 
-# specweave: feature=specs/behavior/features/service_boundaries/service-boundaries.feature
-# specweave: scenario=@bdd-service-boundaries-except-exception-sites-are-whitelisted
+# sw: f=specs/behavior/features/service_boundaries/service-boundaries.feature
+# sw: s=@bdd-service-boundaries-except-exception-sites-are-whitelisted
 def test_except_exception_sites_are_whitelisted() -> None:
     found_sites: set[str] = set()
     for path in _python_files():
@@ -322,8 +323,8 @@ def test_except_exception_sites_are_whitelisted() -> None:
     assert not stale, f"Whitelist sites no longer present: {stale}"
 
 
-# specweave: feature=specs/behavior/features/service_boundaries/service-boundaries.feature
-# specweave: scenario=@bdd-service-boundaries-cli-services-imports-are-whitelisted
+# sw: f=specs/behavior/features/service_boundaries/service-boundaries.feature
+# sw: s=@bdd-service-boundaries-cli-services-imports-are-whitelisted
 def test_cli_services_imports_are_whitelisted() -> None:
     found_imports: set[str] = set()
     for path in ROOT.glob("taskledger/cli*.py"):
@@ -344,8 +345,8 @@ def test_cli_services_imports_are_whitelisted() -> None:
     assert not stale, f"Stale CLI->services import whitelist entries: {stale}"
 
 
-# specweave: feature=specs/behavior/features/service_boundaries/service-boundaries.feature
-# specweave: scenario=@bdd-service-boundaries-validation-module-has-no-private-tasks-imports
+# sw: f=specs/behavior/features/service_boundaries/service-boundaries.feature
+# sw: s=@bdd-service-boundaries-validation-module-has-no-private-tasks-imports
 def test_validation_module_has_no_private_tasks_imports() -> None:
     path = ROOT / "taskledger" / "services" / "validation.py"
     tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -366,8 +367,13 @@ def test_validation_module_has_no_private_tasks_imports() -> None:
     )
 
 
-# specweave: feature=specs/behavior/features/service_boundaries/service-boundaries.feature
-# specweave: scenario=@bdd-service-boundaries-tasks-validation-gate-wrapper-has-no-local-import-workaround
+@pytest.mark.specweave(
+    feature=("specs/behavior/features/service_boundaries/service-boundaries.feature"),
+    scenario=(
+        "@bdd-service-boundaries-tasks-validation-gate-wrapper-has-no-local-"
+        "import-workaround"
+    ),
+)
 def test_tasks_validation_gate_wrapper_has_no_local_import_workaround() -> None:
     path = ROOT / "taskledger" / "services" / "tasks.py"
     tree = ast.parse(path.read_text(encoding="utf-8"))

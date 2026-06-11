@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -51,8 +50,8 @@ def _write_storage_root(path: Path) -> None:
     )
 
 
-# specweave: feature=specs/behavior/features/project_root_config/project-root-config.feature
-# specweave: scenario=@bdd-project-root-config-init-writes-root-taskledger-toml-and-default-storage
+# sw: f=specs/behavior/features/project_root_config/project-root-config.feature
+# sw: s=@bdd-project-root-config-init-writes-root-taskledger-toml-and-default-storage
 def test_init_writes_root_taskledger_toml_and_default_storage(tmp_path: Path) -> None:
     result = runner.invoke(app, ["--root", str(tmp_path), "init"])
 
@@ -62,8 +61,8 @@ def test_init_writes_root_taskledger_toml_and_default_storage(tmp_path: Path) ->
     assert not (tmp_path / ".taskledger" / "project.toml").exists()
 
 
-# specweave: feature=specs/behavior/features/project_root_config/project-root-config.feature
-# specweave: scenario=@bdd-project-root-config-init-writes-project-name-from-workspace-basename
+# sw: f=specs/behavior/features/project_root_config/project-root-config.feature
+# sw: s=@bdd-project-root-config-init-writes-project-name-from-workspace-basename
 def test_init_writes_project_name_from_workspace_basename(tmp_path: Path) -> None:
     workspace = tmp_path / "odoo17-addon"
     workspace.mkdir()
@@ -79,8 +78,8 @@ def test_init_writes_project_name_from_workspace_basename(tmp_path: Path) -> Non
     assert payload["result"]["project_name"] == "odoo17-addon"
 
 
-# specweave: feature=specs/behavior/features/project_root_config/project-root-config.feature
-# specweave: scenario=@bdd-project-root-config-init-project-name-option-overrides-basename
+# sw: f=specs/behavior/features/project_root_config/project-root-config.feature
+# sw: s=@bdd-project-root-config-init-project-name-option-overrides-basename
 def test_init_project_name_option_overrides_basename(tmp_path: Path) -> None:
     workspace = tmp_path / "repo"
     workspace.mkdir()
@@ -101,8 +100,13 @@ def test_init_project_name_option_overrides_basename(tmp_path: Path) -> None:
     assert 'project_name = "Odoo 17 Addons"' in config_text
 
 
-# specweave: feature=specs/behavior/features/project_root_config/project-root-config.feature
-# specweave: scenario=@bdd-project-root-config-init-with-external-taskledger-dir-uses-directory-directly
+@pytest.mark.specweave(
+    feature=("specs/behavior/features/project_root_config/project-root-config.feature"),
+    scenario=(
+        "@bdd-project-root-config-init-with-external-taskledger-dir-uses-"
+        "directory-directly"
+    ),
+)
 def test_init_with_external_taskledger_dir_uses_directory_directly(
     tmp_path: Path,
 ) -> None:
@@ -124,8 +128,8 @@ def test_init_with_external_taskledger_dir_uses_directory_directly(
     assert not (workspace / ".taskledger").exists()
 
 
-# specweave: feature=specs/behavior/features/project_root_config/project-root-config.feature
-# specweave: scenario=@bdd-project-root-config-task-create-uses-configured-external-storage
+# sw: f=specs/behavior/features/project_root_config/project-root-config.feature
+# sw: s=@bdd-project-root-config-task-create-uses-configured-external-storage
 def test_task_create_uses_configured_external_storage(tmp_path: Path) -> None:
     workspace = tmp_path / "repo"
     storage = tmp_path / "cloud" / "taskledger" / "repo"
@@ -168,8 +172,8 @@ def test_relative_taskledger_dir_is_relative_to_config_path(tmp_path: Path) -> N
     assert paths.taskledger_dir == (tmp_path / "state" / "repo").resolve()
 
 
-# specweave: feature=specs/behavior/features/project_root_config/project-root-config.feature
-# specweave: scenario=@bdd-project-root-config-cli-discovers-taskledger-toml-from-subdirectory
+# sw: f=specs/behavior/features/project_root_config/project-root-config.feature
+# sw: s=@bdd-project-root-config-cli-discovers-taskledger-toml-from-subdirectory
 def test_cli_discovers_taskledger_toml_from_subdirectory(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -211,8 +215,8 @@ def test_legacy_project_toml_is_used_as_fallback_config(tmp_path: Path) -> None:
     assert load_project_config_overrides(paths)["default_source_max_chars"] == 42
 
 
-# specweave: feature=specs/behavior/features/project_root_config/project-root-config.feature
-# specweave: scenario=@bdd-project-root-config-invalid-taskledger-toml-returns-json-error
+# sw: f=specs/behavior/features/project_root_config/project-root-config.feature
+# sw: s=@bdd-project-root-config-invalid-taskledger-toml-returns-json-error
 def test_invalid_taskledger_toml_returns_json_error(tmp_path: Path) -> None:
     (tmp_path / "taskledger.toml").write_text(
         "taskledger_dir = [1, 2, 3]\n", encoding="utf-8"
@@ -226,8 +230,8 @@ def test_invalid_taskledger_toml_returns_json_error(tmp_path: Path) -> None:
     assert "taskledger_dir" in payload["error"]["message"]
 
 
-# specweave: feature=specs/behavior/features/project_root_config/project-root-config.feature
-# specweave: scenario=@bdd-project-root-config-dot-taskledger-toml-wins-and-doctor-warns
+# sw: f=specs/behavior/features/project_root_config/project-root-config.feature
+# sw: s=@bdd-project-root-config-dot-taskledger-toml-wins-and-doctor-warns
 def test_dot_taskledger_toml_wins_and_doctor_warns(tmp_path: Path) -> None:
     workspace = tmp_path / "repo"
     workspace.mkdir()
@@ -254,8 +258,8 @@ def test_dot_taskledger_toml_wins_and_doctor_warns(tmp_path: Path) -> None:
     )
 
 
-# specweave: feature=specs/behavior/features/project_root_config/project-root-config.feature
-# specweave: scenario=@bdd-project-root-config-doctor-warns-on-legacy-project-toml
+# sw: f=specs/behavior/features/project_root_config/project-root-config.feature
+# sw: s=@bdd-project-root-config-doctor-warns-on-legacy-project-toml
 def test_doctor_warns_on_legacy_project_toml(tmp_path: Path) -> None:
     legacy_dir = tmp_path / ".taskledger"
     _write_storage_root(legacy_dir)
@@ -269,8 +273,8 @@ def test_doctor_warns_on_legacy_project_toml(tmp_path: Path) -> None:
 # --- prompt_profile tests ---
 
 
-# specweave: feature=specs/behavior/features/project_root_config/project-root-config.feature
-# specweave: scenario=@bdd-project-root-config-merge-project-config-with-valid-prompt-profile
+# sw: f=specs/behavior/features/project_root_config/project-root-config.feature
+# sw: s=@bdd-project-root-config-merge-project-config-with-valid-prompt-profile
 def test_merge_project_config_with_valid_prompt_profile() -> None:
     overrides = {
         "prompt_profiles": {
@@ -308,15 +312,20 @@ def test_merge_project_config_with_valid_prompt_profile() -> None:
     assert p.extra_guidance == "Always include a migration plan."
 
 
-# specweave: feature=specs/behavior/features/project_root_config/project-root-config.feature
-# specweave: scenario=@bdd-project-root-config-merge-project-config-no-prompt-profile-is-none
+# sw: f=specs/behavior/features/project_root_config/project-root-config.feature
+# sw: s=@bdd-project-root-config-merge-project-config-no-prompt-profile-is-none
 def test_merge_project_config_no_prompt_profile_is_none() -> None:
     config = merge_project_config({})
     assert config.prompt_profile is None
 
 
-# specweave: feature=specs/behavior/features/project_root_config/project-root-config.feature
-# specweave: scenario=@bdd-project-root-config-merge-project-config-partial-prompt-profile-uses-defaults
+@pytest.mark.specweave(
+    feature=("specs/behavior/features/project_root_config/project-root-config.feature"),
+    scenario=(
+        "@bdd-project-root-config-merge-project-config-partial-prompt-profile-"
+        "uses-defaults"
+    ),
+)
 def test_merge_project_config_partial_prompt_profile_uses_defaults() -> None:
     overrides = {
         "prompt_profiles": {
@@ -333,8 +342,8 @@ def test_merge_project_config_partial_prompt_profile_uses_defaults() -> None:
     assert p.require_files is True
 
 
-# specweave: feature=specs/behavior/features/project_root_config/project-root-config.feature
-# specweave: scenario=@bdd-project-root-config-merge-project-config-preserves-base-prompt-profile
+# sw: f=specs/behavior/features/project_root_config/project-root-config.feature
+# sw: s=@bdd-project-root-config-merge-project-config-preserves-base-prompt-profile
 def test_merge_project_config_preserves_base_prompt_profile() -> None:
     base = ProjectConfig()
     overrides: dict[str, object] = {}
@@ -495,8 +504,8 @@ def test_prompt_profile_to_dict() -> None:
     assert d["extra_guidance"] == "Test guidance."
 
 
-# specweave: feature=specs/behavior/features/project_root_config/project-root-config.feature
-# specweave: scenario=@bdd-project-root-config-merge-project-config-with-agent-logging-override
+# sw: f=specs/behavior/features/project_root_config/project-root-config.feature
+# sw: s=@bdd-project-root-config-merge-project-config-with-agent-logging-override
 def test_merge_project_config_with_agent_logging_override() -> None:
     config = merge_project_config(
         {
@@ -512,8 +521,8 @@ def test_merge_project_config_with_agent_logging_override() -> None:
     assert config.agent_logging.redact_patterns == ("(?i)token=\\S+",)
 
 
-# specweave: feature=specs/behavior/features/project_root_config/project-root-config.feature
-# specweave: scenario=@bdd-project-root-config-merge-project-config-preserves-base-agent-logging
+# sw: f=specs/behavior/features/project_root_config/project-root-config.feature
+# sw: s=@bdd-project-root-config-merge-project-config-preserves-base-agent-logging
 def test_merge_project_config_preserves_base_agent_logging() -> None:
     base = ProjectConfig(
         agent_logging=AgentLoggingConfig(
@@ -526,8 +535,13 @@ def test_merge_project_config_preserves_base_agent_logging() -> None:
     assert config.agent_logging.max_inline_chars == 2048
 
 
-# specweave: feature=specs/behavior/features/project_root_config/project-root-config.feature
-# specweave: scenario=@bdd-project-root-config-default-taskledger-toml-includes-commented-planning-guidance
+@pytest.mark.specweave(
+    feature=("specs/behavior/features/project_root_config/project-root-config.feature"),
+    scenario=(
+        "@bdd-project-root-config-default-taskledger-toml-includes-commented-"
+        "planning-guidance"
+    ),
+)
 def test_default_taskledger_toml_includes_commented_planning_guidance() -> None:
     rendered = render_default_taskledger_toml()
     assert "# [prompt_profiles.planning]" in rendered
@@ -563,8 +577,13 @@ def test_validate_project_name_rejects_newline() -> None:
         )
 
 
-# specweave: feature=specs/behavior/features/project_root_config/project-root-config.feature
-# specweave: scenario=@bdd-project-root-config-render-default-taskledger-toml-includes-project-name-when-given
+@pytest.mark.specweave(
+    feature=("specs/behavior/features/project_root_config/project-root-config.feature"),
+    scenario=(
+        "@bdd-project-root-config-render-default-taskledger-toml-includes-"
+        "project-name-when-given"
+    ),
+)
 def test_render_default_taskledger_toml_includes_project_name_when_given() -> None:
     rendered = render_default_taskledger_toml(
         project_uuid="u",
@@ -624,30 +643,35 @@ def test_validate_sync_git_rejects_parent_path_escape() -> None:
 # -- event_logging config tests --
 
 
-# specweave: feature=specs/behavior/features/project_root_config/project-root-config.feature
-# specweave: scenario=@bdd-project-root-config-event-logging-disabled-by-default
+# sw: f=specs/behavior/features/project_root_config/project-root-config.feature
+# sw: s=@bdd-project-root-config-event-logging-disabled-by-default
 def test_event_logging_disabled_by_default() -> None:
     config = merge_project_config({})
     assert config.event_logging.enabled is False
 
 
-# specweave: feature=specs/behavior/features/project_root_config/project-root-config.feature
-# specweave: scenario=@bdd-project-root-config-merge-project-config-with-event-logging-override
+# sw: f=specs/behavior/features/project_root_config/project-root-config.feature
+# sw: s=@bdd-project-root-config-merge-project-config-with-event-logging-override
 def test_merge_project_config_with_event_logging_override() -> None:
     config = merge_project_config({"event_logging": {"enabled": True}})
     assert config.event_logging.enabled is True
 
 
-# specweave: feature=specs/behavior/features/project_root_config/project-root-config.feature
-# specweave: scenario=@bdd-project-root-config-merge-project-config-preserves-base-event-logging
+# sw: f=specs/behavior/features/project_root_config/project-root-config.feature
+# sw: s=@bdd-project-root-config-merge-project-config-preserves-base-event-logging
 def test_merge_project_config_preserves_base_event_logging() -> None:
     base = ProjectConfig(event_logging=EventLoggingConfig(enabled=True))
     config = merge_project_config({}, base=base)
     assert config.event_logging.enabled is True
 
 
-# specweave: feature=specs/behavior/features/project_root_config/project-root-config.feature
-# specweave: scenario=@bdd-project-root-config-default-taskledger-toml-includes-commented-event-logging
+@pytest.mark.specweave(
+    feature=("specs/behavior/features/project_root_config/project-root-config.feature"),
+    scenario=(
+        "@bdd-project-root-config-default-taskledger-toml-includes-commented-"
+        "event-logging"
+    ),
+)
 def test_default_taskledger_toml_includes_commented_event_logging() -> None:
     rendered = render_default_taskledger_toml()
     assert "# [event_logging]" in rendered

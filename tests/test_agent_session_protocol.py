@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Tests covering the agent session failure patterns identified in the audit.
 
 These tests verify guardrails that prevent common agent misuse:
@@ -100,8 +99,8 @@ def _prepare_proposed_plan_no_todos(
 # --- Lock break no-lock message ---
 
 
-# specweave: feature=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
-# specweave: scenario=@bdd-agent-session-protocol-lock-break-no-lock-message-mentions-next-action
+# sw: f=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
+# sw: s=@bdd-agent-session-protocol-lock-break-no-lock-message-mentions-next-action
 def test_lock_break_no_lock_message_mentions_next_action(tmp_path: Path) -> None:
     _init_project(tmp_path)
     assert (
@@ -200,8 +199,8 @@ def test_plan_propose_releases_planning_lock(tmp_path: Path) -> None:
 # --- Escape hatch reason requirements ---
 
 
-# specweave: feature=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
-# specweave: scenario=@bdd-agent-session-protocol-allow-empty-criteria-requires-reason
+# sw: f=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
+# sw: s=@bdd-agent-session-protocol-allow-empty-criteria-requires-reason
 def test_allow_empty_criteria_requires_reason(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _prepare_proposed_plan_with_todos(tmp_path)
@@ -231,8 +230,8 @@ def test_allow_empty_criteria_requires_reason(tmp_path: Path) -> None:
     assert "reason" in payload["error"]["message"].lower()
 
 
-# specweave: feature=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
-# specweave: scenario=@bdd-agent-session-protocol-allow-open-questions-requires-reason
+# sw: f=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
+# sw: s=@bdd-agent-session-protocol-allow-open-questions-requires-reason
 def test_allow_open_questions_requires_reason(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _prepare_proposed_plan_with_todos(tmp_path)
@@ -262,8 +261,8 @@ def test_allow_open_questions_requires_reason(tmp_path: Path) -> None:
     assert "reason" in payload["error"]["message"].lower()
 
 
-# specweave: feature=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
-# specweave: scenario=@bdd-agent-session-protocol-allow-empty-criteria-with-reason-succeeds
+# sw: f=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
+# sw: s=@bdd-agent-session-protocol-allow-empty-criteria-with-reason-succeeds
 def test_allow_empty_criteria_with_reason_succeeds(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _prepare_proposed_plan_with_todos(tmp_path)
@@ -295,8 +294,8 @@ def test_allow_empty_criteria_with_reason_succeeds(tmp_path: Path) -> None:
 # --- Empty todos gate ---
 
 
-# specweave: feature=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
-# specweave: scenario=@bdd-agent-session-protocol-plan-approval-blocks-when-no-todos
+# sw: f=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
+# sw: s=@bdd-agent-session-protocol-plan-approval-blocks-when-no-todos
 def test_plan_approval_blocks_when_no_todos(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _prepare_proposed_plan_no_todos(tmp_path)
@@ -326,8 +325,8 @@ def test_plan_approval_blocks_when_no_todos(tmp_path: Path) -> None:
     assert "todo" in message
 
 
-# specweave: feature=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
-# specweave: scenario=@bdd-agent-session-protocol-plan-approval-empty-todos-with-reason-succeeds
+# sw: f=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
+# sw: s=@bdd-agent-session-protocol-plan-approval-empty-todos-with-reason-succeeds
 def test_plan_approval_empty_todos_with_reason_succeeds(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _prepare_proposed_plan_no_todos(tmp_path)
@@ -356,8 +355,8 @@ def test_plan_approval_empty_todos_with_reason_succeeds(tmp_path: Path) -> None:
     assert result.exit_code == 0
 
 
-# specweave: feature=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
-# specweave: scenario=@bdd-agent-session-protocol-plan-approval-empty-todos-without-reason-fails
+# sw: f=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
+# sw: s=@bdd-agent-session-protocol-plan-approval-empty-todos-without-reason-fails
 def test_plan_approval_empty_todos_without_reason_fails(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _prepare_proposed_plan_no_todos(tmp_path)
@@ -390,8 +389,8 @@ def test_plan_approval_empty_todos_without_reason_fails(tmp_path: Path) -> None:
 # --- Plan command ---
 
 
-# specweave: feature=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
-# specweave: scenario=@bdd-agent-session-protocol-plan-command-records-exit-code
+# sw: f=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
+# sw: s=@bdd-agent-session-protocol-plan-command-records-exit-code
 def test_plan_command_records_exit_code(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -441,8 +440,8 @@ def test_plan_command_records_exit_code(
     assert payload["result"]["exit_code"] == 0
 
 
-# specweave: feature=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
-# specweave: scenario=@bdd-agent-session-protocol-plan-command-fails-without-active-planning
+# sw: f=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
+# sw: s=@bdd-agent-session-protocol-plan-command-fails-without-active-planning
 def test_plan_command_fails_without_active_planning(tmp_path: Path) -> None:
     _init_project(tmp_path)
     assert (
@@ -482,8 +481,8 @@ def test_plan_command_fails_without_active_planning(tmp_path: Path) -> None:
     assert payload["ok"] is False
 
 
-# specweave: feature=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
-# specweave: scenario=@bdd-agent-session-protocol-plan-command-no-change-records
+# sw: f=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
+# sw: s=@bdd-agent-session-protocol-plan-command-no-change-records
 def test_plan_command_no_change_records(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -553,8 +552,8 @@ def test_plan_command_no_change_records(
     )
 
 
-# specweave: feature=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
-# specweave: scenario=@bdd-agent-session-protocol-plan-command-mirrors-inner-exit-code-by-default
+# sw: f=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
+# sw: s=@bdd-agent-session-protocol-plan-command-mirrors-inner-exit-code-by-default
 def test_plan_command_mirrors_inner_exit_code_by_default(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -601,8 +600,8 @@ def test_plan_command_mirrors_inner_exit_code_by_default(
     assert result.exit_code == 6
 
 
-# specweave: feature=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
-# specweave: scenario=@bdd-agent-session-protocol-plan-command-allow-failure-keeps-wrapper-exit-zero
+# sw: f=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
+# sw: s=@bdd-agent-session-protocol-plan-command-allow-failure-keeps-wrapper-exit-zero
 def test_plan_command_allow_failure_keeps_wrapper_exit_zero(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -663,8 +662,15 @@ def test_plan_command_allow_failure_keeps_wrapper_exit_zero(
 # --- Validation finish gate ---
 
 
-# specweave: feature=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
-# specweave: scenario=@bdd-agent-session-protocol-validate-finish-passed-blocks-unchecked-mandatory-criteria
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/agent_session_protocol/agent-session-protocol.feature"
+    ),
+    scenario=(
+        "@bdd-agent-session-protocol-validate-finish-passed-blocks-unchecked-"
+        "mandatory-criteria"
+    ),
+)
 def test_validate_finish_passed_blocks_unchecked_mandatory_criteria(
     tmp_path: Path,
 ) -> None:
@@ -778,8 +784,8 @@ def test_validate_finish_passed_blocks_unchecked_mandatory_criteria(
 # --- --no-materialize-todos reason gate ---
 
 
-# specweave: feature=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
-# specweave: scenario=@bdd-agent-session-protocol-no-materialize-todos-without-reason-fails
+# sw: f=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
+# sw: s=@bdd-agent-session-protocol-no-materialize-todos-without-reason-fails
 def test_no_materialize_todos_without_reason_fails(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _prepare_proposed_plan_with_todos(tmp_path)
@@ -809,8 +815,8 @@ def test_no_materialize_todos_without_reason_fails(tmp_path: Path) -> None:
     assert "reason" in payload["error"]["message"].lower()
 
 
-# specweave: feature=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
-# specweave: scenario=@bdd-agent-session-protocol-no-materialize-todos-with-reason-succeeds
+# sw: f=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
+# sw: s=@bdd-agent-session-protocol-no-materialize-todos-with-reason-succeeds
 def test_no_materialize_todos_with_reason_succeeds(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _prepare_proposed_plan_with_todos(tmp_path)
@@ -842,8 +848,15 @@ def test_no_materialize_todos_with_reason_succeeds(tmp_path: Path) -> None:
 # --- Todo source inference ---
 
 
-# specweave: feature=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
-# specweave: scenario=@bdd-agent-session-protocol-todo-added-during-implementation-is-implementer-sourced
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/agent_session_protocol/agent-session-protocol.feature"
+    ),
+    scenario=(
+        "@bdd-agent-session-protocol-todo-added-during-implementation-is-"
+        "implementer-sourced"
+    ),
+)
 def test_todo_added_during_implementation_is_implementer_sourced(
     tmp_path: Path,
 ) -> None:
@@ -902,8 +915,8 @@ def test_todo_added_during_implementation_is_implementer_sourced(
     assert added_todo["source"] == "implementer"
 
 
-# specweave: feature=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
-# specweave: scenario=@bdd-agent-session-protocol-todo-added-during-planning-is-planner-sourced
+# sw: f=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
+# sw: s=@bdd-agent-session-protocol-todo-added-during-planning-is-planner-sourced
 def test_todo_added_during_planning_is_planner_sourced(tmp_path: Path) -> None:
     _init_project(tmp_path)
     assert (
@@ -950,8 +963,8 @@ def test_todo_added_during_planning_is_planner_sourced(tmp_path: Path) -> None:
     assert added_todo["source"] == "planner"
 
 
-# specweave: feature=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
-# specweave: scenario=@bdd-agent-session-protocol-todo-added-without-active-stage-defaults-to-user
+# sw: f=specs/behavior/features/agent_session_protocol/agent-session-protocol.feature
+# sw: s=@bdd-agent-session-protocol-todo-added-without-active-stage-defaults-to-user
 def test_todo_added_without_active_stage_defaults_to_user(
     tmp_path: Path,
 ) -> None:

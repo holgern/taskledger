@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Tests for taskledger.storage.common."""
 
 from __future__ import annotations
@@ -189,8 +188,8 @@ def test_summarize_text_empty() -> None:
     assert summarize_text("   ") is None
 
 
-# specweave: feature=specs/behavior/features/storage_common/storage-common.feature
-# specweave: scenario=@bdd-storage-common-summarize-text-long
+# sw: f=specs/behavior/features/storage_common/storage-common.feature
+# sw: s=@bdd-storage-common-summarize-text-long
 def test_summarize_text_long() -> None:
     text = "x" * 90
     result = summarize_text(text)
@@ -207,8 +206,8 @@ def test_summarize_text_exactly_80() -> None:
 # -- content_hash --
 
 
-# specweave: feature=specs/behavior/features/storage_common/storage-common.feature
-# specweave: scenario=@bdd-storage-common-content-hash-returns-sha256
+# sw: f=specs/behavior/features/storage_common/storage-common.feature
+# sw: s=@bdd-storage-common-content-hash-returns-sha256
 def test_content_hash_returns_sha256() -> None:
     h = content_hash("test")
     assert h is not None
@@ -222,15 +221,15 @@ def test_content_hash_empty_returns_none() -> None:
 # -- merge_text --
 
 
-# specweave: feature=specs/behavior/features/storage_common/storage-common.feature
-# specweave: scenario=@bdd-storage-common-merge-text-append
+# sw: f=specs/behavior/features/storage_common/storage-common.feature
+# sw: s=@bdd-storage-common-merge-text-append
 def test_merge_text_append() -> None:
     result = merge_text("current", "incoming", prepend=False)
     assert result == "current\n\nincoming"
 
 
-# specweave: feature=specs/behavior/features/storage_common/storage-common.feature
-# specweave: scenario=@bdd-storage-common-merge-text-prepend
+# sw: f=specs/behavior/features/storage_common/storage-common.feature
+# sw: s=@bdd-storage-common-merge-text-prepend
 def test_merge_text_prepend() -> None:
     result = merge_text("current", "incoming", prepend=True)
     assert result == "incoming\n\ncurrent"

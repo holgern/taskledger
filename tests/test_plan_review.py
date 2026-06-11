@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -73,8 +72,8 @@ def _setup_review_task(tmp_path: Path) -> str:
     return task.id
 
 
-# specweave: feature=specs/behavior/features/plan_review/plan-review.feature
-# specweave: scenario=@bdd-plan-review-plan-review-markdown-includes-proposed-plan-body
+# sw: f=specs/behavior/features/plan_review/plan-review.feature
+# sw: s=@bdd-plan-review-plan-review-markdown-includes-proposed-plan-body
 def test_plan_review_markdown_includes_proposed_plan_body(tmp_path: Path) -> None:
     task_id = _setup_review_task(tmp_path)
     payload = render_plan_review(tmp_path, task_id, version=1)
@@ -85,8 +84,8 @@ def test_plan_review_markdown_includes_proposed_plan_body(tmp_path: Path) -> Non
     assert "Render a concise approval-focused review artifact." in content
 
 
-# specweave: feature=specs/behavior/features/plan_review/plan-review.feature
-# specweave: scenario=@bdd-plan-review-plan-review-includes-machine-commitments
+# sw: f=specs/behavior/features/plan_review/plan-review.feature
+# sw: s=@bdd-plan-review-plan-review-includes-machine-commitments
 def test_plan_review_includes_machine_commitments(tmp_path: Path) -> None:
     task_id = _setup_review_task(tmp_path)
     payload = render_plan_review(tmp_path, task_id, version=1)
@@ -104,8 +103,8 @@ def test_plan_review_includes_machine_commitments(tmp_path: Path) -> None:
     assert "All plan review tests pass." in content
 
 
-# specweave: feature=specs/behavior/features/plan_review/plan-review.feature
-# specweave: scenario=@bdd-plan-review-plan-review-reports-ready-when-lint-passes-and-no-blockers
+# sw: f=specs/behavior/features/plan_review/plan-review.feature
+# sw: s=@bdd-plan-review-plan-review-reports-ready-when-lint-passes-and-no-blockers
 def test_plan_review_reports_ready_when_lint_passes_and_no_blockers(
     tmp_path: Path,
 ) -> None:
@@ -118,8 +117,8 @@ def test_plan_review_reports_ready_when_lint_passes_and_no_blockers(
     assert lint.get("passed") is True
 
 
-# specweave: feature=specs/behavior/features/plan_review/plan-review.feature
-# specweave: scenario=@bdd-plan-review-plan-review-reports-blocked-for-open-questions
+# sw: f=specs/behavior/features/plan_review/plan-review.feature
+# sw: s=@bdd-plan-review-plan-review-reports-blocked-for-open-questions
 def test_plan_review_reports_blocked_for_open_questions(tmp_path: Path) -> None:
     ws = init_workspace(tmp_path)
     task = create_task(
@@ -139,8 +138,8 @@ def test_plan_review_reports_blocked_for_open_questions(tmp_path: Path) -> None:
     assert payload["approval_ready"] is False
 
 
-# specweave: feature=specs/behavior/features/plan_review/plan-review.feature
-# specweave: scenario=@bdd-plan-review-plan-review-reports-blocked-for-stale-answers
+# sw: f=specs/behavior/features/plan_review/plan-review.feature
+# sw: s=@bdd-plan-review-plan-review-reports-blocked-for-stale-answers
 def test_plan_review_reports_blocked_for_stale_answers(tmp_path: Path) -> None:
     ws = init_workspace(tmp_path)
     task = create_task(
@@ -167,8 +166,8 @@ def test_plan_review_reports_blocked_for_stale_answers(tmp_path: Path) -> None:
     assert payload["approval_ready"] is False
 
 
-# specweave: feature=specs/behavior/features/plan_review/plan-review.feature
-# specweave: scenario=@bdd-plan-review-plan-review-reports-blocked-for-missing-todos
+# sw: f=specs/behavior/features/plan_review/plan-review.feature
+# sw: s=@bdd-plan-review-plan-review-reports-blocked-for-missing-todos
 def test_plan_review_reports_blocked_for_missing_todos(tmp_path: Path) -> None:
     ws = init_workspace(tmp_path)
     task = create_task(
@@ -200,8 +199,8 @@ No todos were defined here.
     assert payload["approval_ready"] is False
 
 
-# specweave: feature=specs/behavior/features/plan_review/plan-review.feature
-# specweave: scenario=@bdd-plan-review-plan-review-json-payload-is-structured
+# sw: f=specs/behavior/features/plan_review/plan-review.feature
+# sw: s=@bdd-plan-review-plan-review-json-payload-is-structured
 def test_plan_review_json_payload_is_structured(tmp_path: Path) -> None:
     task_id = _setup_review_task(tmp_path)
     payload = render_plan_review(tmp_path, task_id, version=1, format_name="json")
@@ -214,8 +213,8 @@ def test_plan_review_json_payload_is_structured(tmp_path: Path) -> None:
     assert rendered["plan_id"] == "plan-v1"
 
 
-# specweave: feature=specs/behavior/features/plan_review/plan-review.feature
-# specweave: scenario=@bdd-plan-review-plan-review-stdout-markdown
+# sw: f=specs/behavior/features/plan_review/plan-review.feature
+# sw: s=@bdd-plan-review-plan-review-stdout-markdown
 def test_plan_review_stdout_markdown(tmp_path: Path) -> None:
     _setup_review_task(tmp_path)
     runner = _runner()
@@ -228,8 +227,8 @@ def test_plan_review_stdout_markdown(tmp_path: Path) -> None:
     assert "## Review Summary" in result.stdout
 
 
-# specweave: feature=specs/behavior/features/plan_review/plan-review.feature
-# specweave: scenario=@bdd-plan-review-plan-review-output-writes-file
+# sw: f=specs/behavior/features/plan_review/plan-review.feature
+# sw: s=@bdd-plan-review-plan-review-output-writes-file
 def test_plan_review_output_writes_file(tmp_path: Path) -> None:
     _setup_review_task(tmp_path)
     output_path = tmp_path / "plan-review.md"
@@ -254,8 +253,8 @@ def test_plan_review_output_writes_file(tmp_path: Path) -> None:
     assert "## Review Summary" in written
 
 
-# specweave: feature=specs/behavior/features/plan_review/plan-review.feature
-# specweave: scenario=@bdd-plan-review-plan-review-json-output
+# sw: f=specs/behavior/features/plan_review/plan-review.feature
+# sw: s=@bdd-plan-review-plan-review-json-output
 def test_plan_review_json_output(tmp_path: Path) -> None:
     _setup_review_task(tmp_path)
     runner = _runner()

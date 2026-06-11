@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Tests for BDD CLI commands."""
 
 from __future__ import annotations
@@ -14,8 +13,8 @@ runner = CliRunner()
 
 
 class TestBddInit:
-    # specweave: feature=specs/behavior/features/bdd_cli/bdd-cli.feature
-    # specweave: scenario=@bdd-bdd-cli-bdd-init-json
+    # sw: f=specs/behavior/features/bdd_cli/bdd-cli.feature
+    # sw: s=@bdd-bdd-cli-bdd-init-json
     def test_bdd_init_json(self, tmp_path, monkeypatch) -> None:
         monkeypatch.chdir(tmp_path)
         _init_project(tmp_path)
@@ -29,8 +28,8 @@ class TestBddInit:
         assert payload["command"] == "bdd.init"
         assert payload["result"]["feature"]["title"] == "Task lifecycle gates"
 
-    # specweave: feature=specs/behavior/features/bdd_cli/bdd-cli.feature
-    # specweave: scenario=@bdd-bdd-cli-bdd-init-human
+    # sw: f=specs/behavior/features/bdd_cli/bdd-cli.feature
+    # sw: s=@bdd-bdd-cli-bdd-init-human
     def test_bdd_init_human(self, tmp_path, monkeypatch) -> None:
         monkeypatch.chdir(tmp_path)
         _init_project(tmp_path)
@@ -39,8 +38,8 @@ class TestBddInit:
         assert result.exit_code == 0
         assert "BDD initialized" in result.stdout
 
-    # specweave: feature=specs/behavior/features/bdd_cli/bdd-cli.feature
-    # specweave: scenario=@bdd-bdd-cli-bdd-init-twice-fails
+    # sw: f=specs/behavior/features/bdd_cli/bdd-cli.feature
+    # sw: s=@bdd-bdd-cli-bdd-init-twice-fails
     def test_bdd_init_twice_fails(self, tmp_path, monkeypatch) -> None:
         monkeypatch.chdir(tmp_path)
         _init_project(tmp_path)
@@ -51,8 +50,8 @@ class TestBddInit:
 
 
 class TestBddStatus:
-    # specweave: feature=specs/behavior/features/bdd_cli/bdd-cli.feature
-    # specweave: scenario=@bdd-bdd-cli-bdd-status-json
+    # sw: f=specs/behavior/features/bdd_cli/bdd-cli.feature
+    # sw: s=@bdd-bdd-cli-bdd-status-json
     def test_bdd_status_json(self, tmp_path, monkeypatch) -> None:
         monkeypatch.chdir(tmp_path)
         _init_project(tmp_path)
@@ -67,8 +66,8 @@ class TestBddStatus:
 
 
 class TestBddRuleCommands:
-    # specweave: feature=specs/behavior/features/bdd_cli/bdd-cli.feature
-    # specweave: scenario=@bdd-bdd-cli-rule-add-json
+    # sw: f=specs/behavior/features/bdd_cli/bdd-cli.feature
+    # sw: s=@bdd-bdd-cli-rule-add-json
     def test_rule_add_json(self, tmp_path, monkeypatch) -> None:
         monkeypatch.chdir(tmp_path)
         _init_project(tmp_path)
@@ -83,8 +82,8 @@ class TestBddRuleCommands:
         assert payload["result"]["rule"]["title"] == "Implementation requires plan"
         assert payload["result"]["rule"]["id"] == "rule-0001"
 
-    # specweave: feature=specs/behavior/features/bdd_cli/bdd-cli.feature
-    # specweave: scenario=@bdd-bdd-cli-rule-list-json
+    # sw: f=specs/behavior/features/bdd_cli/bdd-cli.feature
+    # sw: s=@bdd-bdd-cli-rule-list-json
     def test_rule_list_json(self, tmp_path, monkeypatch) -> None:
         monkeypatch.chdir(tmp_path)
         _init_project(tmp_path)
@@ -97,8 +96,8 @@ class TestBddRuleCommands:
         payload = json.loads(result.stdout)
         assert len(payload["result"]["rules"]) == 2
 
-    # specweave: feature=specs/behavior/features/bdd_cli/bdd-cli.feature
-    # specweave: scenario=@bdd-bdd-cli-rule-show-json
+    # sw: f=specs/behavior/features/bdd_cli/bdd-cli.feature
+    # sw: s=@bdd-bdd-cli-rule-show-json
     def test_rule_show_json(self, tmp_path, monkeypatch) -> None:
         monkeypatch.chdir(tmp_path)
         _init_project(tmp_path)
@@ -112,8 +111,8 @@ class TestBddRuleCommands:
 
 
 class TestBddExampleCommands:
-    # specweave: feature=specs/behavior/features/bdd_cli/bdd-cli.feature
-    # specweave: scenario=@bdd-bdd-cli-example-add-json
+    # sw: f=specs/behavior/features/bdd_cli/bdd-cli.feature
+    # sw: s=@bdd-bdd-cli-example-add-json
     def test_example_add_json(self, tmp_path, monkeypatch) -> None:
         monkeypatch.chdir(tmp_path)
         _init_project(tmp_path)
@@ -146,8 +145,8 @@ class TestBddExampleCommands:
         assert ex["status"] == "linked"
         assert ex["acceptance_criteria"] == ["ac-0001"]
 
-    # specweave: feature=specs/behavior/features/bdd_cli/bdd-cli.feature
-    # specweave: scenario=@bdd-bdd-cli-example-list-json
+    # sw: f=specs/behavior/features/bdd_cli/bdd-cli.feature
+    # sw: s=@bdd-bdd-cli-example-list-json
     def test_example_list_json(self, tmp_path, monkeypatch) -> None:
         monkeypatch.chdir(tmp_path)
         _init_project(tmp_path)
@@ -174,8 +173,8 @@ class TestBddExampleCommands:
         payload = json.loads(result.stdout)
         assert len(payload["result"]["examples"]) == 1
 
-    # specweave: feature=specs/behavior/features/bdd_cli/bdd-cli.feature
-    # specweave: scenario=@bdd-bdd-cli-example-show-json
+    # sw: f=specs/behavior/features/bdd_cli/bdd-cli.feature
+    # sw: s=@bdd-bdd-cli-example-show-json
     def test_example_show_json(self, tmp_path, monkeypatch) -> None:
         monkeypatch.chdir(tmp_path)
         _init_project(tmp_path)
@@ -202,8 +201,8 @@ class TestBddExampleCommands:
         payload = json.loads(result.stdout)
         assert payload["result"]["example"]["id"] == "bdd-0001"
 
-    # specweave: feature=specs/behavior/features/bdd_cli/bdd-cli.feature
-    # specweave: scenario=@bdd-bdd-cli-example-link-ac
+    # sw: f=specs/behavior/features/bdd_cli/bdd-cli.feature
+    # sw: s=@bdd-bdd-cli-example-link-ac
     def test_example_link_ac(self, tmp_path, monkeypatch) -> None:
         monkeypatch.chdir(tmp_path)
         _init_project(tmp_path)
@@ -235,8 +234,8 @@ class TestBddExampleCommands:
 
 
 class TestBddGherkinExport:
-    # specweave: feature=specs/behavior/features/bdd_cli/bdd-cli.feature
-    # specweave: scenario=@bdd-bdd-cli-gherkin-export-json
+    # sw: f=specs/behavior/features/bdd_cli/bdd-cli.feature
+    # sw: s=@bdd-bdd-cli-gherkin-export-json
     def test_gherkin_export_json(self, tmp_path, monkeypatch) -> None:
         monkeypatch.chdir(tmp_path)
         _init_project(tmp_path)
@@ -266,8 +265,8 @@ class TestBddGherkinExport:
         assert "bdd-0001" in payload["result"]["exported_examples"]
         assert payload["result"]["warning_details"] == []
 
-    # specweave: feature=specs/behavior/features/bdd_cli/bdd-cli.feature
-    # specweave: scenario=@bdd-bdd-cli-gherkin-export-warns-for-deprecated-paths
+    # sw: f=specs/behavior/features/bdd_cli/bdd-cli.feature
+    # sw: s=@bdd-bdd-cli-gherkin-export-warns-for-deprecated-paths
     def test_gherkin_export_warns_for_deprecated_paths(
         self, tmp_path, monkeypatch
     ) -> None:
@@ -300,8 +299,8 @@ class TestBddGherkinExport:
         assert any("tests/bdd/features/" in item for item in warning["reasons"])
         assert any("task-<digits>" in item for item in warning["reasons"])
 
-    # specweave: feature=specs/behavior/features/bdd_cli/bdd-cli.feature
-    # specweave: scenario=@bdd-bdd-cli-export-json-includes-external-behavior-spec-metadata
+    # sw: f=specs/behavior/features/bdd_cli/bdd-cli.feature
+    # sw: s=@bdd-bdd-cli-export-json-includes-external-behavior-spec-metadata
     def test_export_json_includes_external_behavior_spec_metadata(
         self, tmp_path, monkeypatch
     ) -> None:
@@ -356,8 +355,8 @@ class TestBddGherkinExport:
 
 
 class TestBddArchledgerBridge:
-    # specweave: feature=specs/behavior/features/bdd_cli/bdd-cli.feature
-    # specweave: scenario=@bdd-bdd-cli-archledger-candidate
+    # sw: f=specs/behavior/features/bdd_cli/bdd-cli.feature
+    # sw: s=@bdd-bdd-cli-archledger-candidate
     def test_archledger_candidate(self, tmp_path, monkeypatch) -> None:
         monkeypatch.chdir(tmp_path)
         _init_project(tmp_path)
@@ -390,8 +389,8 @@ class TestBddArchledgerBridge:
         assert payload["ok"] is True
         assert payload["result"]["candidate"]["suggested_type"] == "runtime_scenario"
 
-    # specweave: feature=specs/behavior/features/bdd_cli/bdd-cli.feature
-    # specweave: scenario=@bdd-bdd-cli-example-link-archledger
+    # sw: f=specs/behavior/features/bdd_cli/bdd-cli.feature
+    # sw: s=@bdd-bdd-cli-example-link-archledger
     def test_example_link_archledger(self, tmp_path, monkeypatch) -> None:
         monkeypatch.chdir(tmp_path)
         _init_project(tmp_path)
@@ -428,8 +427,8 @@ class TestBddArchledgerBridge:
         payload = json.loads(result.stdout)
         assert "al_runtime_0123" in payload["result"]["example"]["archledger_refs"]
 
-    # specweave: feature=specs/behavior/features/bdd_cli/bdd-cli.feature
-    # specweave: scenario=@bdd-bdd-cli-link-automation-then-candidate-includes-feature-file
+    # sw: f=specs/behavior/features/bdd_cli/bdd-cli.feature
+    # sw: s=@bdd-bdd-cli-link-automation-then-candidate-includes-feature-file
     def test_link_automation_then_candidate_includes_feature_file(
         self, tmp_path, monkeypatch
     ) -> None:
@@ -496,8 +495,8 @@ class TestBddArchledgerBridge:
         assert "test_refs:" in content
         assert "automation:" in content
 
-    # specweave: feature=specs/behavior/features/bdd_cli/bdd-cli.feature
-    # specweave: scenario=@bdd-bdd-cli-link-automation-rejects-non-canonical-feature-path
+    # sw: f=specs/behavior/features/bdd_cli/bdd-cli.feature
+    # sw: s=@bdd-bdd-cli-link-automation-rejects-non-canonical-feature-path
     def test_link_automation_rejects_non_canonical_feature_path(
         self, tmp_path, monkeypatch
     ) -> None:
@@ -559,8 +558,8 @@ Test plan.
 class TestBddReferenceValidation:
     """Finding 7: rule and acceptance-criterion refs are validated."""
 
-    # specweave: feature=specs/behavior/features/bdd_cli/bdd-cli.feature
-    # specweave: scenario=@bdd-bdd-cli-example-add-unknown-rule-fails
+    # sw: f=specs/behavior/features/bdd_cli/bdd-cli.feature
+    # sw: s=@bdd-bdd-cli-example-add-unknown-rule-fails
     def test_example_add_unknown_rule_fails(self, tmp_path, monkeypatch) -> None:
         monkeypatch.chdir(tmp_path)
         _init_project(tmp_path)
@@ -584,8 +583,8 @@ class TestBddReferenceValidation:
         assert payload["ok"] is False
         assert "BDD rule not found" in payload["error"]["message"]
 
-    # specweave: feature=specs/behavior/features/bdd_cli/bdd-cli.feature
-    # specweave: scenario=@bdd-bdd-cli-example-add-unknown-criterion-with-accepted-plan-fails
+    # sw: f=specs/behavior/features/bdd_cli/bdd-cli.feature
+    # sw: s=@bdd-bdd-cli-example-add-unknown-criterion-with-accepted-plan-fails
     def test_example_add_unknown_criterion_with_accepted_plan_fails(
         self, tmp_path, monkeypatch
     ) -> None:
@@ -614,8 +613,8 @@ class TestBddReferenceValidation:
         assert payload["ok"] is False
         assert "ac-9999 is not in the accepted plan" in payload["error"]["message"]
 
-    # specweave: feature=specs/behavior/features/bdd_cli/bdd-cli.feature
-    # specweave: scenario=@bdd-bdd-cli-example-add-known-criterion-with-accepted-plan-succeeds
+    # sw: f=specs/behavior/features/bdd_cli/bdd-cli.feature
+    # sw: s=@bdd-bdd-cli-example-add-known-criterion-with-accepted-plan-succeeds
     def test_example_add_known_criterion_with_accepted_plan_succeeds(
         self, tmp_path, monkeypatch
     ) -> None:
@@ -645,8 +644,8 @@ class TestBddReferenceValidation:
         assert payload["result"]["warnings"] == []
         assert payload["result"]["example"]["acceptance_criteria"] == ["ac-0001"]
 
-    # specweave: feature=specs/behavior/features/bdd_cli/bdd-cli.feature
-    # specweave: scenario=@bdd-bdd-cli-example-add-criterion-without-plan-warns
+    # sw: f=specs/behavior/features/bdd_cli/bdd-cli.feature
+    # sw: s=@bdd-bdd-cli-example-add-criterion-without-plan-warns
     def test_example_add_criterion_without_plan_warns(
         self, tmp_path, monkeypatch
     ) -> None:
@@ -675,8 +674,8 @@ class TestBddReferenceValidation:
         assert any("no accepted plan yet" in w for w in payload["result"]["warnings"])
         assert payload["result"]["example"]["acceptance_criteria"] == ["ac-0001"]
 
-    # specweave: feature=specs/behavior/features/bdd_cli/bdd-cli.feature
-    # specweave: scenario=@bdd-bdd-cli-link-ac-unknown-criterion-with-accepted-plan-fails
+    # sw: f=specs/behavior/features/bdd_cli/bdd-cli.feature
+    # sw: s=@bdd-bdd-cli-link-ac-unknown-criterion-with-accepted-plan-fails
     def test_link_ac_unknown_criterion_with_accepted_plan_fails(
         self, tmp_path, monkeypatch
     ) -> None:

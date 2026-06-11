@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -62,8 +61,8 @@ def _create_and_activate_task(tmp_path: Path, slug: str = "test-task") -> None:
 # -- default-off tests --
 
 
-# specweave: feature=specs/behavior/features/event_logging_config/event-logging-config.feature
-# specweave: scenario=@bdd-event-logging-config-runtime-events-disabled-by-default
+# sw: f=specs/behavior/features/event_logging_config/event-logging-config.feature
+# sw: s=@bdd-event-logging-config-runtime-events-disabled-by-default
 def test_runtime_events_disabled_by_default(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _create_and_activate_task(tmp_path)
@@ -78,8 +77,8 @@ def test_runtime_events_disabled_by_default(tmp_path: Path) -> None:
     assert result.exit_code == 0
 
 
-# specweave: feature=specs/behavior/features/event_logging_config/event-logging-config.feature
-# specweave: scenario=@bdd-event-logging-config-task-events-shows-empty-when-disabled
+# sw: f=specs/behavior/features/event_logging_config/event-logging-config.feature
+# sw: s=@bdd-event-logging-config-task-events-shows-empty-when-disabled
 def test_task_events_shows_empty_when_disabled(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _create_and_activate_task(tmp_path)
@@ -94,8 +93,8 @@ def test_task_events_shows_empty_when_disabled(tmp_path: Path) -> None:
     assert payload["result"]["items"] == []
 
 
-# specweave: feature=specs/behavior/features/event_logging_config/event-logging-config.feature
-# specweave: scenario=@bdd-event-logging-config-lock-break-no-events-by-default
+# sw: f=specs/behavior/features/event_logging_config/event-logging-config.feature
+# sw: s=@bdd-event-logging-config-lock-break-no-events-by-default
 def test_lock_break_no_events_by_default(tmp_path: Path) -> None:
     _init_project(tmp_path)
     assert (
@@ -143,8 +142,8 @@ def test_lock_break_no_events_by_default(tmp_path: Path) -> None:
 # -- opt-in tests --
 
 
-# specweave: feature=specs/behavior/features/event_logging_config/event-logging-config.feature
-# specweave: scenario=@bdd-event-logging-config-runtime-events-enabled-writes-events
+# sw: f=specs/behavior/features/event_logging_config/event-logging-config.feature
+# sw: s=@bdd-event-logging-config-runtime-events-enabled-writes-events
 def test_runtime_events_enabled_writes_events(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _enable_event_logging(tmp_path)
@@ -162,8 +161,8 @@ def test_runtime_events_enabled_writes_events(tmp_path: Path) -> None:
     assert any(e["event"] == "task.created" for e in events)
 
 
-# specweave: feature=specs/behavior/features/event_logging_config/event-logging-config.feature
-# specweave: scenario=@bdd-event-logging-config-lock-break-writes-events-when-enabled
+# sw: f=specs/behavior/features/event_logging_config/event-logging-config.feature
+# sw: s=@bdd-event-logging-config-lock-break-writes-events-when-enabled
 def test_lock_break_writes_events_when_enabled(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _enable_event_logging(tmp_path)
@@ -216,8 +215,8 @@ def test_lock_break_writes_events_when_enabled(tmp_path: Path) -> None:
     assert any(e["event"] == "repair.lock_broken" for e in events)
 
 
-# specweave: feature=specs/behavior/features/event_logging_config/event-logging-config.feature
-# specweave: scenario=@bdd-event-logging-config-existing-events-readable-after-disable
+# sw: f=specs/behavior/features/event_logging_config/event-logging-config.feature
+# sw: s=@bdd-event-logging-config-existing-events-readable-after-disable
 def test_existing_events_readable_after_disable(tmp_path: Path) -> None:
     _init_project(tmp_path)
     _enable_event_logging(tmp_path)

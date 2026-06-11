@@ -1,8 +1,8 @@
-# ruff: noqa: E501
 from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from taskledger.cli import app
@@ -18,8 +18,15 @@ def _make_runner() -> CliRunner:
 runner = _make_runner()
 
 
-# specweave: feature=specs/behavior/features/taskledger_cli_api_parity/taskledger-cli-api-parity.feature
-# specweave: scenario=@bdd-taskledger-cli-api-parity-cli-command-tree-matches-task-first-contract
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/taskledger_cli_api_parity/taskledger-cli-api-"
+        "parity.feature"
+    ),
+    scenario=(
+        "@bdd-taskledger-cli-api-parity-cli-command-tree-matches-task-first-contract"
+    ),
+)
 def test_cli_command_tree_matches_task_first_contract(tmp_path: Path) -> None:
     runner.invoke(app, ["--cwd", str(tmp_path), "init"])
     result = runner.invoke(app, ["--cwd", str(tmp_path), "--help"])
@@ -61,8 +68,13 @@ def test_cli_command_tree_matches_task_first_contract(tmp_path: Path) -> None:
         assert name in result.stdout
 
 
-# specweave: feature=specs/behavior/features/taskledger_cli_api_parity/taskledger-cli-api-parity.feature
-# specweave: scenario=@bdd-taskledger-cli-api-parity-legacy-cli-groups-are-removed
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/taskledger_cli_api_parity/taskledger-cli-api-"
+        "parity.feature"
+    ),
+    scenario=("@bdd-taskledger-cli-api-parity-legacy-cli-groups-are-removed"),
+)
 def test_legacy_cli_groups_are_removed(tmp_path: Path) -> None:
     runner.invoke(app, ["--cwd", str(tmp_path), "init"])
 
@@ -84,8 +96,13 @@ def test_legacy_cli_groups_are_removed(tmp_path: Path) -> None:
         assert result.exit_code != 0
 
 
-# specweave: feature=specs/behavior/features/taskledger_cli_api_parity/taskledger-cli-api-parity.feature
-# specweave: scenario=@bdd-taskledger-cli-api-parity-task-first-subcommands-are-registered
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/taskledger_cli_api_parity/taskledger-cli-api-"
+        "parity.feature"
+    ),
+    scenario=("@bdd-taskledger-cli-api-parity-task-first-subcommands-are-registered"),
+)
 def test_task_first_subcommands_are_registered(tmp_path: Path) -> None:
     runner.invoke(app, ["--cwd", str(tmp_path), "init"])
 
@@ -150,8 +167,15 @@ def test_task_first_subcommands_are_registered(tmp_path: Path) -> None:
             assert subcommand in result.stdout
 
 
-# specweave: feature=specs/behavior/features/taskledger_cli_api_parity/taskledger-cli-api-parity.feature
-# specweave: scenario=@bdd-taskledger-cli-api-parity-file-and-link-help-describe-distinct-surfaces
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/taskledger_cli_api_parity/taskledger-cli-api-"
+        "parity.feature"
+    ),
+    scenario=(
+        "@bdd-taskledger-cli-api-parity-file-and-link-help-describe-distinct-surfaces"
+    ),
+)
 def test_file_and_link_help_describe_distinct_surfaces(tmp_path: Path) -> None:
     runner.invoke(app, ["--cwd", str(tmp_path), "init"])
 

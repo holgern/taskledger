@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 from __future__ import annotations
 
 from pathlib import Path
@@ -38,16 +37,23 @@ def _pipeline(*steps: dict[str, object], **extra: object) -> dict[str, object]:
     }
 
 
-# specweave: feature=specs/behavior/features/worker_pipeline_config/worker-pipeline-config.feature
-# specweave: scenario=@bdd-worker-pipeline-config-no-worker-pipeline-section-preserves-default-config
+# sw: f=specs/behavior/features/worker_pipeline_config/worker-pipeline-config.feature
+# sw: s=@bdd-worker-pipeline-config-no-worker-pipeline-section-preserves-default-config
 def test_no_worker_pipeline_section_preserves_default_config() -> None:
     config = merge_project_config({})
 
     assert config.worker_pipeline is None
 
 
-# specweave: feature=specs/behavior/features/worker_pipeline_config/worker-pipeline-config.feature
-# specweave: scenario=@bdd-worker-pipeline-config-disabled-worker-pipeline-section-returns-disabled-config
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/worker_pipeline_config/worker-pipeline-config.feature"
+    ),
+    scenario=(
+        "@bdd-worker-pipeline-config-disabled-worker-pipeline-section-returns-"
+        "disabled-config"
+    ),
+)
 def test_disabled_worker_pipeline_section_returns_disabled_config() -> None:
     config = merge_project_config(
         {
@@ -75,8 +81,8 @@ def test_disabled_worker_pipeline_section_returns_disabled_config() -> None:
     assert config.worker_pipeline.steps[0].actor_role == "planner"
 
 
-# specweave: feature=specs/behavior/features/worker_pipeline_config/worker-pipeline-config.feature
-# specweave: scenario=@bdd-worker-pipeline-config-worker-pipeline-parse-three-step-config
+# sw: f=specs/behavior/features/worker_pipeline_config/worker-pipeline-config.feature
+# sw: s=@bdd-worker-pipeline-config-worker-pipeline-parse-three-step-config
 def test_worker_pipeline_parse_three_step_config() -> None:
     config = merge_project_config(
         {
@@ -109,8 +115,15 @@ def test_worker_pipeline_parse_three_step_config() -> None:
     assert config.worker_pipeline.steps[2].actor_role == "validator"
 
 
-# specweave: feature=specs/behavior/features/worker_pipeline_config/worker-pipeline-config.feature
-# specweave: scenario=@bdd-worker-pipeline-config-worker-pipeline-parse-four-step-config-without-skeletor
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/worker_pipeline_config/worker-pipeline-config.feature"
+    ),
+    scenario=(
+        "@bdd-worker-pipeline-config-worker-pipeline-parse-four-step-config-"
+        "without-skeletor"
+    ),
+)
 def test_worker_pipeline_parse_four_step_config_without_skeletor() -> None:
     config = merge_project_config(
         {
@@ -152,8 +165,8 @@ def test_worker_pipeline_parse_four_step_config_without_skeletor() -> None:
     assert config.worker_pipeline.steps[3].actor_role == "reviewer"
 
 
-# specweave: feature=specs/behavior/features/worker_pipeline_config/worker-pipeline-config.feature
-# specweave: scenario=@bdd-worker-pipeline-config-worker-pipeline-parse-custom-worker-name
+# sw: f=specs/behavior/features/worker_pipeline_config/worker-pipeline-config.feature
+# sw: s=@bdd-worker-pipeline-config-worker-pipeline-parse-custom-worker-name
 def test_worker_pipeline_parse_custom_worker_name() -> None:
     config = merge_project_config(
         {

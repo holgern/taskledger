@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -11,8 +10,8 @@ from taskledger.errors import LaunchError
 from taskledger.storage.events import append_event, load_events, load_recent_events
 
 
-# specweave: feature=specs/behavior/features/events/events.feature
-# specweave: scenario=@bdd-events-load-events-sorts-by-timestamp-and-event-id
+# sw: f=specs/behavior/features/events/events.feature
+# sw: s=@bdd-events-load-events-sorts-by-timestamp-and-event-id
 def test_load_events_sorts_by_timestamp_and_event_id(tmp_path: Path) -> None:
     events_dir = tmp_path / "events"
     actor = ActorRef(actor_type="agent", actor_name="taskledger")
@@ -56,8 +55,8 @@ def test_load_events_sorts_by_timestamp_and_event_id(tmp_path: Path) -> None:
     ]
 
 
-# specweave: feature=specs/behavior/features/events/events.feature
-# specweave: scenario=@bdd-events-load-events-rejects-duplicate-event-ids
+# sw: f=specs/behavior/features/events/events.feature
+# sw: s=@bdd-events-load-events-rejects-duplicate-event-ids
 def test_load_events_rejects_duplicate_event_ids(tmp_path: Path) -> None:
     events_dir = tmp_path / "events"
     events_dir.mkdir(parents=True)
@@ -82,8 +81,8 @@ def test_load_events_rejects_duplicate_event_ids(tmp_path: Path) -> None:
         load_events(events_dir)
 
 
-# specweave: feature=specs/behavior/features/events/events.feature
-# specweave: scenario=@bdd-events-load-recent-events-returns-chronological-task-tail
+# sw: f=specs/behavior/features/events/events.feature
+# sw: s=@bdd-events-load-recent-events-returns-chronological-task-tail
 def test_load_recent_events_returns_chronological_task_tail(tmp_path: Path) -> None:
     events_dir = tmp_path / "events"
     actor = ActorRef(actor_type="agent", actor_name="taskledger")
