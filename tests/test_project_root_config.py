@@ -159,6 +159,8 @@ def test_task_create_uses_configured_external_storage(tmp_path: Path) -> None:
     assert not (workspace / ".taskledger" / "tasks").exists()
 
 
+# sw: f=specs/behavior/features/project_root_config/project-root-config.feature
+# sw: s=@bdd-project-root-config-relative-storage-resolves-from-config
 def test_relative_taskledger_dir_is_relative_to_config_path(tmp_path: Path) -> None:
     workspace = tmp_path / "repo"
     workspace.mkdir()
@@ -191,6 +193,8 @@ def test_cli_discovers_taskledger_toml_from_subdirectory(
     assert payload["result"]["config_path"] == str(workspace / "taskledger.toml")
 
 
+# sw: f=specs/behavior/features/project_root_config/project-root-config.feature
+# sw: s=@bdd-project-root-config-legacy-config-fallbacks-remain-readable
 def test_legacy_dot_taskledger_without_root_config_still_resolves(
     tmp_path: Path,
 ) -> None:
@@ -363,6 +367,8 @@ def test_merge_project_config_preserves_base_prompt_profile() -> None:
     assert config.prompt_profile.question_policy == "minimal"
 
 
+# sw: f=specs/behavior/features/project_root_config/project-root-config.feature
+# sw: s=@bdd-project-root-config-invalid-prompt-profile-is-rejected
 def test_validate_prompt_profile_rejects_unknown_keys() -> None:
     from taskledger.storage.project_config import _validate_project_config_overrides
 
@@ -553,6 +559,8 @@ def test_default_taskledger_toml_includes_commented_planning_guidance() -> None:
     )
 
 
+# sw: f=specs/behavior/features/project_root_config/project-root-config.feature
+# sw: s=@bdd-project-root-config-invalid-project-name-is-rejected
 def test_validate_project_name_rejects_non_string() -> None:
     from taskledger.storage.project_config import _validate_project_config_overrides
 
@@ -620,6 +628,8 @@ def test_validate_sync_git_rejects_unknown_key() -> None:
         )
 
 
+# sw: f=specs/behavior/features/project_root_config/project-root-config.feature
+# sw: s=@bdd-project-root-config-sync-git-path-cannot-escape-project
 def test_validate_sync_git_rejects_absolute_project_path() -> None:
     from taskledger.storage.project_config import _validate_project_config_overrides
 
@@ -678,6 +688,8 @@ def test_default_taskledger_toml_includes_commented_event_logging() -> None:
     assert "# enabled = false" in rendered
 
 
+# sw: f=specs/behavior/features/project_root_config/project-root-config.feature
+# sw: s=@bdd-project-root-config-invalid-event-logging-config-is-rejected
 def test_validate_event_logging_rejects_non_table() -> None:
     from taskledger.storage.project_config import _validate_project_config_overrides
 

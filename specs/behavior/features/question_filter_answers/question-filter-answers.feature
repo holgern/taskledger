@@ -33,3 +33,21 @@ Feature: Question Filter Answers
       Given the pytest test setup is prepared
       When answer whitespace only rejected is executed
       Then result.exit_code does not equal 0
+
+    @bdd-question-filter-answers-list-filters-by-status
+    Example: Question listing filters by one or more statuses
+      Given a task has answered, dismissed, and open questions
+      When questions are listed with a status filter
+      Then only questions matching the requested statuses are returned
+
+    @bdd-question-filter-answers-list-without-status-returns-all
+    Example: Question listing without a status filter returns all questions
+      Given a task has questions in several statuses
+      When questions are listed without a status filter
+      Then every question is returned
+
+    @bdd-question-filter-answers-json-output-is-structured
+    Example: Answer output supports structured JSON
+      Given a task has answered questions
+      When answers are requested in JSON mode
+      Then the response contains structured answer records

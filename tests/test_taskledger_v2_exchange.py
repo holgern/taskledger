@@ -1179,6 +1179,8 @@ def test_import_single_task_preserves_id_when_free(tmp_path: Path) -> None:
     assert show.exit_code == 0, show.stdout
 
 
+# sw: f=specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature
+# sw: s=@bdd-taskledger-v2-exchange-import-single-task-renumbers-conflicts
 def test_import_single_task_renumbers_on_conflict_without_overwrite(
     tmp_path: Path,
 ) -> None:
@@ -1250,6 +1252,8 @@ def test_import_single_task_renumbers_on_conflict_without_overwrite(
     assert imported_show["result"]["task"]["slug"] == "source-task"
 
 
+# sw: f=specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature
+# sw: s=@bdd-taskledger-v2-exchange-import-dry-run-does-not-mutate
 def test_import_single_task_dry_run_reports_id_map_without_mutation(
     tmp_path: Path,
 ) -> None:
@@ -1384,6 +1388,8 @@ def test_import_single_task_id_policy_fail_on_conflict(tmp_path: Path) -> None:
     assert len(cast(list[dict[str, Any]], tasks["result"]["tasks"])) == 1
 
 
+# sw: f=specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature
+# sw: s=@bdd-taskledger-v2-exchange-import-advances-task-counter
 def test_import_single_task_updates_ledger_next_task_number(tmp_path: Path) -> None:
     source_root = tmp_path / "source"
     dest_root = tmp_path / "dest"
@@ -1446,6 +1452,8 @@ def test_import_single_task_updates_ledger_next_task_number(tmp_path: Path) -> N
     assert show["result"]["task"]["id"] == "task-0088"
 
 
+# sw: f=specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature
+# sw: s=@bdd-taskledger-v2-exchange-renumbered-artifacts-follow-task
 def test_import_single_task_artifacts_follow_renumbered_task_id(tmp_path: Path) -> None:
     source_root = tmp_path / "source"
     dest_root = tmp_path / "dest"
@@ -1531,6 +1539,8 @@ def test_import_single_task_artifacts_follow_renumbered_task_id(tmp_path: Path) 
     assert imported_artifact.read_text(encoding="utf-8") == "artifact-output\n"
 
 
+# sw: f=specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature
+# sw: s=@bdd-taskledger-v2-exchange-task-import-preserves-current-active-task
 def test_import_single_task_does_not_replace_active_task(tmp_path: Path) -> None:
     source_root = tmp_path / "source"
     dest_root = tmp_path / "dest"
@@ -1594,6 +1604,8 @@ def test_import_single_task_does_not_replace_active_task(tmp_path: Path) -> None
     assert show["result"]["task"]["slug"] == "dest-task"
 
 
+# sw: f=specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature
+# sw: s=@bdd-taskledger-v2-exchange-archive-resource-limits-are-enforced
 def test_read_project_archive_rejects_too_many_members(tmp_path: Path) -> None:
     archive_path = tmp_path / "too-many-members.tar.gz"
     data = _valid_archive_bytes(extra_members=MAX_ARCHIVE_MEMBERS - 1)
@@ -1988,6 +2000,8 @@ def test_export_with_run_artifacts_includes_artifact_members(tmp_path: Path) -> 
     assert imported_artifact.read_text(encoding="utf-8") == "artifact-output\n"
 
 
+# sw: f=specs/behavior/features/taskledger_v2_exchange/taskledger-v2-exchange.feature
+# sw: s=@bdd-taskledger-v2-exchange-unsafe-artifact-paths-are-rejected
 def test_import_archive_rejects_unsafe_artifact_member_paths(tmp_path: Path) -> None:
     archive_path = tmp_path / "unsafe-artifact.tar.gz"
     data = _archive_with_extra_member(

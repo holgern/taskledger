@@ -30,6 +30,8 @@ def test_priority_rank_none() -> None:
     assert priority_rank(None) == (99, "")
 
 
+# sw: f=specs/behavior/features/ready_work/ready-work.feature
+# sw: s=@bdd-ready-work-filters-to-actionable-statuses
 def test_ready_work_items_filters_by_ready_statuses(tmp_path: Path) -> None:
     ws = init_workspace(tmp_path)
     task_approved = create_approved_task(ws, title="Approved", slug="approved-task")
@@ -55,6 +57,8 @@ def test_ready_work_items_filters_by_ready_statuses(tmp_path: Path) -> None:
     assert draft not in ready_ids
 
 
+# sw: f=specs/behavior/features/ready_work/ready-work.feature
+# sw: s=@bdd-ready-work-includes-next-action-and-command
 def test_ready_work_items_includes_next_and_command(tmp_path: Path) -> None:
     ws = init_workspace(tmp_path)
     task_approved = create_approved_task(ws, title="Approved", slug="approved-task")
@@ -91,6 +95,8 @@ def test_ready_work_items_stage_commands_are_explicit(tmp_path: Path) -> None:
     assert f"--task {pr.id}" in command
 
 
+# sw: f=specs/behavior/features/ready_work/ready-work.feature
+# sw: s=@bdd-ready-work-respects-result-limit
 def test_ready_work_items_respects_max_items(tmp_path: Path) -> None:
     ws = init_workspace(tmp_path)
     create_approved_task(ws, title="A", slug="task-a")

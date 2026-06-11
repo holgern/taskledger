@@ -65,6 +65,8 @@ def test_save_and_load_actor_state(tmp_path: Path) -> None:
     assert loaded.session_id == "sess-1"
 
 
+# sw: f=specs/behavior/features/actor_harness_state/actor-harness-state.feature
+# sw: s=@bdd-actor-harness-state-missing-state-loads-empty
 def test_load_actor_state_missing(tmp_path: Path) -> None:
     _init_project(tmp_path)
     assert load_actor_state(tmp_path) is None
@@ -253,6 +255,8 @@ def test_resolve_actor_explicit_overrides_all(tmp_path: Path) -> None:
     assert actor.actor_type == "agent"
 
 
+# sw: f=specs/behavior/features/actor_harness_state/actor-harness-state.feature
+# sw: s=@bdd-actor-harness-state-resolution-without-workspace-uses-defaults
 def test_resolve_actor_no_workspace_no_stored() -> None:
     """Without workspace_root, stored state is not checked."""
     actor = resolve_actor()

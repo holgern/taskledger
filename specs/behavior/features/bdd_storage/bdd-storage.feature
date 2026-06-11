@@ -38,3 +38,21 @@ Feature: Bdd Storage
       Given the pytest test setup is prepared
       When resolve example normalized is executed
       Then resolved.id equals 'bdd-0001'
+
+    @bdd-bdd-storage-rule-example-and-report-records-round-trip
+    Example: Rule example and report records persist and reload
+      Given behavior rules, examples, and reports are stored for a task
+      When their collections are loaded
+      Then the stored records are returned with their identifiers preserved
+
+    @bdd-bdd-storage-missing-collections-load-empty
+    Example: Missing behavior collections load as empty
+      Given a task has no stored behavior rules, examples, or reports
+      When those collections are loaded
+      Then each collection is empty
+
+    @bdd-bdd-storage-unknown-rule-or-example-is-rejected
+    Example: Unknown behavior references are rejected
+      Given a rule or example reference does not exist
+      When Taskledger resolves the reference
+      Then resolution fails with a not-found error

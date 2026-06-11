@@ -172,3 +172,21 @@ Feature: Doctor
       Given the pytest test setup is prepared
       When doctor warns about non empty legacy sidecar is executed
       Then any succeeds
+
+    @bdd-doctor-healthy-project-has-no-findings
+    Example: A healthy project has no integrity findings
+      Given an initialized project has consistent canonical state
+      When Taskledger doctor inspects the project
+      Then the project is reported healthy
+
+    @bdd-doctor-duplicate-todo-ids-are-reported
+    Example: Duplicate todo IDs are reported
+      Given a task contains duplicate todo identifiers
+      When Taskledger doctor inspects the project
+      Then the duplicate identifiers are reported as integrity errors
+
+    @bdd-doctor-run-lock-mismatch-is-reported
+    Example: Run and lock mismatches are reported
+      Given an active run and lock identify different lifecycle operations
+      When Taskledger doctor inspects locks
+      Then the mismatch is reported with recovery guidance

@@ -27,6 +27,8 @@ def _paths(tmp_path: Path):
     return paths
 
 
+# sw: f=specs/behavior/features/storage_repos/storage-repos.feature
+# sw: s=@bdd-storage-repos-repository-records-round-trip
 def test_save_and_load_repos(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
     repo = ProjectRepo(
@@ -58,6 +60,8 @@ def test_add_repo(tmp_path: Path) -> None:
     assert len(loaded) == 1
 
 
+# sw: f=specs/behavior/features/storage_repos/storage-repos.feature
+# sw: s=@bdd-storage-repos-invalid-repository-config-is-rejected
 def test_add_repo_rejects_duplicate_name(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
     repo_dir = tmp_path / "my-code"
@@ -132,12 +136,16 @@ def test_resolve_repo_by_slugified_ref(tmp_path: Path) -> None:
     assert found.name == "My Code"
 
 
+# sw: f=specs/behavior/features/storage_repos/storage-repos.feature
+# sw: s=@bdd-storage-repos-unknown-reference-is-rejected
 def test_resolve_repo_unknown_raises(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
     with pytest.raises(LaunchError, match="Unknown"):
         resolve_repo(paths, "nope")
 
 
+# sw: f=specs/behavior/features/storage_repos/storage-repos.feature
+# sw: s=@bdd-storage-repos-root-reference-resolves-project-root
 def test_resolve_repo_root(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
     repo_dir = tmp_path / "my-code"
@@ -200,6 +208,8 @@ def test_set_default_execution_repo(tmp_path: Path) -> None:
     assert result.preferred_for_execution is True
 
 
+# sw: f=specs/behavior/features/storage_repos/storage-repos.feature
+# sw: s=@bdd-storage-repos-readonly-repo-cannot-be-execution-default
 def test_set_default_execution_repo_rejects_readonly(tmp_path: Path) -> None:
     paths = _paths(tmp_path)
     repo_dir = tmp_path / "code"

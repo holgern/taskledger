@@ -208,6 +208,8 @@ def test_release_tag_rejects_duplicate_version(tmp_path: Path) -> None:
     assert "already exists" in result.stdout or "already exists" in result.stderr
 
 
+# sw: f=specs/behavior/features/release_changelog/release-changelog.feature
+# sw: s=@bdd-release-changelog-release-list-sorts-by-boundary
 def test_release_list_is_sorted_by_boundary_task(tmp_path: Path) -> None:
     _init_project(tmp_path)
     first = _create_done_task(
@@ -239,6 +241,8 @@ def test_release_list_is_sorted_by_boundary_task(tmp_path: Path) -> None:
     assert versions == ["0.4.1", "0.4.2"]
 
 
+# sw: f=specs/behavior/features/release_changelog/release-changelog.feature
+# sw: s=@bdd-release-changelog-release-show-returns-record
 def test_release_show_returns_persisted_record(tmp_path: Path) -> None:
     _init_project(tmp_path)
     task_id = _create_done_task(
@@ -274,6 +278,8 @@ def test_release_show_returns_persisted_record(tmp_path: Path) -> None:
     assert release["note"] == "0.4.1 released"
 
 
+# sw: f=specs/behavior/features/release_changelog/release-changelog.feature
+# sw: s=@bdd-release-changelog-default-filter-reports-omitted-tasks
 def test_release_changelog_filters_done_tasks_and_reports_omitted(
     tmp_path: Path,
 ) -> None:
@@ -384,6 +390,8 @@ def test_release_changelog_markdown_includes_instruction_and_evidence(
     assert "python -c print('ok')" in result.stdout
 
 
+# sw: f=specs/behavior/features/release_changelog/release-changelog.feature
+# sw: s=@bdd-release-changelog-bootstrap-since-task-is-supported
 def test_release_changelog_supports_bootstrap_since_task(tmp_path: Path) -> None:
     _init_project(tmp_path)
     boundary = _create_done_task(

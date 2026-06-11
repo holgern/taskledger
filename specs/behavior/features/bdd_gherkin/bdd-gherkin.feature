@@ -42,3 +42,27 @@ Feature: Bdd Gherkin
       Then feature is not None
       Then '@lifecycle' is in content
       Then '@gates' is in content
+
+    @bdd-bdd-gherkin-export-requires-formulated-examples
+    Example: Gherkin export requires formulated examples
+      Given behavior state has no formulated examples
+      When Gherkin export is requested
+      Then export is rejected
+
+    @bdd-bdd-gherkin-export-stays-inside-workspace
+    Example: Gherkin export stays inside the workspace
+      Given an export path points outside the project workspace
+      When Gherkin export is requested
+      Then export is rejected
+
+    @bdd-bdd-gherkin-export-order-is-deterministic
+    Example: Gherkin export ordering is deterministic
+      Given behavior rules and examples have stable identifiers
+      When Gherkin is exported repeatedly
+      Then the generated ordering is stable
+
+    @bdd-bdd-gherkin-export-requires-initialized-behavior-state
+    Example: Gherkin export requires initialized behavior state
+      Given behavior state has not been initialized
+      When Gherkin export is requested
+      Then export fails with a clear initialization error

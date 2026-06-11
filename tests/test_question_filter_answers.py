@@ -93,6 +93,8 @@ def _init_task_with_questions(tmp_path: Path) -> None:
 # --- --status filter tests ---
 
 
+# sw: f=specs/behavior/features/question_filter_answers/question-filter-answers.feature
+# sw: s=@bdd-question-filter-answers-list-filters-by-status
 def test_list_with_status_answered(tmp_path: Path) -> None:
     _init_task_with_questions(tmp_path)
     result = _json(
@@ -159,6 +161,8 @@ def test_list_with_comma_separated_status(tmp_path: Path) -> None:
     assert statuses == {"answered", "dismissed"}
 
 
+# sw: f=specs/behavior/features/question_filter_answers/question-filter-answers.feature
+# sw: s=@bdd-question-filter-answers-list-without-status-returns-all
 def test_list_without_status_returns_all(tmp_path: Path) -> None:
     _init_task_with_questions(tmp_path)
     result = _json(
@@ -200,6 +204,8 @@ def test_answers_markdown_format(tmp_path: Path) -> None:
     assert "A: A1" in result.output
 
 
+# sw: f=specs/behavior/features/question_filter_answers/question-filter-answers.feature
+# sw: s=@bdd-question-filter-answers-json-output-is-structured
 def test_answers_json_format(tmp_path: Path) -> None:
     _init_task_with_questions(tmp_path)
     result = _json(

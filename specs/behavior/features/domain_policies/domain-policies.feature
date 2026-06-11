@@ -415,3 +415,21 @@ Feature: Domain Policies
       Given the pytest test setup is prepared
       When decision reason property is executed
       Then d.reason equals 'test msg'
+
+    @bdd-domain-policies-active-stage-requires-matching-running-run
+    Example: Active stage requires a matching running run
+      Given a task lock identifies an active lifecycle stage
+      When the matching run is missing, stopped, or inconsistent
+      Then no valid active stage is derived
+
+    @bdd-domain-policies-planning-can-start-from-plannable-stages
+    Example: Planning can start from plannable stages
+      Given a task is draft or awaiting plan review and has no active lock
+      When planning permission is evaluated
+      Then planning may start
+
+    @bdd-domain-policies-unknown-actor-roles-are-rejected
+    Example: Unknown actor roles are rejected
+      Given an actor role is outside the supported role set
+      When policy validation checks the role
+      Then the role is rejected

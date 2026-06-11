@@ -87,6 +87,8 @@ class FakeActor:
 # -- derive_active_stage --
 
 
+# sw: f=specs/behavior/features/domain_policies/domain-policies.feature
+# sw: s=@bdd-domain-policies-active-stage-requires-matching-running-run
 def test_derive_active_stage_lock_no_runs() -> None:
     lock = _lock()
     assert derive_active_stage(lock, []) is None
@@ -151,6 +153,8 @@ def test_build_policy_context_lock_without_run() -> None:
 # -- can_start_planning --
 
 
+# sw: f=specs/behavior/features/domain_policies/domain-policies.feature
+# sw: s=@bdd-domain-policies-planning-can-start-from-plannable-stages
 def test_can_start_planning_draft_no_lock() -> None:
     task = _task(status_stage="draft")
     assert can_start_planning(task, FakeLedger()).ok is True
@@ -805,6 +809,8 @@ def test_require_known_actor_role_valid() -> None:
     assert require_known_actor_role("user") == "user"
 
 
+# sw: f=specs/behavior/features/domain_policies/domain-policies.feature
+# sw: s=@bdd-domain-policies-unknown-actor-roles-are-rejected
 def test_require_known_actor_role_invalid() -> None:
     import pytest
 

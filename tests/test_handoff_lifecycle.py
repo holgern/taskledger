@@ -21,6 +21,8 @@ from taskledger.services.tasks import add_todo
 from taskledger.storage.task_store import resolve_handoff
 
 
+# sw: f=specs/behavior/features/handoff_lifecycle/handoff-lifecycle.feature
+# sw: s=@bdd-handoff-lifecycle-create-persists-open-handoff
 def test_handoff_creation():
     """Test creating a handoff."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -97,6 +99,8 @@ def test_handoff_cancel():
         assert cancelled.status == "cancelled"
 
 
+# sw: f=specs/behavior/features/handoff_lifecycle/handoff-lifecycle.feature
+# sw: s=@bdd-handoff-lifecycle-claimed-handoff-cannot-be-claimed-again
 def test_cannot_claim_already_claimed():
     """Test that claiming twice fails."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -112,6 +116,8 @@ def test_cannot_claim_already_claimed():
             claim_handoff(workspace, "task-0001", handoff["handoff_id"])
 
 
+# sw: f=specs/behavior/features/handoff_lifecycle/handoff-lifecycle.feature
+# sw: s=@bdd-handoff-lifecycle-invalid-actor-intent-is-rejected
 def test_actor_intent_validation():
     """Test that actor intent is validated on claim."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -137,6 +143,8 @@ def test_actor_intent_validation():
             )
 
 
+# sw: f=specs/behavior/features/handoff_lifecycle/handoff-lifecycle.feature
+# sw: s=@bdd-handoff-lifecycle-list-returns-task-handoffs
 def test_handoff_list():
     """Test listing handoffs."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -153,6 +161,8 @@ def test_handoff_list():
         assert len(handoffs) == 3
 
 
+# sw: f=specs/behavior/features/handoff_lifecycle/handoff-lifecycle.feature
+# sw: s=@bdd-handoff-lifecycle-malformed-record-is-reported
 def test_handoff_list_raises_for_malformed_record() -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         workspace = Path(tmpdir)
@@ -177,6 +187,8 @@ def test_handoff_list_raises_for_malformed_record() -> None:
             list_all_handoffs(workspace, "task-0001")
 
 
+# sw: f=specs/behavior/features/handoff_lifecycle/handoff-lifecycle.feature
+# sw: s=@bdd-handoff-lifecycle-supported-modes-are-preserved
 def test_handoff_modes():
     """Test different handoff modes."""
     with tempfile.TemporaryDirectory() as tmpdir:

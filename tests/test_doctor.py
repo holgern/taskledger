@@ -107,6 +107,8 @@ def _append_pipeline_config(path: Path, text: str) -> None:
     path.write_text(f"{current.rstrip()}\n\n{text.strip()}\n", encoding="utf-8")
 
 
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-healthy-project-has-no-findings
 def test_inspect_healthy_project(tmp_path: Path) -> None:
     _setup_project(tmp_path)
     result = inspect_v2_project(tmp_path)
@@ -283,6 +285,8 @@ def test_inspect_accepted_plan_version_points_to_wrong_plan(tmp_path: Path) -> N
     )
 
 
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-duplicate-todo-ids-are-reported
 def test_inspect_duplicate_todo_ids(tmp_path: Path) -> None:
     task = _task()
     save_task(tmp_path, task)
@@ -415,6 +419,8 @@ def test_inspect_running_run_without_matching_lock(tmp_path: Path) -> None:
     ]
 
 
+# sw: f=specs/behavior/features/doctor/doctor.feature
+# sw: s=@bdd-doctor-run-lock-mismatch-is-reported
 def test_doctor_locks_reports_run_lock_mismatch(tmp_path: Path) -> None:
     task = _task()
     save_task(tmp_path, task)

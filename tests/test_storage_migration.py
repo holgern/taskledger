@@ -196,6 +196,8 @@ class TestSidecarVersionEnforcement:
                 }
             )
 
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-sidecars-reject-unsupported-record-versions
     def test_todo_rejects_wrong_file_version(self) -> None:
         with pytest.raises(LaunchError, match="Unsupported file version"):
             TaskTodo.from_dict(
@@ -599,6 +601,8 @@ Test Task
         next_num = int(match.group(1))
         assert next_num >= 22
 
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-status-detects-branch-scoped-migration
     def test_migrate_status_reports_branch_scoped_migration_needed(
         self, tmp_path: Path
     ) -> None:
@@ -758,6 +762,8 @@ Test Task
         assert "Ledger Task" in ledger_content
         assert "id: task-0002" in ledger_content
 
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-migrate-renumbers-multiple-task-id-conflicts
     def test_migrate_handles_multiple_task_id_conflicts(self, tmp_path: Path) -> None:
         """Test migration handles multiple simultaneous task conflicts.
 
@@ -900,6 +906,8 @@ Test Task
         assert "id: task-0002" in ledger_content
         assert "Ledger Task" in ledger_content
 
+    # sw: f=specs/behavior/features/storage_migration/storage-migration.feature
+    # sw: s=@bdd-storage-migration-migrate-rebuilds-ledger-indexes
     def test_migrate_apply_removes_legacy_root_indexes_and_rebuilds(
         self, tmp_path: Path
     ) -> None:

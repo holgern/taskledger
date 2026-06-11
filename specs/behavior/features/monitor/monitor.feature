@@ -49,3 +49,33 @@ Feature: Monitor
       Given the pytest test setup is prepared
       When monitor cli json once emits monitor snapshot is executed
       Then result.exit_code equals 0
+
+    @bdd-monitor-empty-project-produces-snapshot
+    Example: Empty initialized projects produce a monitor snapshot
+      Given an initialized project has no tasks
+      When a monitor snapshot is requested
+      Then the snapshot is produced without error
+
+    @bdd-monitor-plan-review-is-ready-work
+    Example: Plan review tasks appear in ready work
+      Given a task is awaiting plan review
+      When a monitor snapshot is requested
+      Then the task appears in the ready work group
+
+    @bdd-monitor-task-activity-scope-filters-events
+    Example: Task activity scope filters events to one task
+      Given the ledger contains activity for multiple tasks
+      When monitor activity is scoped to a selected task
+      Then only activity for that task is returned
+
+    @bdd-monitor-ledger-activity-scope-shows-all-events
+    Example: Ledger activity scope shows activity across tasks
+      Given the ledger contains activity for multiple tasks
+      When monitor activity is scoped to the ledger
+      Then activity across those tasks is returned
+
+    @bdd-monitor-invalid-activity-scope-is-rejected
+    Example: Invalid monitor activity scope is rejected
+      Given an unsupported activity scope
+      When the monitor command is invoked
+      Then the command fails with a usage error

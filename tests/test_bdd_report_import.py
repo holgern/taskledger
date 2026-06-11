@@ -12,6 +12,8 @@ from taskledger.services.bdd_reports import import_bdd_report
 
 
 class TestCucumberJsonImport:
+    # sw: f=specs/behavior/features/bdd_report_import/bdd-report-import.feature
+    # sw: s=@bdd-bdd-report-import-cucumber-results-preserve-pass-and-fail
     def test_import_passing_cucumber_report(self, tmp_path) -> None:
         """Test importing a passing Cucumber JSON report."""
         bdd_init(tmp_path, "task-0001", "Test feature")
@@ -201,6 +203,8 @@ class TestCucumberJsonImport:
         assert reports[0].unmatched_count == 1
         assert reports[0].has_unmatched_failures is False
 
+    # sw: f=specs/behavior/features/bdd_report_import/bdd-report-import.feature
+    # sw: s=@bdd-bdd-report-import-unmatched-failures-are-visible
     def test_import_unmatched_failing_scenario_surfaces_flag(self, tmp_path) -> None:
         """An unmatched failing scenario sets has_unmatched_failures (Finding 8)."""
         bdd_init(tmp_path, "task-0001", "Test feature")
@@ -260,6 +264,8 @@ class TestCucumberJsonImport:
         # Overall result stays scoped to matched scenarios (additive only).
         assert result["result"] == "passed"
 
+    # sw: f=specs/behavior/features/bdd_report_import/bdd-report-import.feature
+    # sw: s=@bdd-bdd-report-import-invalid-input-is-rejected
     def test_import_missing_file(self, tmp_path) -> None:
         """Test importing a missing report file."""
         with pytest.raises(LaunchError, match="Report file not found"):
@@ -344,6 +350,8 @@ class TestJunitXmlImport:
             in evidence
         )
 
+    # sw: f=specs/behavior/features/bdd_report_import/bdd-report-import.feature
+    # sw: s=@bdd-bdd-report-import-junit-failure-remains-failed
     def test_import_failing_junit_report(self, tmp_path) -> None:
         """Test importing a failing JUnit XML report."""
         bdd_init(tmp_path, "task-0001", "Test feature")

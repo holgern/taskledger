@@ -41,11 +41,23 @@ Feature: Project Root Config
       Then result.exit_code equals 0
       Then any succeeds
 
+    @bdd-project-root-config-relative-storage-resolves-from-config
+    Example: Relative external storage resolves from the config directory
+      Given taskledger.toml configures a relative taskledger directory
+      When Taskledger resolves project storage
+      Then the storage path is relative to the directory containing taskledger.toml
+
     @bdd-project-root-config-cli-discovers-taskledger-toml-from-subdirectory @needs-review
     Example: Cli Discovers Taskledger Toml From Subdirectory
       Given the pytest test setup is prepared
       When cli discovers taskledger toml from subdirectory is executed
       Then result.exit_code equals 0
+
+    @bdd-project-root-config-legacy-config-fallbacks-remain-readable
+    Example: Legacy project configuration remains readable as a fallback
+      Given no root taskledger.toml exists
+      When Taskledger resolves configuration from legacy project state
+      Then legacy .taskledger and project.toml configuration can still be loaded
 
     @bdd-project-root-config-invalid-taskledger-toml-returns-json-error @needs-review
     Example: Invalid Taskledger Toml Returns Json Error
@@ -109,6 +121,12 @@ Feature: Project Root Config
       Then config.prompt_profile.profile equals 'strict'
       Then config.prompt_profile.question_policy equals 'minimal'
 
+    @bdd-project-root-config-invalid-prompt-profile-is-rejected
+    Example: Invalid planning profile configuration is rejected
+      Given a planning profile contains an unknown key or invalid typed value
+      When Taskledger validates project configuration
+      Then configuration loading fails with a validation error
+
     @bdd-project-root-config-merge-project-config-with-agent-logging-override @needs-review
     Example: Merge Project Config With Agent Logging Override
       Given the pytest test setup is prepared
@@ -138,6 +156,18 @@ Feature: Project Root Config
       When render default taskledger toml includes project name when given is executed
       Then 'project_name = "taskledger"' is in rendered
 
+    @bdd-project-root-config-invalid-project-name-is-rejected
+    Example: Invalid project names are rejected
+      Given a project name is blank, non-text, or contains a newline
+      When Taskledger validates the project name
+      Then configuration loading fails with a validation error
+
+    @bdd-project-root-config-sync-git-path-cannot-escape-project
+    Example: Sync Git project paths cannot escape the workspace
+      Given sync_git config uses an absolute path or parent traversal
+      When Taskledger validates project configuration
+      Then configuration loading fails with a validation error
+
     @bdd-project-root-config-event-logging-disabled-by-default @needs-review
     Example: Event Logging Disabled By Default
       Given the pytest test setup is prepared
@@ -162,3 +192,9 @@ Feature: Project Root Config
       When default taskledger toml includes commented event logging is executed
       Then '# [event_logging]' is in rendered
       Then '# enabled = false' is in rendered
+
+    @bdd-project-root-config-invalid-event-logging-config-is-rejected
+    Example: Invalid event logging configuration is rejected
+      Given event_logging is not a table or contains invalid fields
+      When Taskledger validates project configuration
+      Then configuration loading fails with a validation error

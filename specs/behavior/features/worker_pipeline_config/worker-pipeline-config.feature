@@ -41,3 +41,9 @@ Feature: Worker Pipeline Config
       Then api_designer.label equals 'Api Designer'
       Then api_designer.todo_tag equals 'api-design'
       Then domain_reviewer.actor_role equals 'reviewer'
+
+    @bdd-worker-pipeline-config-invalid-config-is-rejected
+    Example: Invalid worker pipeline configuration is rejected
+      Given an enabled pipeline has missing steps, duplicate IDs, or invalid fields
+      When Taskledger validates project configuration
+      Then configuration loading fails with a validation error

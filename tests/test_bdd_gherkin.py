@@ -68,6 +68,8 @@ class TestGherkinExport:
         assert "# Prefer SpecWeave-owned specs/behavior/features/" in content
         assert "# Plain pytest files under tests/" in content
 
+    # sw: f=specs/behavior/features/bdd_gherkin/bdd-gherkin.feature
+    # sw: s=@bdd-bdd-gherkin-export-requires-formulated-examples
     def test_export_refuses_no_formulated_examples(self, tmp_path) -> None:
         """Export should refuse if no formulated examples exist."""
         bdd_init(tmp_path, "task-0001", "Test feature")
@@ -122,6 +124,8 @@ class TestGherkinExport:
         assert any("tests/bdd/features/" in item for item in result["warnings"])
         assert any("task-<digits>" in item for item in result["warnings"])
 
+    # sw: f=specs/behavior/features/bdd_gherkin/bdd-gherkin.feature
+    # sw: s=@bdd-bdd-gherkin-export-stays-inside-workspace
     def test_export_refuses_outside_workspace(self, tmp_path) -> None:
         """Export should refuse paths outside workspace."""
         bdd_init(tmp_path, "task-0001", "Test feature")
@@ -137,6 +141,8 @@ class TestGherkinExport:
         with pytest.raises(LaunchError, match="within workspace"):
             export_gherkin(tmp_path, "task-0001", "/tmp/outside.feature")
 
+    # sw: f=specs/behavior/features/bdd_gherkin/bdd-gherkin.feature
+    # sw: s=@bdd-bdd-gherkin-export-order-is-deterministic
     def test_export_deterministic_ordering(self, tmp_path) -> None:
         """Export should produce deterministic ordering."""
         bdd_init(tmp_path, "task-0001", "Test feature")
@@ -205,6 +211,8 @@ class TestGherkinExport:
         assert "@lifecycle" in content
         assert "@gates" in content
 
+    # sw: f=specs/behavior/features/bdd_gherkin/bdd-gherkin.feature
+    # sw: s=@bdd-bdd-gherkin-export-requires-initialized-behavior-state
     def test_export_no_bdd_initialized(self, tmp_path) -> None:
         """Export should fail if BDD not initialized."""
         with pytest.raises(LaunchError, match="BDD not initialized"):

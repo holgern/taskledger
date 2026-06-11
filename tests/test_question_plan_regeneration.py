@@ -346,6 +346,13 @@ def test_answered_question_blocks_approval_of_stale_plan(tmp_path: Path) -> None
     assert "Regenerate the plan from answers" in payload["error"]["message"]
 
 
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/question_plan_regeneration/"
+        "question-plan-regeneration.feature"
+    ),
+    scenario="@bdd-question-plan-regeneration-changed-answer-restales-plan",
+)
 def test_changed_answer_requires_regeneration_again(tmp_path: Path) -> None:
     _init_task(tmp_path)
     assert (
@@ -428,6 +435,13 @@ Use SQLite.
     assert status["result"]["plan_regeneration_needed"] is True
 
 
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/question_plan_regeneration/"
+        "question-plan-regeneration.feature"
+    ),
+    scenario="@bdd-question-plan-regeneration-answer-many-records-user-answers",
+)
 def test_answer_many_records_user_chat_answers_and_requires_regeneration(
     tmp_path: Path,
 ) -> None:
@@ -881,6 +895,13 @@ Use PostgreSQL.
     assert _json(accepted)["result"]["status_stage"] == "approved"
 
 
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/question_plan_regeneration/"
+        "question-plan-regeneration.feature"
+    ),
+    scenario="@bdd-question-plan-regeneration-next-action-prefers-open-question",
+)
 def test_next_action_prefers_question_answer_while_planning_questions_are_open(
     tmp_path: Path,
 ) -> None:
@@ -942,6 +963,13 @@ def test_next_action_prefers_question_answer_while_planning_questions_are_open(
     }
 
 
+@pytest.mark.specweave(
+    feature=(
+        "specs/behavior/features/question_plan_regeneration/"
+        "question-plan-regeneration.feature"
+    ),
+    scenario="@bdd-question-plan-regeneration-next-action-prefers-regeneration",
+)
 def test_next_action_prefers_regenerate_over_approve_for_stale_answers(
     tmp_path: Path,
 ) -> None:

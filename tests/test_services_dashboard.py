@@ -35,6 +35,8 @@ def _create_task_and_activate(tmp_path: Path) -> TaskRecord:
     return task
 
 
+# sw: f=specs/behavior/features/services_dashboard/services-dashboard.feature
+# sw: s=@bdd-services-dashboard-resolves-active-or-explicit-task
 def test_dashboard_with_active_task(tmp_path: Path) -> None:
     _create_task_and_activate(tmp_path)
     result = dashboard(tmp_path)
@@ -67,6 +69,8 @@ def test_dashboard_todos_counts(tmp_path: Path) -> None:
     assert result["todos"]["items"] == []
 
 
+# sw: f=specs/behavior/features/services_dashboard/services-dashboard.feature
+# sw: s=@bdd-services-dashboard-aggregates-task-resource-counts
 def test_dashboard_todos_counts_with_saved_todos(tmp_path: Path) -> None:
     _create_task_and_activate(tmp_path)
     col = TodoCollection(

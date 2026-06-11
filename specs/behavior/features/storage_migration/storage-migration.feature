@@ -96,6 +96,12 @@ Feature: Storage Migration
       When requirement accepts legacy no version is executed
       Then req.task_id equals 'task-0001'
 
+    @bdd-storage-migration-sidecars-reject-unsupported-record-versions
+    Example: Sidecars reject unsupported record versions
+      Given a persisted sidecar declares an unsupported schema or file version
+      When Taskledger deserializes the sidecar
+      Then loading fails with a version compatibility error
+
     @bdd-storage-migration-init-creates-storage-yaml @needs-review
     Example: Init Creates Storage Yaml
       Given the pytest test setup is prepared
@@ -183,6 +189,12 @@ Feature: Storage Migration
       Then meta is not None
       Then meta.storage_layout_version equals 3
 
+    @bdd-storage-migration-status-detects-branch-scoped-migration
+    Example: Migration status detects legacy unscoped state
+      Given a layout version 2 workspace contains legacy root task state
+      When Taskledger determines the required layout migrations
+      Then the branch-scoped-ledgers migration from version 2 to version 3 is required
+
     @bdd-storage-migration-migrate-renumbers-older-root-task-on-conflict @needs-review
     Example: Migrate Renumbers Older Root Task On Conflict
       Given the pytest test setup is prepared
@@ -201,6 +213,20 @@ Feature: Storage Migration
       Then 'Original Task' is in root_content
       Then 'id: task-0002' is in ledger_content
       Then 'Ledger Task' is in ledger_content
+
+    @bdd-storage-migration-migrate-renumbers-multiple-task-id-conflicts
+    Example: Migration renumbers multiple task ID conflicts deterministically
+      Given legacy root tasks conflict with newer ledger tasks at several task IDs
+      When the branch-scoped-ledgers migration is applied
+      Then older root tasks retain the lower task IDs
+      And newer ledger tasks receive consecutive higher task IDs
+
+    @bdd-storage-migration-migrate-rebuilds-ledger-indexes
+    Example: Migration removes legacy indexes and rebuilds ledger indexes
+      Given a layout version 2 workspace contains legacy root indexes
+      When the branch-scoped-ledgers migration is applied
+      Then the legacy root indexes are removed
+      And the current ledger indexes are rebuilt
 
     @bdd-storage-migration-migrate-merges-active-task-keeping-newer @needs-review
     Example: Migrate Merges Active Task Keeping Newer

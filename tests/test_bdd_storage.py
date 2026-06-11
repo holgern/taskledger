@@ -49,6 +49,8 @@ class TestBddFeatureStorage:
 
 
 class TestBddRuleStorage:
+    # sw: f=specs/behavior/features/bdd_storage/bdd-storage.feature
+    # sw: s=@bdd-bdd-storage-rule-example-and-report-records-round-trip
     def test_save_and_load_rules(self, tmp_path) -> None:
         rule1 = BddRuleRecord(
             id="rule-0001",
@@ -69,6 +71,8 @@ class TestBddRuleStorage:
         assert rules[0].id == "rule-0001"
         assert rules[1].id == "rule-0002"
 
+    # sw: f=specs/behavior/features/bdd_storage/bdd-storage.feature
+    # sw: s=@bdd-bdd-storage-missing-collections-load-empty
     def test_load_empty_rules(self, tmp_path) -> None:
         assert load_bdd_rules(tmp_path, "task-9999") == []
 
@@ -88,6 +92,8 @@ class TestBddRuleStorage:
         resolved = resolve_bdd_rule(tmp_path, "task-0001", "rule-1")
         assert resolved.id == "rule-0001"
 
+    # sw: f=specs/behavior/features/bdd_storage/bdd-storage.feature
+    # sw: s=@bdd-bdd-storage-unknown-rule-or-example-is-rejected
     def test_resolve_rule_not_found(self, tmp_path) -> None:
         with pytest.raises(Exception, match="BDD rule not found"):
             resolve_bdd_rule(tmp_path, "task-0001", "rule-9999")

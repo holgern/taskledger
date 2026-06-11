@@ -6,6 +6,18 @@ Feature: Command Inventory
   @rule-command-inventory
   Rule: Command Inventory
 
+    @bdd-command-inventory-registered-commands-have-complete-metadata
+    Example: Registered commands have complete inventory metadata
+      Given the Taskledger CLI command tree is registered
+      When command inventory metadata is inspected
+      Then every registered command has an inventory entry and ledger effect
+
+    @bdd-command-inventory-mutations-are-not-safe-read-only
+    Example: Mutating commands are never classified safe read only
+      Given a command can mutate ledger or workspace state
+      When its inventory classification is inspected
+      Then its effect is not safe_read_only
+
     @bdd-command-inventory-plan-review-is-classified-read-only @needs-review
     Example: Plan Review Is Classified Read Only
       Given the pytest test setup is prepared
@@ -44,6 +56,12 @@ Feature: Command Inventory
       When advanced operations are not in agent golden path is executed
       Then advanced_normal_work_exclusions.isdisjoint succeeds
 
+    @bdd-command-inventory-repair-commands-remain-rare
+    Example: Repair commands remain exceptional operations
+      Given the command inventory contains normal and repair workflows
+      When command tiers are inspected
+      Then repair commands are classified in the rare tier
+
     @bdd-command-inventory-deprecated-hidden-by-default-in-commands-cli @needs-review
     Example: Deprecated Hidden By Default In Commands Cli
       Given the pytest test setup is prepared
@@ -71,3 +89,9 @@ Feature: Command Inventory
       When commands json includes new fields is executed
       Then result.exit_code equals 0
       Then field is in first
+
+    @bdd-command-inventory-key-commands-have-stable-targeting
+    Example: Key commands preserve their targeting contract
+      Given task-scoped and workspace-scoped commands are inventoried
+      When targeting metadata is inspected
+      Then key commands retain their expected active-default or workspace targeting

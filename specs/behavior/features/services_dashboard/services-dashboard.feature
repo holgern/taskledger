@@ -87,3 +87,15 @@ Feature: Services Dashboard
       Then 'Labels: bug, urgent' is in text
       Then 'Owner: alice' is in text
       Then 'implementing' is in text
+
+    @bdd-services-dashboard-resolves-active-or-explicit-task
+    Example: Dashboard resolves the active or explicitly selected task
+      Given a project has an active task and another addressable task
+      When dashboard data is requested with or without an explicit task reference
+      Then the selected task dashboard is returned
+
+    @bdd-services-dashboard-aggregates-task-resource-counts
+    Example: Dashboard aggregates task resource counts
+      Given a task has todos, files, and questions
+      When dashboard data is requested
+      Then todo, file, and question counts reflect the persisted task state

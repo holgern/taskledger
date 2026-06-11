@@ -30,6 +30,8 @@ def _make_runner() -> CliRunner:
 runner = _make_runner()
 
 
+# sw: f=specs/behavior/features/monitor/monitor.feature
+# sw: s=@bdd-monitor-empty-project-produces-snapshot
 def test_monitor_snapshot_works_in_empty_initialized_project(tmp_path: Path) -> None:
     ws = init_workspace(tmp_path)
     payload = monitor_snapshot(ws)
@@ -186,6 +188,8 @@ def test_monitor_cli_json_once_emits_monitor_snapshot(empty_workspace: Path) -> 
     assert payload["result"]["kind"] == "monitor_snapshot"
 
 
+# sw: f=specs/behavior/features/monitor/monitor.feature
+# sw: s=@bdd-monitor-plan-review-is-ready-work
 def test_monitor_snapshot_includes_plan_review_in_ready(tmp_path: Path) -> None:
     ws = init_workspace(tmp_path)
     from taskledger.services.tasks import start_planning
@@ -200,6 +204,8 @@ def test_monitor_snapshot_includes_plan_review_in_ready(tmp_path: Path) -> None:
     assert pr.id in ready_ids
 
 
+# sw: f=specs/behavior/features/monitor/monitor.feature
+# sw: s=@bdd-monitor-task-activity-scope-filters-events
 def test_monitor_activity_scope_task_filters_to_selected_task(
     tmp_path: Path,
 ) -> None:
@@ -233,6 +239,8 @@ def test_monitor_activity_scope_task_filters_to_selected_task(
     assert payload["activity_scope"] == "task"
 
 
+# sw: f=specs/behavior/features/monitor/monitor.feature
+# sw: s=@bdd-monitor-ledger-activity-scope-shows-all-events
 def test_monitor_activity_scope_ledger_shows_all(tmp_path: Path) -> None:
     ws = init_workspace(tmp_path)
     task_a = create_task(ws, title="Task A", slug="task-a", description="x")
@@ -337,6 +345,8 @@ def test_monitor_cli_activity_scope_task(tmp_path: Path) -> None:
     assert payload["result"]["activity_scope"] == "task"
 
 
+# sw: f=specs/behavior/features/monitor/monitor.feature
+# sw: s=@bdd-monitor-invalid-activity-scope-is-rejected
 def test_monitor_cli_activity_scope_invalid(tmp_path: Path) -> None:
     ws = init_workspace(tmp_path)
     result = runner.invoke(

@@ -65,3 +65,28 @@ Feature: Question Plan Regeneration
       Given the pytest test setup is prepared
       When plan upsert from answers releases planning lock and allows accept is executed
       Then accepted.exit_code equals 0
+
+    @bdd-question-plan-regeneration-changed-answer-restales-plan
+    Example: Changing an answer requires plan regeneration again
+      Given a plan was regenerated from an answered required question
+      When that answer changes
+      Then the current plan becomes stale again
+
+    @bdd-question-plan-regeneration-answer-many-records-user-answers
+    Example: Answer-many records user answers and requires regeneration
+      Given several planning questions are open
+      When user-provided answers are recorded together
+      Then each answer is persisted with user source
+      And plan regeneration is required
+
+    @bdd-question-plan-regeneration-next-action-prefers-open-question
+    Example: Next action prefers answering an open planning question
+      Given required planning questions remain open
+      When the next action is requested
+      Then the recommended action is to answer a question
+
+    @bdd-question-plan-regeneration-next-action-prefers-regeneration
+    Example: Next action prefers regeneration for stale answers
+      Given required questions are answered but the plan is stale
+      When the next action is requested
+      Then the recommended action is to regenerate the plan

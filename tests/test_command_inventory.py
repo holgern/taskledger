@@ -52,6 +52,8 @@ def _registered_command_paths() -> set[str]:
     return paths
 
 
+# sw: f=specs/behavior/features/command_inventory/command-inventory.feature
+# sw: s=@bdd-command-inventory-registered-commands-have-complete-metadata
 def test_registered_commands_have_inventory_metadata() -> None:
     assert _registered_command_paths() == set(COMMAND_METADATA)
 
@@ -78,6 +80,8 @@ def test_plan_review_is_classified_read_only() -> None:
     assert spec.targeting == TARGETING_ACTIVE_DEFAULT
 
 
+# sw: f=specs/behavior/features/command_inventory/command-inventory.feature
+# sw: s=@bdd-command-inventory-mutations-are-not-safe-read-only
 def test_mutating_commands_are_not_marked_safe_read_only() -> None:
     mutating_suffixes = {
         "activate",
@@ -228,6 +232,8 @@ def test_workspace_read_commands() -> None:
         assert COMMAND_METADATA[cmd].ledger_effect == EFFECT_NONE, cmd
 
 
+# sw: f=specs/behavior/features/command_inventory/command-inventory.feature
+# sw: s=@bdd-command-inventory-repair-commands-remain-rare
 def test_repair_commands_are_rare() -> None:
     """All repair/doctor/migration commands should be rare tier."""
     repair_cmds = [
@@ -407,6 +413,8 @@ def test_targeting_values_are_valid() -> None:
     assert invalid == [], f"Commands with invalid targeting: {invalid}"
 
 
+# sw: f=specs/behavior/features/command_inventory/command-inventory.feature
+# sw: s=@bdd-command-inventory-key-commands-have-stable-targeting
 def test_targeting_metadata_for_key_commands() -> None:
     assert COMMAND_METADATA["plan start"].targeting == TARGETING_ACTIVE_DEFAULT
     assert COMMAND_METADATA["implement start"].targeting == TARGETING_ACTIVE_DEFAULT

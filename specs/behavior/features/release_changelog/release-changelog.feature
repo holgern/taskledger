@@ -80,3 +80,28 @@ Feature: Release Changelog
       Given the pytest test setup is prepared
       When release changelog include status rejects unknown is executed
       Then result.exit_code does not equal 0
+
+    @bdd-release-changelog-release-list-sorts-by-boundary
+    Example: Release listing is ordered by boundary task
+      Given several release records exist at different task boundaries
+      When releases are listed
+      Then releases are ordered by their boundary tasks
+
+    @bdd-release-changelog-release-show-returns-record
+    Example: Release show returns the persisted release record
+      Given a release record has been tagged
+      When that release is shown
+      Then its persisted version and boundary metadata are returned
+
+    @bdd-release-changelog-default-filter-reports-omitted-tasks
+    Example: Changelog defaults to done tasks and reports omissions
+      Given a release range contains done and unfinished tasks
+      When a changelog is generated with default status selection
+      Then done tasks are included
+      And omitted unfinished tasks are reported
+
+    @bdd-release-changelog-bootstrap-since-task-is-supported
+    Example: Changelog supports a bootstrap starting task
+      Given no prior release boundary is available
+      When changelog generation starts from an explicit task
+      Then tasks from that bootstrap boundary are considered

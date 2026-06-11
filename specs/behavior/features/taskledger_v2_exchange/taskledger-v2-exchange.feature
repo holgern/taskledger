@@ -145,3 +145,47 @@ Feature: Taskledger V2 Exchange
       Then export_result.exit_code equals 0
       Then 'artifacts/tasks/task-0001/artifacts/run.log' is in names
       Then import_result.exit_code equals 0
+
+    @bdd-taskledger-v2-exchange-import-single-task-renumbers-conflicts
+    Example: Single-task import renumbers conflicts without overwriting
+      Given an imported task ID already exists in the target ledger
+      When the task archive is imported with automatic ID handling
+      Then the imported task receives a free task ID
+      And the existing task is not overwritten
+
+    @bdd-taskledger-v2-exchange-import-dry-run-does-not-mutate
+    Example: Import dry run reports changes without mutating state
+      Given an archive can be imported into the current project
+      When import is run in dry-run mode
+      Then the proposed ID mapping is reported
+      And project state remains unchanged
+
+    @bdd-taskledger-v2-exchange-archive-resource-limits-are-enforced
+    Example: Archive resource limits are enforced
+      Given a project archive exceeds member or payload size limits
+      When Taskledger reads the archive
+      Then the archive is rejected before import
+
+    @bdd-taskledger-v2-exchange-unsafe-artifact-paths-are-rejected
+    Example: Unsafe artifact member paths are rejected
+      Given an archive artifact member escapes its expected directory
+      When Taskledger imports the archive
+      Then the archive is rejected without writing the unsafe path
+
+    @bdd-taskledger-v2-exchange-import-advances-task-counter
+    Example: Single-task import advances the ledger task counter
+      Given an imported task uses a task number beyond the current ledger counter
+      When the task archive is imported
+      Then the ledger counter advances beyond the imported task number
+
+    @bdd-taskledger-v2-exchange-renumbered-artifacts-follow-task
+    Example: Artifacts follow a task that is renumbered during import
+      Given an imported task conflicts with an existing task and has artifacts
+      When the imported task receives a new task ID
+      Then its artifacts are stored under the new task ID
+
+    @bdd-taskledger-v2-exchange-task-import-preserves-current-active-task
+    Example: Single-task import preserves the current active task
+      Given the destination ledger already has an active task
+      When another task is imported from an archive
+      Then the destination active task is unchanged

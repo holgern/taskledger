@@ -200,3 +200,15 @@ Feature: Actor Harness State
       When cli whoami json uses stored is executed
       Then result.exit_code equals 0
       Then '"json-whoami"' is in result.output
+
+    @bdd-actor-harness-state-missing-state-loads-empty
+    Example: Missing actor and harness state loads empty
+      Given no actor or harness state has been stored
+      When Taskledger loads active actor and harness state
+      Then both state lookups return no stored value
+
+    @bdd-actor-harness-state-resolution-without-workspace-uses-defaults
+    Example: Actor resolution without workspace state uses defaults
+      Given no workspace and no stored actor state are available
+      When Taskledger resolves the active actor
+      Then a default actor identity is returned

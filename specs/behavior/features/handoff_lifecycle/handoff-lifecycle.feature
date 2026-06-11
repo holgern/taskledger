@@ -55,3 +55,39 @@ Feature: Handoff Lifecycle
       Then cancelled.context_for equals 'implementer'
       Then cancelled.scope equals 'todo'
       Then cancelled.todo_id equals 'todo-0001'
+
+    @bdd-handoff-lifecycle-create-persists-open-handoff
+    Example: Creating a handoff persists an open handoff
+      Given a task is ready to transfer context
+      When a handoff is created
+      Then the handoff is stored with open status and actor intent
+
+    @bdd-handoff-lifecycle-claimed-handoff-cannot-be-claimed-again
+    Example: A claimed handoff cannot be claimed again
+      Given a handoff has already been claimed
+      When another claim is attempted
+      Then the claim is rejected
+
+    @bdd-handoff-lifecycle-invalid-actor-intent-is-rejected
+    Example: Invalid handoff actor intent is rejected
+      Given a handoff uses an unsupported intended actor
+      When the handoff is created or updated
+      Then validation rejects the actor intent
+
+    @bdd-handoff-lifecycle-list-returns-task-handoffs
+    Example: Handoff listing returns the task handoffs
+      Given a task contains handoff records
+      When its handoffs are listed
+      Then the stored handoffs are returned
+
+    @bdd-handoff-lifecycle-malformed-record-is-reported
+    Example: Malformed handoff records are reported
+      Given a task contains a malformed handoff record
+      When its handoffs are listed
+      Then loading fails with a record validation error
+
+    @bdd-handoff-lifecycle-supported-modes-are-preserved
+    Example: Supported handoff modes are preserved
+      Given handoffs are created for supported lifecycle modes
+      When the handoffs are loaded
+      Then each handoff retains its selected mode

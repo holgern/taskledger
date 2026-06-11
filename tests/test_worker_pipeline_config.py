@@ -204,6 +204,8 @@ def test_worker_pipeline_parse_custom_worker_name() -> None:
     assert domain_reviewer.actor_role == "reviewer"
 
 
+# sw: f=specs/behavior/features/worker_pipeline_config/worker-pipeline-config.feature
+# sw: s=@bdd-worker-pipeline-config-invalid-config-is-rejected
 def test_worker_pipeline_enabled_requires_steps() -> None:
     with pytest.raises(LaunchError, match="at least one step"):
         _validate_project_config_overrides(
