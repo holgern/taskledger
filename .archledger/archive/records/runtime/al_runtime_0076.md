@@ -2,17 +2,20 @@
 schema_version: 2
 id: al_runtime_0076
 type: runtime_scenario
-title: "HTML report and serve dashboard"
-status: accepted
+title: HTML report and serve dashboard
+status: archived
 section: runtime_view
 order: 70
 date: "2026-05-23"
 participants: []
-trigger: "Developer runs taskledger report html or taskledger serve"
+trigger: Developer runs taskledger report html or taskledger serve
 result: ""
 body_format: markdown
 created_at: "2026-05-23T19:30:00Z"
-updated_at: "2026-05-23T19:30:00Z"
+updated_at: "2026-06-11T20:54:44Z"
+archived_at: "2026-06-11T20:54:44Z"
+archived_reason: HTML report and serve dashboard removed; task-0126 ledger-isolation
+archived_from: records/runtime/al_runtime_0076.md
 ---
 
 **Trigger**: Developer runs `taskledger report html` or `taskledger serve`.

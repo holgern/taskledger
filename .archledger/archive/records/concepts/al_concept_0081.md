@@ -2,15 +2,15 @@
 schema_version: 2
 id: al_concept_0081
 type: concept
-title: "BDD traceability and report evidence"
-status: proposed
+title: BDD traceability and report evidence
+status: archived
 section: cross_cutting_concepts
 order: 70
 date: "2026-06-07"
 applies_to: []
 body_format: markdown
 created_at: "2026-06-07T11:49:58Z"
-updated_at: "2026-06-07T11:49:58Z"
+updated_at: "2026-06-11T20:53:29Z"
 source_refs:
   - path: taskledger/domain/bdd.py
     role: implements
@@ -22,6 +22,9 @@ test_refs:
   - tests/test_bdd_gherkin.py
   - tests/test_bdd_report_import.py
   - tests/test_bdd_validation_integration.py
+archived_at: "2026-06-11T20:53:29Z"
+archived_reason: BDD traceability removed from taskledger; task-0126 ledger-isolation
+archived_from: records/concepts/al_concept_0081.md
 ---
 
 BDD is an optional traceability overlay on a managed task. Features contain rules and Given/When/Then examples. Examples can reference canonical acceptance-criterion IDs and Archledger record IDs.

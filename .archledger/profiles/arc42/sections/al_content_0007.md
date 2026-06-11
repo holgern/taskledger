@@ -16,6 +16,6 @@ taskledger is a single-node, file-system-based tool. Deployment consists of:
 
 - **Installation**: `pip install taskledger` (PyPI) or local `pip install -e .`
 - **Project initialization**: `taskledger init` creates `taskledger.toml` and `.taskledger/` in the project root
-- **Runtime**: The CLI runs as a Python process, reading and writing the project's `.taskledger/` directory. No daemon, no server (except optional `taskledger serve` for a local web dashboard).
+- **Runtime**: The CLI runs as a Python process, reading and writing the project's `.taskledger/` directory. No daemon, no server.
 - **CI integration**: taskledger commands can be run in CI pipelines for status checks and validation
 - **Agent integration**: Agent harnesses invoke taskledger CLI commands as subprocess calls

@@ -9,10 +9,10 @@ order: 40
 date: "2026-05-23"
 severity: medium
 probability: medium
-mitigation: "Current set is small (typer, PyYAML, Jinja2, markdown-it-py, tomli); each justified by a specific feature."
+mitigation: "Small dependency set (typer, PyYAML, tomli); each justified by a core feature."
 body_format: markdown
 created_at: "2026-05-23T12:31:20Z"
-updated_at: "2026-05-23T12:31:20Z"
+updated_at: "2026-06-11T21:00:00Z"
 ---
 
-Jinja2 is used only for HTML report templates (`task report`, `taskledger serve`). `markdown-it-py` renders safe Markdown for those HTML views. The dependency set adds weight for users who only need the CLI. Mitigation: Current dependency set is small (typer, PyYAML, Jinja2, markdown-it-py, tomli); each is justified by a specific feature.
+The dependency set is small (typer, PyYAML, tomli) and each is justified by a core feature. Risk is low as long as new dependencies are not introduced without explicit justification.

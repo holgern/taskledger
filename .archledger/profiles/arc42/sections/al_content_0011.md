@@ -17,4 +17,4 @@ Known risks and areas of technical debt:
 - **Storage scaling with many tasks**: Each task is a directory with multiple sidecar files. Very large projects (hundreds of tasks) may see slowdowns in list/query operations since indexes are rebuilt from file scans.
 - **Migration surface between storage versions**: The storage layout has evolved (currently v3). Migration code in `taskledger/storage/migrations.py` adds complexity. Future format changes must maintain backward compatibility.
 - **Service boundary erosion**: Some service modules (notably `tasks.py`) have grown large. The service layer has no formal interface contracts — boundaries are enforced by convention and tests (`test_service_boundaries.py`).
-- **Growing dependency count**: Jinja2 is used only for HTML report templates. The dependency is justified by the `serve` and `task report` features but adds weight for users who only need the CLI.
+- **Growing dependency count**: The dependency set is small (typer, PyYAML, tomli) but new dependencies must be justified by core features, not optional presentations.

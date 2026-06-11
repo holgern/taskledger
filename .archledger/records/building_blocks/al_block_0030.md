@@ -16,9 +16,9 @@ risks: []
 tags: []
 body_format: markdown
 created_at: "2026-05-23T12:30:23Z"
-updated_at: "2026-05-23T12:30:23Z"
+updated_at: "2026-06-11T21:00:00Z"
 ---
 
-Handles command parsing via Typer, task reference resolution (`--task` option, active task default), and output rendering (human text or JSON envelope via `cli_common.py`). Command families include the canonical lifecycle plus `bdd`, `review`, `config`, task archive operations, reporting, transfer/sync, diagnostics, and the optional read-only `tui`.
+Handles command parsing via Typer, task reference resolution (`--task` option, active task default), and output rendering (human text or JSON envelope via `cli_common.py`). Command families include the canonical lifecycle plus `review`, `config`, task archive operations, transfer/sync, diagnostics, and the `monitor` observer.
 
 Source refs: `taskledger/cli.py`, `taskledger/cli_common.py`, `taskledger/command_inventory.py`, and the focused `taskledger/cli_*.py` registration modules.

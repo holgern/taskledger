@@ -2,16 +2,16 @@
 schema_version: 2
 id: al_block_0083
 type: black_box
-title: "Human Presentation Layer"
-status: proposed
+title: Human Presentation Layer
+status: archived
 section: building_block_view
 level: 1
 parent: al_block_0029
 order: 60
 date: "2026-06-07"
 interfaces:
-  - "Service read models -> terminal TUI"
-  - "Dashboard/report payloads -> HTML or Markdown"
+  - Service read models -> terminal TUI
+  - Dashboard/report payloads -> HTML or Markdown
 location:
   - taskledger/tui/
   - taskledger/services/tui_read_model.py
@@ -22,7 +22,7 @@ risks: []
 tags: []
 body_format: markdown
 created_at: "2026-06-07T11:49:59Z"
-updated_at: "2026-06-07T11:49:59Z"
+updated_at: "2026-06-11T20:53:29Z"
 source_refs:
   - path: taskledger/tui/
     role: implements
@@ -31,6 +31,9 @@ source_refs:
 test_refs:
   - tests/test_tui_cli.py
   - tests/test_tui_read_model.py
+archived_at: "2026-06-11T20:53:29Z"
+archived_reason: TUI and HTML dashboard removed from taskledger; task-0126 ledger-isolation
+archived_from: records/building_blocks/al_block_0083.md
 ---
 
 Optional human-facing views over the same durable task records used by CLI and API operations. The Textual TUI presents task lists, plan review, todos, implementation, code reviews, validation, files, events, and raw reports. HTML dashboard and Markdown report services provide related inspection and sharing views.

@@ -16,7 +16,7 @@ risks: []
 tags: []
 body_format: markdown
 created_at: "2026-05-23T12:30:29Z"
-updated_at: "2026-05-23T12:30:29Z"
+updated_at: "2026-06-11T21:00:00Z"
 ---
 
-Data models, state enums, normalization, and policy decisions without storage I/O. Besides lifecycle and sidecar records, the domain now defines BDD feature/rule/example/report records and append-only code-review records. State transitions remain in `states.py`; policy decisions in `policies.py` return structured `Decision` objects.
+Data models, state enums, normalization, and policy decisions without storage I/O. Besides lifecycle and sidecar records, the domain defines append-only code-review records. State transitions remain in `states.py`; policy decisions in `policies.py` return structured `Decision` objects.

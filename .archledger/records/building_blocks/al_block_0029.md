@@ -14,12 +14,12 @@ quality_characteristics: []
 tags: []
 body_format: markdown
 created_at: "2026-05-23T12:30:16Z"
-updated_at: "2026-05-23T12:30:16Z"
+updated_at: "2026-06-11T21:00:00Z"
 ---
 
 ## Motivation
 
-taskledger decomposes into core layers with downward dependency flow plus human-facing read-only presentations. This isolates persistence, business rules, orchestration, public interfaces, and optional terminal/HTML views.
+taskledger decomposes into core layers with downward dependency flow. This isolates persistence, business rules, orchestration, and public interfaces.
 
 ## Contained building blocks
 
@@ -28,7 +28,6 @@ taskledger decomposes into core layers with downward dependency flow plus human-
 3. **Services Layer** (`al_block_0032`) — Lifecycle orchestration, handoffs, inspection
 4. **Domain Layer** (`al_block_0033`) — Models, state machines, policies (no I/O)
 5. **Storage Layer** (`al_block_0034`) — File system persistence, atomic writes, layout
-6. **Human Presentation Layer** (`al_block_0083`) — Read-only TUI, dashboard, and reports assembled from service read models
 
 ## Important interfaces
 

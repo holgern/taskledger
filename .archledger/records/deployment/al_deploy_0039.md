@@ -13,7 +13,7 @@ environment: "development"
 maps_building_blocks: []
 body_format: markdown
 created_at: "2026-05-23T12:30:52Z"
-updated_at: "2026-05-23T12:30:52Z"
+updated_at: "2026-06-11T21:00:00Z"
 ---
 
 **Node**: Developer workstation or CI runner
@@ -30,6 +30,6 @@ updated_at: "2026-05-23T12:30:52Z"
 - JSON index caches under `.taskledger/indexes/`
 - Project config at `taskledger.toml`
 
-**Network**: None required. Optional: `taskledger serve` starts a local HTTP dashboard.
+**Network**: None required.
 
 **Installation**: `pip install taskledger` or `pip install -e .` from source. Single entry point: `taskledger` CLI.

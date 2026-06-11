@@ -2,8 +2,8 @@
 schema_version: 2
 id: al_runtime_0084
 type: runtime_scenario
-title: "BDD example to validation evidence"
-status: proposed
+title: BDD example to validation evidence
+status: archived
 section: runtime_view
 order: 100
 date: "2026-06-07"
@@ -12,12 +12,11 @@ participants:
   - taskledger CLI
   - BDD services
   - task storage
-trigger: "An actor wants executable examples linked to task acceptance criteria."
-result: "Plain pytest results or SpecWeave-generated JUnit/Cucumber-compatible evidence are persisted as traceable validation checks."
-result: "External automation results are persisted as traceable validation evidence."
+trigger: An actor wants executable examples linked to task acceptance criteria.
+result: External automation results are persisted as traceable validation evidence.
 body_format: markdown
 created_at: "2026-06-07T11:50:18Z"
-updated_at: "2026-06-07T11:50:18Z"
+updated_at: "2026-06-11T20:53:29Z"
 source_refs:
   - path: taskledger/cli_bdd.py
     role: implements
@@ -28,6 +27,9 @@ source_refs:
 test_refs:
   - tests/test_bdd_cli.py
   - tests/test_bdd_validation_integration.py
+archived_at: "2026-06-11T20:53:29Z"
+archived_reason: BDD example scenario removed from taskledger; task-0126 ledger-isolation
+archived_from: records/runtime/al_runtime_0084.md
 ---
 
 1. An actor initializes task-local BDD/example records for a managed task.

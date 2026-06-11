@@ -19,7 +19,6 @@ taskledger uses a layered architecture with clear dependency direction: upper la
 3. **Services Layer** (`taskledger/services/*.py`) — Orchestration logic: lifecycle flows (planning, implementation, validation), handoff rendering, doctor checks, dashboard assembly.
 4. **Domain Layer** (`taskledger/domain/*.py`) — Pure data models, state enums, normalization, and policy decisions. No I/O, no file system access.
 5. **Storage Layer** (`taskledger/storage/*.py`) — File system operations: front matter read/write, atomic writes, lock files, index rebuilds, migrations.
-6. **Human Presentation Layer** (`taskledger/tui/`, dashboard/report services) — Optional read-only views assembled from service read models; mutations still go through CLI/API lifecycle gates.
 
 Key architectural choices:
 
@@ -27,7 +26,7 @@ Key architectural choices:
 - **JSON indexes as derived caches** — Index files under `.taskledger/indexes/` are rebuilt from canonical records by `taskledger reindex`. They are never the source of truth.
 - **Policy-based gate decisions** — All lifecycle transitions go through functions in `taskledger/domain/policies.py` that return `Decision` objects with `allowed`, `code`, `message`, and `exit_code`. This keeps gate logic testable and separate from I/O.
 - **Atomic file writes** — All writes use `atomic_write_text` (write to temp, `os.replace`) to prevent partial writes on crash.
-- **Evidence as sidecars** — BDD examples/reports and code-review records extend traceability without introducing new lifecycle stages or weakening validation gates.
+- **Evidence as sidecars** — Code-review records extend traceability without introducing new lifecycle stages or weakening validation gates.
 
 ## Maintenance
 
