@@ -180,6 +180,8 @@ class TestResolveActorHarnessContext:
             "TASKLEDGER_HARNESS",
             "TASKLEDGER_ACTOR_TYPE",
             "TASKLEDGER_ACTOR_NAME",
+            "GITHUB_ACTIONS",
+            "GITHUB_RUN_ID",
         ]:
             monkeypatch.delenv(var, raising=False)
 
