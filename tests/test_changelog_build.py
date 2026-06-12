@@ -208,3 +208,57 @@ def test_build_strict_fails_when_release_has_no_accepted_entries(
         ],
     )
     assert result.exit_code != 0
+
+
+def test_build_strict_reports_missing_entries_with_actionable_hint(
+    tmp_path: Path,
+) -> None:
+    workspace = init_workspace(tmp_path)
+    boundary = create_done_task(
+        workspace,
+        title="Release boundary",
+        slug="release-boundary",
+        allow_lint_errors=True,
+    )
+    task_id = create_done_task(
+        workspace,
+        title="No changelog task",
+        slug="no-changelog-task",
+        allow_lint_errors=True,
+    )
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(workspace), "release", "tag", "0.4.1", "--at-task", boundary],
+        ).exit_code
+        == 0
+    )
+    assert (
+        runner.invoke(
+            app,
+            ["--cwd", str(workspace), "release", "tag", "0.4.2", "--at-task", task_id],
+        ).exit_code
+        == 0
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(workspace),
+            "--json",
+            "build",
+            "0.4.2",
+            "--release-date",
+            "2026-05-30",
+        ],
+    )
+    assert result.exit_code != 0
+    payload = cast(dict[str, object], json.loads(result.stdout))
+    error = cast(dict[str, object], payload["error"])
+    details = cast(dict[str, object], error["details"])
+    hint = cast(list[str], details["hint"])
+    assert any("taskledger changelog prompt --task TASK_ID" in line for line in hint)
+    assert any(
+        "taskledger changelog add-many --task TASK_ID --file" in line for line in hint
+    )

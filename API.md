@@ -325,6 +325,14 @@ Top-level commands that are part of the supported surface are:
 - `deps`
 - `build`
 
+Task-local changelog workflows support strict summary validation and atomic
+batch mutation commands:
+
+- `taskledger changelog add --dry-run ...`
+- `taskledger changelog update ENTRY_ID ...`
+- `taskledger changelog add-many --task TASK_REF --file PATH [--dry-run]`
+- `taskledger changelog prompt --task TASK_REF --format markdown|agent|json`
+
 All CLI commands support `--cwd`; task-first workflows also support `--root` as
 the preferred workspace alias. JSON mode returns a stable envelope with
 `ok`, `command`, `task_id` when applicable, `result`, `events`, and a

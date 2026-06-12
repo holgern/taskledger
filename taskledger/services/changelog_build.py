@@ -126,6 +126,11 @@ def build_changelog_section(  # noqa: C901
                 "kind": "changelog_build",
                 "version": version,
                 "task_ids": list(task_ids),
+                "hint": [
+                    "taskledger changelog prompt --task TASK_ID",
+                    "taskledger changelog add-many --task TASK_ID "
+                    "--file /tmp/TASK_ID-changelog.yaml",
+                ],
             },
             exit_code=7,
         )

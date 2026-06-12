@@ -340,6 +340,9 @@ provider-neutral changelog source packs from finished tasks:
 taskledger release tag 0.4.1 --at-task task-0030 --note "0.4.1 released"
 taskledger release changelog 0.4.2 --since 0.4.1 --until-task task-0035 --output /tmp/taskledger-0.4.2-changelog-source.md
 taskledger changelog add --task task-0035 --category fixed --summary "Fixed changelog rendering for grouped sections"
+taskledger changelog add-many --task task-0035 --file /tmp/task-0035-changelog.yaml --dry-run
+taskledger changelog add-many --task task-0035 --file /tmp/task-0035-changelog.yaml
+taskledger changelog update cle-0001 --task task-0035 --summary "Changed trace output to taskledger-native references only"
 taskledger changelog lint --version 0.4.2 --strict
 taskledger build 0.4.2 --release-date 2026-05-30 --target-file CHANGELOG.md
 taskledger release show 0.4.1
@@ -349,6 +352,16 @@ taskledger release list
 `release changelog` does not call an LLM API. It renders compact Markdown or JSON
 from done tasks, implementation logs, code changes, and validation evidence so a
 separate coding harness can draft the final human changelog.
+
+For task-local changelog sidecars on one done task, use:
+
+```bash
+taskledger changelog prompt --task task-0035 --format agent --output /tmp/task-0035-changelog-prompt.md
+taskledger changelog add-many --task task-0035 --file /tmp/task-0035-changelog.yaml --dry-run
+taskledger changelog add-many --task task-0035 --file /tmp/task-0035-changelog.yaml
+taskledger changelog lint --task task-0035 --strict
+taskledger changelog list --task task-0035
+```
 
 `taskledger next-action` is the preferred fresh-context entrypoint. It stays
 read-only and points at the next concrete question, todo, criterion, or repair

@@ -1,16 +1,20 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Annotated, cast
 
 import typer
+import yaml
 
 from taskledger.api.changelog import (
     add_changelog_entry,
+    add_many_changelog_entries,
     build_changelog_prompt,
     import_changelog_entry_file,
     lint_changelog_entries,
     list_changelog_entries,
+    update_changelog_entry,
 )
 from taskledger.cli_common import (
     TaskOption,
@@ -19,6 +23,7 @@ from taskledger.cli_common import (
     emit_payload,
     human_kv,
     launch_error_exit_code,
+    render_json,
     resolve_cli_task,
     write_text_output,
 )
@@ -35,7 +40,64 @@ def _summary_count(summary: dict[str, object], key: str) -> int:
     return value if isinstance(value, int) else 0
 
 
-def register_changelog_commands(app: typer.Typer) -> None:
+def _lint_issue_lines(payload: dict[str, object]) -> list[str]:
+    lines: list[str] = []
+    issues = payload.get("issues")
+    if not isinstance(issues, list):
+        return lines
+    for item in issues:
+        if not isinstance(item, dict):
+            continue
+        severity = str(item.get("severity", "warning")).upper()
+        label = "WARN" if severity == "WARNING" else "ERROR"
+        entry_id = str(item.get("entry_id") or "-")
+        field = str(item.get("field") or "-")
+        message = str(item.get("message") or "")
+        lines.append(f"{label:<5} {entry_id:<9} {field:<8} {message}")
+    return lines
+
+
+def _render_validation_error(exc: LaunchError) -> str | None:
+    details = exc.details
+    issues = details.get("issues")
+    if not isinstance(issues, list) or not issues:
+        return None
+    lines = [str(exc)]
+    for item in issues:
+        if not isinstance(item, dict):
+            continue
+        severity = str(item.get("severity", "warning"))
+        field = str(item.get("field", "summary"))
+        index = item.get("index")
+        message = str(item.get("message", ""))
+        if isinstance(index, int):
+            lines.append(f"- entry[{index}] {severity} {field}: {message}")
+        else:
+            lines.append(f"- {severity} {field}: {message}")
+    return "\n".join(lines)
+
+
+def _load_batch_entries(path: Path) -> list[dict[str, object]]:
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise LaunchError(f"Failed to read batch file {path}: {exc}") from exc
+    except yaml.YAMLError as exc:
+        raise LaunchError(f"Invalid YAML in batch file {path}: {exc}") from exc
+    if not isinstance(raw, dict):
+        raise LaunchError("Batch file must contain a top-level mapping with `entries`.")
+    entries = raw.get("entries")
+    if not isinstance(entries, list):
+        raise LaunchError("Batch file must define `entries` as a list.")
+    normalized: list[dict[str, object]] = []
+    for index, item in enumerate(entries, start=1):
+        if not isinstance(item, dict):
+            raise LaunchError(f"entries[{index}] must be a mapping.")
+        normalized.append(cast(dict[str, object], item))
+    return normalized
+
+
+def register_changelog_commands(app: typer.Typer) -> None:  # noqa: C901
     @app.command("add")
     def add_command(
         ctx: typer.Context,
@@ -51,6 +113,7 @@ def register_changelog_commands(app: typer.Typer) -> None:
         scopes: Annotated[list[str] | None, typer.Option("--scope")] = None,
         source_run_id: Annotated[str | None, typer.Option("--source-run-id")] = None,
         source_kind: Annotated[str | None, typer.Option("--source-kind")] = None,
+        dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
@@ -67,15 +130,123 @@ def register_changelog_commands(app: typer.Typer) -> None:
                 scopes=tuple(scopes or ()),
                 source_run_id=source_run_id,
                 source_kind=source_kind,
+                dry_run=dry_run,
             )
         except LaunchError as exc:
-            emit_error(ctx, exc)
+            rendered = None if state.json_output else _render_validation_error(exc)
+            if rendered is None:
+                emit_error(ctx, exc)
+            else:
+                typer.echo(rendered, err=True)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
-        payload = {"kind": "changelog_entry", "entry": entry.to_dict()}
+        payload: dict[str, object] = {
+            "kind": "changelog_entry_preview" if dry_run else "changelog_entry",
+            "entry": entry.to_dict(),
+            "issues": [],
+            "written": not dry_run,
+        }
         emit_payload(
             ctx,
             payload,
-            human=f"added changelog entry {entry.entry_id} for {entry.task_id}",
+            human=(
+                "validated changelog entry preview "
+                f"{entry.entry_id} for {entry.task_id}"
+                if dry_run
+                else f"added changelog entry {entry.entry_id} for {entry.task_id}"
+            ),
+        )
+
+    @app.command("update")
+    def update_command(
+        ctx: typer.Context,
+        entry_id: Annotated[str, typer.Argument(..., help="Changelog entry id.")],
+        task_ref: TaskOption = None,
+        category: Annotated[str | None, typer.Option("--category")] = None,
+        summary: Annotated[str | None, typer.Option("--summary")] = None,
+        body: Annotated[str | None, typer.Option("--body")] = None,
+        status: Annotated[str | None, typer.Option("--status")] = None,
+        release_version: Annotated[
+            str | None, typer.Option("--release-version")
+        ] = None,
+        audience: Annotated[str | None, typer.Option("--audience")] = None,
+        scopes: Annotated[list[str] | None, typer.Option("--scope")] = None,
+        source_run_id: Annotated[str | None, typer.Option("--source-run-id")] = None,
+        source_kind: Annotated[str | None, typer.Option("--source-kind")] = None,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = resolve_cli_task(state.cwd, task_ref)
+            entry = update_changelog_entry(
+                state.cwd,
+                task.id,
+                entry_id,
+                category=category,
+                summary=summary,
+                body=body,
+                release_version=release_version,
+                status=status,
+                audience=audience,
+                scopes=tuple(scopes) if scopes is not None else None,
+                source_run_id=source_run_id,
+                source_kind=source_kind,
+            )
+        except LaunchError as exc:
+            rendered = None if state.json_output else _render_validation_error(exc)
+            if rendered is None:
+                emit_error(ctx, exc)
+            else:
+                typer.echo(rendered, err=True)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        payload = {
+            "kind": "changelog_entry",
+            "entry": entry.to_dict(),
+            "updated": True,
+            "issues": [],
+        }
+        emit_payload(
+            ctx,
+            payload,
+            human=f"updated changelog entry {entry.entry_id} for {entry.task_id}",
+        )
+
+    @app.command("add-many")
+    def add_many_command(
+        ctx: typer.Context,
+        source_file: Annotated[
+            Path,
+            typer.Option("--file", exists=True, dir_okay=False),
+        ],
+        task_ref: TaskOption = None,
+        dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
+    ) -> None:
+        state = cli_state_from_context(ctx)
+        try:
+            task = resolve_cli_task(state.cwd, task_ref)
+            entries = _load_batch_entries(source_file)
+            payload = add_many_changelog_entries(
+                state.cwd,
+                task.id,
+                entries,
+                dry_run=dry_run,
+                fail_on_warning=True,
+            )
+        except LaunchError as exc:
+            rendered = None if state.json_output else _render_validation_error(exc)
+            if rendered is None:
+                emit_error(ctx, exc)
+            else:
+                typer.echo(rendered, err=True)
+            raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+        emit_payload(
+            ctx,
+            payload,
+            human=(
+                f"validated changelog batch preview for {payload['task_id']}: "
+                f"{payload['entry_count']} entries"
+                if dry_run
+                else f"added changelog batch for {payload['task_id']}: "
+                f"{payload['entry_count']} entries"
+            ),
         )
 
     @app.command("list")
@@ -214,40 +385,72 @@ def register_changelog_commands(app: typer.Typer) -> None:
                 strict=strict,
             )
         except LaunchError as exc:
-            emit_error(ctx, exc)
+            lint_payload = exc.details if isinstance(exc.details, dict) else None
+            if (
+                not state.json_output
+                and isinstance(lint_payload, dict)
+                and lint_payload.get("kind") == "changelog_lint"
+            ):
+                summary = cast(dict[str, object], lint_payload.get("summary") or {})
+                errors = _summary_count(summary, "errors")
+                warnings = _summary_count(summary, "warnings")
+                human_lines = [
+                    (
+                        f"linted changelog entries: {errors} error(s), "
+                        f"{warnings} warning(s), "
+                        f"{lint_payload.get('entry_count', 0)} entries"
+                    )
+                ]
+                human_lines.extend(_lint_issue_lines(lint_payload))
+                typer.echo("\n".join(human_lines), err=True)
+            else:
+                emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         summary = cast(dict[str, object], payload.get("summary") or {})
         errors = _summary_count(summary, "errors")
         warnings = _summary_count(summary, "warnings")
+        human_lines = [
+            (
+                f"linted changelog entries: {errors} error(s), "
+                f"{warnings} warning(s), {payload.get('entry_count', 0)} entries"
+            )
+        ]
+        human_lines.extend(_lint_issue_lines(payload))
         emit_payload(
             ctx,
             payload,
-            human=(
-                f"linted changelog entries: {errors} error(s), "
-                f"{warnings} warning(s), {payload.get('entry_count', 0)} entries"
-            ),
+            human="\n".join(human_lines),
         )
 
     @app.command("prompt")
     def prompt_command(
         ctx: typer.Context,
         task_ref: TaskOption = None,
+        format_name: Annotated[str, typer.Option("--format")] = "markdown",
         output: Annotated[Path | None, typer.Option("--output")] = None,
     ) -> None:
         state = cli_state_from_context(ctx)
         try:
             task = resolve_cli_task(state.cwd, task_ref)
-            prompt = build_changelog_prompt(state.cwd, task.id)
+            prompt = build_changelog_prompt(state.cwd, task.id, format_name=format_name)
         except LaunchError as exc:
             emit_error(ctx, exc)
             raise typer.Exit(code=launch_error_exit_code(exc)) from exc
         payload: dict[str, object] = {
             "kind": "changelog_prompt",
             "task_ref": task_ref,
+            "format": format_name,
             "prompt": prompt,
         }
         if output is not None:
-            target = write_text_output(output, prompt)
+            rendered = (
+                render_json(prompt)
+                if isinstance(prompt, dict)
+                else prompt
+                if isinstance(prompt, str)
+                else json.dumps(prompt, indent=2, sort_keys=True) + "\n"
+            )
+            target = write_text_output(output, rendered)
             payload["output_path"] = str(target)
             emit_payload(
                 ctx,
@@ -255,4 +458,5 @@ def register_changelog_commands(app: typer.Typer) -> None:
                 human=f"wrote changelog prompt to {target}",
             )
             return
-        emit_payload(ctx, payload, human=prompt)
+        human = prompt if isinstance(prompt, str) else render_json(prompt)
+        emit_payload(ctx, payload, human=human)

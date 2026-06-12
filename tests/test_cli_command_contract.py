@@ -8,6 +8,7 @@ import pytest
 from typer.testing import CliRunner
 
 from taskledger.cli import app
+from tests.support.builders import create_done_task, init_workspace
 
 REMOVED_COMMANDS = {
     "task new",
@@ -377,3 +378,111 @@ def test_task_bundle_does_not_create_bdd_directory(tmp_path: Path) -> None:
     result = runner.invoke(app, ["--cwd", str(tmp_path), "task", "create", "Example"])
     assert result.exit_code == 0
     assert not list(tmp_path.glob(".taskledger/**/tasks/task-*/bdd"))
+
+
+def test_changelog_add_json_failure_envelope(tmp_path: Path) -> None:
+    workspace = init_workspace(tmp_path)
+    task_id = create_done_task(workspace, allow_lint_errors=True)
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(workspace),
+            "--json",
+            "changelog",
+            "add",
+            "--task",
+            task_id,
+            "--category",
+            "changed",
+            "--summary",
+            "Simplified task trace output to taskledger-native references only",
+        ],
+    )
+    assert result.exit_code != 0
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "VALIDATION_FAILED"
+    issues = payload["error"]["details"]["issues"]
+    assert any("action phrase" in issue["message"] for issue in issues)
+
+
+def test_changelog_add_many_dry_run_json_contract(tmp_path: Path) -> None:
+    workspace = init_workspace(tmp_path)
+    task_id = create_done_task(workspace, allow_lint_errors=True)
+    batch_file = workspace / "entries.yaml"
+    batch_file.write_text(
+        (
+            "entries:\n"
+            "  - category: changed\n"
+            "    summary: Changed trace output to taskledger-native references only\n"
+            "    scopes: [trace]\n"
+        ),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(workspace),
+            "--json",
+            "changelog",
+            "add-many",
+            "--task",
+            task_id,
+            "--file",
+            str(batch_file),
+            "--dry-run",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is True
+    result_payload = payload["result"]
+    assert result_payload["kind"] == "changelog_entry_batch"
+    assert result_payload["written"] is False
+    assert result_payload["entry_count"] == 1
+
+
+def test_changelog_update_json_contract(tmp_path: Path) -> None:
+    workspace = init_workspace(tmp_path)
+    task_id = create_done_task(workspace, allow_lint_errors=True)
+    add_result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(workspace),
+            "changelog",
+            "add",
+            "--task",
+            task_id,
+            "--category",
+            "changed",
+            "--summary",
+            "Changed release range rendering for build context",
+        ],
+    )
+    assert add_result.exit_code == 0, add_result.stdout
+
+    result = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(workspace),
+            "--json",
+            "changelog",
+            "update",
+            "cle-0001",
+            "--task",
+            task_id,
+            "--summary",
+            "Changed trace output to taskledger-native references only",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is True
+    result_payload = payload["result"]
+    assert result_payload["kind"] == "changelog_entry"
+    assert result_payload["updated"] is True

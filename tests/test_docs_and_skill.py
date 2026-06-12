@@ -488,6 +488,19 @@ def test_skill_requires_user_requested_reviews_to_be_recorded() -> None:
     ) in skill
 
 
+def test_skill_documents_task_local_changelog_protocol() -> None:
+    skill = (ROOT / "skills" / "taskledger" / "SKILL.md").read_text(encoding="utf-8")
+    assert "## Task-local changelog entry protocol" in skill
+    assert (
+        "Added, Changed, Deprecated, Removed, Fixed, Secured, Documented, or Improved"
+    ) in skill
+    assert "taskledger changelog lint --task TASK_REF --strict" in skill
+    assert (
+        "Do not build or edit `CHANGELOG.md` unless the user provides "
+        "a release version/date"
+    ) in skill
+
+
 # ── Ledger isolation tests ──────────────────────────────────────
 
 FORBIDDEN_RUNTIME_PATTERNS = (

@@ -421,3 +421,5 @@ def test_targeting_metadata_for_key_commands() -> None:
     assert COMMAND_METADATA["validate start"].targeting == TARGETING_ACTIVE_DEFAULT
     assert COMMAND_METADATA["task show"].targeting == TARGETING_POSITIONAL_OR_ACTIVE
     assert COMMAND_METADATA["task cancel"].targeting == TARGETING_EXPLICIT_REQUIRED
+    assert COMMAND_METADATA["changelog add-many"].targeting == TARGETING_ACTIVE_DEFAULT
+    assert COMMAND_METADATA["changelog update"].targeting == TARGETING_ACTIVE_DEFAULT

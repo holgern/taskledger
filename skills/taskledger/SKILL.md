@@ -184,6 +184,34 @@ Use this protocol when the user asks for release notes, a changelog, or an updat
    - no duplicate release heading exists
    - omitted/non-done tasks are either excluded or clearly marked as draft/unvalidated according to user intent
 
+## Task-local changelog entry protocol
+
+Use this when the user asks to create changelog entries for a specific task.
+This is different from building `CHANGELOG.md` for a release.
+
+1. Resolve the task explicitly:
+   - `taskledger task dossier TASK_REF --format markdown`
+   - `taskledger changelog list --task TASK_REF`
+   - `taskledger changelog prompt --task TASK_REF --format agent --output /tmp/TASK_REF-changelog-prompt.md`
+2. Do not inspect `.taskledger/` storage directly.
+3. Draft entries from taskledger evidence only.
+4. Make summaries strict-lint clean:
+   - one line
+   - no trailing period
+   - no TODO markers
+   - no raw task IDs unless necessary
+   - start with Added, Changed, Deprecated, Removed, Fixed, Secured, Documented, or Improved
+5. Prefer atomic batch creation:
+   - `taskledger changelog add-many --task TASK_REF --file /tmp/TASK_REF-changelog.yaml --dry-run`
+   - `taskledger changelog add-many --task TASK_REF --file /tmp/TASK_REF-changelog.yaml`
+6. If add-many is unavailable, use strict single-entry commands:
+   - `taskledger changelog add --task TASK_REF --category ... --summary "Changed ..."`
+   - `taskledger changelog update ENTRY_ID --task TASK_REF --summary "Changed ..."` for corrections
+7. Verify:
+   - `taskledger changelog lint --task TASK_REF --strict`
+   - `taskledger changelog list --task TASK_REF`
+8. Do not build or edit `CHANGELOG.md` unless the user provides a release version/date or explicitly requests release notes.
+
 ## Optional worker pipeline overlay
 
 - Worker pipelines are optional project-local overlays, not mandatory lifecycle stages.
@@ -326,7 +354,8 @@ linked-file drift checks.
 5. Record criterion results: `taskledger validate check --criterion ac-0001 --status pass|fail|warn|not_run --evidence "..."`
 6. Optionally waive criteria with user authority: `taskledger validate waive --criterion ac-0001 --reason "..."`.
 7. Check `taskledger validate status` again to confirm all mandatory gates pass.
-8. Finish with `taskledger validate finish --result passed|failed|blocked --summary "..."`
+8. Finish with `taskledger validate finish --result passed|failed|blocked --summary "..."`.
+   - For passed runs, prefer a concise done-work summary that can be reused by `taskledger changelog prompt`.
 
 ### Recovery Rules
 
@@ -481,6 +510,10 @@ taskledger release changelog 0.4.2 --since 0.4.1 --until-task task-0035 --output
 taskledger release changelog 0.4.2 --from-task task-0031 --until-task task-0035 --output /tmp/taskledger-0.4.2-changelog-source.md
 taskledger --json release changelog 0.4.2 --since 0.4.1 --until-task task-0035
 taskledger changelog add --task task-0035 --category fixed --summary "Fixed changelog rendering for grouped sections"
+taskledger changelog add --task task-0035 --category changed --summary "Changed trace output to taskledger-native references only" --dry-run
+taskledger changelog add-many --task task-0035 --file /tmp/task-0035-changelog.yaml --dry-run
+taskledger changelog add-many --task task-0035 --file /tmp/task-0035-changelog.yaml
+taskledger changelog update cle-0001 --task task-0035 --summary "Changed trace output to taskledger-native references only"
 taskledger changelog lint --version 0.4.2 --strict
 taskledger build 0.4.2 --release-date 2026-05-30 --target-file CHANGELOG.md
 taskledger task dossier task-0035 --format markdown

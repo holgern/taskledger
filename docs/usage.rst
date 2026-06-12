@@ -275,6 +275,9 @@ provider-neutral changelog source context from done tasks:
    taskledger release tag 0.4.1 --at-task task-0030 --note "0.4.1 released"
    taskledger release changelog 0.4.2 --since 0.4.1 --until-task task-0035 --output /tmp/taskledger-0.4.2-changelog-source.md
    taskledger changelog add --task task-0035 --category fixed --summary "Fixed changelog rendering for grouped sections"
+   taskledger changelog add-many --task task-0035 --file /tmp/task-0035-changelog.yaml --dry-run
+   taskledger changelog add-many --task task-0035 --file /tmp/task-0035-changelog.yaml
+   taskledger changelog update cle-0001 --task task-0035 --summary "Changed trace output to taskledger-native references only"
    taskledger changelog lint --version 0.4.2 --strict
    taskledger build 0.4.2 --release-date 2026-05-30 --target-file CHANGELOG.md
    taskledger release show 0.4.1
@@ -284,6 +287,16 @@ provider-neutral changelog source context from done tasks:
 human changelog drafting step. It does not call a model provider directly.
 ``changelog *`` manages task-local changelog sidecars, and ``build`` renders and
 inserts final ``CHANGELOG.md`` release sections deterministically.
+
+For one-shot task-local entry creation on an already done task:
+
+.. code-block:: bash
+
+   taskledger changelog prompt --task task-0035 --format agent --output /tmp/task-0035-changelog-prompt.md
+   taskledger changelog add-many --task task-0035 --file /tmp/task-0035-changelog.yaml --dry-run
+   taskledger changelog add-many --task task-0035 --file /tmp/task-0035-changelog.yaml
+   taskledger changelog lint --task task-0035 --strict
+   taskledger changelog list --task task-0035
 
 Recording manually completed work
 ---------------------------------

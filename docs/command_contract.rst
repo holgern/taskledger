@@ -206,6 +206,10 @@ Release boundaries are durable project records, not task lifecycle states:
    taskledger release show 0.4.1
    taskledger release changelog 0.4.2 --since 0.4.1 --until-task task-0035 --output /tmp/taskledger-0.4.2-changelog-source.md
    taskledger changelog add --task task-0035 --category fixed --summary "Fixed changelog rendering for grouped sections"
+   taskledger changelog add-many --task task-0035 --file /tmp/task-0035-changelog.yaml --dry-run
+   taskledger changelog add-many --task task-0035 --file /tmp/task-0035-changelog.yaml
+   taskledger changelog update cle-0001 --task task-0035 --summary "Changed trace output to taskledger-native references only"
+   taskledger changelog prompt --task task-0035 --format agent
    taskledger changelog lint --version 0.4.2 --strict
    taskledger build 0.4.2 --release-date 2026-05-30 --target-file CHANGELOG.md
 
@@ -215,7 +219,7 @@ Release boundaries are durable project records, not task lifecycle states:
 context from done tasks and may write an external output file, but it does not
 mutate ledger state.
 ``changelog`` commands manage task-local changelog entry sidecars and are
-ledger-mutating for add/import operations.
+ledger-mutating for add/import/update/add-many operations.
 ``build`` renders deterministic release sections from changelog entries and
 writes/updates the target changelog file unless ``--dry-run`` is set.
 

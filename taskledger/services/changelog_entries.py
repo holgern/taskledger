@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import cast
 
 from taskledger.domain.models import (
     CHANGELOG_CATEGORIES,
+    CHANGELOG_STATUSES,
+    ActorRef,
     ChangelogEntry,
     normalize_changelog_category,
     normalize_changelog_status,
@@ -31,6 +33,7 @@ from taskledger.storage.task_store import (
     task_changelog_dir,
     task_numeric_sort_key,
 )
+from taskledger.timeutils import utc_now_iso
 
 SUMMARY_MAX_CHARS = 180
 SUMMARY_WARN_CHARS = 120
@@ -138,6 +141,7 @@ def add_changelog_entry(
     scopes: tuple[str, ...] = (),
     source_run_id: str | None = None,
     source_kind: str | None = None,
+    dry_run: bool = False,
 ) -> ChangelogEntry:
     task = resolve_task(workspace_root, task_ref)
     normalized_category = normalize_changelog_category(category)
@@ -145,7 +149,7 @@ def add_changelog_entry(
     cleaned_summary = summary.strip()
     if not cleaned_summary:
         raise LaunchError("Changelog summary must not be empty.")
-    _assert_summary_valid(cleaned_summary)
+    assert_changelog_summary_valid(cleaned_summary, fail_on_warning=True)
     _assert_source_run_belongs_to_task(workspace_root, task.id, source_run_id)
     existing_ids = [
         entry.entry_id for entry in load_changelog_entries(workspace_root, task.id)
@@ -165,7 +169,8 @@ def add_changelog_entry(
         source_kind=source_kind,
         created_by=resolve_actor(workspace_root=workspace_root),
     )
-    save_changelog_entry(workspace_root, entry)
+    if not dry_run:
+        save_changelog_entry(workspace_root, entry)
     return entry
 
 
@@ -186,7 +191,7 @@ def import_changelog_entry_file(
             "Changelog entry task_id mismatch: "
             f"expected {task.id}, got {entry.task_id}."
         )
-    _assert_summary_valid(entry.summary)
+    assert_changelog_summary_valid(entry.summary, fail_on_warning=True)
     _assert_source_run_belongs_to_task(workspace_root, task.id, entry.source_run_id)
     target = changelog_entry_markdown_path(
         resolve_v2_paths(workspace_root),
@@ -200,6 +205,138 @@ def import_changelog_entry_file(
         )
     save_changelog_entry(workspace_root, entry)
     return entry
+
+
+def update_changelog_entry(
+    workspace_root: Path,
+    task_ref: str,
+    entry_id: str,
+    *,
+    category: str | None = None,
+    summary: str | None = None,
+    body: str | None = None,
+    release_version: str | None = None,
+    status: str | None = None,
+    audience: str | None = None,
+    scopes: tuple[str, ...] | None = None,
+    source_run_id: str | None = None,
+    source_kind: str | None = None,
+) -> ChangelogEntry:
+    task = resolve_task(workspace_root, task_ref)
+    entries = load_changelog_entries(workspace_root, task.id)
+    existing = next((item for item in entries if item.entry_id == entry_id), None)
+    if existing is None:
+        raise LaunchError(f"Changelog entry not found: {entry_id}")
+
+    if (
+        category is None
+        and summary is None
+        and body is None
+        and release_version is None
+        and status is None
+        and audience is None
+        and scopes is None
+        and source_run_id is None
+        and source_kind is None
+    ):
+        raise LaunchError("Provide at least one field to update.")
+
+    updated_category = (
+        normalize_changelog_category(category)
+        if category is not None
+        else existing.category
+    )
+    updated_status = (
+        normalize_changelog_status(status) if status is not None else existing.status
+    )
+    updated_summary = existing.summary if summary is None else summary.strip()
+    if summary is not None:
+        assert_changelog_summary_valid(updated_summary, fail_on_warning=True)
+    updated_scopes = (
+        existing.scopes
+        if scopes is None
+        else tuple(scope.strip() for scope in scopes if scope.strip())
+    )
+    updated_source_run_id = (
+        source_run_id if source_run_id is not None else existing.source_run_id
+    )
+    _assert_source_run_belongs_to_task(workspace_root, task.id, updated_source_run_id)
+
+    updated = replace(
+        existing,
+        category=updated_category,
+        summary=updated_summary,
+        body=existing.body if body is None else body.strip(),
+        release_version=(
+            release_version if release_version is not None else existing.release_version
+        ),
+        status=updated_status,
+        audience=audience if audience is not None else existing.audience,
+        scopes=updated_scopes,
+        source_run_id=updated_source_run_id,
+        source_kind=source_kind if source_kind is not None else existing.source_kind,
+        updated_at=utc_now_iso(),
+    )
+    save_changelog_entry(workspace_root, updated)
+    return updated
+
+
+def add_many_changelog_entries(
+    workspace_root: Path,
+    task_ref: str,
+    entries: list[dict[str, object]],
+    *,
+    dry_run: bool = False,
+    fail_on_warning: bool = True,
+) -> dict[str, object]:
+    task = resolve_task(workspace_root, task_ref)
+    existing_ids = [
+        entry.entry_id for entry in load_changelog_entries(workspace_root, task.id)
+    ]
+    next_ids = list(existing_ids)
+    actor = resolve_actor(workspace_root=workspace_root)
+    issues: list[dict[str, object]] = []
+    planned_entries: list[ChangelogEntry] = []
+
+    for index, raw_entry in enumerate(entries, start=1):
+        entry_id = next_project_id("cle", next_ids)
+        next_ids.append(entry_id)
+        planned = _coerce_batch_entry(
+            workspace_root,
+            task_id=task.id,
+            actor=actor,
+            index=index,
+            entry_id=entry_id,
+            payload=raw_entry,
+            issues=issues,
+            fail_on_warning=fail_on_warning,
+        )
+        if planned is not None:
+            planned_entries.append(planned)
+
+    if issues:
+        raise LaunchError(
+            "Changelog batch failed validation.",
+            code="VALIDATION_FAILED",
+            details={
+                "issues": issues,
+                "written": False,
+            },
+            exit_code=7,
+        )
+
+    if not dry_run:
+        for entry in planned_entries:
+            save_changelog_entry(workspace_root, entry)
+
+    return {
+        "kind": "changelog_entry_batch",
+        "task_id": task.id,
+        "entry_count": len(planned_entries),
+        "entries": [entry.to_dict() for entry in planned_entries],
+        "issues": [],
+        "written": not dry_run,
+    }
 
 
 def lint_changelog_entries_for_tasks(
@@ -388,7 +525,9 @@ def lint_changelog_entries(
 def build_changelog_prompt(
     workspace_root: Path,
     task_ref: str,
-) -> str:
+    *,
+    format_name: str = "markdown",
+) -> str | dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
     plans = list_plans(workspace_root, task.id)
     accepted_plan = next(
@@ -404,31 +543,75 @@ def build_changelog_prompt(
         if run.run_type == "validation"
     ]
     latest_validation = validation_runs[-1] if validation_runs else None
+    implementation_runs = [
+        run
+        for run in list_runs(workspace_root, task.id)
+        if run.run_type == "implementation"
+    ]
+    latest_implementation = implementation_runs[-1] if implementation_runs else None
     entries = load_changelog_entries(workspace_root, task.id)
+    accepted_entries = [entry for entry in entries if entry.status == "accepted"]
     categories = ", ".join(CHANGELOG_CATEGORIES)
 
     lines: list[str] = [
         f"# Changelog prompt for {task.id} — {task.title}",
         "",
         "Use only the taskledger evidence below. Do not invent changes.",
-        "Write one YAML-frontmatter Markdown file per changelog bullet.",
+        "Draft a task-local changelog batch YAML file and apply it atomically.",
         f"Use category values only from: {categories}.",
+        "Use status values only from: draft, accepted, rejected.",
+        "",
+        "## Strict summary rules",
+        "",
         (
-            "Prefer user-visible summary wording. Do not mention task ids unless"
-            " necessary."
+            "Every summary must be one line and lint-clean under "
+            "`taskledger changelog lint`."
         ),
+        "Use at most 120 characters when practical; 180 is the hard maximum.",
+        "Do not end with a period.",
+        "Do not include TODO markers or unchecked checkbox markers.",
+        "Avoid raw task IDs unless required.",
+        "Start each summary with one of these exact prefixes:",
+        "- Added",
+        "- Changed",
+        "- Deprecated",
+        "- Removed",
+        "- Fixed",
+        "- Secured",
+        "- Documented",
+        "- Improved",
         "",
-        "## Output contract",
+        "## Strict-clean examples",
         "",
-        "Each file must include YAML front matter with:",
-        "- schema_version",
-        "- object_type: changelog_entry",
-        "- file_version",
-        "- entry_id",
-        "- task_id",
-        "- category",
-        "- status",
-        "- summary",
+        "- Changed trace output to taskledger-native references only",
+        "- Documented isolated task-ledger semantics in docs and agent guidance",
+        "",
+        "## Recommended write path",
+        "",
+        "```bash",
+        (
+            "taskledger changelog add-many --task TASK_ID "
+            "--file /tmp/TASK_ID-changelog.yaml --dry-run"
+        ),
+        (
+            "taskledger changelog add-many --task TASK_ID "
+            "--file /tmp/TASK_ID-changelog.yaml"
+        ),
+        "taskledger changelog lint --task TASK_ID --strict",
+        "taskledger changelog list --task TASK_ID",
+        "```",
+        "",
+        "## Suggested add-many YAML skeleton",
+        "",
+        "```yaml",
+        "entries:",
+        "  - category: changed",
+        "    summary: Changed ...",
+        "    body: >-",
+        "      ...",
+        "    audience: developer",
+        "    scopes: [runtime]",
+        "```",
         "",
         "## Task",
         "",
@@ -453,6 +636,19 @@ def build_changelog_prompt(
             if change.kind == "command":
                 continue
             lines.append(f"- {change.kind} `{change.path}`: {change.summary}")
+    if latest_implementation is not None:
+        lines.extend(["", "## Latest implementation summary", ""])
+        lines.append(f"- run_id: {latest_implementation.run_id}")
+        lines.append(
+            f"- result: {latest_implementation.result or latest_implementation.status}"
+        )
+        if latest_implementation.summary:
+            lines.append(f"- summary: {latest_implementation.summary}")
+    lines.extend(["", "## Done-work summary from validation", ""])
+    if latest_validation is not None and latest_validation.summary:
+        lines.append(latest_validation.summary)
+    else:
+        lines.append("- none")
     if latest_validation is not None:
         lines.extend(["", "## Validation checks and evidence", ""])
         lines.append(f"- run_id: {latest_validation.run_id}")
@@ -467,6 +663,7 @@ def build_changelog_prompt(
             for evidence in check.evidence:
                 lines.append(f"  - evidence: {evidence}")
     lines.extend(["", "## Existing changelog entries", ""])
+    lines.append(f"- accepted_entry_count: {len(accepted_entries)}")
     if entries:
         for entry in entries:
             lines.append(
@@ -474,7 +671,29 @@ def build_changelog_prompt(
             )
     else:
         lines.append("- none")
-    return "\n".join(lines).rstrip() + "\n"
+    markdown = "\n".join(lines).rstrip() + "\n"
+    normalized_format = format_name.strip().lower()
+    if normalized_format in {"markdown", "agent"}:
+        return markdown
+    if normalized_format == "json":
+        return {
+            "kind": "changelog_prompt",
+            "task_id": task.id,
+            "task_title": task.title,
+            "categories": list(CHANGELOG_CATEGORIES),
+            "statuses": list(CHANGELOG_STATUSES),
+            "accepted_entry_count": len(accepted_entries),
+            "latest_implementation_summary": (
+                latest_implementation.summary
+                if latest_implementation is not None
+                else None
+            ),
+            "latest_validation_summary": (
+                latest_validation.summary if latest_validation is not None else None
+            ),
+            "prompt_markdown": markdown,
+        }
+    raise LaunchError(f"Unsupported changelog prompt format: {format_name}")
 
 
 def _dict_list(value: object) -> list[dict[str, object]]:
@@ -533,10 +752,29 @@ def _source_run_issue(workspace_root: Path, entry: ChangelogEntry) -> str | None
     )
 
 
-def _assert_summary_valid(summary: str) -> None:
-    for issue in _summary_issues_for_text(summary):
-        if issue["severity"] == "error":
-            raise LaunchError(str(issue["message"]))
+def validate_changelog_summary(summary: str) -> list[dict[str, str]]:
+    return _summary_issues_for_text(summary)
+
+
+def assert_changelog_summary_valid(
+    summary: str,
+    *,
+    fail_on_warning: bool = True,
+) -> None:
+    issues = validate_changelog_summary(summary)
+    blocking = [
+        issue
+        for issue in issues
+        if issue["severity"] == "error"
+        or (fail_on_warning and issue["severity"] == "warning")
+    ]
+    if blocking:
+        raise LaunchError(
+            "Changelog summary failed validation.",
+            code="VALIDATION_FAILED",
+            details={"issues": blocking},
+            exit_code=7,
+        )
 
 
 def _summary_issues(entry: ChangelogEntry, path: str) -> list[dict[str, object]]:
@@ -615,6 +853,240 @@ def _summary_issues_for_text(summary: str) -> list[dict[str, str]]:
     return issues
 
 
+def _coerce_batch_entry(
+    workspace_root: Path,
+    *,
+    task_id: str,
+    actor: ActorRef,
+    index: int,
+    entry_id: str,
+    payload: dict[str, object],
+    issues: list[dict[str, object]],
+    fail_on_warning: bool,
+) -> ChangelogEntry | None:
+    category_value = payload.get("category")
+    summary_value = payload.get("summary")
+    body_value = payload.get("body", "")
+    status_value = payload.get("status", "accepted")
+    release_version_value = payload.get("release_version")
+    audience_value = payload.get("audience")
+    scopes_value = payload.get("scopes", ())
+    source_run_id_value = payload.get("source_run_id")
+    source_kind_value = payload.get("source_kind")
+
+    if not isinstance(category_value, str) or not category_value.strip():
+        issues.append(
+            _batch_issue(
+                index=index,
+                entry_id=entry_id,
+                field="category",
+                severity="error",
+                message="Entry category must be a non-empty string.",
+            )
+        )
+        return None
+    if not isinstance(summary_value, str) or not summary_value.strip():
+        issues.append(
+            _batch_issue(
+                index=index,
+                entry_id=entry_id,
+                field="summary",
+                severity="error",
+                message="Entry summary must be a non-empty string.",
+            )
+        )
+        return None
+    if not isinstance(body_value, str):
+        issues.append(
+            _batch_issue(
+                index=index,
+                entry_id=entry_id,
+                field="body",
+                severity="error",
+                message="Entry body must be a string.",
+            )
+        )
+        return None
+    if not isinstance(status_value, str):
+        issues.append(
+            _batch_issue(
+                index=index,
+                entry_id=entry_id,
+                field="status",
+                severity="error",
+                message="Entry status must be a string.",
+            )
+        )
+        return None
+
+    try:
+        category = normalize_changelog_category(category_value)
+    except LaunchError as exc:
+        issues.append(
+            _batch_issue(
+                index=index,
+                entry_id=entry_id,
+                field="category",
+                severity="error",
+                message=str(exc),
+            )
+        )
+        return None
+    try:
+        status = normalize_changelog_status(status_value)
+    except LaunchError as exc:
+        issues.append(
+            _batch_issue(
+                index=index,
+                entry_id=entry_id,
+                field="status",
+                severity="error",
+                message=str(exc),
+            )
+        )
+        return None
+
+    if release_version_value is not None and not isinstance(release_version_value, str):
+        issues.append(
+            _batch_issue(
+                index=index,
+                entry_id=entry_id,
+                field="release_version",
+                severity="error",
+                message="release_version must be a string when provided.",
+            )
+        )
+        return None
+    if audience_value is not None and not isinstance(audience_value, str):
+        issues.append(
+            _batch_issue(
+                index=index,
+                entry_id=entry_id,
+                field="audience",
+                severity="error",
+                message="audience must be a string when provided.",
+            )
+        )
+        return None
+    if source_run_id_value is not None and not isinstance(source_run_id_value, str):
+        issues.append(
+            _batch_issue(
+                index=index,
+                entry_id=entry_id,
+                field="source_run_id",
+                severity="error",
+                message="source_run_id must be a string when provided.",
+            )
+        )
+        return None
+    if source_kind_value is not None and not isinstance(source_kind_value, str):
+        issues.append(
+            _batch_issue(
+                index=index,
+                entry_id=entry_id,
+                field="source_kind",
+                severity="error",
+                message="source_kind must be a string when provided.",
+            )
+        )
+        return None
+    if scopes_value is None:
+        scopes = ()
+    elif isinstance(scopes_value, list):
+        if not all(isinstance(item, str) for item in scopes_value):
+            issues.append(
+                _batch_issue(
+                    index=index,
+                    entry_id=entry_id,
+                    field="scopes",
+                    severity="error",
+                    message="scopes must be a list of strings.",
+                )
+            )
+            return None
+        scopes = tuple(item.strip() for item in scopes_value if item.strip())
+    else:
+        issues.append(
+            _batch_issue(
+                index=index,
+                entry_id=entry_id,
+                field="scopes",
+                severity="error",
+                message="scopes must be a list of strings.",
+            )
+        )
+        return None
+
+    summary = summary_value.strip()
+    summary_issues = validate_changelog_summary(summary)
+    for item in summary_issues:
+        severity = item.get("severity", "warning")
+        if severity == "warning" and not fail_on_warning:
+            continue
+        issues.append(
+            _batch_issue(
+                index=index,
+                entry_id=entry_id,
+                field="summary",
+                severity=severity,
+                message=str(item.get("message", "")),
+            )
+        )
+
+    source_run_id = (
+        source_run_id_value if isinstance(source_run_id_value, str) else None
+    )
+    if source_run_id is not None:
+        try:
+            _assert_source_run_belongs_to_task(workspace_root, task_id, source_run_id)
+        except LaunchError as exc:
+            issues.append(
+                _batch_issue(
+                    index=index,
+                    entry_id=entry_id,
+                    field="source_run_id",
+                    severity="error",
+                    message=str(exc),
+                )
+            )
+
+    has_blocking = any(item.get("index") == index for item in issues)
+    if has_blocking:
+        return None
+
+    return ChangelogEntry(
+        entry_id=entry_id,
+        task_id=task_id,
+        category=category,
+        summary=summary,
+        body=body_value.strip(),
+        status=status,
+        release_version=release_version_value,
+        audience=audience_value,
+        scopes=scopes,
+        source_run_id=source_run_id,
+        source_kind=source_kind_value if isinstance(source_kind_value, str) else None,
+        created_by=actor,
+    )
+
+
+def _batch_issue(
+    *,
+    index: int,
+    entry_id: str,
+    field: str,
+    severity: str,
+    message: str,
+) -> dict[str, object]:
+    return {
+        "index": index,
+        "entry_id": entry_id,
+        "field": field,
+        "severity": severity,
+        "message": message,
+    }
+
+
 def _issue(
     *,
     severity: str,
@@ -634,11 +1106,15 @@ def _issue(
 
 __all__ = [
     "ChangelogVersionScope",
+    "add_many_changelog_entries",
     "add_changelog_entry",
+    "assert_changelog_summary_valid",
     "build_changelog_prompt",
     "import_changelog_entry_file",
     "lint_changelog_entries",
     "lint_changelog_entries_for_tasks",
     "list_changelog_entries",
     "resolve_changelog_version_scope",
+    "update_changelog_entry",
+    "validate_changelog_summary",
 ]

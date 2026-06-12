@@ -1419,6 +1419,14 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         ledger_effect=EFFECT_WRITE,
         targeting=TARGETING_ACTIVE_DEFAULT,
     ),
+    "changelog add-many": CommandSpec(
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        SUPPORT,
+        PHASE_IMPLEMENTATION,
+        ledger_effect=EFFECT_WRITE,
+        targeting=TARGETING_ACTIVE_DEFAULT,
+    ),
     "changelog list": CommandSpec(
         STABLE_FOR_AGENTS,
         "safe_read_only",
@@ -1436,6 +1444,14 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         targeting=TARGETING_ACTIVE_DEFAULT,
     ),
     "changelog import": CommandSpec(
+        STABLE_FOR_AGENTS,
+        "ledger_mutation",
+        SUPPORT,
+        PHASE_IMPLEMENTATION,
+        ledger_effect=EFFECT_WRITE,
+        targeting=TARGETING_ACTIVE_DEFAULT,
+    ),
+    "changelog update": CommandSpec(
         STABLE_FOR_AGENTS,
         "ledger_mutation",
         SUPPORT,
