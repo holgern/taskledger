@@ -274,11 +274,16 @@ provider-neutral changelog source context from done tasks:
 
    taskledger release tag 0.4.1 --at-task task-0030 --note "0.4.1 released"
    taskledger release changelog 0.4.2 --since 0.4.1 --until-task task-0035 --output /tmp/taskledger-0.4.2-changelog-source.md
+   taskledger changelog add --task task-0035 --category fixed --summary "Fixed changelog rendering for grouped sections"
+   taskledger changelog lint --version 0.4.2 --strict
+   taskledger build 0.4.2 --release-date 2026-05-30 --target-file CHANGELOG.md
    taskledger release show 0.4.1
    taskledger release list
 
 ``release changelog`` renders Markdown or JSON context for an external LLM or
 human changelog drafting step. It does not call a model provider directly.
+``changelog *`` manages task-local changelog sidecars, and ``build`` renders and
+inserts final ``CHANGELOG.md`` release sections deterministically.
 
 Recording manually completed work
 ---------------------------------

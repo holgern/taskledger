@@ -10,7 +10,7 @@ Public surface
 Supported CLI entries
 ---------------------
 
-The command inventory tracks 42 top-level CLI entries. Some are groups and some
+The command inventory tracks 44 top-level CLI entries. Some are groups and some
 are root commands. The normal agent path is intentionally smaller than the full
 registered surface.
 
@@ -43,12 +43,12 @@ Top-level entry categories
 
 **Support entries** — auxiliary operations:
 
-- ``intro``, ``file``, ``link``, ``require``, ``lock``, ``config``, ``actor``, ``harness``, ``usage``
+- ``intro``, ``file``, ``link``, ``require``, ``lock``, ``config``, ``actor``, ``harness``, ``usage``, ``changelog``
 - ``export``, ``import``, ``snapshot``, ``pipeline``, ``can``, ``commands``
 
 **Advanced entries** — power-user, storage, transfer, and project operations:
 
-- ``ledger``, ``storage``, ``sync``, ``release``, ``migrate``
+- ``ledger``, ``storage``, ``sync``, ``release``, ``build``, ``migrate``
 
 **Human-oriented entries** — interactive inspection and reporting:
 
@@ -74,7 +74,8 @@ Small post-completion deltas use ``task follow-up PARENT_REF TITLE`` to create a
 new child task instead of reopening a ``done`` task.
 
 Release boundaries are tracked separately from task lifecycle state with
-``release tag`` and ``release changelog``.
+``release tag`` and ``release changelog``; changelog bullet sidecars are managed
+with ``changelog *`` and final section rendering/insertion uses ``build``.
 
 ``release *``, ``storage move``, ``sync git pull/push/sync``, sync hooks,
 ``ledger fork/switch/adopt``, ``migrate *``, ``repair *``, and

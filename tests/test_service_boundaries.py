@@ -111,7 +111,7 @@ CLI_SERVICES_IMPORT_WHITELIST: dict[str, str] = {
     ),
 }
 EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
-    "taskledger/cli.py:259": (
+    "taskledger/cli.py:268": (
         "Optional command group import fallback reports missing modules gracefully."
     ),
     "taskledger/storage/project_config.py:709": (
@@ -195,29 +195,29 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
     "taskledger/storage/task_store.py:717": (
         "save_todos write-through sidecar index update degrades gracefully."
     ),
-    "taskledger/storage/task_store.py:1015": (
+    "taskledger/storage/task_store.py:1054": (
         "_task_latest_impl_run returns None when task resolution fails."
     ),
-    "taskledger/storage/task_store.py:1104": (
+    "taskledger/storage/task_store.py:1143": (
         "list_handoffs_with_errors tolerates malformed handoff records "
         "and continues scanning."
     ),
-    "taskledger/storage/task_store.py:1145": (
+    "taskledger/storage/task_store.py:1184": (
         "save_handoff write-through sidecar index update degrades gracefully."
     ),
-    "taskledger/storage/task_store.py:1174": (
+    "taskledger/storage/task_store.py:1213": (
         "save_lock write-through sidecar index update degrades gracefully."
     ),
-    "taskledger/storage/task_index.py:185": (
+    "taskledger/storage/task_index.py:172": (
         "Task index rebuild skips unparseable task files and continues."
     ),
-    "taskledger/storage/task_index.py:239": (
+    "taskledger/storage/task_index.py:223": (
         "Task index refresh keeps stale entry when re-read fails."
     ),
-    "taskledger/storage/sidecar_index.py:287": (
+    "taskledger/storage/sidecar_index.py:278": (
         "Sidecar index rebuild skips tasks with read failures and continues."
     ),
-    "taskledger/storage/sidecar_index.py:333": (
+    "taskledger/storage/sidecar_index.py:322": (
         "Sidecar index load falls back to rebuild on read errors."
     ),
 }

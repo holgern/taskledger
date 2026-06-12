@@ -21,6 +21,7 @@ from taskledger.domain.models import (
     ActiveActorState,
     ActiveHarnessState,
     ActiveTaskState,
+    ChangelogEntry,
     CodeChangeRecord,
     CodeReviewRecord,
     DependencyRequirement,
@@ -775,6 +776,18 @@ def load_requirements(workspace_root: Path, task_id: str) -> RequirementCollecti
     return RequirementCollection(task_id=task_id, requirements=tuple(records))
 
 
+def load_changelog_entries(workspace_root: Path, task_id: str) -> list[ChangelogEntry]:
+    paths = ensure_v2_layout(workspace_root)
+    directory = task_changelog_dir(paths, task_id)
+    return sorted(
+        [
+            _load_record(path, ChangelogEntry.from_dict)
+            for path in directory.glob("cle-*.md")
+        ],
+        key=lambda entry: entry.entry_id,
+    )
+
+
 def save_requirements(
     workspace_root: Path, collection: RequirementCollection
 ) -> RequirementCollection:
@@ -811,6 +824,27 @@ def save_requirements(
     return collection
 
 
+def save_changelog_entry(
+    workspace_root: Path,
+    entry: ChangelogEntry,
+) -> ChangelogEntry:
+    paths = ensure_v2_layout(workspace_root)
+    _ensure_task_bundle(paths, entry.task_id)
+    path = changelog_entry_markdown_path(paths, entry.task_id, entry.entry_id)
+    metadata = entry.to_dict()
+    metadata["task_id"] = entry.task_id
+    metadata["entry_id"] = entry.entry_id
+    metadata["file_version"] = TASKLEDGER_V2_FILE_VERSION
+    metadata["schema_version"] = TASKLEDGER_SCHEMA_VERSION
+    metadata["object_type"] = "changelog_entry"
+    if metadata.get("created_at") is None:
+        metadata["created_at"] = utc_now_iso()
+    if metadata.get("updated_at") is None:
+        metadata["updated_at"] = utc_now_iso()
+    _write_markdown_record(path, metadata, entry.body)
+    return entry
+
+
 def task_dir(paths: V2Paths, task_id: str) -> Path:
     return paths.tasks_dir / task_id
 
@@ -835,6 +869,10 @@ def task_requirements_dir(paths: V2Paths, task_id: str) -> Path:
     return task_dir(paths, task_id) / "requirements"
 
 
+def task_changelog_dir(paths: V2Paths, task_id: str) -> Path:
+    return task_dir(paths, task_id) / "changelog"
+
+
 def task_todos_path(paths: V2Paths, task_id: str) -> Path:
     return task_dir(paths, task_id) / "todos.yaml"
 
@@ -857,6 +895,10 @@ def link_markdown_path(paths: V2Paths, task_id: str, link_id: str) -> Path:
 
 def requirement_markdown_path(paths: V2Paths, task_id: str, req_id: str) -> Path:
     return task_requirements_dir(paths, task_id) / f"{req_id}.md"
+
+
+def changelog_entry_markdown_path(paths: V2Paths, task_id: str, entry_id: str) -> Path:
+    return task_changelog_dir(paths, task_id) / f"{entry_id}.md"
 
 
 def task_plans_dir(paths: V2Paths, task_id: str) -> Path:
@@ -1021,6 +1063,7 @@ def _ensure_task_bundle(paths: V2Paths, task_id: str) -> None:
         task_todos_dir(paths, task_id),
         task_links_dir(paths, task_id),
         task_requirements_dir(paths, task_id),
+        task_changelog_dir(paths, task_id),
         task_runs_dir(paths, task_id),
         task_changes_dir(paths, task_id),
         task_reviews_dir(paths, task_id),

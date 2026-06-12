@@ -7,6 +7,17 @@ from taskledger.domain.active_state import (
 )
 from taskledger.domain.actor import ActorRef, HarnessRef
 from taskledger.domain.change import AgentCommandLogRecord, CodeChangeRecord
+from taskledger.domain.changelog import (
+    CHANGELOG_CATEGORIES,
+    CHANGELOG_CATEGORY_HEADINGS,
+    CHANGELOG_RENDER_ORDER,
+    CHANGELOG_STATUSES,
+    ChangelogCategory,
+    ChangelogEntry,
+    ChangelogEntryStatus,
+    normalize_changelog_category,
+    normalize_changelog_status,
+)
 from taskledger.domain.check import ImplementationCheckRecord
 from taskledger.domain.event import TaskEvent
 from taskledger.domain.handoff import TaskHandoffRecord

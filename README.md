@@ -44,7 +44,7 @@ The broader command surface is organized as:
 
 **Context and decision-making:**
 
-- `intro`, `file`, `link`, `require`, `handoff`, `config`
+- `intro`, `file`, `link`, `require`, `handoff`, `config`, `changelog`
 
 **Operations and advanced overlays:**
 
@@ -56,7 +56,7 @@ The broader command surface is organized as:
 
 **Project lifecycle:**
 
-- `init`, `status`, `export`, `import`, `snapshot`, `release`
+- `init`, `status`, `export`, `import`, `snapshot`, `release`, `build`
 
 ## Non-goals
 
@@ -339,6 +339,9 @@ provider-neutral changelog source packs from finished tasks:
 ```bash
 taskledger release tag 0.4.1 --at-task task-0030 --note "0.4.1 released"
 taskledger release changelog 0.4.2 --since 0.4.1 --until-task task-0035 --output /tmp/taskledger-0.4.2-changelog-source.md
+taskledger changelog add --task task-0035 --category fixed --summary "Fixed changelog rendering for grouped sections"
+taskledger changelog lint --version 0.4.2 --strict
+taskledger build 0.4.2 --release-date 2026-05-30 --target-file CHANGELOG.md
 taskledger release show 0.4.1
 taskledger release list
 ```

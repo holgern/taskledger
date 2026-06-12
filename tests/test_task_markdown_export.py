@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
+from taskledger.services.changelog_entries import add_changelog_entry
 from taskledger.services.task_export import (
     TaskMarkdownExportOptions,
     export_task_markdown,
@@ -248,6 +249,23 @@ class TestServiceExport:
         assert f"| Task ID | {task_id} |" in content
         assert "| Record files included |" in content
         assert "| Source files included |" in content
+
+    def test_task_export_includes_changelog_entry_record_files(
+        self, tmp_path: Path
+    ) -> None:
+        ws = init_workspace(tmp_path)
+        task_id = create_done_task(ws, allow_lint_errors=True)
+        add_changelog_entry(
+            ws,
+            task_id,
+            category="added",
+            summary="Added compiled changelog export sidecars",
+        )
+
+        payload = export_task_markdown(ws, task_id)
+        content = payload["content"]
+        assert isinstance(content, str)
+        assert "changelog/cle-0001.md" in content
 
     # sw: f=specs/behavior/features/task_markdown_export/markdown-export.feature
     # sw: s=@bdd-task-markdown-export-task-export-dedupes-change-and-plan-source-paths

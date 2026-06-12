@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
+from taskledger.services.changelog_entries import add_changelog_entry
 from taskledger.services.task_reports import (
     TaskReportOptions,
     render_task_report,
@@ -118,6 +119,24 @@ class TestServiceReport:
         assert isinstance(content, str)
         assert "## Code Reviews" in content
         assert "review-0001" in content
+
+    def test_task_report_full_includes_changelog_entries(self, tmp_path: Path) -> None:
+        ws = init_workspace(tmp_path)
+        task_id = create_done_task(ws, allow_lint_errors=True)
+        add_changelog_entry(
+            ws,
+            task_id,
+            category="fixed",
+            summary="Fixed report rendering for changelog entries",
+        )
+
+        payload = render_task_report(
+            ws, task_id, options=TaskReportOptions(preset="full")
+        )
+        content = payload["content"]
+        assert isinstance(content, str)
+        assert "## Changelog Entries" in content
+        assert "cle-0001 [accepted] fixed" in content
 
     # sw: f=specs/behavior/features/task_report/report.feature
     # sw: s=@bdd-task-report-task-report-planning-report-includes-proposed-plan-details

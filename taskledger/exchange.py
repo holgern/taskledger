@@ -17,6 +17,7 @@ import yaml
 from taskledger.domain.models import (
     ActiveTaskState,
     AgentCommandLogRecord,
+    ChangelogEntry,
     CodeChangeRecord,
     CodeReviewRecord,
     DependencyRequirement,
@@ -70,6 +71,7 @@ from taskledger.storage.task_store import (
     resolve_v2_paths,
     save_active_task_state,
     save_change,
+    save_changelog_entry,
     save_check,
     save_code_review,
     save_handoff,
@@ -95,6 +97,9 @@ from taskledger.storage.task_store import list_questions as list_v2_questions
 from taskledger.storage.task_store import list_releases as list_v2_releases
 from taskledger.storage.task_store import list_runs as list_v2_runs
 from taskledger.storage.task_store import list_tasks as list_v2_tasks
+from taskledger.storage.task_store import (
+    load_changelog_entries as load_v2_changelog_entries,
+)
 from taskledger.storage.task_store import load_links as load_v2_links
 from taskledger.storage.task_store import load_requirements as load_v2_requirements
 from taskledger.storage.task_store import load_todos as load_v2_todos
@@ -370,6 +375,11 @@ def _export_v2_payload(
             for task in tasks
             for change in list_v2_changes(workspace_root, task.id)
         ],
+        "changelog_entries": [
+            entry.to_dict()
+            for task in tasks
+            for entry in load_v2_changelog_entries(workspace_root, task.id)
+        ],
         "checks": [
             check.to_dict()
             for task in tasks
@@ -432,6 +442,7 @@ def _strip_export_bodies(v2_payload: dict[str, object]) -> None:
         "plans": ("body",),
         "code_reviews": ("body",),
         "handoffs": ("context_body",),
+        "changelog_entries": ("body",),
     }
     for collection_key, body_fields in body_fields_by_collection.items():
         for item in _dict_list(v2_payload.get(collection_key)):
@@ -514,6 +525,7 @@ def _rewrite_task_ids_in_payload(
         "questions",
         "runs",
         "changes",
+        "changelog_entries",
         "checks",
         "code_reviews",
         "handoffs",
@@ -696,6 +708,8 @@ def _import_v2_payload(  # noqa: C901
         save_run(workspace_root, TaskRunRecord.from_dict(item))
     for item in _dict_list(raw_v2.get("changes")):
         save_change(workspace_root, CodeChangeRecord.from_dict(item))
+    for item in _dict_list(raw_v2.get("changelog_entries")):
+        save_changelog_entry(workspace_root, ChangelogEntry.from_dict(item))
     for item in _dict_list(raw_v2.get("checks")):
         save_check(workspace_root, ImplementationCheckRecord.from_dict(item))
     for item in _dict_list(raw_v2.get("code_reviews")):

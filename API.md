@@ -296,6 +296,7 @@ The public task-first CLI surface is organized around these command groups:
 - `file`
 - `link`
 - `require`
+- `changelog`
 - `release`
 - `lock`
 - `storage`
@@ -322,6 +323,7 @@ Top-level commands that are part of the supported surface are:
 - `grep`
 - `symbols`
 - `deps`
+- `build`
 
 All CLI commands support `--cwd`; task-first workflows also support `--root` as
 the preferred workspace alias. JSON mode returns a stable envelope with

@@ -186,8 +186,6 @@ def add_validation_check(
         },
     )
     return updated
-    save_run(workspace_root, updated)
-    return updated
 
 
 def waive_criterion(

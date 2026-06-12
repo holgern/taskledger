@@ -159,6 +159,9 @@ Use this protocol when the user asks for release notes, a changelog, or an updat
 3. Generate changelog source before editing:
    - `taskledger release changelog VERSION --since PREVIOUS_VERSION --until-task TASK --output /tmp/VERSION-changelog-source.md`
    - or `taskledger release changelog VERSION --from-task FIRST_TASK --until-task LAST_TASK --output /tmp/VERSION-changelog-source.md`
+   - if task-local entry sidecars are used, validate and build with:
+     `taskledger changelog lint --version VERSION --strict`
+     `taskledger build VERSION --release-date YYYY-MM-DD --target-file CHANGELOG.md`
 4. Inspect `Included done tasks` and `Omitted tasks`.
    - Do not silently include omitted tasks in final release notes.
    - If the user explicitly asks for an upcoming/draft release and wants non-done tasks included, rerun with the explicit draft/status option when available.
@@ -477,6 +480,9 @@ taskledger release show 0.4.1
 taskledger release changelog 0.4.2 --since 0.4.1 --until-task task-0035 --output /tmp/taskledger-0.4.2-changelog-source.md
 taskledger release changelog 0.4.2 --from-task task-0031 --until-task task-0035 --output /tmp/taskledger-0.4.2-changelog-source.md
 taskledger --json release changelog 0.4.2 --since 0.4.1 --until-task task-0035
+taskledger changelog add --task task-0035 --category fixed --summary "Fixed changelog rendering for grouped sections"
+taskledger changelog lint --version 0.4.2 --strict
+taskledger build 0.4.2 --release-date 2026-05-30 --target-file CHANGELOG.md
 taskledger task dossier task-0035 --format markdown
 taskledger import ./taskledger-transfer.tar.gz --dry-run
 taskledger export --task task-0040
