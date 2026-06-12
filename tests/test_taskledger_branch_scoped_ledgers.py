@@ -6,6 +6,7 @@ import pytest
 from typer.testing import CliRunner
 
 from taskledger.cli import app
+from taskledger.refs import global_ref_for_local_id
 from taskledger.storage.ledger_config import LedgerConfigPatch, update_ledger_config
 from taskledger.storage.paths import load_project_locator
 
@@ -90,7 +91,8 @@ def test_ledger_fork_switch_status_and_doctor(tmp_path: Path) -> None:
 
     result = _invoke(tmp_path, "ledger", "status")
     assert result.exit_code == 0, result.stdout
-    assert "Ledger ref: main" in result.stdout
+    assert "Ledger code: tl" in result.stdout
+    assert "Ledger ref:  main" in result.stdout
 
     result = _invoke(tmp_path, "ledger", "fork", "feature-a")
     assert result.exit_code == 0, result.stdout
@@ -188,3 +190,13 @@ def test_release_json_includes_ledger_ref(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0, result.stdout
     assert '"ledger_ref": "main"' in result.stdout
+
+
+def test_global_ref_remains_branch_agnostic(tmp_path: Path) -> None:
+    assert _invoke(tmp_path, "init").exit_code == 0
+    assert _invoke(tmp_path, "task", "create", "Main task").exit_code == 0
+    assert global_ref_for_local_id(tmp_path, "task-0001") == "tl:task-0001"
+
+    assert _invoke(tmp_path, "ledger", "fork", "feature-a").exit_code == 0
+    assert _invoke(tmp_path, "task", "create", "Feature task").exit_code == 0
+    assert global_ref_for_local_id(tmp_path, "task-0001") == "tl:task-0001"

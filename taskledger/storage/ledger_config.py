@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from ledgercore.refs import normalize_ref_token
+
 from taskledger.errors import LaunchError
 from taskledger.storage.toml_edit import is_toml_key_line as _is_toml_key_line
 
@@ -27,6 +29,9 @@ LEDGER_CONFIG_KEYS = frozenset(
         "ledger_branch_guard",
     }
 )
+LEDGER_IDENTITY_KEYS = frozenset({"code", "name"})
+DEFAULT_LEDGER_CODE = "tl"
+DEFAULT_LEDGER_NAME = "taskledger"
 
 
 @dataclass(slots=True, frozen=True)
@@ -45,6 +50,12 @@ class LedgerConfigPatch:
     parent_ref: str | None = None
     next_task_number: int | None = None
     branch_guard: Literal["off", "warn", "error"] | None = None
+
+
+@dataclass(slots=True, frozen=True)
+class LedgerIdentity:
+    code: str = DEFAULT_LEDGER_CODE
+    name: str = DEFAULT_LEDGER_NAME
 
 
 def validate_ledger_ref(value: str) -> str:
@@ -92,6 +103,32 @@ def load_ledger_config(config_path: Path) -> LedgerConfig:
     return _ledger_config_from_dict(data)
 
 
+def load_ledger_identity(config_path: Path) -> LedgerIdentity:
+    if not config_path.exists():
+        return LedgerIdentity()
+    data = _load_toml_mapping(config_path)
+    raw = data.get("ledger")
+    if raw is None:
+        return LedgerIdentity()
+    if not isinstance(raw, dict):
+        raise LaunchError("[ledger] must be a TOML table.")
+    unknown = set(raw) - LEDGER_IDENTITY_KEYS
+    if unknown:
+        raise LaunchError(
+            "Unsupported [ledger] key(s) in "
+            f"{config_path}: {', '.join(sorted(unknown))}"
+        )
+    code_raw = raw.get("code", DEFAULT_LEDGER_CODE)
+    name_raw = raw.get("name", DEFAULT_LEDGER_NAME)
+    if not isinstance(code_raw, str):
+        raise LaunchError("[ledger].code must be a string.")
+    if not isinstance(name_raw, str):
+        raise LaunchError("[ledger].name must be a string.")
+    code = normalize_ref_token(code_raw, label="ledger code")
+    name = _normalize_ledger_name(name_raw)
+    return LedgerIdentity(code=code, name=name)
+
+
 def _ledger_config_from_dict(data: dict[object, object]) -> LedgerConfig:
     ref = data.get("ledger_ref")
     if ref is not None:
@@ -129,6 +166,33 @@ def _ledger_config_from_dict(data: dict[object, object]) -> LedgerConfig:
         next_task_number=next_task_number,
         branch_guard=branch_guard,  # type: ignore[arg-type]
     )
+
+
+def _normalize_ledger_name(value: str) -> str:
+    stripped = value.strip()
+    if not stripped:
+        raise LaunchError("[ledger].name must not be blank.")
+    if any(char in stripped for char in ("\n", "\r", "\t")):
+        raise LaunchError("[ledger].name must not contain control whitespace.")
+    return stripped
+
+
+def _load_toml_mapping(config_path: Path) -> dict[object, object]:
+    try:
+        text = config_path.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        raise LaunchError(f"Failed to read {config_path}: {exc}") from exc
+    if not text:
+        return {}
+    try:
+        data = tomllib.loads(text)
+    except Exception as exc:  # pragma: no cover
+        raise LaunchError(f"Invalid project config {config_path}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise LaunchError(
+            f"Invalid project config {config_path}: expected a TOML table."
+        )
+    return data
 
 
 def update_ledger_config(config_path: Path, patch: LedgerConfigPatch) -> LedgerConfig:

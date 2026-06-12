@@ -54,6 +54,11 @@ from taskledger.domain.states import (
 from taskledger.domain.task import is_archived_task
 from taskledger.errors import LaunchError, NoActiveTask
 from taskledger.ids import next_project_id, slugify_project_ref
+from taskledger.refs import (
+    file_ref_for_local_id,
+    global_ref_for_local_id,
+    local_id_from_ref,
+)
 from taskledger.services import next_action_payload as _next_action_payload
 from taskledger.services.task_events import (
     append_task_event as _append_event,
@@ -250,6 +255,8 @@ def list_task_summaries(
         rows.append(
             {
                 "id": task.id,
+                "global_ref": global_ref_for_local_id(workspace_root, task.id),
+                "file_ref": file_ref_for_local_id(workspace_root, task.id),
                 "slug": task.slug,
                 "title": task.title,
                 "status": task.status_stage,
@@ -308,7 +315,7 @@ def show_task(
     )
     return {
         "kind": "task",
-        "task": _task_payload(task, active_stage=active_stage),
+        "task": _task_payload(workspace_root, task, active_stage=active_stage),
         "lock": lock.to_dict() if lock is not None else None,
         "plans": [plan.to_dict() for plan in plans],
         "questions": [question.to_dict() for question in questions],
@@ -2397,14 +2404,18 @@ def _criterion_id(index: int) -> str:
     return f"ac-{index:04d}"
 
 
-def _normalize_local_id(ref: str, prefix: str) -> str:
-    raw_prefix = f"{prefix}-"
-    if not ref.startswith(raw_prefix):
-        return ref
-    suffix = ref.removeprefix(raw_prefix)
-    if not suffix.isdigit():
-        return ref
-    return f"{prefix}-{int(suffix):04d}"
+def _normalize_local_id(workspace_root: Path, ref: str, prefix: str) -> str:
+    normalized = ref.strip().lower()
+    try:
+        return local_id_from_ref(workspace_root, normalized, kind=prefix)
+    except LaunchError:
+        raw_prefix = f"{prefix}-"
+        if not normalized.startswith(raw_prefix):
+            return normalized
+        suffix = normalized.removeprefix(raw_prefix)
+        if not suffix.isdigit():
+            return normalized
+        return f"{prefix}-{int(suffix):04d}"
 
 
 def _next_lock_id(workspace_root: Path, now: datetime) -> str:
@@ -2713,8 +2724,15 @@ def _task_with_sidecars(workspace_root: Path, task: TaskRecord) -> TaskRecord:
     )
 
 
-def _task_payload(task: TaskRecord, *, active_stage: str | None) -> dict[str, object]:
+def _task_payload(
+    workspace_root: Path,
+    task: TaskRecord,
+    *,
+    active_stage: str | None,
+) -> dict[str, object]:
     payload = task.to_dict()
+    payload["global_ref"] = global_ref_for_local_id(workspace_root, task.id)
+    payload["file_ref"] = file_ref_for_local_id(workspace_root, task.id)
     payload["active_stage"] = active_stage
     return payload
 
@@ -2731,6 +2749,7 @@ def _active_task_payload(
     return {
         "kind": "active_task",
         "task_id": task.id,
+        "task_ref": global_ref_for_local_id(workspace_root, task.id),
         "slug": task.slug,
         "title": task.title,
         "status_stage": task.status_stage,

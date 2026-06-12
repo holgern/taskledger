@@ -34,6 +34,10 @@ If a capability is missing, add it under `taskledger.api.*`.
 All workspace-bound public entrypoints accept `workspace_root: Path` as the first
 argument.
 
+Task records keep local IDs as canonical persisted identity. Cross-ledger refs
+(`<ledger.code>:<local_id>`) are derived in output payloads and must not be
+persisted as `global_id` fields in canonical task records.
+
 ## Canonical errors
 
 ```python

@@ -1,40 +1,61 @@
 from __future__ import annotations
 
-import re
+from ledgercore.ids import LedgerIdFormat, slugify_ref
+from ledgercore.refs import LedgerResourceRef, parse_resource_ref
+
+TASK_ID_FORMAT = LedgerIdFormat(prefix="task", separator="-", width=4)
 
 
 def next_project_id(prefix: str, existing_ids: list[str]) -> str:
-    pattern = re.compile(rf"^{re.escape(prefix)}-(\d+)$")
-    max_value = 0
-    for item in existing_ids:
-        match = pattern.match(item)
-        if match is None:
-            continue
-        max_value = max(max_value, int(match.group(1)))
-    return f"{prefix}-{max_value + 1:04d}"
+    return LedgerIdFormat(prefix=prefix, separator="-", width=4).next(existing_ids)
 
 
 def allocate_ledger_task_id(
     existing_ids: list[str],
     config_next_number: int,
 ) -> tuple[str, int]:
-    """Allocate a ledger-scoped task ID.
-
-    Returns (task_id, new_next_number) where new_next_number
-    should be written back to .taskledger.toml.
-    """
-    pattern = re.compile(r"^task-(\d+)$")
     max_existing = 0
     for item in existing_ids:
-        match = pattern.match(item)
-        if match is None:
+        try:
+            parts = TASK_ID_FORMAT.parse_parts(item)
+        except ValueError:
             continue
-        max_existing = max(max_existing, int(match.group(1)))
+        max_existing = max(max_existing, parts.number)
     next_number = max(config_next_number, max_existing + 1)
-    task_id = f"task-{next_number:04d}"
+    task_id = TASK_ID_FORMAT.format(next_number)
     return task_id, next_number + 1
 
 
 def slugify_project_ref(value: str, *, empty: str = "item") -> str:
-    normalized = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
-    return normalized or empty
+    return slugify_ref(value, empty=empty)
+
+
+def parse_taskledger_resource_ref(
+    value: str,
+    *,
+    default_ledger: str | None = None,
+    allowed_ledgers: set[str] | None = None,
+    allowed_kinds: set[str] | None = None,
+) -> LedgerResourceRef:
+    return parse_resource_ref(
+        value,
+        default_ledger=default_ledger,
+        allowed_ledgers=allowed_ledgers,
+        allowed_kinds=allowed_kinds,
+    )
+
+
+def normalize_local_resource_id(
+    value: str,
+    *,
+    kind: str,
+    default_ledger: str | None = None,
+    allowed_ledgers: set[str] | None = None,
+) -> str:
+    ref = parse_resource_ref(
+        value,
+        default_ledger=default_ledger,
+        allowed_ledgers=allowed_ledgers,
+        allowed_kinds={kind},
+    )
+    return ref.local_id

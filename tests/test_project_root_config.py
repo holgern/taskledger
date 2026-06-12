@@ -10,6 +10,7 @@ from typer.testing import CliRunner
 from taskledger.cli import app
 from taskledger.errors import LaunchError
 from taskledger.services.doctor import inspect_v2_project
+from taskledger.storage.ledger_config import load_ledger_identity
 from taskledger.storage.meta import StorageMeta
 from taskledger.storage.paths import resolve_project_paths
 from taskledger.storage.project_config import (
@@ -550,6 +551,9 @@ def test_merge_project_config_preserves_base_agent_logging() -> None:
 )
 def test_default_taskledger_toml_includes_commented_planning_guidance() -> None:
     rendered = render_default_taskledger_toml()
+    assert "[ledger]" in rendered
+    assert 'code = "tl"' in rendered
+    assert 'name = "taskledger"' in rendered
     assert "# [prompt_profiles.planning]" in rendered
     assert '# profile = "balanced"' in rendered
     assert "# require_files = true" in rendered
@@ -598,6 +602,57 @@ def test_render_default_taskledger_toml_includes_project_name_when_given() -> No
         project_name="taskledger",
     )
     assert 'project_name = "taskledger"' in rendered
+
+
+def test_validate_project_config_allows_ledger_table() -> None:
+    from taskledger.storage.project_config import _validate_project_config_overrides
+
+    _validate_project_config_overrides(
+        {"ledger": {"code": "TL", "name": "Task Ledger"}},
+        Path("taskledger.toml"),
+    )
+
+
+def test_validate_project_config_rejects_unknown_ledger_keys() -> None:
+    from taskledger.storage.project_config import _validate_project_config_overrides
+
+    with pytest.raises(LaunchError, match="Unsupported \\[ledger\\] key"):
+        _validate_project_config_overrides(
+            {"ledger": {"code": "tl", "name": "taskledger", "extra": "x"}},
+            Path("taskledger.toml"),
+        )
+
+
+def test_validate_project_config_rejects_invalid_ledger_code() -> None:
+    from taskledger.storage.project_config import _validate_project_config_overrides
+
+    with pytest.raises(LaunchError, match="ledger.code"):
+        _validate_project_config_overrides(
+            {"ledger": {"code": "tl_main", "name": "taskledger"}},
+            Path("taskledger.toml"),
+        )
+
+
+def test_load_ledger_identity_defaults_when_table_missing(tmp_path: Path) -> None:
+    config_path = tmp_path / "taskledger.toml"
+    config_path.write_text('config_version = 2\ntaskledger_dir = ".taskledger"\n')
+    identity = load_ledger_identity(config_path)
+    assert identity.code == "tl"
+    assert identity.name == "taskledger"
+
+
+def test_load_ledger_identity_normalizes_uppercase_code(tmp_path: Path) -> None:
+    config_path = tmp_path / "taskledger.toml"
+    config_path.write_text(
+        "config_version = 2\n"
+        'taskledger_dir = ".taskledger"\n'
+        "[ledger]\n"
+        'code = "TL"\n'
+        'name = "Task Ledger"\n'
+    )
+    identity = load_ledger_identity(config_path)
+    assert identity.code == "tl"
+    assert identity.name == "Task Ledger"
 
 
 def test_validate_sync_git_allows_valid_config() -> None:

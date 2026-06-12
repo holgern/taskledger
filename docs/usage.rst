@@ -85,6 +85,11 @@ Cross-ledger semantics belong to an organizer such as ledgerdeck.
 Use ``taskledger link`` or ``taskledger file`` for references to external artifacts;
 Taskledger treats those references as opaque and does not interpret them.
 
+Local IDs remain the stored identity. Global refs are derived as
+``<ledger.code>:<local_id>``. Canonical output is lowercase colon refs
+(``tl:task-0001``); uppercase and file-safe forms are accepted aliases.
+Task records must not store ``global_id``.
+
 .. code-block:: bash
 
    taskledger link add --url specs/behavior/features/checkout/payment.feature --label "behavior spec"

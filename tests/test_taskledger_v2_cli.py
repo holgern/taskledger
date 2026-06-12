@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 
 from taskledger.cli import app
 from taskledger.services.tasks import add_change, start_implementation
+from taskledger.storage.frontmatter import read_markdown_front_matter
 from taskledger.storage.task_store import (
     list_runs,
     resolve_run,
@@ -139,6 +140,86 @@ Repair before implementation.
     run = resolve_run(tmp_path, task.id, task.latest_planning_run)
     save_run(tmp_path, replace(run, status="running", finished_at=None))
     return task.id, run.run_id
+
+
+def test_task_show_accepts_global_and_file_ref_aliases(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+    create = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "create",
+            "alias task",
+            "--slug",
+            "alias-task",
+        ],
+    )
+    assert create.exit_code == 0, create.stdout
+
+    canonical = _json(
+        runner.invoke(
+            app,
+            ["--cwd", str(tmp_path), "--json", "task", "show", "task-0001"],
+        )
+    )
+    for ref in ("tl:task-0001", "tl-task-0001", "TL-TASK-0001"):
+        payload = _json(
+            runner.invoke(
+                app,
+                ["--cwd", str(tmp_path), "--json", "task", "show", ref],
+            )
+        )
+        assert payload["result"]["task"]["id"] == canonical["result"]["task"]["id"]
+        assert payload["result"]["task"]["global_ref"] == "tl:task-0001"
+        assert payload["result"]["task"]["file_ref"] == "tl-task-0001"
+
+
+def test_ref_show_and_parse_emit_resource_ref_payload(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+    for command in ("show", "parse"):
+        payload = _json(
+            runner.invoke(
+                app,
+                ["--cwd", str(tmp_path), "--json", "ref", command, "TL-TASK-0001"],
+            )
+        )
+        result = payload["result"]
+        assert result["kind"] == "resource_ref"
+        assert result["local_id"] == "task-0001"
+        assert result["global_ref"] == "tl:task-0001"
+        assert result["file_ref"] == "tl-task-0001"
+
+
+def test_task_record_keeps_local_id_without_global_ref_fields(tmp_path: Path) -> None:
+    _init_project(tmp_path)
+    create = runner.invoke(
+        app,
+        [
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "create",
+            "local-id-only",
+            "--slug",
+            "local-id-only",
+        ],
+    )
+    assert create.exit_code == 0, create.stdout
+    task_md = (
+        tmp_path
+        / ".taskledger"
+        / "ledgers"
+        / "main"
+        / "tasks"
+        / "task-0001"
+        / "task.md"
+    )
+    metadata, _ = read_markdown_front_matter(task_md)
+    assert metadata["id"] == "task-0001"
+    assert "global_id" not in metadata
+    assert "global_ref" not in metadata
 
 
 def test_implement_command_records_stdout_stderr_and_exit_code(

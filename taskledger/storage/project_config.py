@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, cast
 
+from ledgercore.refs import normalize_ref_token
+
 from taskledger.errors import LaunchError
 from taskledger.storage.project_identity import normalize_project_name
 from taskledger.storage.toml_edit import (
@@ -60,6 +62,7 @@ WORKFLOW_CONFIG_KEYS = frozenset(
     }
 )
 SYNC_CONFIG_KEYS = frozenset({"sync"})
+LEDGER_IDENTITY_CONFIG_KEYS = frozenset({"ledger"})
 AGENT_LOGGING_CONFIG_KEYS = frozenset(
     {
         "enabled",
@@ -84,6 +87,7 @@ SUPPORTED_PROJECT_CONFIG_KEYS = (
     | IDENTITY_CONFIG_KEYS
     | PROJECT_METADATA_CONFIG_KEYS
     | LEDGER_CONFIG_KEYS
+    | LEDGER_IDENTITY_CONFIG_KEYS
     | WORKFLOW_CONFIG_KEYS
     | SYNC_CONFIG_KEYS
 )
@@ -246,6 +250,8 @@ def render_default_taskledger_toml(
     ledger_ref: str = "main",
     ledger_parent_ref: str = "",
     ledger_next_task_number: int = 1,
+    ledger_code: str = "tl",
+    ledger_name: str = "taskledger",
     project_uuid: str | None = None,
     project_name: str | None = None,
 ) -> str:
@@ -274,6 +280,14 @@ def render_default_taskledger_toml(
             f"ledger_next_task_number = {ledger_next_task_number}\n"
             'ledger_branch_guard = "off"\n'
         )
+    ledger_identity_block = (
+        "\n"
+        "# Cross-ledger identity. Local record IDs stay unchanged; "
+        "global refs are derived.\n"
+        "[ledger]\n"
+        f'code = "{ledger_code}"\n'
+        f'name = "{ledger_name}"\n'
+    )
     return (
         f"# Project-local taskledger configuration.\n"
         f"# This file lives in the source project root.\n"
@@ -281,6 +295,7 @@ def render_default_taskledger_toml(
         f"taskledger_dir = {taskledger_dir!r}"
         f"{identity_block}"
         f"{ledger_block}"
+        f"{ledger_identity_block}"
         f"\n"
         "# Project-local taskledger overrides.\n"
         "# The source-budget settings below are the active composition defaults.\n"
@@ -859,6 +874,34 @@ def _validate_project_config_overrides(data: dict[str, object], path: Path) -> N
             raise LaunchError(
                 f"Project config key 'project_name' is invalid in {path}: {exc}"
             ) from exc
+    ledger = data.get("ledger")
+    if ledger is not None:
+        if not isinstance(ledger, dict):
+            raise LaunchError(f"Project config key 'ledger' must be a table in {path}")
+        unknown = set(ledger) - {"code", "name"}
+        if unknown:
+            raise LaunchError(
+                f"Unsupported [ledger] key(s) in {path}: {', '.join(sorted(unknown))}"
+            )
+        code = ledger.get("code", "tl")
+        name = ledger.get("name", "taskledger")
+        if not isinstance(code, str):
+            raise LaunchError(
+                f"Project config key 'ledger.code' must be a string in {path}"
+            )
+        if not isinstance(name, str):
+            raise LaunchError(
+                f"Project config key 'ledger.name' must be a string in {path}"
+            )
+        try:
+            normalize_ref_token(code, label="ledger code")
+        except Exception as exc:
+            raise LaunchError(
+                f"Project config key 'ledger.code' is invalid in {path}: {exc}"
+            ) from exc
+        name_stripped = name.strip()
+        if not name_stripped or any(ch in name_stripped for ch in ("\n", "\r", "\t")):
+            raise LaunchError(f"Project config key 'ledger.name' is invalid in {path}")
     artifact_rules = data.get("artifact_rules")
     if artifact_rules is not None:
         if not isinstance(artifact_rules, dict):

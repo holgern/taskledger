@@ -802,6 +802,24 @@ Taskledger owns temporal work truth: tasks, plans, acceptance criteria,
 implementation changes, validation checks, reviews, locks, and handoffs.
 Cross-ledger links are opaque file or ID references.
 
+Local IDs remain the stored identity. Global refs are derived as
+`<ledger.code>:<local_id>`.
+
+Examples:
+
+- `task-0001` -> `tl:task-0001`
+- `todo-0001` -> `tl:todo-0001`
+- `ac-0001` -> `tl:ac-0001`
+
+File-safe aliases:
+
+- `tl-task-0001`
+- `tl-todo-0001`
+- `tl-ac-0001`
+
+Do not store `global_id` in task records. Uppercase/file-safe forms may be
+accepted as aliases, but canonical output is lowercase colon refs.
+
 Run `taskledger trace TASK --format json` for a read-only `taskledger.trace.v1`
 bundle that links task history, accepted AC IDs, opaque link refs,
 source refs, evidence refs, reviews, and handoffs.

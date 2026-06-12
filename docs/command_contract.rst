@@ -42,6 +42,15 @@ Task-resource commands accept the task as their direct positional resource:
    taskledger task archive task-0001 --reason "Hide historical task"
    taskledger task unarchive task-0001 --reason "Restore task"
    taskledger task report task-0001
+   taskledger task show tl:task-0001
+   taskledger task show tl-task-0001
+
+Reference parsing helpers are available:
+
+.. code-block:: bash
+
+   taskledger ref show task-0001
+   taskledger ref parse TL-TASK-0001
 
 Fresh-session and monitoring commands are top-level read surfaces:
 

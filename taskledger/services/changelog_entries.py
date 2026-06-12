@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, replace
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import cast
 
@@ -207,6 +208,17 @@ def import_changelog_entry_file(
     return entry
 
 
+def _next_updated_at(previous: str) -> str:
+    now = utc_now_iso()
+    if now != previous:
+        return now
+    normalized = previous.replace("Z", "+00:00")
+    previous_dt = datetime.fromisoformat(normalized)
+    if previous_dt.tzinfo is None:
+        previous_dt = previous_dt.replace(tzinfo=timezone.utc)
+    return (previous_dt + timedelta(seconds=1)).astimezone(timezone.utc).isoformat()
+
+
 def update_changelog_entry(
     workspace_root: Path,
     task_ref: str,
@@ -275,7 +287,7 @@ def update_changelog_entry(
         scopes=updated_scopes,
         source_run_id=updated_source_run_id,
         source_kind=source_kind if source_kind is not None else existing.source_kind,
-        updated_at=utc_now_iso(),
+        updated_at=_next_updated_at(existing.updated_at),
     )
     save_changelog_entry(workspace_root, updated)
     return updated

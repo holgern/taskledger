@@ -26,12 +26,19 @@ def ledger_status_command(ctx: typer.Context) -> None:
     state = ctx.obj
     assert isinstance(state, CLIState)
     try:
-        from taskledger.storage.ledger_config import load_ledger_config
+        from ledgercore.ids import LedgerIdFormat
+
+        from taskledger.refs import global_ref_for_local_id
+        from taskledger.storage.ledger_config import (
+            load_ledger_config,
+            load_ledger_identity,
+        )
         from taskledger.storage.paths import load_project_locator
         from taskledger.storage.task_store import list_tasks, resolve_v2_paths
 
         locator = load_project_locator(state.cwd)
         config = load_ledger_config(locator.config_path)
+        identity = load_ledger_identity(locator.config_path)
         paths = resolve_v2_paths(state.cwd)
         tasks = list_tasks(state.cwd)
         from taskledger.storage.task_store import load_active_task_state
@@ -43,11 +50,15 @@ def ledger_status_command(ctx: typer.Context) -> None:
 
     task_count = len(tasks)
     active_task_id = active.task_id if active else None
-    active_task_id = active.task_id if active else None
-    next_task_id = f"task-{config.next_task_number:04d}"
+    next_task_id = LedgerIdFormat(prefix="task", separator="-", width=4).format(
+        config.next_task_number
+    )
+    next_task_ref = global_ref_for_local_id(state.cwd, next_task_id)
     payload = {
         "ok": True,
         "kind": "ledger_status",
+        "ledger_code": identity.code,
+        "ledger_name": identity.name,
         "ledger_ref": config.ref,
         "ledger_parent_ref": config.parent_ref,
         "ledger_next_task_number": config.next_task_number,
@@ -55,16 +66,19 @@ def ledger_status_command(ctx: typer.Context) -> None:
         "task_count": task_count,
         "active_task_id": active_task_id,
         "next_task_id": next_task_id,
+        "next_task_ref": next_task_ref,
     }
     parent_display = config.parent_ref or "none"
     active_display = active_task_id or "none"
     human_lines = [
         "LEDGER STATUS",
-        f"  Ledger ref: {config.ref}",
-        f"  Parent ref: {parent_display}",
-        f"  Next task:  {next_task_id}",
-        f"  Storage:    {paths.ledger_dir.relative_to(state.cwd)}",
-        f"  Tasks:      {task_count}",
+        f"  Ledger code: {identity.code}",
+        f"  Ledger ref:  {config.ref}",
+        f"  Parent ref:  {parent_display}",
+        f"  Next task:   {next_task_id}",
+        f"  Next ref:    {next_task_ref}",
+        f"  Storage:     {paths.ledger_dir.relative_to(state.cwd)}",
+        f"  Tasks:       {task_count}",
         f"  Active task: {active_display}",
     ]
     emit_payload(ctx, payload, human="\n".join(human_lines))

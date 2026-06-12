@@ -449,7 +449,7 @@ def set_todo_done(
         workspace_root, resolve_task(workspace_root, task_ref)
     )
     _tasks._ensure_not_archived(task, operation="update todo on")
-    normalized_todo_id = _tasks._normalize_local_id(todo_id, "todo")
+    normalized_todo_id = _tasks._normalize_local_id(workspace_root, todo_id, "todo")
     _tasks._enforce_decision(
         todo_toggle_decision(
             task,
@@ -508,13 +508,20 @@ def show_todo(workspace_root: Path, task_ref: str, todo_id: str) -> dict[str, ob
     task = _tasks._task_with_sidecars(
         workspace_root, resolve_task(workspace_root, task_ref)
     )
-    normalized_todo_id = _tasks._normalize_local_id(todo_id, "todo")
+    normalized_todo_id = _tasks._normalize_local_id(workspace_root, todo_id, "todo")
     for todo in task.todos:
         if todo.id == todo_id or todo.id == normalized_todo_id:
             return {
                 "kind": "task_todo",
                 "task_id": task.id,
-                "todo": todo.to_dict(),
+                "task_ref": _tasks.global_ref_for_local_id(workspace_root, task.id),
+                "todo": {
+                    **todo.to_dict(),
+                    "global_ref": _tasks.global_ref_for_local_id(
+                        workspace_root,
+                        todo.id,
+                    ),
+                },
             }
     raise _tasks._cli_error(f"Todo not found: {todo_id}", EXIT_CODE_MISSING)
 

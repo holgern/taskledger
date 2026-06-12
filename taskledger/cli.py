@@ -78,6 +78,7 @@ from taskledger.cli_misc import (
 from taskledger.cli_pipeline import register_pipeline_commands
 from taskledger.cli_plan import register_plan_v2_commands
 from taskledger.cli_question import register_question_v2_commands
+from taskledger.cli_ref import ref_app
 from taskledger.cli_review import register_review_commands
 from taskledger.cli_storage import register_storage_commands
 from taskledger.cli_sync import register_sync_commands
@@ -170,6 +171,7 @@ app.add_typer(ledger_app, name="ledger")
 app.add_typer(pipeline_app, name="pipeline")
 app.add_typer(review_app, name="review")
 app.add_typer(config_app, name="config")
+app.add_typer(ref_app, name="ref")
 
 register_task_v2_commands(task_app)
 register_plan_v2_commands(plan_app)

@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Literal, TypeVar
 
 import yaml
+from ledgercore.ids import LedgerIdFormat
 
 from taskledger.domain.models import (
     ActiveActorState,
@@ -185,7 +186,7 @@ def resolve_task(
     include_archived: bool = False,
 ) -> TaskRecord:
     normalized_ref = ref.strip().lower()
-    normalized_id = _normalize_numeric_ref(normalized_ref, "task")
+    normalized_id = _normalize_resource_ref(workspace_root, normalized_ref, "task")
 
     # Direct-path: if the normalized ref is a task ID, try reading just that file.
     if normalized_id.startswith("task-"):
@@ -195,6 +196,10 @@ def resolve_task(
             task = _load_task(path)
             if include_archived or not is_archived_task(task):
                 return task
+
+    # If this input looks like a global/file ref and parsing failed, surface that error.
+    if _looks_like_global_ref(normalized_ref) and not normalized_id.startswith("task-"):
+        raise LaunchError(f"Task not found: {ref}")
 
     # Fallback: full scan for slug lookup or archived ID miss.
     tasks = list_tasks(workspace_root)
@@ -500,7 +505,7 @@ def list_questions(workspace_root: Path, task_id: str) -> list[QuestionRecord]:
 def resolve_question(
     workspace_root: Path, task_id: str, question_id: str
 ) -> QuestionRecord:
-    normalized_id = _normalize_numeric_ref(question_id, "q")
+    normalized_id = _normalize_resource_ref(workspace_root, question_id, "q")
     for question in list_questions(workspace_root, task_id):
         if question.id == question_id or question.id == normalized_id:
             return question
@@ -536,7 +541,7 @@ def list_runs(workspace_root: Path, task_id: str) -> list[TaskRunRecord]:
 
 
 def resolve_run(workspace_root: Path, task_id: str, run_id: str) -> TaskRunRecord:
-    normalized_id = _normalize_numeric_ref(run_id, "run")
+    normalized_id = _normalize_resource_ref(workspace_root, run_id, "run")
     for run in list_runs(workspace_root, task_id):
         if run.run_id == run_id or run.run_id == normalized_id:
             return run
@@ -581,7 +586,7 @@ def save_change(workspace_root: Path, change: CodeChangeRecord) -> CodeChangeRec
 def resolve_change(
     workspace_root: Path, task_id: str, change_id: str
 ) -> CodeChangeRecord:
-    normalized_id = _normalize_numeric_ref(change_id, "change")
+    normalized_id = _normalize_resource_ref(workspace_root, change_id, "change")
     for change in list_changes(workspace_root, task_id):
         if change.change_id == change_id or change.change_id == normalized_id:
             return change
@@ -610,7 +615,7 @@ def save_check(
 def resolve_check(
     workspace_root: Path, task_id: str, check_id: str
 ) -> ImplementationCheckRecord:
-    normalized_id = _normalize_numeric_ref(check_id, "check")
+    normalized_id = _normalize_resource_ref(workspace_root, check_id, "check")
     for check in list_checks(workspace_root, task_id):
         if check.check_id == check_id or check.check_id == normalized_id:
             return check
@@ -659,7 +664,7 @@ def resolve_code_review(
     task_id: str,
     review_ref: str,
 ) -> CodeReviewRecord:
-    normalized_id = _normalize_numeric_ref(review_ref, "review")
+    normalized_id = _normalize_resource_ref(workspace_root, review_ref, "review")
     for review in list_code_reviews(workspace_root, task_id):
         if review.review_id == review_ref or review.review_id == normalized_id:
             return review
@@ -1080,20 +1085,46 @@ def _write_yaml(path: Path, payload: dict[str, object]) -> None:
 
 
 def _normalize_numeric_ref(ref: str, prefix: str) -> str:
-    raw_prefix = f"{prefix}-"
-    if not ref.startswith(raw_prefix):
+    format_ = LedgerIdFormat(prefix=prefix, separator="-", width=4)
+    try:
+        parts = format_.parse_parts(ref)
+    except ValueError:
         return ref
-    suffix = ref.removeprefix(raw_prefix)
-    if not suffix.isdigit():
-        return ref
-    return f"{prefix}-{int(suffix):04d}"
+    return format_.format(parts.number)
 
 
 def task_numeric_sort_key(task_id: str) -> tuple[int, str]:
-    match = re.fullmatch(r"task-(\d+)", task_id)
-    if match is None:
+    try:
+        number = (
+            LedgerIdFormat(prefix="task", separator="-", width=4)
+            .parse_parts(task_id)
+            .number
+        )
+    except ValueError:
         return (10**9, task_id)
-    return (int(match.group(1)), task_id)
+    return (number, task_id)
+
+
+def _looks_like_global_ref(value: str) -> bool:
+    if ":" in value:
+        return True
+    if value.upper().startswith("TL-"):
+        return True
+    if re.fullmatch(r"[a-zA-Z][a-zA-Z0-9]{0,2}[-_][a-zA-Z]+[-_]\d+", value) is not None:
+        return True
+    return False
+
+
+def _normalize_resource_ref(workspace_root: Path, ref: str, kind: str) -> str:
+    from taskledger.refs import local_id_from_ref
+
+    normalized = ref.strip().lower()
+    try:
+        return local_id_from_ref(workspace_root, normalized, kind=kind)
+    except LaunchError:
+        if _looks_like_global_ref(normalized):
+            raise
+        return _normalize_numeric_ref(normalized, kind)
 
 
 def _render_question_body(question: QuestionRecord) -> str:
@@ -1150,7 +1181,8 @@ def resolve_handoff(
     workspace_root: Path, task_id: str, handoff_ref: str
 ) -> TaskHandoffRecord:
     paths = resolve_v2_paths(workspace_root)
-    path = handoff_markdown_path(paths, task_id, handoff_ref)
+    normalized_id = _normalize_resource_ref(workspace_root, handoff_ref, "handoff")
+    path = handoff_markdown_path(paths, task_id, normalized_id)
     if not path.exists():
         raise LaunchError(f"Handoff not found: {handoff_ref}")
     metadata, body = read_markdown_front_matter(path)

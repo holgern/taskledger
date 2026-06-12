@@ -1,56 +1,72 @@
 from __future__ import annotations
 
-import json
-from hashlib import sha256
 from pathlib import Path
+
+from ledgercore.errors import JsonStoreError
+from ledgercore.io import (
+    content_hash as _content_hash,
+)
+from ledgercore.io import (
+    merge_text as _merge_text,
+)
+from ledgercore.io import (
+    read_text as _read_text,
+)
+from ledgercore.io import (
+    write_text as _write_text,
+)
+from ledgercore.jsonio import (
+    load_json_array as _load_json_array,
+)
+from ledgercore.jsonio import (
+    load_json_object as _load_json_object,
+)
+from ledgercore.jsonio import (
+    write_json as _write_json,
+)
 
 from taskledger.errors import LaunchError
 from taskledger.storage.paths import ProjectPaths
 
 
 def load_json_array(path: Path, label: str) -> list[dict[str, object]]:
-    if not path.exists():
-        return []
-    text = read_text(path).strip()
-    if not text:
-        return []
     try:
-        data = json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise LaunchError(f"Invalid {label} {path}: {exc}") from exc
-    if not isinstance(data, list):
-        raise LaunchError(f"Invalid {label} {path}: expected a JSON array.")
+        data = _load_json_array(path, label=label, missing="empty", empty="empty")
+    except JsonStoreError as exc:
+        message = str(exc)
+        if "must contain a JSON array" in message:
+            message = "expected a JSON array."
+        raise LaunchError(f"Invalid {label} {path}: {message}") from exc
     return [item for item in data if isinstance(item, dict)]
 
 
 def load_json_object(path: Path, label: str) -> dict[str, object]:
-    text = read_text(path).strip()
-    if not text:
-        return {}
     try:
-        data = json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise LaunchError(f"Invalid {label} {path}: {exc}") from exc
-    if not isinstance(data, dict):
-        raise LaunchError(f"Invalid {label} {path}: expected a JSON object.")
-    return data
+        return _load_json_object(path, label=label, missing="error", empty="empty")
+    except JsonStoreError as exc:
+        message = str(exc)
+        if "must contain a JSON object" in message:
+            message = "expected a JSON object."
+        raise LaunchError(f"Invalid {label} {path}: {message}") from exc
 
 
 def write_json(path: Path, payload: object) -> None:
-    write_text(path, json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    try:
+        _write_json(path, payload, atomic=True)
+    except JsonStoreError as exc:
+        raise LaunchError(f"Failed to write {path}: {exc}") from exc
 
 
 def write_text(path: Path, contents: str) -> None:
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(contents, encoding="utf-8")
+        _write_text(path, contents, normalize=False)
     except OSError as exc:
         raise LaunchError(f"Failed to write {path}: {exc}") from exc
 
 
 def read_text(path: Path) -> str:
     try:
-        return path.read_text(encoding="utf-8")
+        return _read_text(path, normalize=False)
     except OSError as exc:
         raise LaunchError(f"Failed to read {path}: {exc}") from exc
 
@@ -78,13 +94,8 @@ def summarize_text(text: str) -> str | None:
 def content_hash(text: str) -> str | None:
     if not text:
         return None
-    return sha256(text.encode("utf-8")).hexdigest()
+    return _content_hash(text)
 
 
 def merge_text(current: str, incoming: str, *, prepend: bool) -> str:
-    if not current:
-        return incoming
-    if not incoming:
-        return current
-    combined = [incoming, current] if prepend else [current, incoming]
-    return "\n\n".join(part.rstrip("\n") for part in combined if part)
+    return _merge_text(current, incoming, prepend=prepend)

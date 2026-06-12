@@ -33,6 +33,7 @@ Use this path first for routine work:
 usage
 actor whoami
 task active | task show | task create | task activate | task follow-up
+ref show | ref parse
 next-action | context | can
 config list | config get | config set
 plan start -> plan template -> plan upsert -> plan lint -> plan accept

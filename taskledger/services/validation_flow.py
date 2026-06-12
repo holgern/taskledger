@@ -160,7 +160,11 @@ def add_validation_check(
             task.id,
             version=task.accepted_plan_version,
         )
-        resolved_criterion = _resolve_criterion_ref(accepted_plan, resolved_criterion)
+        resolved_criterion = _resolve_criterion_ref(
+            workspace_root,
+            accepted_plan,
+            resolved_criterion,
+        )
 
     check = ValidationCheck(
         name=(name or resolved_criterion or check_id).strip(),
@@ -209,7 +213,11 @@ def waive_criterion(
         task.id,
         version=task.accepted_plan_version,
     )
-    resolved_criterion = _resolve_criterion_ref(accepted_plan, criterion_id)
+    resolved_criterion = _resolve_criterion_ref(
+        workspace_root,
+        accepted_plan,
+        criterion_id,
+    )
 
     if not reason.strip():
         raise _tasks._cli_error("Waiver reason is required.", EXIT_CODE_BAD_INPUT)
@@ -326,7 +334,11 @@ def finish_validation(
     )
 
 
-def _resolve_criterion_ref(plan: PlanRecord, criterion_ref: str) -> str:
+def _resolve_criterion_ref(
+    workspace_root: Path,
+    plan: PlanRecord,
+    criterion_ref: str,
+) -> str:
     if not plan.criteria:
         raise _tasks._cli_error(
             "No acceptance criteria defined in plan.",
@@ -334,6 +346,12 @@ def _resolve_criterion_ref(plan: PlanRecord, criterion_ref: str) -> str:
         )
 
     normalized_ref = criterion_ref.strip().lower()
+    try:
+        from taskledger.refs import local_id_from_ref
+
+        normalized_ref = local_id_from_ref(workspace_root, normalized_ref, kind="ac")
+    except LaunchError:
+        pass
 
     for criterion in plan.criteria:
         c_id_lower = criterion.id.lower()

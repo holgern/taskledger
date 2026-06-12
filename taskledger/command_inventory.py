@@ -1035,6 +1035,20 @@ COMMAND_METADATA: dict[str, CommandSpec] = {
         workspace_effect=EFFECT_READ,
         targeting=TARGETING_EXPLICIT_REQUIRED,
     ),
+    "ref show": CommandSpec(
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_REPORTING,
+        ledger_effect=EFFECT_READ,
+    ),
+    "ref parse": CommandSpec(
+        STABLE_FOR_AGENTS,
+        "safe_read_only",
+        SUPPORT,
+        PHASE_REPORTING,
+        ledger_effect=EFFECT_READ,
+    ),
     "link add": CommandSpec(
         STABLE_FOR_AGENTS,
         "ledger_mutation",

@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from ledgercore.paths import find_config_upwards
+
 from taskledger.storage.project_config import load_project_config_document
 
 CANONICAL_PROJECT_CONFIG_FILENAME = "taskledger.toml"
@@ -50,12 +52,8 @@ def discover_workspace_root(start: Path) -> Path:
 
 
 def find_project_config(start: Path) -> Path | None:
-    for current in _search_roots(start):
-        for filename in PROJECT_CONFIG_FILENAMES:
-            candidate = current / filename
-            if candidate.exists():
-                return candidate
-    return None
+    start_path = start if start.is_dir() else start.parent
+    return find_config_upwards(start_path, PROJECT_CONFIG_FILENAMES)
 
 
 def load_project_locator(
