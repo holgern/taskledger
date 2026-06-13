@@ -99,3 +99,13 @@ def content_hash(text: str) -> str | None:
 
 def merge_text(current: str, incoming: str, *, prepend: bool) -> str:
     return _merge_text(current, incoming, prepend=prepend)
+
+
+def try_load_json_object(path: Path, label: str) -> dict[str, object] | None:
+    """Load a JSON object file, returning None if missing or malformed."""
+    if not path.exists():
+        return None
+    try:
+        return _load_json_object(path, label=label, missing="error", empty="empty")
+    except JsonStoreError:
+        return None

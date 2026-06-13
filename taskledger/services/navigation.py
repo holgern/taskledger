@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import cast
@@ -801,8 +800,8 @@ def _answer_snapshot_hash(questions: list[QuestionRecord]) -> str | None:
     ]
     if not answered:
         return None
-    digest = hashlib.sha256("\n".join(sorted(answered)).encode("utf-8")).hexdigest()
-    return f"sha256:{digest}"
+    from taskledger.storage.common import content_hash as lc_content_hash
+    return f"sha256:{lc_content_hash(chr(10).join(sorted(answered)))}"
 
 
 def _required_open_question_ids(questions: list[QuestionRecord]) -> list[str]:

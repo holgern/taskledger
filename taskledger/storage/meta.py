@@ -5,14 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import yaml
 
 from taskledger.domain.states import (
     TASKLEDGER_RECORD_SCHEMA_VERSION,
     TASKLEDGER_STORAGE_LAYOUT_VERSION,
 )
 from taskledger.errors import LaunchError
-from taskledger.storage.atomic import atomic_write_text
+from taskledger.storage.yaml_store import load_yaml_object, write_yaml_object
 from taskledger.storage.paths import resolve_taskledger_root
 from taskledger.timeutils import utc_now_iso
 
@@ -45,12 +44,7 @@ def read_storage_meta(workspace_root: Path) -> StorageMeta | None:
     path = _storage_yaml_path(workspace_root)
     if not path.exists():
         return None
-    try:
-        payload = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except yaml.YAMLError as exc:
-        raise LaunchError(f"Invalid storage.yaml: {exc}") from exc
-    if not isinstance(payload, dict):
-        raise LaunchError("Invalid storage.yaml: expected mapping.")
+    payload = load_yaml_object(path, "storage.yaml")
     return StorageMeta(
         storage_layout_version=_int_field(payload, "storage_layout_version"),
         record_schema_version=_int_field(payload, "record_schema_version"),
@@ -65,8 +59,7 @@ def read_storage_meta(workspace_root: Path) -> StorageMeta | None:
 
 def write_storage_meta(workspace_root: Path, meta: StorageMeta) -> StorageMeta:
     path = _storage_yaml_path(workspace_root)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    atomic_write_text(path, yaml.safe_dump(meta.to_dict(), sort_keys=False))
+    write_yaml_object(path, meta.to_dict())
     return meta
 
 

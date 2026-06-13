@@ -5,10 +5,9 @@ import os
 import socket
 from pathlib import Path
 
-import yaml
 
 from taskledger.domain.models import ActorRef, HarnessRef, TaskEvent, TaskLock
-from taskledger.storage.atomic import atomic_write_text
+from taskledger.storage.yaml_store import write_yaml_object
 from taskledger.storage.events import append_event, next_event_id
 from taskledger.storage.task_store import V2Paths, resolve_v2_paths, task_audit_dir
 from taskledger.timeutils import utc_now_iso
@@ -66,8 +65,5 @@ def write_broken_lock_audit(paths: V2Paths, task_id: str, lock: TaskLock) -> Pat
     timestamp = lock.broken_at or utc_now_iso()
     filename = timestamp.replace(":", "").replace("-", "").replace("+00:00", "Z")
     path = task_audit_dir(paths, task_id) / f"broken-lock-{filename}.yaml"
-    atomic_write_text(
-        path,
-        yaml.safe_dump(lock.to_dict(), sort_keys=False, allow_unicode=True),
-    )
+    write_yaml_object(path, lock.to_dict())
     return path

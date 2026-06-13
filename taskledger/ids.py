@@ -59,3 +59,24 @@ def normalize_local_resource_id(
         allowed_kinds={kind},
     )
     return ref.local_id
+
+
+def format_task_id(number: int) -> str:
+    return TASK_ID_FORMAT.format(number)
+
+
+def normalize_numeric_ref(ref: str, prefix: str) -> str:
+    fmt = LedgerIdFormat(prefix=prefix, separator="-", width=4)
+    try:
+        parts = fmt.parse_parts(ref)
+    except ValueError:
+        return ref
+    return fmt.format(parts.number)
+
+
+def numeric_id_sort_key(value: str, *, prefix: str) -> tuple[int, str]:
+    fmt = LedgerIdFormat(prefix=prefix, separator="-", width=4)
+    try:
+        return (fmt.parse_parts(value).number, value)
+    except ValueError:
+        return (10**9, value)

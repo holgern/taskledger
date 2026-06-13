@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Annotated, cast
 
 import typer
-import yaml
 
 from taskledger.api.changelog import (
     add_changelog_entry,
@@ -78,14 +77,9 @@ def _render_validation_error(exc: LaunchError) -> str | None:
 
 
 def _load_batch_entries(path: Path) -> list[dict[str, object]]:
-    try:
-        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except OSError as exc:
-        raise LaunchError(f"Failed to read batch file {path}: {exc}") from exc
-    except yaml.YAMLError as exc:
-        raise LaunchError(f"Invalid YAML in batch file {path}: {exc}") from exc
-    if not isinstance(raw, dict):
-        raise LaunchError("Batch file must contain a top-level mapping with `entries`.")
+    from taskledger.storage.yaml_store import load_yaml_object
+
+    raw = load_yaml_object(path, "batch file")
     entries = raw.get("entries")
     if not isinstance(entries, list):
         raise LaunchError("Batch file must define `entries` as a list.")

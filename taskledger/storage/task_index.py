@@ -6,7 +6,6 @@ canonical Markdown/YAML records. It is never the authoritative source of truth.
 
 from __future__ import annotations
 
-import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
@@ -179,19 +178,9 @@ def rebuild_task_index(paths: V2Paths) -> dict[str, int]:
 
 def _read_index(paths: V2Paths) -> dict[str, object] | None:
     """Read the task index file. Returns None if missing or malformed."""
-    path = _task_index_path(paths)
-    if not path.exists():
-        return None
-    try:
-        text = path.read_text(encoding="utf-8").strip()
-        if not text:
-            return None
-        data = json.loads(text)
-        if not isinstance(data, dict):
-            return None
-        return data
-    except (json.JSONDecodeError, OSError):
-        return None
+    from taskledger.storage.common import try_load_json_object
+
+    return try_load_json_object(_task_index_path(paths), "task index")
 
 
 def _entry_is_stale(entry: dict[str, object], task_path: Path) -> bool:

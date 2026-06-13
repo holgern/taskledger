@@ -3,38 +3,38 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
-import yaml
 
 from taskledger.domain.models import TaskLock
 from taskledger.errors import LaunchError
-from taskledger.storage.atomic import atomic_create_text, atomic_write_text
-from taskledger.storage.common import read_text
+from taskledger.storage.atomic import atomic_create_text
+
+def _dump_yaml_text(payload: dict[str, object]) -> str:
+    """Render a mapping to YAML text for exclusive-create paths."""
+    import yaml
+
+    return yaml.safe_dump(payload, sort_keys=False, allow_unicode=True)
 
 
 def write_lock(path: Path, lock: TaskLock) -> None:
     atomic_create_text(
         path,
-        yaml.safe_dump(lock.to_dict(), sort_keys=False, allow_unicode=True),
+        _dump_yaml_text(lock.to_dict()),
     )
 
 
 def update_lock(path: Path, lock: TaskLock) -> None:
     """Update an existing lock, or create if it doesn't exist."""
-    atomic_write_text(
-        path,
-        yaml.safe_dump(lock.to_dict(), sort_keys=False, allow_unicode=True),
-    )
+    from taskledger.storage.yaml_store import write_yaml_object
+
+    write_yaml_object(path, lock.to_dict())
 
 
 def read_lock(path: Path) -> TaskLock | None:
+    from taskledger.storage.yaml_store import load_yaml_object
+
     if not path.exists():
         return None
-    try:
-        payload = yaml.safe_load(read_text(path))
-    except yaml.YAMLError as exc:
-        raise LaunchError(f"Invalid lock file {path}: {exc}") from exc
-    if not isinstance(payload, dict):
-        raise LaunchError(f"Invalid lock file {path}: expected mapping.")
+    payload = load_yaml_object(path, f"lock file {path}", missing="empty")
     return TaskLock.from_dict(payload)
 
 

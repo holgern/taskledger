@@ -15,8 +15,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, TypeVar
 
-import yaml
-from ledgercore.ids import LedgerIdFormat
 
 from taskledger.domain.models import (
     ActiveActorState,
@@ -56,6 +54,7 @@ from taskledger.storage.frontmatter import (
 from taskledger.storage.locks import read_lock, update_lock, write_lock
 from taskledger.storage.paths import ProjectPaths
 from taskledger.timeutils import utc_now_iso
+from taskledger.storage.yaml_store import load_yaml_object, write_yaml_object
 
 T = TypeVar("T")
 TaskVisibility = Literal["visible", "archived", "all"]
@@ -63,10 +62,10 @@ TaskVisibility = Literal["visible", "archived", "all"]
 
 def _link_id_from_path(path: str) -> str:
     """Generate a deterministic link id from the path."""
-    import hashlib
+    from taskledger.storage.common import content_hash as lc_content_hash
 
-    digest = hashlib.sha256(path.encode("utf-8")).hexdigest()[:8]
-    return f"link-{digest}"
+    digest = lc_content_hash(path)
+    return f"link-{digest[:8]}"
 
 
 def _requirement_id_from_task(task_id: str) -> str:
@@ -232,12 +231,7 @@ def load_active_task_state(workspace_root: Path) -> ActiveTaskState | None:
     paths = ensure_v2_layout(workspace_root)
     if not paths.active_task_path.exists():
         return None
-    try:
-        payload = yaml.safe_load(paths.active_task_path.read_text(encoding="utf-8"))
-    except yaml.YAMLError as exc:
-        raise LaunchError(f"Invalid active task state: {exc}") from exc
-    if not isinstance(payload, dict):
-        raise LaunchError("Invalid active task state: expected mapping.")
+    payload = load_yaml_object(paths.active_task_path, "active task state", missing="empty")
     return ActiveTaskState.from_dict(payload)
 
 
@@ -246,7 +240,7 @@ def save_active_task_state(
     state: ActiveTaskState,
 ) -> ActiveTaskState:
     paths = ensure_v2_layout(workspace_root)
-    _write_yaml(paths.active_task_path, state.to_dict())
+    write_yaml_object(paths.active_task_path, state.to_dict())
     return state
 
 
@@ -262,12 +256,7 @@ def load_actor_state(workspace_root: Path) -> ActiveActorState | None:
     paths = ensure_v2_layout(workspace_root)
     if not paths.actor_path.exists():
         return None
-    try:
-        payload = yaml.safe_load(paths.actor_path.read_text(encoding="utf-8"))
-    except yaml.YAMLError as exc:
-        raise LaunchError(f"Invalid actor state: {exc}") from exc
-    if not isinstance(payload, dict):
-        raise LaunchError("Invalid actor state: expected mapping.")
+    payload = load_yaml_object(paths.actor_path, "actor state", missing="empty")
     return ActiveActorState.from_dict(payload)
 
 
@@ -276,7 +265,7 @@ def save_actor_state(
     state: ActiveActorState,
 ) -> ActiveActorState:
     paths = ensure_v2_layout(workspace_root)
-    _write_yaml(paths.actor_path, state.to_dict())
+    write_yaml_object(paths.actor_path, state.to_dict())
     return state
 
 
@@ -292,12 +281,7 @@ def load_harness_state(workspace_root: Path) -> ActiveHarnessState | None:
     paths = ensure_v2_layout(workspace_root)
     if not paths.harness_path.exists():
         return None
-    try:
-        payload = yaml.safe_load(paths.harness_path.read_text(encoding="utf-8"))
-    except yaml.YAMLError as exc:
-        raise LaunchError(f"Invalid harness state: {exc}") from exc
-    if not isinstance(payload, dict):
-        raise LaunchError("Invalid harness state: expected mapping.")
+    payload = load_yaml_object(paths.harness_path, "harness state", missing="empty")
     return ActiveHarnessState.from_dict(payload)
 
 
@@ -306,7 +290,7 @@ def save_harness_state(
     state: ActiveHarnessState,
 ) -> ActiveHarnessState:
     paths = ensure_v2_layout(workspace_root)
-    _write_yaml(paths.harness_path, state.to_dict())
+    write_yaml_object(paths.harness_path, state.to_dict())
     return state
 
 
@@ -1079,30 +1063,17 @@ def _ensure_task_bundle(paths: V2Paths, task_id: str) -> None:
         directory.mkdir(parents=True, exist_ok=True)
 
 
-def _write_yaml(path: Path, payload: dict[str, object]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    atomic_write_text(path, yaml.safe_dump(payload, sort_keys=False))
-
 
 def _normalize_numeric_ref(ref: str, prefix: str) -> str:
-    format_ = LedgerIdFormat(prefix=prefix, separator="-", width=4)
-    try:
-        parts = format_.parse_parts(ref)
-    except ValueError:
-        return ref
-    return format_.format(parts.number)
+    from taskledger.ids import normalize_numeric_ref
+
+    return normalize_numeric_ref(ref, prefix)
 
 
 def task_numeric_sort_key(task_id: str) -> tuple[int, str]:
-    try:
-        number = (
-            LedgerIdFormat(prefix="task", separator="-", width=4)
-            .parse_parts(task_id)
-            .number
-        )
-    except ValueError:
-        return (10**9, task_id)
-    return (number, task_id)
+    from taskledger.ids import numeric_id_sort_key
+
+    return numeric_id_sort_key(task_id, prefix="task")
 
 
 def _looks_like_global_ref(value: str) -> bool:

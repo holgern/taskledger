@@ -26,7 +26,7 @@ def ledger_status_command(ctx: typer.Context) -> None:
     state = ctx.obj
     assert isinstance(state, CLIState)
     try:
-        from ledgercore.ids import LedgerIdFormat
+        from taskledger.ids import format_task_id
 
         from taskledger.refs import global_ref_for_local_id
         from taskledger.storage.ledger_config import (
@@ -50,9 +50,7 @@ def ledger_status_command(ctx: typer.Context) -> None:
 
     task_count = len(tasks)
     active_task_id = active.task_id if active else None
-    next_task_id = LedgerIdFormat(prefix="task", separator="-", width=4).format(
-        config.next_task_number
-    )
+    next_task_id = format_task_id(config.next_task_number)
     next_task_ref = global_ref_for_local_id(state.cwd, next_task_id)
     payload = {
         "ok": True,
@@ -113,14 +111,14 @@ def ledger_list_command(ctx: typer.Context) -> None:
                     if (d / "tasks").exists()
                     else []
                 )
-                import yaml
+                from taskledger.storage.yaml_store import load_yaml_object
 
                 active_yaml = d / "active-task.yaml"
                 active_data = None
                 if active_yaml.exists():
                     try:
-                        active_data = yaml.safe_load(
-                            active_yaml.read_text(encoding="utf-8")
+                        active_data = load_yaml_object(
+                            active_yaml, "active task state", missing="empty"
                         )
                     except Exception:
                         pass

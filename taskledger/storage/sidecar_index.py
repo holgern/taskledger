@@ -7,7 +7,6 @@ rebuilt from canonical records if absent or stale.
 
 from __future__ import annotations
 
-import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -295,32 +294,25 @@ def load_sidecar_index(
     paths: V2Paths,
 ) -> dict[str, dict[str, object]]:
     """Load sidecar summaries. Rebuilds if missing or malformed."""
+    from taskledger.storage.common import try_load_json_object
+
     path = _sidecar_index_path(paths)
     if not path.exists():
         rebuild_sidecar_index(paths)
-    try:
-        text = path.read_text(encoding="utf-8").strip()
-        if not text:
-            rebuild_sidecar_index(paths)
-            text = path.read_text(encoding="utf-8").strip()
-        data = json.loads(text)
-        if not isinstance(data, dict):
-            rebuild_sidecar_index(paths)
-            data = json.loads(path.read_text(encoding="utf-8"))
-        entries = data.get("entries")
-        if not isinstance(entries, dict):
-            rebuild_sidecar_index(paths)
-            data = json.loads(path.read_text(encoding="utf-8"))
-            entries = data.get("entries", {})
-        return {k: v for k, v in entries.items() if isinstance(v, dict)}
-    except (json.JSONDecodeError, OSError):
+
+    data = try_load_json_object(path, "sidecar index")
+    if data is None:
         rebuild_sidecar_index(paths)
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            entries = data.get("entries", {})
-            return {k: v for k, v in entries.items() if isinstance(v, dict)}
-        except Exception:
-            return {}
+        data = try_load_json_object(path, "sidecar index")
+    if data is None:
+        return {}
+
+    entries = data.get("entries")
+    if not isinstance(entries, dict):
+        rebuild_sidecar_index(paths)
+        data = try_load_json_object(path, "sidecar index") or {}
+        entries = data.get("entries", {})
+    return {k: v for k, v in entries.items() if isinstance(v, dict)}
 
 
 def get_sidecar_summary(paths: V2Paths, task_id: str) -> dict[str, object] | None:
@@ -367,11 +359,9 @@ def update_sidecar_summary(
 
     entries[task_id] = current
 
-    path = _sidecar_index_path(paths)
-    try:
-        existing = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        existing = {}
+    from taskledger.storage.common import try_load_json_object
+
+    existing = try_load_json_object(path, "sidecar index") or {}
 
     existing["entries"] = entries
     write_json(path, existing)

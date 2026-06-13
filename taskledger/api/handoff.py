@@ -1,4 +1,4 @@
-import hashlib
+from pathlib import Path
 from pathlib import Path
 from typing import cast
 
@@ -66,7 +66,8 @@ def create_handoff(
         format_name="markdown",
     )
     context_body = render_markdown_handoff(payload)
-    context_hash = f"sha256:{hashlib.sha256(context_body.encode('utf-8')).hexdigest()}"
+    from taskledger.storage.common import content_hash as lc_content_hash
+    context_hash = f"sha256:{lc_content_hash(context_body)}"
     existing_handoffs = list_handoffs(workspace_root, task.id)
     existing_ids = [h.handoff_id for h in existing_handoffs]
     resolved_mode = cast(HandoffMode, str(payload["mode"]))

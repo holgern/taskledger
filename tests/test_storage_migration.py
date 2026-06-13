@@ -81,7 +81,7 @@ class TestStorageMeta:
         tl_dir = tmp_path / ".taskledger"
         tl_dir.mkdir()
         (tl_dir / "storage.yaml").write_text("[1, 2, 3]", encoding="utf-8")
-        with pytest.raises(LaunchError, match="expected mapping"):
+        with pytest.raises(LaunchError, match="must contain a YAML mapping"):
             read_storage_meta(tmp_path)
 
     def test_missing_required_field_raises(self, tmp_path: Path) -> None:

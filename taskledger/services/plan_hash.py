@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import hashlib
+import json
 import json
 
 from taskledger.domain.models import PlanRecord
@@ -17,7 +17,8 @@ def approved_plan_content_hash(plan: PlanRecord) -> str:
         "todos": [item.to_dict() for item in plan.todos],
     }
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    from taskledger.storage.common import content_hash as lc_content_hash
+    return lc_content_hash(canonical)
 
 
 __all__ = ["approved_plan_content_hash"]
