@@ -392,7 +392,15 @@ def show_command(
         f"status: {task['status_stage']}",
         f"active_stage: {task.get('active_stage') or 'none'}",
         f"slug: {task['slug']}",
+        f"visibility: {task.get('visibility', 'visible')}",
     ]
+    if task.get("archived"):
+        human_lines.append(f"archived_at: {task.get('archived_at')}")
+        if task.get("archive_reason"):
+            human_lines.append(f"archive_reason: {task.get('archive_reason')}")
+        human_lines.append(
+            "note: archived tasks are read-only; unarchive before mutation"
+        )
     parent_task = payload.get("parent_task")
     if isinstance(parent_task, dict):
         human_lines.append(
@@ -429,10 +437,18 @@ def archive_command(
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+    changed = bool(payload.get("changed", True))
+    if changed:
+        human = f"archived {payload['task_id']} ({payload['slug']})"
+    else:
+        human = (
+            f"{payload['task_id']} ({payload['slug']}) "
+            "was already archived; no changes made"
+        )
     emit_payload(
         ctx,
         payload,
-        human=f"archived {payload['task_id']} ({payload['slug']})",
+        human=human,
     )
 
 
@@ -447,17 +463,50 @@ def unarchive_command(
         str | None,
         typer.Option("--slug", help="Optional slug override on unarchive."),
     ] = None,
+    reopen_for_work: Annotated[
+        bool,
+        typer.Option(
+            "--reopen-for-work",
+            help=(
+                "Restore a non-terminal archived task as work requiring a new "
+                "implementation/revalidation path. Prevents direct validation of "
+                "old implementation evidence."
+            ),
+        ),
+    ] = False,
 ) -> None:
     state = cli_state_from_context(ctx)
     try:
-        payload = unarchive_task(state.cwd, ref, reason=reason, slug=slug)
+        payload = unarchive_task(
+            state.cwd,
+            ref,
+            reason=reason,
+            slug=slug,
+            reopen_for_work=reopen_for_work,
+        )
     except LaunchError as exc:
         emit_error(ctx, exc)
         raise typer.Exit(code=launch_error_exit_code(exc)) from exc
+    changed = bool(payload.get("changed", True))
+    if changed:
+        human = f"unarchived {payload['task_id']} ({payload['slug']})"
+        if payload.get("target_stage"):
+            human += f"\nstatus: {payload['target_stage']}"
+        if payload.get("stale_validation_blocked"):
+            human += (
+                "\nvisibility: visible"
+                "\nnote: old implementation evidence "
+                "was not restored as validation-ready"
+            )
+    else:
+        human = (
+            f"{payload['task_id']} ({payload['slug']}) "
+            "was not archived; no changes made"
+        )
     emit_payload(
         ctx,
         payload,
-        human=f"unarchived {payload['task_id']} ({payload['slug']})",
+        human=human,
     )
 
 

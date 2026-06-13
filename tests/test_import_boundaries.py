@@ -9,8 +9,6 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-import pytest
-
 
 def _python_files() -> list[Path]:
     """Return all production .py files under taskledger/."""
@@ -60,7 +58,7 @@ class TestYamlImportBoundary:
                         violations.append(f"{rel}:{node.lineno}")
 
         assert not violations, (
-            f"Direct `import yaml` found outside allowlist:\n"
+            "Direct `import yaml` found outside allowlist:\n"
             + "\n".join(f"  {v}" for v in sorted(violations))
             + "\n\nAllowed files:\n"
             + "\n".join(f"  {f}" for f in sorted(YAML_IMPORT_ALLOWLIST))
@@ -108,7 +106,7 @@ class TestLedgercoreImportBoundary:
                         violations.append(f"{rel}:{node.lineno} (from {node.module})")
 
         assert not violations, (
-            f"Direct ledgercore import found outside allowlist:\n"
+            "Direct ledgercore import found outside allowlist:\n"
             + "\n".join(f"  {v}" for v in sorted(violations))
             + "\n\nAllowed files:\n"
             + "\n".join(f"  {f}" for f in sorted(LEDGERCORE_IMPORT_ALLOWLIST))

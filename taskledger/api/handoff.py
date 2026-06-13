@@ -1,5 +1,4 @@
 from pathlib import Path
-from pathlib import Path
 from typing import cast
 
 from taskledger.domain.models import ActorRef, HarnessRef, TaskHandoffRecord

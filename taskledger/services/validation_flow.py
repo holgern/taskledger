@@ -56,6 +56,7 @@ def start_validation(
             "Validation requires a finished implementation run.",
             EXIT_CODE_INVALID_TRANSITION,
         )
+    _ensure_implementation_snapshot_current(workspace_root, task, impl_run)
     run = _tasks._start_run(
         workspace_root,
         task,
@@ -437,3 +438,45 @@ def _validation_incomplete(message: str, details: dict[str, object]) -> LaunchEr
     error.taskledger_error_code = "VALIDATION_INCOMPLETE"
     error.taskledger_data = details
     return error
+
+
+def _ensure_implementation_snapshot_current(
+    workspace_root: Path,
+    task: TaskRecord,
+    impl_run: TaskRunRecord,
+) -> None:
+    """Block validation if the workspace differs from the implementation snapshot."""
+    from taskledger.services.git_utils import capture_workspace_snapshot
+
+    expected_commit = impl_run.workspace_git_commit
+
+    if expected_commit is None:
+        # Missing snapshots on old runs are acceptable for normal recent tasks,
+        # but not after archive/unarchive recovery.
+        if task.notes and any(
+            "Unarchived from non-terminal state" in n for n in task.notes
+        ):
+            raise _tasks._cli_error(
+                (
+                    f"Cannot validate old implementation for {task.id}: "
+                    "implementation snapshot is missing. "
+                    "Restart implementation or create a follow-up task."
+                ),
+                EXIT_CODE_INVALID_TRANSITION,
+            )
+        return
+
+    current = capture_workspace_snapshot(workspace_root)
+    if (
+        current.git_commit != expected_commit
+        or current.status_hash != impl_run.workspace_status_hash
+        or current.diff_hash != impl_run.workspace_diff_hash
+    ):
+        raise _tasks._cli_error(
+            (
+                "Cannot start validation because the workspace differs from the "
+                "implementation snapshot recorded at implement finish. "
+                "Restart implementation or create a follow-up task."
+            ),
+            EXIT_CODE_INVALID_TRANSITION,
+        )

@@ -5,11 +5,10 @@ import os
 import socket
 from pathlib import Path
 
-
 from taskledger.domain.models import ActorRef, HarnessRef, TaskEvent, TaskLock
-from taskledger.storage.yaml_store import write_yaml_object
 from taskledger.storage.events import append_event, next_event_id
 from taskledger.storage.task_store import V2Paths, resolve_v2_paths, task_audit_dir
+from taskledger.storage.yaml_store import write_yaml_object
 from taskledger.timeutils import utc_now_iso
 
 

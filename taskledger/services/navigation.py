@@ -17,6 +17,7 @@ from taskledger.domain.states import (
     EXIT_CODE_BAD_INPUT,
     IMPLEMENTABLE_TASK_STAGES,
 )
+from taskledger.domain.task import is_archived_task
 from taskledger.services.next_action_payload import (
     _todo_command_hints,
     _todo_done_command,
@@ -73,6 +74,32 @@ def next_action_for_task(
     blockers: list[dict[str, object]] = []
     next_item: dict[str, object] | None = None
     progress: dict[str, object] = {}
+    if is_archived_task(task):
+        return _finalize_next_action_payload(
+            {
+                "kind": "task_next_action",
+                "task_id": task.id,
+                "status_stage": task.status_stage,
+                "active_stage": None,
+                "action": "archived",
+                "reason": "Task is archived and read-only.",
+                "blocking": [_archived_blocker(task)],
+                "next_command": (
+                    f'taskledger task unarchive {task.id} --reason "Restore archived task."'
+                ),
+                "commands": [
+                    _command(
+                        "unarchive",
+                        "Unarchive task",
+                        (
+                            f"taskledger task unarchive {task.id}"
+                            ' --reason "Restore archived task."'
+                        ),
+                    )
+                ],
+                "progress": {},
+            }
+        )
     if active_stage == "planning":
         questions = list_questions(workspace_root, task.id)
         open_questions = _required_open_question_ids(questions)
@@ -563,8 +590,32 @@ def _planning_guidance_already_viewed(
     return False
 
 
+def _archived_blocker(task: TaskRecord) -> dict[str, object]:
+    return {
+        "kind": "archived_task",
+        "message": (
+            f"Task {task.id} is archived and read-only. "
+            f'Use taskledger task unarchive {task.id} --reason "..." first, '
+            "then re-check next-action."
+        ),
+        "command_hint": (
+            f'taskledger task unarchive {task.id} --reason "Restore archived task."'
+        ),
+    }
+
+
 def can_perform(workspace_root: Path, task_ref: str, action: str) -> dict[str, object]:
     task = resolve_task(workspace_root, task_ref)
+    if is_archived_task(task):
+        return {
+            "kind": "task_capability",
+            "task_id": task.id,
+            "action": action,
+            "ok": False,
+            "reason": "Task is archived and read-only.",
+            "active_stage": None,
+            "blocking": [_archived_blocker(task)],
+        }
     lock = _current_lock(workspace_root, task.id)
     active_stage = _task_active_stage(workspace_root, task, lock=lock)
     ok = False
@@ -801,6 +852,7 @@ def _answer_snapshot_hash(questions: list[QuestionRecord]) -> str | None:
     if not answered:
         return None
     from taskledger.storage.common import content_hash as lc_content_hash
+
     return f"sha256:{lc_content_hash(chr(10).join(sorted(answered)))}"
 
 

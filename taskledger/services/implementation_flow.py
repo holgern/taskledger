@@ -510,11 +510,20 @@ def finish_implementation(
     )
     warnings = _implementation_finish_warnings(workspace_root, task.id, run.run_id)
     _tasks._require_todos_complete_for_implementation_finish(workspace_root, task)
+
+    from taskledger.services.git_utils import capture_workspace_snapshot
+
+    snapshot = capture_workspace_snapshot(workspace_root)
     finished = replace(
         run,
         status="finished",
         finished_at=utc_now_iso(),
         summary=summary.strip(),
+        workspace_git_commit=snapshot.git_commit,
+        workspace_dirty=snapshot.dirty,
+        workspace_diff_hash=snapshot.diff_hash,
+        workspace_status_hash=snapshot.status_hash,
+        workspace_snapshot_at=snapshot.captured_at,
     )
     save_run(workspace_root, finished)
     updated = replace(task, status_stage="implemented", updated_at=utc_now_iso())

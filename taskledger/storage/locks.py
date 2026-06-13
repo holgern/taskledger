@@ -3,10 +3,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
-
 from taskledger.domain.models import TaskLock
 from taskledger.errors import LaunchError
 from taskledger.storage.atomic import atomic_create_text
+
 
 def _dump_yaml_text(payload: dict[str, object]) -> str:
     """Render a mapping to YAML text for exclusive-create paths."""

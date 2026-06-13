@@ -112,12 +112,16 @@ def archive_task(
     }
 
 
+NONTERMINAL_UNARCHIVE_STALE_STAGES = {"approved", "implemented", "failed_validation"}
+
+
 def unarchive_task(
     workspace_root: Path,
     ref: str,
     *,
     reason: str,
     slug: str | None = None,
+    reopen_for_work: bool = False,
 ) -> dict[str, object]:
     unarchive_reason = reason.strip()
     if not unarchive_reason:
@@ -134,6 +138,17 @@ def unarchive_task(
             "slug": task.slug,
             "changed": False,
         }
+
+    if task.status_stage in NONTERMINAL_UNARCHIVE_STALE_STAGES and not reopen_for_work:
+        raise _tasks._cli_error(
+            (
+                f"Cannot unarchive non-terminal archived task {task.id} "
+                f"in status {task.status_stage} without selecting recovery mode. "
+                "Use --reopen-for-work to restore it as work that must be "
+                "re-run; do not validate old implementation evidence directly."
+            ),
+            EXIT_CODE_INVALID_TRANSITION,
+        )
 
     requested_slug = slugify_project_ref(slug, empty="task") if slug else task.slug
     visible = list_tasks_by_visibility(workspace_root, visibility="visible")
@@ -154,14 +169,29 @@ def unarchive_task(
             EXIT_CODE_INVALID_TRANSITION,
         )
 
+    target_stage = task.status_stage
+    stale_validation_blocked = False
+    if reopen_for_work and task.status_stage == "implemented":
+        target_stage = "failed_validation"
+        stale_validation_blocked = True
+
     now = utc_now_iso()
+    extra_notes: tuple[str, ...] = ()
+    if stale_validation_blocked:
+        extra_notes = (
+            "Unarchived from non-terminal state "
+            f"{task.status_stage}; "
+            "old implementation evidence must not be validated directly.",
+        )
     updated = replace(
         task,
         slug=requested_slug,
+        status_stage=target_stage,
         archived_at=None,
         archived_by=None,
         archive_reason=None,
         updated_at=now,
+        notes=(*task.notes, *extra_notes),
     )
     save_task(workspace_root, updated)
     _tasks._append_event(
@@ -171,15 +201,20 @@ def unarchive_task(
         {
             "reason": unarchive_reason,
             "slug": requested_slug,
+            "reopen_for_work": reopen_for_work,
+            "target_stage": target_stage,
         },
     )
     rebuild_v2_indexes(resolve_v2_paths(workspace_root))
-    return {
+    result: dict[str, object] = {
         "kind": "task_unarchived",
         "task_id": updated.id,
         "slug": updated.slug,
         "changed": True,
+        "target_stage": target_stage,
+        "stale_validation_blocked": stale_validation_blocked,
     }
+    return result
 
 
 def list_archived_task_summaries(

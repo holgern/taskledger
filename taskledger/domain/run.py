@@ -58,6 +58,11 @@ class TaskRunRecord:
     based_on_plan: str | None = None
     schema_version: int = TASKLEDGER_SCHEMA_VERSION
     object_type: str = "run"
+    workspace_git_commit: str | None = None
+    workspace_dirty: bool | None = None
+    workspace_diff_hash: str | None = None
+    workspace_status_hash: str | None = None
+    workspace_snapshot_at: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -89,6 +94,11 @@ class TaskRunRecord:
             "result": self.result,
             "handoff_refs": list(self.handoff_refs),
             "actor_history": [item.to_dict() for item in self.actor_history],
+            "workspace_git_commit": self.workspace_git_commit,
+            "workspace_dirty": self.workspace_dirty,
+            "workspace_diff_hash": self.workspace_diff_hash,
+            "workspace_status_hash": self.workspace_status_hash,
+            "workspace_snapshot_at": self.workspace_snapshot_at,
         }
 
     @classmethod
@@ -136,6 +146,15 @@ class TaskRunRecord:
             based_on_plan=_optional_string(data.get("based_on_plan")),
             schema_version=_int_value(data, "schema_version"),
             object_type=_string_value(data, "object_type"),
+            workspace_git_commit=_optional_string(data.get("workspace_git_commit")),
+            workspace_dirty=(
+                bool(data.get("workspace_dirty"))
+                if data.get("workspace_dirty") is not None
+                else None
+            ),
+            workspace_diff_hash=_optional_string(data.get("workspace_diff_hash")),
+            workspace_status_hash=_optional_string(data.get("workspace_status_hash")),
+            workspace_snapshot_at=_optional_string(data.get("workspace_snapshot_at")),
         )
 
     @property

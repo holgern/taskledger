@@ -1,9 +1,58 @@
 from __future__ import annotations
 
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 
 from taskledger.errors import LaunchError
+
+
+@dataclass(slots=True, frozen=True)
+class WorkspaceSnapshot:
+    git_commit: str | None = None
+    dirty: bool | None = None
+    diff_hash: str | None = None
+    status_hash: str | None = None
+    captured_at: str | None = None
+
+
+def capture_workspace_snapshot(workspace_root: Path) -> WorkspaceSnapshot:
+    """Best-effort capture of the current workspace git state."""
+    import hashlib
+
+    from taskledger.timeutils import utc_now_iso
+
+    root = git_root(workspace_root)
+    if root is None:
+        return WorkspaceSnapshot(captured_at=utc_now_iso())
+
+    commit_result = run_git(root, "rev-parse", "HEAD", check=False)
+    git_commit = commit_result.stdout.strip() if commit_result.returncode == 0 else None
+
+    status_result = run_git(root, "status", "--porcelain=v1", check=False)
+    status_text = status_result.stdout if status_result.returncode == 0 else ""
+    dirty = bool(status_text.strip())
+    status_hash = (
+        "sha256:" + hashlib.sha256(status_text.encode()).hexdigest()
+        if status_text.strip()
+        else None
+    )
+
+    diff_result = run_git(root, "diff", "--binary", check=False)
+    diff_text = diff_result.stdout if diff_result.returncode == 0 else ""
+    diff_hash = (
+        "sha256:" + hashlib.sha256(diff_text.encode()).hexdigest()
+        if diff_text.strip()
+        else None
+    )
+
+    return WorkspaceSnapshot(
+        git_commit=git_commit,
+        dirty=dirty,
+        diff_hash=diff_hash,
+        status_hash=status_hash,
+        captured_at=utc_now_iso(),
+    )
 
 
 def run_git(

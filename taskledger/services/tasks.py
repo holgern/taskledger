@@ -2731,6 +2731,9 @@ def _task_payload(
     active_stage: str | None,
 ) -> dict[str, object]:
     payload = task.to_dict()
+    archived = is_archived_task(task)
+    payload["archived"] = archived
+    payload["visibility"] = "archived" if archived else "visible"
     payload["global_ref"] = global_ref_for_local_id(workspace_root, task.id)
     payload["file_ref"] = file_ref_for_local_id(workspace_root, task.id)
     payload["active_stage"] = active_stage

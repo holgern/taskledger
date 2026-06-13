@@ -15,7 +15,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, TypeVar
 
-
 from taskledger.domain.models import (
     ActiveActorState,
     ActiveHarnessState,
@@ -53,8 +52,8 @@ from taskledger.storage.frontmatter import (
 )
 from taskledger.storage.locks import read_lock, update_lock, write_lock
 from taskledger.storage.paths import ProjectPaths
-from taskledger.timeutils import utc_now_iso
 from taskledger.storage.yaml_store import load_yaml_object, write_yaml_object
+from taskledger.timeutils import utc_now_iso
 
 T = TypeVar("T")
 TaskVisibility = Literal["visible", "archived", "all"]

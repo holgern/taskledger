@@ -27,7 +27,6 @@ def ledger_status_command(ctx: typer.Context) -> None:
     assert isinstance(state, CLIState)
     try:
         from taskledger.ids import format_task_id
-
         from taskledger.refs import global_ref_for_local_id
         from taskledger.storage.ledger_config import (
             load_ledger_config,

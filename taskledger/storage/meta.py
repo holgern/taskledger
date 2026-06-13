@@ -5,14 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-
 from taskledger.domain.states import (
     TASKLEDGER_RECORD_SCHEMA_VERSION,
     TASKLEDGER_STORAGE_LAYOUT_VERSION,
 )
 from taskledger.errors import LaunchError
-from taskledger.storage.yaml_store import load_yaml_object, write_yaml_object
 from taskledger.storage.paths import resolve_taskledger_root
+from taskledger.storage.yaml_store import load_yaml_object, write_yaml_object
 from taskledger.timeutils import utc_now_iso
 
 
