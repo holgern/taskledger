@@ -230,7 +230,9 @@ def load_active_task_state(workspace_root: Path) -> ActiveTaskState | None:
     paths = ensure_v2_layout(workspace_root)
     if not paths.active_task_path.exists():
         return None
-    payload = load_yaml_object(paths.active_task_path, "active task state", missing="empty")
+    payload = load_yaml_object(
+        paths.active_task_path, "active task state", missing="empty"
+    )
     return ActiveTaskState.from_dict(payload)
 
 
@@ -1060,7 +1062,6 @@ def _ensure_task_bundle(paths: V2Paths, task_id: str) -> None:
         task_handoffs_dir(paths, task_id),
     ):
         directory.mkdir(parents=True, exist_ok=True)
-
 
 
 def _normalize_numeric_ref(ref: str, prefix: str) -> str:

@@ -71,9 +71,13 @@ def _create_task(tmp_path: Path, *, title: str, slug: str) -> str:
 
 def _archive(tmp_path: Path, ref: str, *, force: bool = False) -> None:
     args = [
-        "--cwd", str(tmp_path),
-        "task", "archive", ref,
-        "--reason", "Hide historical work",
+        "--cwd",
+        str(tmp_path),
+        "task",
+        "archive",
+        ref,
+        "--reason",
+        "Hide historical work",
     ]
     if force:
         args.append("--force")
@@ -232,9 +236,7 @@ def test_task_show_exact_id_marks_archived_task(tmp_path: Path) -> None:
     task_id = _record_done(tmp_path, title="Old", slug="old")
     _archive(tmp_path, task_id)
 
-    show = runner.invoke(
-        app, ["--cwd", str(tmp_path), "task", "show", task_id]
-    )
+    show = runner.invoke(app, ["--cwd", str(tmp_path), "task", "show", task_id])
     assert show.exit_code == 0, show.stdout
     assert "visibility: archived" in show.stdout
     assert "archived_at:" in show.stdout
@@ -263,8 +265,12 @@ def test_task_show_visible_task_has_visibility_visible(tmp_path: Path) -> None:
     show_json = runner.invoke(
         app,
         [
-            "--cwd", str(tmp_path),
-            "--json", "task", "show", "active",
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "task",
+            "show",
+            "active",
         ],
     )
     payload = json.loads(show_json.stdout)
@@ -281,9 +287,13 @@ def test_archive_already_archived_task_reports_noop(tmp_path: Path) -> None:
     result = runner.invoke(
         app,
         [
-            "--cwd", str(tmp_path),
-            "task", "archive", task_id,
-            "--reason", "again",
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "archive",
+            task_id,
+            "--reason",
+            "again",
         ],
     )
     assert result.exit_code == 0, result.stdout
@@ -299,9 +309,13 @@ def test_unarchive_visible_task_reports_noop(tmp_path: Path) -> None:
     result = runner.invoke(
         app,
         [
-            "--cwd", str(tmp_path),
-            "task", "unarchive", task_id,
-            "--reason", "test",
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "unarchive",
+            task_id,
+            "--reason",
+            "test",
         ],
     )
 
@@ -336,8 +350,12 @@ def test_next_action_archived_task_reports_archived(tmp_path: Path) -> None:
     result = runner.invoke(
         app,
         [
-            "--cwd", str(tmp_path),
-            "--json", "next-action", "--task", task_id,
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "next-action",
+            "--task",
+            task_id,
         ],
     )
     payload = json.loads(result.stdout)
@@ -356,9 +374,13 @@ def test_unarchive_implemented_task_requires_recovery_mode(
     result = runner.invoke(
         app,
         [
-            "--cwd", str(tmp_path),
-            "task", "unarchive", task_id,
-            "--reason", "Need to inspect old task",
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "unarchive",
+            task_id,
+            "--reason",
+            "Need to inspect old task",
         ],
     )
 
@@ -378,9 +400,13 @@ def test_unarchive_implemented_reopen_for_work_blocks_direct_validation(
     result = runner.invoke(
         app,
         [
-            "--cwd", str(tmp_path),
-            "task", "unarchive", task_id,
-            "--reason", "Need to redo stale work",
+            "--cwd",
+            str(tmp_path),
+            "task",
+            "unarchive",
+            task_id,
+            "--reason",
+            "Need to redo stale work",
             "--reopen-for-work",
         ],
     )
@@ -408,9 +434,14 @@ def _prepare_implemented_task(tmp_path: Path) -> str:
     result = runner.invoke(
         app,
         [
-            "--cwd", str(tmp_path),
-            "--json", "task", "create", "Implemented task",
-            "--slug", "implemented-task",
+            "--cwd",
+            str(tmp_path),
+            "--json",
+            "task",
+            "create",
+            "Implemented task",
+            "--slug",
+            "implemented-task",
         ],
     )
     payload = _json_output(result)
@@ -453,9 +484,14 @@ def _prepare_implemented_task(tmp_path: Path) -> str:
     upsert_result = runner.invoke(
         app,
         [
-            "--cwd", str(tmp_path),
-            "plan", "upsert", "--file", str(plan_file),
-            "--task", task_id,
+            "--cwd",
+            str(tmp_path),
+            "plan",
+            "upsert",
+            "--file",
+            str(plan_file),
+            "--task",
+            task_id,
         ],
     )
     assert upsert_result.exit_code == 0, upsert_result.output
@@ -464,10 +500,16 @@ def _prepare_implemented_task(tmp_path: Path) -> str:
     approve_result = runner.invoke(
         app,
         [
-            "--cwd", str(tmp_path),
-            "plan", "accept", "--version", "1",
-            "--task", task_id,
-            "--note", "Approved for test",
+            "--cwd",
+            str(tmp_path),
+            "plan",
+            "accept",
+            "--version",
+            "1",
+            "--task",
+            task_id,
+            "--note",
+            "Approved for test",
             "--allow-lint-errors",
         ],
     )
@@ -490,9 +532,15 @@ def _prepare_implemented_task(tmp_path: Path) -> str:
     todo_result = runner.invoke(
         app,
         [
-            "--cwd", str(tmp_path),
-            "todo", "done", todo_id,
-            "--evidence", "Done", "--task", task_id,
+            "--cwd",
+            str(tmp_path),
+            "todo",
+            "done",
+            todo_id,
+            "--evidence",
+            "Done",
+            "--task",
+            task_id,
         ],
     )
     assert todo_result.exit_code == 0, todo_result.output
@@ -500,9 +548,14 @@ def _prepare_implemented_task(tmp_path: Path) -> str:
     impl_finish = runner.invoke(
         app,
         [
-            "--cwd", str(tmp_path),
-            "implement", "finish", "--task", task_id,
-            "--summary", "Done",
+            "--cwd",
+            str(tmp_path),
+            "implement",
+            "finish",
+            "--task",
+            task_id,
+            "--summary",
+            "Done",
         ],
     )
     assert impl_finish.exit_code == 0, impl_finish.output

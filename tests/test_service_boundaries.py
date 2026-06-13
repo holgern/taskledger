@@ -121,10 +121,10 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
     "taskledger/storage/project_config.py:724": (
         "Project config TOML parsing wraps all parse failures as LaunchError."
     ),
-    "taskledger/cli_ledger.py:123": (
+    "taskledger/cli_ledger.py:122": (
         "Ledger root fallback degrades gracefully when legacy storage probes fail."
     ),
-    "taskledger/cli_ledger.py:476": (
+    "taskledger/cli_ledger.py:475": (
         "Ledger diagnostics command reports unknown failures as structured CLI errors."
     ),
     "taskledger/launcher.py:16": (
@@ -184,26 +184,26 @@ EXCEPT_EXCEPTION_WHITELIST: dict[str, str] = {
         "Path probe falls back when environment inspection raises platform-"
         "specific errors."
     ),
-    "taskledger/storage/task_store.py:350": (
+    "taskledger/storage/task_store.py:351": (
         "save_task write-through index update degrades gracefully on failure."
     ),
-    "taskledger/storage/task_store.py:425": (
+    "taskledger/storage/task_store.py:426": (
         "rewrite_task_refs falls back to plain string replacement when "
         "front matter parsing fails."
     ),
-    "taskledger/storage/task_store.py:509": (
+    "taskledger/storage/task_store.py:510": (
         "save_question write-through sidecar index update degrades gracefully."
     ),
-    "taskledger/storage/task_store.py:545": (
+    "taskledger/storage/task_store.py:546": (
         "save_run write-through sidecar index update degrades gracefully."
     ),
-    "taskledger/storage/task_store.py:637": (
+    "taskledger/storage/task_store.py:638": (
         "save_code_review write-through sidecar index update degrades gracefully."
     ),
-    "taskledger/storage/task_store.py:706": (
+    "taskledger/storage/task_store.py:707": (
         "save_todos write-through sidecar index update degrades gracefully."
     ),
-    "taskledger/storage/task_store.py:1043": (
+    "taskledger/storage/task_store.py:1044": (
         "_task_latest_impl_run returns None when task resolution fails."
     ),
     "taskledger/storage/task_store.py:1145": (

@@ -50,6 +50,33 @@ from taskledger.storage.task_store import (
 )
 
 
+def _archived_next_action_payload(task: TaskRecord) -> dict[str, object]:
+    return _finalize_next_action_payload(
+        {
+            "kind": "task_next_action",
+            "task_id": task.id,
+            "status_stage": task.status_stage,
+            "active_stage": None,
+            "action": "archived",
+            "reason": "Task is archived and read-only.",
+            "blocking": [_archived_blocker(task)],
+            "next_command": (
+                f'taskledger task unarchive {task.id} --reason "Restore archived task."'
+            ),
+            "commands": [
+                _command(
+                    "unarchive",
+                    "Unarchive task",
+                    (
+                        f"taskledger task unarchive {task.id}"
+                        ' --reason "Restore archived task."'
+                    ),
+                )
+            ],
+            "progress": {},
+        }
+    )
+
 def next_action_for_task(
     workspace_root: Path,
     task: TaskRecord,
@@ -75,31 +102,7 @@ def next_action_for_task(
     next_item: dict[str, object] | None = None
     progress: dict[str, object] = {}
     if is_archived_task(task):
-        return _finalize_next_action_payload(
-            {
-                "kind": "task_next_action",
-                "task_id": task.id,
-                "status_stage": task.status_stage,
-                "active_stage": None,
-                "action": "archived",
-                "reason": "Task is archived and read-only.",
-                "blocking": [_archived_blocker(task)],
-                "next_command": (
-                    f'taskledger task unarchive {task.id} --reason "Restore archived task."'
-                ),
-                "commands": [
-                    _command(
-                        "unarchive",
-                        "Unarchive task",
-                        (
-                            f"taskledger task unarchive {task.id}"
-                            ' --reason "Restore archived task."'
-                        ),
-                    )
-                ],
-                "progress": {},
-            }
-        )
+        return _archived_next_action_payload(task)
     if active_stage == "planning":
         questions = list_questions(workspace_root, task.id)
         open_questions = _required_open_question_ids(questions)

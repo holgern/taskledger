@@ -145,7 +145,7 @@ def test_write_text_raises_on_oserror(
     def _raise_oserror(*_args: object, **_kwargs: object) -> int:
         raise OSError("synthetic write failure")
 
-    monkeypatch.setattr(Path, "write_text", _raise_oserror)
+    monkeypatch.setattr(Path, "write_bytes", _raise_oserror)
 
     with pytest.raises(LaunchError, match="Failed to write"):
         write_text(p, "new")

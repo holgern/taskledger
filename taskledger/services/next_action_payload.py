@@ -23,6 +23,7 @@ def _answer_snapshot_hash(questions: list[QuestionRecord]) -> str | None:
     if not answered:
         return None
     from taskledger.storage.common import content_hash as lc_content_hash
+
     return f"sha256:{lc_content_hash(chr(10).join(sorted(answered)))}"
 
 

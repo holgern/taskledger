@@ -66,6 +66,7 @@ def create_handoff(
     )
     context_body = render_markdown_handoff(payload)
     from taskledger.storage.common import content_hash as lc_content_hash
+
     context_hash = f"sha256:{lc_content_hash(context_body)}"
     existing_handoffs = list_handoffs(workspace_root, task.id)
     existing_ids = [h.handoff_id for h in existing_handoffs]
