@@ -144,74 +144,24 @@ If any `taskledger ...` command fails with a Python traceback before taskledger 
   `taskledger ledger adopt --from REF TASK_REF` when branch-local task history
   should be copied into the current ledger.
 
-## Release changelog protocol
+## Release boundary protocol
 
-Use this protocol when the user asks for release notes, a changelog, or an update to `CHANGELOG.md`.
+Use taskledger only to record the task boundary for a release. Taskledger does
+not create changelog entries, render changelog context, or edit `CHANGELOG.md`.
 
-1. Do not inspect `.taskledger/` storage layout directly. Use taskledger commands:
-   - `taskledger status`
-   - `taskledger tree`
+1. Record and inspect release boundaries with:
+   - `taskledger release tag VERSION --at-task TASK_ID --note "..."`
    - `taskledger release list`
    - `taskledger release show VERSION`
-   - `taskledger storage where` when storage location matters
-2. If the user gives a natural task range such as `task-0018 to task-0023`, treat it as an inclusive task range.
-   - Prefer `taskledger release changelog VERSION --from-task task-0018 --until-task task-0023 ...` when available.
-   - On older taskledger versions, convert it to the previous exclusive boundary only when safe, for example `--since-task task-0017 --until-task task-0023`.
-3. Generate changelog source before editing:
-   - `taskledger release changelog VERSION --since PREVIOUS_VERSION --until-task TASK --output /tmp/VERSION-changelog-source.md`
-   - or `taskledger release changelog VERSION --from-task FIRST_TASK --until-task LAST_TASK --output /tmp/VERSION-changelog-source.md`
-   - if task-local entry sidecars are used, validate and build with:
-     `taskledger changelog lint --version VERSION --strict`
-     `taskledger build VERSION --release-date YYYY-MM-DD --target-file CHANGELOG.md`
-4. Inspect `Included done tasks` and `Omitted tasks`.
-   - Do not silently include omitted tasks in final release notes.
-   - If the user explicitly asks for an upcoming/draft release and wants non-done tasks included, rerun with the explicit draft/status option when available.
-   - Otherwise report omitted tasks and ask for validation/completion before final release notes.
-5. Do not invent a release date.
-   - If the user says "upcoming", use an unreleased/placeholder heading unless a date is provided or a release tag already exists.
-   - If the user provides a date, use that exact date.
-6. When machine output is needed, `--json` is root-level:
-   - correct: `taskledger --json task show task-0022`
-   - incorrect: `taskledger task show task-0022 --json`
-7. For detailed task evidence, use:
+2. Release boundaries must point to done tasks. Resolve the task explicitly first:
    - `taskledger task dossier TASK_REF --format markdown`
-   - not `task show --verbose`.
-8. Preserve the existing changelog structure.
-   - Insert the new release section below `## Unreleased` and above the previous release.
-   - Keep or reset the `Unreleased` section only according to the user's release state.
-   - Do not leave an empty `## Unreleased` header.
-9. After editing `CHANGELOG.md`, read it back and verify:
-   - heading order is correct
-   - no duplicate release heading exists
-   - omitted/non-done tasks are either excluded or clearly marked as draft/unvalidated according to user intent
-
-## Task-local changelog entry protocol
-
-Use this when the user asks to create changelog entries for a specific task.
-This is different from building `CHANGELOG.md` for a release.
-
-1. Resolve the task explicitly:
-   - `taskledger task dossier TASK_REF --format markdown`
-   - `taskledger changelog list --task TASK_REF`
-   - `taskledger changelog prompt --task TASK_REF --format agent --output /tmp/TASK_REF-changelog-prompt.md`
-2. Do not inspect `.taskledger/` storage directly.
-3. Draft entries from taskledger evidence only.
-4. Make summaries strict-lint clean:
-   - one line
-   - no trailing period
-   - no TODO markers
-   - no raw task IDs unless necessary
-   - start with Added, Changed, Deprecated, Removed, Fixed, Secured, Documented, or Improved
-5. Prefer atomic batch creation:
-   - `taskledger changelog add-many --task TASK_REF --file /tmp/TASK_REF-changelog.yaml --dry-run`
-   - `taskledger changelog add-many --task TASK_REF --file /tmp/TASK_REF-changelog.yaml`
-6. If add-many is unavailable, use strict single-entry commands:
-   - `taskledger changelog add --task TASK_REF --category ... --summary "Changed ..."`
-   - `taskledger changelog update ENTRY_ID --task TASK_REF --summary "Changed ..."` for corrections
-7. Verify:
-   - `taskledger changelog lint --task TASK_REF --strict`
-   - `taskledger changelog list --task TASK_REF`
-8. Do not build or edit `CHANGELOG.md` unless the user provides a release version/date or explicitly requests release notes.
+3. When machine output is needed, `--json` is root-level:
+   - correct: `taskledger --json release show 0.4.1`
+   - incorrect: `taskledger release show 0.4.1 --json`
+4. Do not create changelog entries or edit `CHANGELOG.md` with taskledger. When the
+   user asks for release notes, changelog entries, or `CHANGELOG.md` updates, use
+   the `releaseledger` skill and releaseledger commands. Load both the taskledger
+   and releaseledger skills when cross-ledger release notes need task context.
 
 ## Optional worker pipeline overlay
 
@@ -356,7 +306,7 @@ linked-file drift checks.
 6. Optionally waive criteria with user authority: `taskledger validate waive --criterion ac-0001 --reason "..."`.
 7. Check `taskledger validate status` again to confirm all mandatory gates pass.
 8. Finish with `taskledger validate finish --result passed|failed|blocked --summary "..."`.
-   - For passed runs, prefer a concise done-work summary that can be reused by `taskledger changelog prompt`.
+   - For passed runs, prefer a concise done-work summary that can be reused by release-note tooling.
 
 ### Recovery Rules
 
@@ -507,16 +457,6 @@ taskledger review record --worker code-review --from-git --result pass --summary
 taskledger release tag 0.4.1 --at-task task-0030 --note "0.4.1 released"
 taskledger release list
 taskledger release show 0.4.1
-taskledger release changelog 0.4.2 --since 0.4.1 --until-task task-0035 --output /tmp/taskledger-0.4.2-changelog-source.md
-taskledger release changelog 0.4.2 --from-task task-0031 --until-task task-0035 --output /tmp/taskledger-0.4.2-changelog-source.md
-taskledger --json release changelog 0.4.2 --since 0.4.1 --until-task task-0035
-taskledger changelog add --task task-0035 --category fixed --summary "Fixed changelog rendering for grouped sections"
-taskledger changelog add --task task-0035 --category changed --summary "Changed trace output to taskledger-native references only" --dry-run
-taskledger changelog add-many --task task-0035 --file /tmp/task-0035-changelog.yaml --dry-run
-taskledger changelog add-many --task task-0035 --file /tmp/task-0035-changelog.yaml
-taskledger changelog update cle-0001 --task task-0035 --summary "Changed trace output to taskledger-native references only"
-taskledger changelog lint --version 0.4.2 --strict
-taskledger build 0.4.2 --release-date 2026-05-30 --target-file CHANGELOG.md
 taskledger task dossier task-0035 --format markdown
 taskledger import ./taskledger-transfer.tar.gz --dry-run
 taskledger export --task task-0040

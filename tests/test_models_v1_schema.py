@@ -71,7 +71,6 @@ def test_persisted_models_round_trip_with_schema_metadata() -> None:
             boundary_task_id="task-0001",
             created_by=actor,
             note="0.4.1 released",
-            changelog_file="/tmp/changelog.md",
             task_count=3,
             previous_version="0.4.0",
         ),

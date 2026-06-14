@@ -42,8 +42,8 @@ from taskledger.cli_archive import (
     run_archive_export,
     run_archive_import,
 )
-from taskledger.cli_build import register_build_command
-from taskledger.cli_changelog import register_changelog_commands
+
+# cli_build and cli_changelog were removed; changelog/build commands are gone.
 from taskledger.cli_common import (
     CLIState,
     TaskOption,
@@ -116,11 +116,7 @@ lock_app = typer.Typer(add_completion=False, help="Inspect and repair locks.")
 handoff_app = typer.Typer(add_completion=False, help="Render fresh-context handoffs.")
 release_app = typer.Typer(
     add_completion=False,
-    help="Manage release tags and changelog context.",
-)
-changelog_app = typer.Typer(
-    add_completion=False,
-    help="Manage task-local changelog entries.",
+    help="Manage release tags.",
 )
 storage_app = typer.Typer(
     add_completion=False,
@@ -159,7 +155,7 @@ app.add_typer(require_app, name="require")
 app.add_typer(lock_app, name="lock")
 app.add_typer(handoff_app, name="handoff")
 app.add_typer(release_app, name="release")
-app.add_typer(changelog_app, name="changelog")
+# changelog_app removed; changelog commands are no longer registered.
 app.add_typer(storage_app, name="storage")
 app.add_typer(sync_app, name="sync")
 app.add_typer(doctor_app, name="doctor")
@@ -191,8 +187,8 @@ register_pipeline_commands(pipeline_app)
 register_review_commands(review_app)
 register_config_commands(config_app)
 register_trace_command(app)
-register_changelog_commands(changelog_app)
-register_build_command(app)
+# register_changelog_commands removed.
+# register_build_command removed.
 
 
 def _optional_group_failure(
@@ -286,7 +282,7 @@ _register_optional_group(
     group_name="release",
     module_name="taskledger.cli_release",
     register_name="register_release_commands",
-    command_names=("tag", "list", "show", "changelog"),
+    command_names=("tag", "list", "show"),
 )
 
 

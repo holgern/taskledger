@@ -213,7 +213,7 @@ def test_monitor_and_file_commands_have_expected_metadata() -> None:
 # sw: f=specs/behavior/features/command_inventory/command-inventory.feature
 # sw: s=@bdd-command-inventory-file-write-commands
 def test_file_write_commands() -> None:
-    """Export, snapshot, release changelog write external files."""
+    """Export and snapshot write external files."""
     file_write_cmds = [
         k
         for k, v in COMMAND_METADATA.items()
@@ -221,7 +221,6 @@ def test_file_write_commands() -> None:
     ]
     assert "export" in file_write_cmds
     assert "snapshot" in file_write_cmds
-    assert "release changelog" in file_write_cmds
     assert "plan template" in file_write_cmds
 
 
@@ -250,7 +249,6 @@ def test_advanced_operations_are_not_in_agent_golden_path() -> None:
         "release tag",
         "release list",
         "release show",
-        "release changelog",
         "storage move",
         "sync git pull",
         "sync git push",
@@ -421,5 +419,3 @@ def test_targeting_metadata_for_key_commands() -> None:
     assert COMMAND_METADATA["validate start"].targeting == TARGETING_ACTIVE_DEFAULT
     assert COMMAND_METADATA["task show"].targeting == TARGETING_POSITIONAL_OR_ACTIVE
     assert COMMAND_METADATA["task cancel"].targeting == TARGETING_EXPLICIT_REQUIRED
-    assert COMMAND_METADATA["changelog add-many"].targeting == TARGETING_ACTIVE_DEFAULT
-    assert COMMAND_METADATA["changelog update"].targeting == TARGETING_ACTIVE_DEFAULT

@@ -193,7 +193,6 @@ Handoff API
 Release API
 ~~~~~~~~~~~
 
-- ``build_changelog_context``
 - ``list_release_records``
 - ``show_release``
 - ``tag_release``

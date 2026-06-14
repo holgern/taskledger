@@ -250,7 +250,6 @@ details in JSON context payloads.
 
 ### `taskledger.api.releases`
 
-- `build_changelog_context`
 - `list_release_records`
 - `show_release`
 - `tag_release`
@@ -300,7 +299,6 @@ The public task-first CLI surface is organized around these command groups:
 - `file`
 - `link`
 - `require`
-- `changelog`
 - `release`
 - `lock`
 - `storage`
@@ -327,15 +325,11 @@ Top-level commands that are part of the supported surface are:
 - `grep`
 - `symbols`
 - `deps`
-- `build`
 
-Task-local changelog workflows support strict summary validation and atomic
-batch mutation commands:
-
-- `taskledger changelog add --dry-run ...`
-- `taskledger changelog update ENTRY_ID ...`
-- `taskledger changelog add-many --task TASK_REF --file PATH [--dry-run]`
-- `taskledger changelog prompt --task TASK_REF --format markdown|agent|json`
+Taskledger does not manage changelog entries or edit `CHANGELOG.md`. Use the
+separate `releaseledger` tool for changelog entries, changelog context, and
+`CHANGELOG.md` builds. Load both skills when cross-ledger release notes need
+task context.
 
 All CLI commands support `--cwd`; task-first workflows also support `--root` as
 the preferred workspace alias. JSON mode returns a stable envelope with

@@ -45,11 +45,6 @@ Function line budget whitelist (>250 lines)
   * Current reason: Sync command registration currently co-locates legacy
     sync, archive alias, git sync, and hook command wiring.
 
-* ``taskledger/cli_changelog.py::register_changelog_commands``
-
-  * Current reason: Changelog command registration currently co-locates add,
-    add-many, update, lint, build, prompt, and list wiring.
-
 CLI→services import whitelist
 -----------------------------
 
@@ -110,8 +105,6 @@ Current sanctioned imports:
   model and lifecycle mutations.
 * ``taskledger/cli_trace.py:taskledger.services.trace`` — Trace CLI delegates
   to the trace service.
-* ``taskledger/cli_release.py:taskledger.services.releases`` — Release
-  commands delegate to the releases service.
 
 
 Catch-all exception whitelist (``except Exception``)

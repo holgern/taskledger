@@ -130,10 +130,10 @@ def test_skill_contains_strict_agent_protocol() -> None:
     assert "taskledger question add-many" in skill
     assert "taskledger plan guidance" in skill
     assert "Treat it as advisory" in skill
-    assert "taskledger --json task show task-0022" in skill
+    assert "taskledger --json release show 0.4.1" in skill
     assert "task dossier" in skill
-    assert "Do not invent a release date" in skill
-    assert "Do not silently include omitted tasks" in skill
+    assert "## Release boundary protocol" in skill
+    assert "Do not create changelog entries or edit" in skill
 
 
 # sw: f=specs/behavior/features/docs_and_skill/docs-and-skill.feature
@@ -488,17 +488,16 @@ def test_skill_requires_user_requested_reviews_to_be_recorded() -> None:
     ) in skill
 
 
-def test_skill_documents_task_local_changelog_protocol() -> None:
+def test_skill_documents_release_boundary_protocol() -> None:
     skill = (ROOT / "skills" / "taskledger" / "SKILL.md").read_text(encoding="utf-8")
-    assert "## Task-local changelog entry protocol" in skill
+    assert "## Release boundary protocol" in skill
+    assert "taskledger release tag VERSION --at-task TASK_ID --note \"...\"" in skill
+    assert "taskledger release list" in skill
+    assert "taskledger release show VERSION" in skill
     assert (
-        "Added, Changed, Deprecated, Removed, Fixed, Secured, Documented, or Improved"
-    ) in skill
-    assert "taskledger changelog lint --task TASK_REF --strict" in skill
-    assert (
-        "Do not build or edit `CHANGELOG.md` unless the user provides "
-        "a release version/date"
-    ) in skill
+        "Do not create changelog entries or edit `CHANGELOG.md` with taskledger"
+        in skill
+    )
 
 
 # ── Ledger isolation tests ──────────────────────────────────────

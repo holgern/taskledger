@@ -45,8 +45,6 @@ def test_cli_command_tree_matches_task_first_contract(tmp_path: Path) -> None:
         "grep",
         "symbols",
         "deps",
-        "build",
-        "changelog",
         "release",
         "task",
         "plan",
@@ -151,8 +149,7 @@ def test_task_first_subcommands_are_registered(tmp_path: Path) -> None:
         "file": ("add", "link", "remove", "list", "status", "refresh"),
         "link": ("add", "remove", "list"),
         "require": ("add", "list", "remove", "waive"),
-        "release": ("tag", "list", "show", "changelog"),
-        "changelog": ("add", "list", "show", "import", "lint", "prompt"),
+        "release": ("tag", "list", "show"),
         "lock": ("show", "break", "list"),
         "handoff": (
             "show",

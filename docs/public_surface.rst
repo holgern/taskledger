@@ -43,12 +43,12 @@ Top-level entry categories
 
 **Support entries** — auxiliary operations:
 
-- ``intro``, ``file``, ``link``, ``require``, ``lock``, ``config``, ``actor``, ``harness``, ``usage``, ``changelog``
+- ``intro``, ``file``, ``link``, ``require``, ``lock``, ``config``, ``actor``, ``harness``, ``usage``
 - ``export``, ``import``, ``snapshot``, ``pipeline``, ``can``, ``commands``
 
 **Advanced entries** — power-user, storage, transfer, and project operations:
 
-- ``ledger``, ``storage``, ``sync``, ``release``, ``build``, ``migrate``
+- ``ledger``, ``storage``, ``sync``, ``release``, ``migrate``
 
 **Human-oriented entries** — interactive inspection and reporting:
 
@@ -74,8 +74,9 @@ Small post-completion deltas use ``task follow-up PARENT_REF TITLE`` to create a
 new child task instead of reopening a ``done`` task.
 
 Release boundaries are tracked separately from task lifecycle state with
-``release tag`` and ``release changelog``; changelog bullet sidecars are managed
-with ``changelog *`` and final section rendering/insertion uses ``build``.
+``release tag``, ``release list``, and ``release show``. Taskledger does not
+manage changelog entries or ``CHANGELOG.md``; use the separate ``releaseledger``
+tool for changelog entries, changelog context, and ``CHANGELOG.md`` builds.
 
 ``release *``, ``storage move``, ``sync git pull/push/sync``, sync hooks,
 ``ledger fork/switch/adopt``, ``migrate *``, ``repair *``, and

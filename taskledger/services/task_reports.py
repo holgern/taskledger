@@ -32,7 +32,6 @@ VALID_SECTIONS = (
     "checks",
     "code-reviews",
     "changes",
-    "changelog-entries",
     "command-log",
     "validation",
     "locks",
@@ -73,7 +72,6 @@ IMPLEMENTATION_SECTIONS = (
     "checks",
     "code-reviews",
     "changes",
-    "changelog-entries",
     "locks",
     "next-action",
 )
@@ -88,7 +86,6 @@ VALIDATION_SECTIONS = (
     "checks",
     "code-reviews",
     "changes",
-    "changelog-entries",
     "validation",
     "next-action",
 )
@@ -108,7 +105,6 @@ FULL_SECTIONS = (
     "checks",
     "code-reviews",
     "changes",
-    "changelog-entries",
     "command-log",
     "validation",
     "locks",
@@ -202,7 +198,6 @@ def build_task_report_payload(
         list_plans,
         list_questions,
         list_runs,
-        load_changelog_entries,
         load_links,
         load_requirements,
         load_todos,
@@ -228,7 +223,7 @@ def build_task_report_payload(
             val: object = list_plans(workspace_root, task.id)
         elif key == "questions":
             val = list_questions(workspace_root, task.id)
-        elif key in ("runs", "changes", "checks", "code_reviews", "changelog_entries"):
+        elif key in ("runs", "changes", "checks", "code_reviews"):
             val = (
                 list_runs(workspace_root, task.id)
                 if key == "runs"
@@ -241,7 +236,7 @@ def build_task_report_payload(
                         else (
                             list_code_reviews(workspace_root, task.id)
                             if key == "code_reviews"
-                            else load_changelog_entries(workspace_root, task.id)
+                            else []
                         )
                     )
                 )
@@ -326,7 +321,6 @@ def render_task_report_markdown(payload: dict[str, object]) -> str:
         "todos": _append_todos,
         "implementation": _append_implementation,
         "changes": _append_changes,
-        "changelog-entries": _append_changelog_entries,
         "checks": _append_checks,
         "code-reviews": _append_code_reviews,
         "command-log": _append_command_log,
@@ -978,37 +972,6 @@ def _append_changes(
             lines.append(f"- {k} `{p}`: {s}")
     lines.append("")
 
-
-def _append_changelog_entries(
-    lines: list[str],
-    task: object,
-    _load: object,
-    accepted_plan: object,  # noqa: ARG001
-    options: TaskReportOptions,  # noqa: ARG001
-) -> None:
-    from taskledger.domain.models import ChangelogEntry, TaskRecord
-
-    assert isinstance(task, TaskRecord)
-    lines.append("## Changelog Entries")
-    lines.append("")
-
-    entries = _load("changelog_entries")  # type: ignore[operator]
-    if not entries:
-        lines.append("- none")
-        lines.append("")
-        return
-
-    for entry in entries:
-        if not isinstance(entry, ChangelogEntry):
-            continue
-        lines.append(
-            f"- {entry.entry_id} [{entry.status}] {entry.category}: {entry.summary}"
-        )
-        if entry.release_version:
-            lines.append(f"  - release_version: {entry.release_version}")
-        if entry.source_run_id:
-            lines.append(f"  - source_run_id: {entry.source_run_id}")
-    lines.append("")
 
 
 def _append_code_reviews(

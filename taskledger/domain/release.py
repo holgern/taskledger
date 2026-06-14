@@ -24,7 +24,6 @@ class ReleaseRecord:
     created_at: str = field(default_factory=utc_now_iso)
     created_by: ActorRef = field(default_factory=ActorRef)
     note: str | None = None
-    changelog_file: str | None = None
     task_count: int | None = None
     previous_version: str | None = None
     file_version: str = TASKLEDGER_V2_FILE_VERSION
@@ -41,7 +40,6 @@ class ReleaseRecord:
             "created_at": self.created_at,
             "created_by": self.created_by.to_dict(),
             "note": self.note,
-            "changelog_file": self.changelog_file,
             "task_count": self.task_count,
             "previous_version": self.previous_version,
         }
@@ -55,7 +53,6 @@ class ReleaseRecord:
             created_at=_optional_string(data.get("created_at")) or utc_now_iso(),
             created_by=ActorRef.from_dict(data.get("created_by")),
             note=_optional_string(data.get("note")),
-            changelog_file=_optional_string(data.get("changelog_file")),
             task_count=_optional_int(data.get("task_count")),
             previous_version=_optional_string(data.get("previous_version")),
             file_version=_optional_string(data.get("file_version"))

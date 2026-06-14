@@ -10,7 +10,6 @@ from taskledger.storage.task_store import (
     list_handoffs,
     list_plans,
     list_runs,
-    load_changelog_entries,
     load_links,
     resolve_task,
 )
@@ -29,7 +28,6 @@ def build_task_trace(workspace_root: Path, task_ref: str) -> dict[str, Any]:
     changes = list_changes(workspace_root, task.id)
     reviews = list_code_reviews(workspace_root, task.id)
     handoffs = list_handoffs(workspace_root, task.id)
-    changelog_entries = load_changelog_entries(workspace_root, task.id)
 
     ac_ids = sorted(c.id for c in accepted_plan.criteria) if accepted_plan else []
     source_refs = sorted({change.path for change in changes if change.path})
@@ -45,8 +43,7 @@ def build_task_trace(workspace_root: Path, task_ref: str) -> dict[str, Any]:
         "ac_ids": ac_ids,
         "link_refs": [link.to_dict() for link in links],
         "source_refs": source_refs,
-        "evidence_refs": [f"changelog:{entry.entry_id}" for entry in changelog_entries],
-        "changelog_entry_refs": [entry.to_dict() for entry in changelog_entries],
+        "evidence_refs": [],
         "status": {
             "task": task.status_stage,
             "active_stage": None,
@@ -56,7 +53,6 @@ def build_task_trace(workspace_root: Path, task_ref: str) -> dict[str, Any]:
             "changes": [change.change_id for change in changes],
             "reviews": [review.review_id for review in reviews],
             "handoffs": [handoff.handoff_id for handoff in handoffs],
-            "changelog_entries": [entry.entry_id for entry in changelog_entries],
         },
         "gaps": gaps,
     }

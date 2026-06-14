@@ -44,7 +44,7 @@ The broader command surface is organized as:
 
 **Context and decision-making:**
 
-- `intro`, `file`, `link`, `require`, `handoff`, `config`, `changelog`
+- `intro`, `file`, `link`, `require`, `handoff`, `config`
 
 **Operations and advanced overlays:**
 
@@ -56,7 +56,7 @@ The broader command surface is organized as:
 
 **Project lifecycle:**
 
-- `init`, `status`, `export`, `import`, `snapshot`, `release`, `build`
+- `init`, `status`, `export`, `import`, `snapshot`, `release`
 
 ## Non-goals
 
@@ -328,40 +328,24 @@ taskledger context --for implementation --format markdown
 taskledger implement restart --summary "Fix failed validation findings."
 ```
 
-## Release tagging and changelog context
+## Release boundary tags
 
 Release commands are advanced human/project operations, not part of the normal
 task -> plan -> approval -> implement -> validate -> done agent path.
 
-Use durable release tags to mark completed task boundaries and generate
-provider-neutral changelog source packs from finished tasks:
+Use taskledger only to record the task boundary for a release:
 
 ```bash
 taskledger release tag 0.4.1 --at-task task-0030 --note "0.4.1 released"
-taskledger release changelog 0.4.2 --since 0.4.1 --until-task task-0035 --output /tmp/taskledger-0.4.2-changelog-source.md
-taskledger changelog add --task task-0035 --category fixed --summary "Fixed changelog rendering for grouped sections"
-taskledger changelog add-many --task task-0035 --file /tmp/task-0035-changelog.yaml --dry-run
-taskledger changelog add-many --task task-0035 --file /tmp/task-0035-changelog.yaml
-taskledger changelog update cle-0001 --task task-0035 --summary "Changed trace output to taskledger-native references only"
-taskledger changelog lint --version 0.4.2 --strict
-taskledger build 0.4.2 --release-date 2026-05-30 --target-file CHANGELOG.md
-taskledger release show 0.4.1
 taskledger release list
+taskledger release show 0.4.1
 ```
 
-`release changelog` does not call an LLM API. It renders compact Markdown or JSON
-from done tasks, implementation logs, code changes, and validation evidence so a
-separate coding harness can draft the final human changelog.
-
-For task-local changelog sidecars on one done task, use:
-
-```bash
-taskledger changelog prompt --task task-0035 --format agent --output /tmp/task-0035-changelog-prompt.md
-taskledger changelog add-many --task task-0035 --file /tmp/task-0035-changelog.yaml --dry-run
-taskledger changelog add-many --task task-0035 --file /tmp/task-0035-changelog.yaml
-taskledger changelog lint --task task-0035 --strict
-taskledger changelog list --task task-0035
-```
+Taskledger does not manage changelog entries or edit `CHANGELOG.md`. When you need
+release notes, changelog entries, or `CHANGELOG.md` updates, use the separate
+`releaseledger` tool, which owns changelog entries, changelog context rendering,
+and `CHANGELOG.md` builds. The ledgers stay isolated; load both skills when
+cross-ledger release notes are needed.
 
 `taskledger next-action` is the preferred fresh-context entrypoint. It stays
 read-only and points at the next concrete question, todo, criterion, or repair
