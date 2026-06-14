@@ -119,7 +119,6 @@ class TestServiceReport:
         assert "## Code Reviews" in content
         assert "review-0001" in content
 
-
     # sw: f=specs/behavior/features/task_report/report.feature
     # sw: s=@bdd-task-report-task-report-planning-report-includes-proposed-plan-details
     def test_task_report_planning_report_includes_proposed_plan_details(

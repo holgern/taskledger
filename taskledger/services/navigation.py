@@ -77,6 +77,7 @@ def _archived_next_action_payload(task: TaskRecord) -> dict[str, object]:
         }
     )
 
+
 def next_action_for_task(
     workspace_root: Path,
     task: TaskRecord,

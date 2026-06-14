@@ -63,6 +63,7 @@ def _link_id_from_path(path: str) -> str:
     from taskledger.storage.common import content_hash as lc_content_hash
 
     digest = lc_content_hash(path)
+    assert digest is not None
     return f"link-{digest[:8]}"
 
 
@@ -765,8 +766,6 @@ def load_requirements(workspace_root: Path, task_id: str) -> RequirementCollecti
     return RequirementCollection(task_id=task_id, requirements=tuple(records))
 
 
-
-
 def save_requirements(
     workspace_root: Path, collection: RequirementCollection
 ) -> RequirementCollection:
@@ -803,8 +802,6 @@ def save_requirements(
     return collection
 
 
-
-
 def task_dir(paths: V2Paths, task_id: str) -> Path:
     return paths.tasks_dir / task_id
 
@@ -829,7 +826,6 @@ def task_requirements_dir(paths: V2Paths, task_id: str) -> Path:
     return task_dir(paths, task_id) / "requirements"
 
 
-
 def task_todos_path(paths: V2Paths, task_id: str) -> Path:
     return task_dir(paths, task_id) / "todos.yaml"
 
@@ -852,8 +848,6 @@ def link_markdown_path(paths: V2Paths, task_id: str, link_id: str) -> Path:
 
 def requirement_markdown_path(paths: V2Paths, task_id: str, req_id: str) -> Path:
     return task_requirements_dir(paths, task_id) / f"{req_id}.md"
-
-
 
 
 def task_plans_dir(paths: V2Paths, task_id: str) -> Path:

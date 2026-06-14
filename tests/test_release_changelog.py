@@ -82,7 +82,6 @@ def _create_done_task(
     )
 
 
-
 # sw: f=specs/behavior/features/release_changelog/release-changelog.feature
 # sw: s=@bdd-release-changelog-release-tag-persists-release-record
 def test_release_tag_persists_release_record(tmp_path: Path) -> None:
@@ -257,8 +256,6 @@ def test_release_show_returns_persisted_record(tmp_path: Path) -> None:
     assert release["version"] == "0.4.1"
     assert release["boundary_task_id"] == task_id
     assert release["note"] == "0.4.1 released"
-
-
 
 
 def test_release_changelog_subcommand_is_not_registered(tmp_path: Path) -> None:

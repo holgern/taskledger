@@ -249,7 +249,6 @@ class TestServiceExport:
         assert "| Record files included |" in content
         assert "| Source files included |" in content
 
-
     # sw: f=specs/behavior/features/task_markdown_export/markdown-export.feature
     # sw: s=@bdd-task-markdown-export-task-export-dedupes-change-and-plan-source-paths
     def test_task_export_dedupes_change_and_plan_source_paths(

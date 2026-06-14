@@ -311,7 +311,8 @@ def load_sidecar_index(
     if not isinstance(entries, dict):
         rebuild_sidecar_index(paths)
         data = try_load_json_object(path, "sidecar index") or {}
-        entries = data.get("entries", {})
+        entries = data.get("entries", {}) or {}
+    assert isinstance(entries, dict)
     return {k: v for k, v in entries.items() if isinstance(v, dict)}
 
 
@@ -361,6 +362,7 @@ def update_sidecar_summary(
 
     from taskledger.storage.common import try_load_json_object
 
+    path = _sidecar_index_path(paths)
     existing = try_load_json_object(path, "sidecar index") or {}
 
     existing["entries"] = entries

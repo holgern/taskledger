@@ -18,7 +18,9 @@ def approved_plan_content_hash(plan: PlanRecord) -> str:
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     from taskledger.storage.common import content_hash as lc_content_hash
 
-    return lc_content_hash(canonical)
+    result = lc_content_hash(canonical)
+    assert result is not None
+    return result
 
 
 __all__ = ["approved_plan_content_hash"]

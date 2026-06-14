@@ -29,8 +29,6 @@ def test_trace_task_basic_fields(tmp_path) -> None:
     assert "changelog_entry_refs" not in payload
 
 
-
-
 def test_trace_cli_format_json_is_raw_json(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     init_workspace(tmp_path)

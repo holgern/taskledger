@@ -110,5 +110,6 @@ class TestLedgercoreImportBoundary:
             + "\n".join(f"  {v}" for v in sorted(violations))
             + "\n\nAllowed files:\n"
             + "\n".join(f"  {f}" for f in sorted(LEDGERCORE_IMPORT_ALLOWLIST))
-            + "\n\nUse taskledger.ids, taskledger.refs, taskledger.storage.* facades instead."
+            + "\n\nUse taskledger.ids, taskledger.refs, taskledger.storage.*"
+            + " facades instead."
         )

@@ -973,7 +973,6 @@ def _append_changes(
     lines.append("")
 
 
-
 def _append_code_reviews(
     lines: list[str],
     task: object,

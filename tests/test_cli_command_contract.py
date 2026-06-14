@@ -401,7 +401,8 @@ def test_build_command_is_not_registered() -> None:
 def test_release_changelog_subcommand_is_not_registered(tmp_path: Path) -> None:
     workspace = init_workspace(tmp_path)
     result = runner.invoke(
-        app, ["--cwd", str(workspace), "release", "changelog", "--help"],
+        app,
+        ["--cwd", str(workspace), "release", "changelog", "--help"],
     )
     assert result.exit_code != 0
     assert (

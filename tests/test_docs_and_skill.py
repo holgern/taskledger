@@ -491,7 +491,7 @@ def test_skill_requires_user_requested_reviews_to_be_recorded() -> None:
 def test_skill_documents_release_boundary_protocol() -> None:
     skill = (ROOT / "skills" / "taskledger" / "SKILL.md").read_text(encoding="utf-8")
     assert "## Release boundary protocol" in skill
-    assert "taskledger release tag VERSION --at-task TASK_ID --note \"...\"" in skill
+    assert 'taskledger release tag VERSION --at-task TASK_ID --note "..."' in skill
     assert "taskledger release list" in skill
     assert "taskledger release show VERSION" in skill
     assert (
